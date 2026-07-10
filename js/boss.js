@@ -149,10 +149,12 @@ const Boss = (() => {
 
       // --- ATTACK 3 (phase 2+): ROYAL SLAM + baby mimics ------------------------
       case 'slamTele': {
-        // leaps up out of play; a royal shadow tracks the player - get moving
+        // leaps up out of play; a royal shadow tracks the player - get moving.
+        // tracking cutoff scales with phase speed so the ~0.28s frozen-shadow
+        // window (the dodge answer) survives the enrage speed-up
         b.telegraph = 1;
         b.airborne = true;
-        if (b.t < 0.9) {
+        if (b.t < 1.15 / sm - 0.28) {
           b.shadowX = b.x + (p.x - b.x) * Math.min(1, b.t * 1.6);
           b.shadowY = b.y + (p.y - b.y) * Math.min(1, b.t * 1.6);
         }

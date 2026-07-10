@@ -25,10 +25,18 @@
 
   // --- persistent meta (survives death via localStorage) ---------------------------
   function loadMeta() {
-    try { return JSON.parse(localStorage.getItem('drl_meta')) || { essence: 0, ranks: {} }; }
-    catch { return { essence: 0, ranks: {} }; }
+    // normalize shape too - a hand-edited/corrupt drl_meta must never brick the title screen
+    let m = null;
+    try { m = JSON.parse(localStorage.getItem('drl_meta')); } catch { /* corrupt json */ }
+    if (typeof m !== 'object' || m === null) m = {};
+    if (typeof m.essence !== 'number' || !isFinite(m.essence)) m.essence = 0;
+    if (typeof m.ranks !== 'object' || m.ranks === null) m.ranks = {};
+    return m;
   }
-  function saveMeta() { localStorage.setItem('drl_meta', JSON.stringify(g.meta)); }
+  function saveMeta() {
+    try { localStorage.setItem('drl_meta', JSON.stringify(g.meta)); }
+    catch { /* private browsing / quota - meta just won't persist */ }
+  }
 
   // --- input ------------------------------------------------------------------------
   const input = {
@@ -92,6 +100,7 @@
     g.levelChoices = [];
     g.winTimer = -1;
     g.deathTimer = -1;
+    g.runEnded = false;
     g.boss = null;
     g.transition = null;
     g.gateMsg = 0;
@@ -242,21 +251,27 @@
   }
 
   function onPlayerDeath() {
+    if (g.runEnded) return; // never bank twice (death/victory race)
+    g.runEnded = true;
     // bank essence: what you carried + 10% of unspent coins
     const fromCoins = Math.floor(g.player.coins * 0.10);
     g.essenceEarned = g.player.essenceRun + fromCoins;
     g.meta.essence += g.essenceEarned;
     saveMeta();
+    g.levelUpQueue = 0; // no level-up cards over a corpse
     Fx.shake(10, 0.5);
     Sfx.play('explode');
     g.deathTimer = 0.9; // brief beat before the screen (game time, so pause behaves)
   }
 
   function onVictory() {
+    if (g.runEnded) return; // never bank twice (death/victory race)
+    g.runEnded = true;
     g.essenceEarned = g.player.essenceRun + Math.floor(g.player.coins * 0.10) + 20; // victory bonus
     g.meta.essence += g.essenceEarned;
     saveMeta();
     g.state = 'win';
+    g.overlayT = 0;
   }
 
   // ============================ DOORS / MOVEMENT GATING ============================
@@ -387,7 +402,7 @@
         p.coins -= it.price;
         p.heal(POTION_HEAL);
         Sfx.play('buy');
-        it.price = POTION_PRICE + 10; // each potion bought costs a bit more
+        it.price += 10; // each potion bought costs more (compounds, so heals can't be spammed)
       } else if (it.kind === 'reroll') {
         p.coins -= it.price;
         Sfx.play('buy');
@@ -437,13 +452,14 @@
     g.time += dt;
     update(dt);
     draw();
-    input.just.clear();
-    input.mouse.clicked = false;
+    if (g.preserveInput) g.preserveInput = false; // hit-stop frame: keep buffered input
+    else { input.just.clear(); input.mouse.clicked = false; }
   }
   function frame(ts) {
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016);
     last = ts;
-    tick(dt);
+    // one bad frame must never kill the whole game loop
+    try { tick(dt); } catch (err) { console.error('[dungeon] frame error:', err); }
     requestAnimationFrame(frame);
   }
 
@@ -454,13 +470,14 @@
     switch (g.state) {
       case 'title': updateTitle(); break;
       case 'play': updatePlay(dt); break;
-      case 'levelup': updateLevelUp(); break;
+      case 'levelup': g.overlayT += dt; updateLevelUp(); break;
       case 'pause':
+        g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
         break;
       case 'transition': updateTransition(dt); break;
       case 'bossintro': updateBossIntro(dt); break;
-      case 'dead': case 'win': updateEnd(); break;
+      case 'dead': case 'win': g.overlayT += dt; updateEnd(); break;
     }
     Fx.update(dt);
   }
@@ -490,8 +507,8 @@
   }
 
   function updatePlay(dt) {
-    if (input.pressed('KeyP') || input.pressed('Escape')) { g.state = 'pause'; return; }
-    if (Fx.tickHitstop(dt)) return; // hit-stop: the whole world freezes for a beat
+    if (input.pressed('KeyP') || input.pressed('Escape')) { g.state = 'pause'; g.overlayT = 0; return; }
+    if (Fx.tickHitstop(dt)) { g.preserveInput = true; return; } // hit-stop: world freezes, but buffered presses survive it
 
     const p = g.player;
     if (input.pressed('Tab')) p.swapWeapon();
@@ -512,18 +529,20 @@
     }
     if (g.deathTimer > 0) {
       g.deathTimer -= dt;
-      if (g.deathTimer <= 0) { g.state = 'dead'; return; }
+      if (g.deathTimer <= 0) { g.state = 'dead'; g.overlayT = 0; return; }
     }
     if (g.gateMsg > 0) g.gateMsg -= dt;
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
 
     // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
-    // skipped once the boss is down - the victory screen is seconds away.
-    if (g.levelUpQueue > 0 && p.rollT < 0 && g.winTimer <= 0) {
+    // skipped once the boss is down (victory is seconds away) or the player is dead.
+    if (g.levelUpQueue > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       g.levelUpQueue--;
       g.levelChoices = pickUpgrades();
       g.hoverChoice = -1;
       g.state = 'levelup';
+      g.overlayT = 0;
+      p.drawT = -1; // a held bow draw must not survive the overlay and fire on resume
     }
   }
 
@@ -591,7 +610,8 @@
   }
 
   function updateEnd() {
-    if (input.pressed('Enter')) { g.state = 'title'; return; }
+    if (input.pressed('Enter')) { newRun(); return; }        // Enter matches the NEW RUN button it captions
+    if (input.pressed('Escape')) { g.state = 'title'; return; } // Esc visits the hub to spend essence
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
@@ -622,7 +642,7 @@
         }
       } else if (!dead && pr.from === 'player') {
         for (const m of g.monsters) {
-          if (m.dead || (pr.hitSet && pr.hitSet.has(m))) continue;
+          if (m.dead || m.airborne || (pr.hitSet && pr.hitSet.has(m))) continue; // airborne boss can't eat arrows
           if (Math.hypot(pr.x - m.x, pr.y - m.y) < m.r + pr.r) {
             m.takeHit(pr.dmg, {
               sx: pr.x - pr.vx * 0.02, sy: pr.y - pr.vy * 0.02,
@@ -656,8 +676,11 @@
       }
       if (d < p.r + 8 && pk.t > 0.2) {
         if (pk.kind === 'coin') {
-          const v = Math.max(1, Math.round(pk.value * p.stats.coinMul));
-          p.coins += v; p.coinsTotal += v;
+          // fractional carry so +10/20% coin upgrades actually pay out over time
+          // (Math.round per 1-value coin was a dead zone below +50%)
+          p.coinFrac = (p.coinFrac || 0) + pk.value * p.stats.coinMul;
+          const v = Math.floor(p.coinFrac);
+          if (v > 0) { p.coinFrac -= v; p.coins += v; p.coinsTotal += v; }
           Sfx.play('coin');
         }
         if (pk.kind === 'heart') p.heal(15);
@@ -757,7 +780,7 @@
     }
     if (g.state === 'bossintro') UI.drawBossIntro(c, g);
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
-    if (g.state === 'pause') UI.drawPause(c);
+    if (g.state === 'pause') UI.drawPause(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
   }
@@ -1103,20 +1126,22 @@
   window.dbg = {
     g,
     warp(type) {
+      if (!g.dungeon) return 'no run';
       const room = g.dungeon.rooms.find(r => r.type === type);
       if (room) { g.monsters = []; g.projectiles = []; enterRoom(room, null); }
       return room ? room.type : 'not found';
     },
     clearRoom() { for (const m of g.monsters) if (!m.dead) { m.hp = 0; m.dead = true; g.onKill(m); } },
-    clearFloor() { for (const r of g.dungeon.rooms) if (r.type === 'combat') { r.cleared = true; r.spawned = true; } },
+    clearFloor() { if (!g.dungeon) return 'no run'; for (const r of g.dungeon.rooms) if (r.type === 'combat') { r.cleared = true; r.spawned = true; } },
     give(rarity, arch) {
+      if (!g.player) return 'no run';
       const w = Weapons.rollWeapon(3, { minRarity: rarity ?? 2, archetype: arch });
       g.player.pickupWeapon(w, g);
       return Weapons.displayName(w);
     },
-    coins(n) { g.player.coins += n || 100; },
-    god() { g.player.maxHp = 9999; g.player.hp = 9999; },
-    lvl() { g.player.addXp(g.player.xpToNext(), g); },
+    coins(n) { if (g.player) g.player.coins += n || 100; },
+    god() { if (g.player) { g.player.maxHp = 9999; g.player.hp = 9999; } },
+    lvl() { if (g.player) g.player.addXp(g.player.xpToNext(), g); },
     start() { if (g.state === 'title') newRun(); },
     state() {
       return {

@@ -84,13 +84,17 @@ const Weapons = (() => {
     const out = [];
     let needSignature = rar.key === 'legendary'; // legendary guarantees >=1 signature enchant
     for (let s = 0; s < nSlots && avail.length; s++) {
-      let candidates;
+      let candidates = null;
       if (needSignature && s === nSlots - 1 && !out.some(e => e.tier === 3)) {
         candidates = avail.filter(e => e.tier === 3 && !out.some(o => o.key === e.key));
       } else {
-        // roll the tier for this slot, then pick an enchant of at most that tier
+        // roll the slot's tier at the spec'd 55/35/10 split, then pick from EXACTLY
+        // that tier (picking from "up to" the tier diluted signatures to ~2%);
+        // fall back to lower tiers only when the rolled tier's pool is exhausted
         const tierRoll = weightedPick(TIER_WEIGHTS.filter(t => t.tier <= rar.maxTier), 'w').tier;
-        candidates = avail.filter(e => e.tier <= tierRoll && !out.some(o => o.key === e.key));
+        for (let t = tierRoll; t >= 1 && !(candidates && candidates.length); t--) {
+          candidates = avail.filter(e => e.tier === t && !out.some(o => o.key === e.key));
+        }
       }
       if (!candidates.length) candidates = avail.filter(e => !out.some(o => o.key === e.key));
       if (!candidates.length) break;

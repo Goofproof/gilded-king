@@ -92,6 +92,7 @@ const UI = (() => {
     if (w) {
       c.translate(x + 21, y + 21);
       c.strokeStyle = w.color; c.fillStyle = w.color;
+      c.save(); // glyph rotation must not leak into the pip row below
       if (w.archetype === 'bow') {
         c.lineWidth = 2.5;
         c.beginPath(); c.arc(-3, 0, 12, -Math.PI / 2.3, Math.PI / 2.3); c.stroke();
@@ -107,9 +108,8 @@ const UI = (() => {
         c.fillRect(-1.5, -15, 3, 20);
         c.fillRect(-6, 5, 12, 3);
       }
-      c.rotate(0);
+      c.restore();
       // enchant pips: gold=signature, purple=major, grey-green=minor
-      c.setTransform(c.getTransform()); // keep translate
       w.enchants.forEach((e, i) => {
         c.fillStyle = e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a';
         c.beginPath(); c.arc(-14 + i * 9, 16, 3, 0, Math.PI * 2); c.fill();
@@ -315,11 +315,20 @@ const UI = (() => {
     if (line) c.fillText(line, x, yy);
   }
 
+  // eased overlay entrance (the spec asks for eased UI transitions)
+  function overlayEase(g) {
+    const k = Math.min(1, (g.overlayT ?? 1) / 0.28);
+    return 1 - Math.pow(1 - k, 3); // easeOutCubic
+  }
+
   // --- level-up choice overlay -------------------------------------------------------
   function drawLevelUp(c, g) {
+    const e = overlayEase(g);
     c.save();
+    c.globalAlpha = e;
+    c.translate(0, (1 - e) * 26); // cards drift up as they fade in
     c.fillStyle = 'rgba(5,5,12,0.78)';
-    c.fillRect(0, 0, W, H);
+    c.fillRect(0, -30, W, H + 60);
     c.textAlign = 'center';
     c.font = 'bold 30px monospace';
     c.fillStyle = '#ffd24c';
@@ -360,8 +369,10 @@ const UI = (() => {
   }
 
   // --- pause / death / victory -----------------------------------------------------
-  function drawPause(c) {
+  function drawPause(c, g) {
+    const e = overlayEase(g);
     c.save();
+    c.globalAlpha = e;
     c.fillStyle = 'rgba(5,5,12,0.7)';
     c.fillRect(0, 0, W, H);
     c.textAlign = 'center';
@@ -374,9 +385,12 @@ const UI = (() => {
 
   function drawEnd(c, g, won) {
     const p = g.player;
+    const e = overlayEase(g);
     c.save();
+    c.globalAlpha = e;
+    c.translate(0, (1 - e) * 20);
     c.fillStyle = won ? 'rgba(20,14,4,0.88)' : 'rgba(12,4,6,0.88)';
-    c.fillRect(0, 0, W, H);
+    c.fillRect(0, -24, W, H + 48);
     c.textAlign = 'center';
     c.font = 'bold 52px monospace';
     c.fillStyle = won ? '#ffd24c' : '#c02040';
@@ -403,7 +417,7 @@ const UI = (() => {
     c.font = 'bold 17px monospace'; c.fillStyle = '#ffd24c';
     c.fillText('NEW RUN', W / 2, r.y + 28);
     c.font = '12px monospace'; c.fillStyle = '#667';
-    c.fillText('(or press Enter)', W / 2, r.y + 62);
+    c.fillText('(Enter) · Esc for the hub to spend essence', W / 2, r.y + 62);
     c.restore();
     return [r];
   }

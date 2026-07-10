@@ -87,6 +87,7 @@ const PlayerDef = (() => {
       if (this.weapons.bow && this.weapons.melee) {
         this.slot = this.slot === 'melee' ? 'bow' : 'melee';
         this.drawT = -1;
+        this.swing = null; // swap cancels a committed swing (applyMelee reads the live weapon)
         Sfx.play('ui');
       }
     }
@@ -103,7 +104,9 @@ const PlayerDef = (() => {
     }
 
     damage(dmg, sx, sy, g) {
-      if (this.iframes > 0 || this.dead || g.state !== 'play') return;
+      // winTimer > 0 = boss just died: celebration invulnerability, and it closes
+      // the die-after-victory race that double-banked essence
+      if (this.iframes > 0 || this.dead || g.state !== 'play' || g.winTimer > 0) return;
       this.hp -= dmg;
       this.iframes = T.hurtIframes;
       this.flash = 0.25;

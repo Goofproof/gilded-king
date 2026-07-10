@@ -101,6 +101,12 @@ const Monsters = (() => {
     }
     if (m.dead) return;
 
+    // bomber fuse burns through stagger and death throes - the blink IS the telegraph
+    if (m.type === 'bomber' && m.fuse >= 0) {
+      m.fuse -= dt;
+      if (m.fuse <= 0) { explode(m, g); return; }
+    }
+
     // stagger (from heavy weapon) freezes behavior briefly
     if (m.stagger > 0) { m.stagger -= dt; clampToField(m); return; }
 
@@ -207,10 +213,8 @@ const Monsters = (() => {
       }
       case 'bomber': {
         // rush and detonate; explosion also hurts other monsters (kite it!)
-        if (m.fuse >= 0) {
-          m.fuse -= dt;
-          if (m.fuse <= 0) explode(m, g);
-        } else {
+        // (fuse countdown lives above the stagger check so it always burns down)
+        if (m.fuse < 0) {
           moveToward(m, p.x, p.y, dt, m.speed);
           if (dist < 65) { m.fuse = 0.8; Sfx.play('burn'); } // lit! blinking telegraph
         }
@@ -309,12 +313,21 @@ const Monsters = (() => {
       m.kvy += Math.sin(ka) * opts.knock * kmul;
     }
     if (opts.flame) m.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
-    if (opts.stagger) m.stagger = Math.max(m.stagger, opts.stagger);
+    if (opts.stagger) {
+      m.stagger = Math.max(m.stagger, opts.stagger);
+      // heavy hits INTERRUPT telegraphed attacks, not just delay them
+      // (the tank windup is the designed testbed for this)
+      if (['windup', 'draw', 'charge', 'channel'].includes(m.state)) {
+        m.state = 'idle'; m.t = 0; m.telegraph = 0;
+        Fx.text(m.x, m.y - m.r - 20, 'INTERRUPTED', '#aaddff', 11);
+      }
+    }
     applyDamage(m, dmg, g, opts);
   }
 
   function applyDamage(m, dmg, g, opts) {
     if (m.dead) return;
+    if (m.type === 'bomber' && m.hp <= 0) return; // already in death throes, fuse lit
     m.hp -= dmg;
     m.flash = 0.12;
     // Executioner (ORIGINAL enchant): finish off weakened enemies (bosses resist)
@@ -329,7 +342,14 @@ const Monsters = (() => {
       Sfx.play(opts.crit ? 'crit' : 'hit');
     }
     if (m.hp <= 0) {
-      if (m.type === 'bomber' && !m.exploded) { explode(m, g); return; } // bombers detonate on death too
+      if (m.type === 'bomber' && !m.exploded) {
+        // dead-man's fuse: killing a bomber lights a SHORT telegraphed fuse instead
+        // of detonating instantly (spec: death explosion must be dodgeable too)
+        m.hp = 0;
+        m.fuse = m.fuse >= 0 ? Math.min(m.fuse, 0.45) : 0.45;
+        Sfx.play('burn');
+        return;
+      }
       m.dead = true;
       g.onKill(m);
     }
