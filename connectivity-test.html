@@ -1,0 +1,13 @@
+<title>Connectivity Test</title>
+<style>body{background:#1a1a2e;color:#eee;font-family:monospace;display:grid;place-items:center;height:100vh;margin:0}</style>
+<h1 id="status">CANVAS TEST RUNNING...</h1>
+<canvas id="c" width="200" height="100"></canvas>
+<script>
+  const ctx = document.getElementById('c').getContext('2d');
+  ctx.fillStyle = '#4ade80';
+  ctx.beginPath();
+  ctx.arc(100, 50, 40, 0, Math.PI * 2);
+  ctx.fill();
+  document.getElementById('status').textContent = 'CONNECTIVITY OK';
+  console.log('[dungeon-crawler] connectivity test passed: canvas rendered');
+</script>
