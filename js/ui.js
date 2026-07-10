@@ -324,9 +324,10 @@ const UI = (() => {
   // --- level-up choice overlay -------------------------------------------------------
   function drawLevelUp(c, g) {
     const e = overlayEase(g);
+    const dy = (1 - e) * 26; // entrance drift; baked into returned hitboxes too
     c.save();
     c.globalAlpha = e;
-    c.translate(0, (1 - e) * 26); // cards drift up as they fade in
+    c.translate(0, dy); // cards drift up as they fade in
     c.fillStyle = 'rgba(5,5,12,0.78)';
     c.fillRect(0, -30, W, H + 60);
     c.textAlign = 'center';
@@ -362,7 +363,7 @@ const UI = (() => {
       c.font = 'bold 13px monospace';
       c.fillStyle = '#5a6478';
       c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 10);
-      rects.push({ x, y, w: cardW, h: cardH, idx: i });
+      rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i }); // hitbox tracks the drift
     }
     c.restore();
     return rects;
@@ -386,9 +387,10 @@ const UI = (() => {
   function drawEnd(c, g, won) {
     const p = g.player;
     const e = overlayEase(g);
+    const dy = (1 - e) * 20;
     c.save();
     c.globalAlpha = e;
-    c.translate(0, (1 - e) * 20);
+    c.translate(0, dy);
     c.fillStyle = won ? 'rgba(20,14,4,0.88)' : 'rgba(12,4,6,0.88)';
     c.fillRect(0, -24, W, H + 48);
     c.textAlign = 'center';
@@ -419,7 +421,7 @@ const UI = (() => {
     c.font = '12px monospace'; c.fillStyle = '#667';
     c.fillText('(Enter) · Esc for the hub to spend essence', W / 2, r.y + 62);
     c.restore();
-    return [r];
+    return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
   return { META_UPGRADES, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd };

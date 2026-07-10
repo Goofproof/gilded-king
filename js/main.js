@@ -65,7 +65,16 @@
   });
   window.addEventListener('mouseup', e => { if (e.button === 0) input.mouse.down = false; });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
-  canvas.addEventListener('wheel', e => { if (g.state === 'play') g.player.swapWeapon(); e.preventDefault(); }, { passive: false });
+  // wheel swap is cooldown-gated: trackpad inertia fires dozens of wheel events
+  // per flick, which would machine-gun the two-slot toggle
+  let lastWheelSwap = -Infinity;
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (g.state === 'play' && e.timeStamp - lastWheelSwap >= 150) {
+      g.player.swapWeapon();
+      lastWheelSwap = e.timeStamp;
+    }
+  }, { passive: false });
 
   // --- game state ----------------------------------------------------------------------
   const g = {
@@ -140,6 +149,7 @@
     if (room.type === 'boss' && !room.cleared) {
       g.state = 'bossintro';
       g.bossIntroT = 0;
+      p.drawT = -1; // don't let a held draw fire mid-intro
       Sfx.play('roar');
       return;
     }
@@ -289,8 +299,10 @@
   }
 
   function doorsLocked() {
-    // combat lock: any live monster (includes woken mimics and the boss)
-    return g.monsters.some(m => !m.dead);
+    // combat lock: any live monster (includes woken mimics and the boss).
+    // the 2.6s victory celebration also locks the doors so the player can't
+    // wander out and lose the boss loot (enterRoom clears pickups)
+    return g.winTimer > 0 || g.monsters.some(m => !m.dead);
   }
 
   function doorSealed(room, dir) {
@@ -459,7 +471,21 @@
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016);
     last = ts;
     // one bad frame must never kill the whole game loop
-    try { tick(dt); } catch (err) { console.error('[dungeon] frame error:', err); }
+    try { tick(dt); } catch (err) {
+      console.error('[dungeon] frame error:', err);
+      // a mid-draw throw can leak save()s/transforms/alpha onto the persistent
+      // context - drain the stack (restore past bottom is a no-op) and reset
+      if (typeof ctx.reset === 'function') ctx.reset();
+      else {
+        for (let i = 0; i < 64; i++) ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+      // the end-of-tick input clear was skipped: drop stale buffered presses
+      input.just.clear();
+      input.mouse.clicked = false;
+    }
     requestAnimationFrame(frame);
   }
 
@@ -507,17 +533,23 @@
   }
 
   function updatePlay(dt) {
-    if (input.pressed('KeyP') || input.pressed('Escape')) { g.state = 'pause'; g.overlayT = 0; return; }
+    if (input.pressed('KeyP') || input.pressed('Escape')) {
+      g.state = 'pause'; g.overlayT = 0;
+      g.player.drawT = -1; // a held bow draw must not survive pause and fire on resume
+      return;
+    }
     if (Fx.tickHitstop(dt)) { g.preserveInput = true; return; } // hit-stop: world freezes, but buffered presses survive it
 
     const p = g.player;
-    if (input.pressed('Tab')) p.swapWeapon();
+    if (!p.dead && input.pressed('Tab')) p.swapWeapon();
     p.update(dt, g, input);
     tryRoomExit();
     if (g.state !== 'play') return; // transition may have started
 
-    checkMimicProximity();
-    if (input.pressed('KeyE')) interact();
+    if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
+      checkMimicProximity();
+      if (input.pressed('KeyE')) interact();
+    }
 
     for (const m of g.monsters) if (!m.dead) m.update(dt, g);
     updateProjectiles(dt);
@@ -674,7 +706,7 @@
         pk.x += (p.x - pk.x) / d * 320 * dt;
         pk.y += (p.y - pk.y) / d * 320 * dt;
       }
-      if (d < p.r + 8 && pk.t > 0.2) {
+      if (d < p.r + 8 && pk.t > 0.2 && !g.runEnded) { // no post-bank collection into the void
         if (pk.kind === 'coin') {
           // fractional carry so +10/20% coin upgrades actually pay out over time
           // (Math.round per 1-value coin was a dead zone below +50%)

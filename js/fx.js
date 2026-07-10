@@ -84,14 +84,36 @@ const Fx = (() => {
     }
   }
 
+  // pre-rendered glow sprites: per-particle shadowBlur forces a rasterize+blur
+  // pass PER FILL, which hitches integrated-GPU laptops exactly on big bursts
+  // (boss death = 80 glow particles). drawImage of a cached canvas is ~10x cheaper.
+  const glowSprites = {};
+  function glowSprite(color) {
+    let s = glowSprites[color];
+    if (!s) {
+      s = document.createElement('canvas');
+      s.width = s.height = 32; // 8px core + 8px blur margin, 2x
+      const sc = s.getContext('2d');
+      sc.shadowColor = color; sc.shadowBlur = 8;
+      sc.fillStyle = color;
+      sc.beginPath(); sc.arc(16, 16, 8, 0, Math.PI * 2); sc.fill();
+      glowSprites[color] = s;
+    }
+    return s;
+  }
+
   function draw(c) {
     for (const p of particles) {
       const a = 1 - p.life / p.maxLife;
       c.globalAlpha = a;
-      if (p.glow) { c.shadowColor = p.color; c.shadowBlur = 8; }
-      c.fillStyle = p.color;
-      c.beginPath(); c.arc(p.x, p.y, p.r * a, 0, Math.PI * 2); c.fill();
-      c.shadowBlur = 0;
+      const pr = p.r * a;
+      if (p.glow) {
+        const half = pr * 2;
+        c.drawImage(glowSprite(p.color), p.x - half, p.y - half, half * 2, half * 2);
+      } else {
+        c.fillStyle = p.color;
+        c.beginPath(); c.arc(p.x, p.y, pr, 0, Math.PI * 2); c.fill();
+      }
     }
     c.globalAlpha = 1;
     for (const t of texts) {
