@@ -1194,6 +1194,6 @@
   };
 
   // boot
-  console.log('[dungeon] loaded - Dungeon of the Mimic King');
+  console.log('[dungeon] loaded - Dungeon of the Gilded King');
   requestAnimationFrame(frame);
 })();

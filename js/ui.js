@@ -226,6 +226,7 @@ const UI = (() => {
     // floating coin particles handled by Fx from main
 
     c.textAlign = 'center';
+    // deliberately NOT the boss's real name - the reveal belongs to the boss intro
     c.font = 'bold 46px monospace';
     c.fillStyle = '#241a08';
     c.fillText('DUNGEON OF THE', W / 2 + 3, 103);
@@ -233,9 +234,9 @@ const UI = (() => {
     c.fillText('DUNGEON OF THE', W / 2, 100);
     c.font = 'bold 64px monospace';
     c.fillStyle = '#241a08';
-    c.fillText('MIMIC KING', W / 2 + 4, 168);
+    c.fillText('GILDED KING', W / 2 + 4, 168);
     c.fillStyle = '#e8b52f';
-    c.fillText('MIMIC KING', W / 2, 164);
+    c.fillText('GILDED KING', W / 2, 164);
 
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';

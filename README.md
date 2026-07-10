@@ -1,4 +1,4 @@
-# Dungeon of the Mimic King
+# Dungeon of the Gilded King
 
 A top-down roguelike dungeon crawler. Designed by the boss himself; built with Claude.
 
@@ -30,9 +30,10 @@ then open http://localhost:8471/
 
 ### The run
 Clear rooms, collect coins, spend them at the shop, level up and pick upgrades.
-Three floors down lives **THE MIMIC KING**. Every attack in the game is
-telegraphed - if you died, there was a tell you missed. Watch treasure chests
-closely; some of them are watching you back.
+Three floors down, the Gilded King is waiting - who or what he is, you'll find
+out when the doors seal behind you. Every attack in the game is telegraphed -
+if you died, there was a tell you missed. Watch treasure chests closely; some
+of them are watching you back.
 
 Essence (purple diamonds) survives death - spend it on the title screen for
 permanent boosts.
