@@ -120,7 +120,7 @@ const UI = (() => {
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
   function drawMinimap(c, g) {
-    const cell = 13, gap = 4, pad = 10;
+    const cell = 20, gap = 5, pad = 10;
     const rooms = g.dungeon.rooms.filter(r => r.visited);
     if (!rooms.length) return;
     // bounds of the VISITED map only - fog of war: unvisited rooms don't exist here
@@ -142,7 +142,7 @@ const UI = (() => {
     const py = r => oy + (r.gy - minY) * (cell + gap);
 
     // door connectors (stubs poke toward unvisited neighbors: "known doors")
-    c.strokeStyle = '#5a6478'; c.lineWidth = 2;
+    c.strokeStyle = '#5a6478'; c.lineWidth = 3;
     for (const r of rooms) {
       for (const dk of Object.keys(r.doors)) {
         const n = r.doors[dk];
@@ -151,7 +151,7 @@ const UI = (() => {
         c.beginPath();
         c.moveTo(cx + dx * cell / 2, cy + dy * cell / 2);
         if (n.visited) c.lineTo(cx + dx * (cell / 2 + gap), cy + dy * (cell / 2 + gap));
-        else c.lineTo(cx + dx * (cell / 2 + 2.5), cy + dy * (cell / 2 + 2.5)); // stub only
+        else c.lineTo(cx + dx * (cell / 2 + 3.5), cy + dy * (cell / 2 + 3.5)); // stub only
         c.stroke();
       }
     }
@@ -165,6 +165,15 @@ const UI = (() => {
       if (!r.cleared && (r.type === 'combat' || r.type === 'boss')) {
         c.fillStyle = 'rgba(0,0,0,0.35)';
         c.fillRect(x, y, cell, cell);
+      }
+      // room-type glyphs, readable at the bigger cell size
+      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!' }[r.type];
+      if (glyph) {
+        c.font = 'bold 13px monospace'; c.textAlign = 'center';
+        c.fillStyle = 'rgba(0,0,0,0.65)';
+        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + 5);
+        c.fillStyle = 'rgba(255,255,255,0.85)';
+        c.fillText(glyph, x + cell / 2, y + cell / 2 + 4.5);
       }
       if (r === g.room) {
         c.strokeStyle = '#ffffff'; c.lineWidth = 2;

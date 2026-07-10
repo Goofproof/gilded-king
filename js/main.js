@@ -856,22 +856,60 @@
     c.lineWidth = 2;
     c.strokeRect(PF.x + 1, PF.y + 1, PF.w - 2, PF.h - 2);
 
-    // doors
+    // doors - open doorways must READ as exits from across the room:
+    // lit passage + accent frame posts + a pulsing chevron pointing out
     const locked = doorsLocked();
     for (const d of doorRects(room)) {
+      const sealed = doorSealed(room, d.dir);
+      const isShut = locked || sealed;
+      const horiz = d.dir === 'N' || d.dir === 'S';
+
       // opening
       c.fillStyle = pal.floor;
       c.fillRect(d.x, d.y, d.w, d.h);
-      c.fillStyle = 'rgba(0,0,0,0.35)';
-      c.fillRect(d.x, d.y, d.w, d.h);
-      const sealed = doorSealed(room, d.dir);
-      if (locked || sealed) {
+      if (isShut) {
+        c.fillStyle = 'rgba(0,0,0,0.35)';
+        c.fillRect(d.x, d.y, d.w, d.h);
+      } else {
+        // warm light spilling from the passage
+        const tx = horiz ? d.x + d.w / 2 : (d.dir === 'W' ? PF.x : PF.x + PF.w);
+        const ty = horiz ? (d.dir === 'N' ? PF.y : PF.y + PF.h) : d.y + d.h / 2;
+        c.fillStyle = 'rgba(255,232,170,0.13)';
+        c.fillRect(d.x, d.y, d.w, d.h);
+        const grad = c.createRadialGradient(tx, ty, 4, tx, ty, 70);
+        grad.addColorStop(0, 'rgba(255,232,170,0.22)');
+        grad.addColorStop(1, 'rgba(255,232,170,0)');
+        c.fillStyle = grad;
+        c.beginPath(); c.arc(tx, ty, 70, 0, Math.PI * 2); c.fill();
+        // chevron pointing out through the door, gently pulsing
+        const pulse = 0.45 + Math.sin(g.time * 3.2) * 0.25;
+        const [ox, oy] = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] }[d.dir];
+        const ax = tx + ox * 12, ay = ty + oy * 12;
+        c.fillStyle = `rgba(255,232,170,${pulse})`;
+        c.beginPath();
+        c.moveTo(ax + ox * 8 - oy * 0, ay + oy * 8 - ox * 0);          // tip
+        c.lineTo(ax - ox * 4 + (horiz ? -9 : 0), ay - oy * 4 + (horiz ? 0 : -9)); // base 1
+        c.lineTo(ax - ox * 4 + (horiz ? 9 : 0), ay - oy * 4 + (horiz ? 0 : 9));   // base 2
+        c.closePath(); c.fill();
+      }
+
+      // frame posts so every doorway reads as architecture, open or shut
+      c.fillStyle = sealed ? '#c9a227' : pal.accent;
+      if (horiz) {
+        c.fillRect(d.x - 6, d.y, 6, d.h);
+        c.fillRect(d.x + d.w, d.y, 6, d.h);
+      } else {
+        c.fillRect(d.x, d.y - 6, d.w, 6);
+        c.fillRect(d.x, d.y + d.h, d.w, 6);
+      }
+
+      if (isShut) {
         // bars: iron for combat lock, gold for the boss/stairs seal
         c.strokeStyle = sealed ? '#c9a227' : '#6a7484';
         c.lineWidth = 4;
         const bars = 4;
         for (let i = 0; i < bars; i++) {
-          if (d.dir === 'N' || d.dir === 'S') {
+          if (horiz) {
             const bx = d.x + (i + 0.5) * d.w / bars;
             c.beginPath(); c.moveTo(bx, d.y); c.lineTo(bx, d.y + d.h); c.stroke();
           } else {
