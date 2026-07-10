@@ -317,6 +317,12 @@ const Monsters = (() => {
     if (m.dead) return;
     m.hp -= dmg;
     m.flash = 0.12;
+    // Executioner (ORIGINAL enchant): finish off weakened enemies (bosses resist)
+    if (opts.execute && !m.isBoss && m.hp > 0 && m.hp <= m.maxHp * 0.3) {
+      m.hp = 0;
+      Fx.text(m.x, m.y - m.r - 18, 'EXECUTED', '#ffd24c', 14);
+      Fx.burst(m.x, m.y, '#ffd24c', 12, { speed: 150, life: 0.5, glow: true });
+    }
     if (!opts.silent) {
       Fx.text(m.x + (Math.random() * 16 - 8), m.y - m.r - 6, Math.round(dmg), opts.crit ? '#ffd24c' : '#ffffff', opts.crit ? 16 : 12);
       Fx.burst(m.x, m.y, opts.crit ? '#ffd24c' : '#ff6655', opts.crit ? 10 : 5, { speed: 110, life: 0.35 });

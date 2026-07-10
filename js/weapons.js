@@ -32,6 +32,7 @@ const Weapons = (() => {
     { key: 'infinity',  name: 'Infinity',      pool: 'bow',   tier: 3, desc: 'Greatly increased fire rate' }, // bows have no ammo, so Infinity = fire rate (allowed by the design doc)
     // melee pool
     { key: 'fireaspect',name: 'Fire Aspect',   pool: 'melee', tier: 2, desc: 'Hits ignite the target' },
+    { key: 'executioner',name:'Executioner',   pool: 'melee', tier: 3, desc: 'Finishes enemies below 30% health' }, // ORIGINAL - melee needs a signature so legendaries keep their guarantee
     { key: 'sharpness', name: 'Sharpness',     pool: 'melee', tier: 1, leveled: true, desc: '+damage per level' },
     { key: 'knockback', name: 'Knockback',     pool: 'melee', tier: 1, desc: 'Hits knock enemies back' },
     { key: 'sweeping',  name: 'Sweeping Edge', pool: 'melee', tier: 2, desc: 'Bigger swing arc and range' },

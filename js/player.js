@@ -264,6 +264,7 @@ const PlayerDef = (() => {
           knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
           flame: Weapons.has(w, 'fireaspect'),
           stagger: w.stagger,
+          execute: !!Weapons.has(w, 'executioner'),
           crit, fromPlayer: true,
         }, g);
         hitAny = true;
