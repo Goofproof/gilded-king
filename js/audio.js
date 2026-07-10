@@ -4,7 +4,10 @@
 // ============================================================================
 const Sfx = (() => {
   let ctx = null, master = null;
-  let muted = localStorage.getItem('drl_muted') === '1';
+  // storage can THROW in sandboxed iframes / all-cookies-blocked profiles -
+  // sound preferences just won't persist there
+  let muted = false;
+  try { muted = localStorage.getItem('drl_muted') === '1'; } catch { }
 
   function ensure() {
     // AudioContext must be created/resumed after a user gesture; called on first input.
@@ -86,7 +89,7 @@ const Sfx = (() => {
     play(name) { if (ctx && !muted && table[name]) table[name](); },
     toggleMute() {
       muted = !muted;
-      localStorage.setItem('drl_muted', muted ? '1' : '0');
+      try { localStorage.setItem('drl_muted', muted ? '1' : '0'); } catch { }
       if (master) master.gain.value = muted ? 0 : 0.5;
       return muted;
     },
