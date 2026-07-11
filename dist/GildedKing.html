@@ -389,6 +389,12 @@ const Weapons = (() => {
       price: rar.price + tier * 5,
     };
     applyEnchantStats(w);
+    // rarity FEEL bump: higher-tier melee swings reach a little further and wider,
+    // so a Mythic maul is visibly (and mechanically) grander than a Worn one
+    if (archKey !== 'bow') {
+      w.range *= 1 + rarIdx * 0.05;
+      w.arc = Math.min(Math.PI * 1.9, w.arc * (1 + rarIdx * 0.04));
+    }
     return w;
   }
 
@@ -405,12 +411,28 @@ const Weapons = (() => {
 
   function has(w, key) { const e = w && w.enchants.find(e => e.key === key); return e ? (e.level || 1) : 0; }
 
+  // particle palette for swing/arrow effects, driven by the weapon's enchants -
+  // this is what makes a Fire Aspect maul FEEL like a fire maul
+  function fxPalette(w) {
+    const h = k => w.enchants.some(e => e.key === k);
+    if (h('fireaspect') || h('flame')) return { colors: ['#ff8833', '#ffcc44', '#ff4422'], glow: true };
+    if (h('vampiric'))                 return { colors: ['#e05555', '#8b1a1a'], glow: true };
+    if (h('executioner'))              return { colors: ['#ffd24c', '#fff5d0'], glow: true };
+    if (h('multishot') || h('infinity')) return { colors: ['#b88aff', '#e8d5ff'], glow: true };
+    if (h('punch') || h('knockback'))  return { colors: ['#7fd4ff', '#cfe9ff'], glow: false };
+    if (h('sweeping'))                 return { colors: ['#9be8d8', '#4cc9a8'], glow: false };
+    if (h('looting'))                  return { colors: ['#ffd24c', '#b8912f'], glow: false };
+    if (h('momentum'))                 return { colors: ['#ffe08a', '#ffffff'], glow: false };
+    if (h('sharpness') || h('power'))  return { colors: ['#ffffff', '#c8d2e0'], glow: false };
+    return { colors: [w.color], glow: w.rarIdx >= 3 };
+  }
+
   function displayName(w) {
     const en = w.enchants.map(e => e.name + (e.level ? ' ' + ROMAN[e.level] : '')).join(', ');
     return w.name + (en ? ` [${en}]` : '');
   }
 
-  return { RARITY, ENCHANTS, ARCHETYPES, TIER_NAMES, rollWeapon, has, displayName };
+  return { RARITY, ENCHANTS, ARCHETYPES, TIER_NAMES, rollWeapon, has, displayName, fxPalette };
 })();
 
 </script>
@@ -1540,6 +1562,8 @@ const PlayerDef = (() => {
       this.coins = 0; this.essenceRun = 0;
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
+      // temporary buffs from elite drops: shield absorbs one hit, the others are timed
+      this.buffs = { shield: 0, rageT: 0, hasteT: 0 };
 
       // stat multipliers - passive upgrades stack into these
       this.stats = {
@@ -1619,6 +1643,15 @@ const PlayerDef = (() => {
       // winTimer > 0 = boss just died: celebration invulnerability, and it closes
       // the die-after-victory race that double-banked essence
       if (this.iframes > 0 || this.dead || g.state !== 'play' || g.winTimer > 0) return;
+      // shield charm eats the whole hit
+      if (this.buffs.shield > 0) {
+        this.buffs.shield--;
+        this.iframes = 0.5;
+        Sfx.play('hit');
+        Fx.text(this.x, this.y - 26, 'SHIELDED', '#7fd4ff', 14);
+        Fx.burst(this.x, this.y, ['#7fd4ff', '#cfe9ff'], 16, { speed: 160, life: 0.4, glow: true });
+        return;
+      }
       this.hp -= dmg;
       this.iframes = T.hurtIframes;
       this.flash = 0.25;
@@ -1647,10 +1680,21 @@ const PlayerDef = (() => {
       if (this.attackCd > 0) this.attackCd -= dt * stats.atkSpeedMul;
       if (this.flash > 0) this.flash -= dt;
       if (this.momentumT > 0) this.momentumT -= dt;
+      if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
+      if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
       if (stats.regen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + stats.regen * dt);
 
-      // aim at the mouse
+      // aim at the mouse - unless auto-attack (F) has a target, then aim locks on
       this.facing = Math.atan2(input.mouse.y - this.y, input.mouse.x - this.x);
+      let autoTarget = null, autoDist = 1e9;
+      if (g.autoAttack) {
+        for (const m of g.monsters) {
+          if (m.dead || m.spawnT > 0 || m.airborne) continue;
+          const d = Math.hypot(m.x - this.x, m.y - this.y);
+          if (d < autoDist) { autoDist = d; autoTarget = m; }
+        }
+        if (autoTarget) this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
+      }
 
       // --- movement ---------------------------------------------------------
       let mx = 0, my = 0;
@@ -1686,7 +1730,8 @@ const PlayerDef = (() => {
       } else {
         // normal movement (momentum enchant gives a brief speed burst after kills)
         const mom = this.momentumT > 0 ? 1.25 : 1;
-        const sp = T.speed * stats.speedMul * mom;
+        const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
+        const sp = T.speed * stats.speedMul * mom * haste;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger
@@ -1714,17 +1759,24 @@ const PlayerDef = (() => {
 
       // --- attacking -----------------------------------------------------------
       const w = this.weapon;
+      // auto-attack: melee swings only when the target is actually in reach;
+      // the bow self-draws and releases at a solid (not full) draw
+      const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8;
       if (w.archetype === 'bow') {
-        // hold to draw, release to fire; longer draw = harder arrow
-        if (input.mouse.down && this.rollT < 0) {
+        const wantDraw = (input.mouse.down || autoTarget) && this.rollT < 0;
+        if (wantDraw) {
           if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
           if (this.drawT >= 0) this.drawT += dt;
+          if (!input.mouse.down && autoTarget && this.drawT >= 0.55) {
+            this.fireBow(g); // auto release at ~70% power; hold the mouse for full draws
+            this.drawT = -1;
+          }
         } else if (this.drawT >= 0) {
           this.fireBow(g);
           this.drawT = -1;
         }
       } else {
-        if (input.mouse.down && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
+        if ((input.mouse.down || autoMelee) && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
       }
 
       // ongoing swing (heavy applies damage at end of windup)
@@ -1749,6 +1801,7 @@ const PlayerDef = (() => {
         fired: windup === 0 ? false : false,
         side: (this.lastSide = -(this.lastSide || 1)), // light alternates swing side
         heavy: w.archetype === 'heavy',
+        fx: Weapons.fxPalette(w), rarIdx: w.rarIdx, // enchant/rarity flair for the sweep
       };
       this.attackCd = w.cooldown;
       if (windup === 0) { this.swing.fired = true; this.applyMelee(g); Sfx.play('swing'); }
@@ -1773,7 +1826,8 @@ const PlayerDef = (() => {
         let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
         if (diff > w.arc / 2) continue;
         const crit = Math.random() < T.critBase + stats.crit;
-        const dmg = w.dmg * stats.dmgMul * (crit ? T.critMult : 1);
+        const rage = this.buffs.rageT > 0 ? 1.35 : 1;
+        const dmg = w.dmg * stats.dmgMul * rage * (crit ? T.critMult : 1);
         m.takeHit(dmg, {
           sx: this.x, sy: this.y,
           knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
@@ -1785,6 +1839,15 @@ const PlayerDef = (() => {
         hitAny = true;
       }
       if (hitAny && w.archetype === 'heavy') Fx.shake(7, 0.22);
+
+      // enchant sparks along the swept arc - more of them the rarer the weapon
+      const fx = this.swing.fx || { colors: [w.color], glow: false };
+      const n = 6 + w.rarIdx * 3;
+      for (let i = 0; i <= n; i++) {
+        const a = dir - w.arc / 2 + w.arc * (i / n);
+        Fx.burst(this.x + Math.cos(a) * w.range * 0.85, this.y + Math.sin(a) * w.range * 0.85,
+          fx.colors, 1, { speed: 55, life: 0.3, glow: fx.glow, size: 2.5 });
+      }
     }
 
     fireBow(g) {
@@ -1793,14 +1856,16 @@ const PlayerDef = (() => {
       if (this.drawT < 0.08) { this.attackCd = 0.1; return; } // tap = dry-fire nothing
       const n = Weapons.has(w, 'multishot') ? 3 : 1;
       const spread = 0.14;
+      const fx = Weapons.fxPalette(w); // arrows trail their enchant's element
       for (let i = 0; i < n; i++) {
         const a = this.facing + (i - (n - 1) / 2) * spread;
         const crit = Math.random() < T.critBase + stats.crit;
         g.projectiles.push({
+          trail: fx.colors, glowTrail: fx.glow,
           x: this.x + Math.cos(a) * 16, y: this.y + Math.sin(a) * 16,
           vx: Math.cos(a) * w.projSpeed * (0.65 + draw * 0.5),
           vy: Math.sin(a) * w.projSpeed * (0.65 + draw * 0.5),
-          r: 4, dmg: w.dmg * stats.dmgMul * (0.55 + draw * 0.65) * (crit ? T.critMult : 1),
+          r: 4, dmg: w.dmg * stats.dmgMul * (this.buffs.rageT > 0 ? 1.35 : 1) * (0.55 + draw * 0.65) * (crit ? T.critMult : 1),
           from: 'player', color: crit ? '#ffd24c' : '#e8e3d0', life: 1.6,
           pierce: Weapons.has(w, 'piercing') ? 3 : 0,
           knock: Weapons.has(w, 'punch') ? 240 : 60,
@@ -1827,6 +1892,19 @@ const PlayerDef = (() => {
       } else {
         c.fillStyle = 'rgba(127,212,255,0.55)';
         c.beginPath(); c.arc(0, this.r + 8, 3, 0, Math.PI * 2); c.fill();
+      }
+
+      // buff auras
+      if (this.buffs.shield > 0) {
+        c.strokeStyle = `rgba(127,212,255,${0.5 + Math.sin(Date.now() / 200) * 0.25})`;
+        c.lineWidth = 2;
+        c.beginPath(); c.arc(0, 0, this.r + 6, 0, Math.PI * 2); c.stroke();
+      }
+      if (this.buffs.rageT > 0 && Math.random() < 0.3) {
+        Fx.burst(this.x + (Math.random() * 16 - 8), this.y - this.r, ['#e05555', '#ff9a3d'], 1, { speed: 30, life: 0.35, vy: -40 });
+      }
+      if (this.buffs.hasteT > 0 && this.moving && Math.random() < 0.4) {
+        Fx.burst(this.x, this.y + this.r * 0.5, '#ffe08a', 1, { speed: 20, life: 0.3 });
       }
 
       // i-frame flicker
@@ -1898,14 +1976,20 @@ const PlayerDef = (() => {
         c.save();
         c.translate(this.x, this.y);
         if (!s.fired) {
-          // windup: blade raised behind, growing glow (the heavy telegraph)
+          // windup: blade raised behind, growing glow (the heavy telegraph);
+          // epic+ weapons gather sparks at the blade tip while charging
           const k = s.t / s.windup;
           c.rotate(s.dir - s.arc * 0.7);
           c.strokeStyle = `rgba(255,255,255,${0.25 + k * 0.5})`;
           c.lineWidth = 4;
           c.beginPath(); c.moveTo(this.r, 0); c.lineTo(this.r + w2.range * 0.55, 0); c.stroke();
+          if (s.rarIdx >= 2 && Math.random() < 0.5) {
+            const tip = s.dir - s.arc * 0.7;
+            Fx.burst(this.x + Math.cos(tip) * w2.range * 0.55, this.y + Math.sin(tip) * w2.range * 0.55,
+              s.fx.colors, 1, { speed: 25, life: 0.25, glow: s.fx.glow, size: 2 });
+          }
         } else {
-          // release: bright arc sweep
+          // release: arc sweep tinted by rarity, elemental sparks riding the edge
           const k = (s.t - s.windup) / (s.dur - s.windup);
           const a0 = s.dir - s.arc / 2, a1 = s.dir - s.arc / 2 + s.arc * Math.min(1, k * 1.5);
           const grad = c.createRadialGradient(0, 0, this.r, 0, 0, w2.range);
@@ -1917,9 +2001,20 @@ const PlayerDef = (() => {
           c.moveTo(0, 0);
           c.arc(0, 0, w2.range, a0, a1);
           c.closePath(); c.fill();
+          // inner white flash + rarity-colored blade edge (thicker as rarity climbs)
           c.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`;
           c.lineWidth = s.heavy ? 5 : 3;
           c.beginPath(); c.arc(0, 0, w2.range * 0.9, a0, a1); c.stroke();
+          c.globalAlpha = 0.85 * (1 - k);
+          c.strokeStyle = w2.color;
+          c.lineWidth = (s.heavy ? 3 : 2) + (s.rarIdx || 0);
+          c.beginPath(); c.arc(0, 0, w2.range * 0.99, a0, a1); c.stroke();
+          c.globalAlpha = 1;
+          // sparks stream off the leading edge of the sweep
+          if (s.fx && Math.random() < 0.8) {
+            Fx.burst(this.x + Math.cos(a1) * w2.range * 0.95, this.y + Math.sin(a1) * w2.range * 0.95,
+              s.fx.colors, 1, { speed: 45, life: 0.28, glow: s.fx.glow, size: 2.2 });
+          }
         }
         c.restore();
       } else {
@@ -1945,6 +2040,9 @@ const PlayerDef = (() => {
 // ============================================================================
 const UI = (() => {
   const W = 960, H = 540;
+
+  // canonical public home of the game (GitHub Pages) - what the share button copies
+  const GAME_URL = 'https://goofproof.github.io/gilded-king/';
 
   // --- META-PROGRESSION UPGRADES (hub screen; persisted in localStorage) --------
   // Kept deliberately modest so runs live or die on in-run choices.
@@ -2008,6 +2106,19 @@ const UI = (() => {
       c.fillText(`${p.essenceRun} (+${g.meta.essence} banked)`, hbX + 22, ey + 4);
     }
 
+    // active buffs (shield charm / rage / haste) with remaining seconds
+    let by = hbY + hbH + 74;
+    const buffs = [];
+    if (p.buffs.shield > 0) buffs.push({ label: '⛨ shield', color: '#7fd4ff' });
+    if (p.buffs.rageT > 0) buffs.push({ label: `↑ rage ${Math.ceil(p.buffs.rageT)}s`, color: '#e05555' });
+    if (p.buffs.hasteT > 0) buffs.push({ label: `» haste ${Math.ceil(p.buffs.hasteT)}s`, color: '#ffe08a' });
+    c.font = 'bold 12px monospace';
+    for (const b of buffs) {
+      c.fillStyle = b.color;
+      c.fillText(b.label, hbX, by);
+      by += 17;
+    }
+
     // floor tag
     c.font = 'bold 13px monospace';
     c.fillStyle = '#8fa3bf';
@@ -2019,6 +2130,11 @@ const UI = (() => {
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
+    if (g.autoAttack) {
+      c.font = 'bold 11px monospace';
+      c.fillStyle = '#ffd24c';
+      c.fillText('AUTO [F]', 112, H - 78);
+    }
 
     c.restore();
   }
@@ -2062,7 +2178,7 @@ const UI = (() => {
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
   function drawMinimap(c, g) {
-    const cell = 20, gap = 5, pad = 10;
+    const cell = 27, gap = 6, pad = 10;
     const rooms = g.dungeon.rooms.filter(r => r.visited);
     if (!rooms.length) return;
     // bounds of the VISITED map only - fog of war: unvisited rooms don't exist here
@@ -2093,7 +2209,7 @@ const UI = (() => {
         c.beginPath();
         c.moveTo(cx + dx * cell / 2, cy + dy * cell / 2);
         if (n.visited) c.lineTo(cx + dx * (cell / 2 + gap), cy + dy * (cell / 2 + gap));
-        else c.lineTo(cx + dx * (cell / 2 + 3.5), cy + dy * (cell / 2 + 3.5)); // stub only
+        else c.lineTo(cx + dx * (cell / 2 + 4.5), cy + dy * (cell / 2 + 4.5)); // stub only
         c.stroke();
       }
     }
@@ -2111,11 +2227,11 @@ const UI = (() => {
       // room-type glyphs, readable at the bigger cell size
       const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!' }[r.type];
       if (glyph) {
-        c.font = 'bold 13px monospace'; c.textAlign = 'center';
+        c.font = 'bold 17px monospace'; c.textAlign = 'center';
         c.fillStyle = 'rgba(0,0,0,0.65)';
-        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + 5);
+        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + 6.5);
         c.fillStyle = 'rgba(255,255,255,0.85)';
-        c.fillText(glyph, x + cell / 2, y + cell / 2 + 4.5);
+        c.fillText(glyph, x + cell / 2, y + cell / 2 + 6);
       }
       if (r === g.room) {
         c.strokeStyle = '#ffffff'; c.lineWidth = 2;
@@ -2191,7 +2307,7 @@ const UI = (() => {
 
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('WASD move · mouse aim/attack · SPACE dodge roll · E interact · Tab swap weapon · M mute · P pause', W / 2, 205);
+    c.fillText('WASD move · mouse aim/attack · SPACE dodge roll · E interact · Tab swap · F auto-attack · M mute · P pause', W / 2, 205);
 
     // start button
     const startR = { x: W / 2 - 130, y: 232, w: 260, h: 46, action: 'start' };
@@ -2252,6 +2368,25 @@ const UI = (() => {
     c.font = '11px monospace';
     c.fillStyle = '#445';
     c.fillText('designed by the boss himself · built with Claude', W / 2, H - 14);
+
+    // share button (bottom-right): copies the game's public link
+    const shareR = { x: W - 150, y: H - 46, w: 136, h: 30, action: 'share' };
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
+    c.strokeRect(shareR.x, shareR.y, shareR.w, shareR.h);
+    c.font = 'bold 12px monospace';
+    c.fillStyle = '#8fa3bf';
+    c.fillText('SHARE THE GAME', shareR.x + shareR.w / 2, shareR.y + 19);
+    rects.push(shareR);
+
+    // share toast
+    if (g.shareMsg && g.shareMsg.t > 0) {
+      c.globalAlpha = Math.min(1, g.shareMsg.t);
+      c.font = 'bold 13px monospace';
+      c.fillStyle = '#ffd24c';
+      c.fillText(g.shareMsg.text, W / 2, H - 60);
+      c.globalAlpha = 1;
+    }
+
     c.restore();
     return rects;
   }
@@ -2376,7 +2511,7 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd };
 })();
 
 </script>
@@ -2467,7 +2602,7 @@ const UI = (() => {
     dungeon: null, room: null,
     player: null,
     monsters: [], projectiles: [], pickups: [],
-    boss: null, bossIntroT: 0, winTimer: -1,
+    boss: null, bossIntroT: 0, winTimer: -1, portal: null, autoAttack: false,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     transition: null,     // {dir, next, t}
     uiRects: [],
@@ -2504,16 +2639,18 @@ const UI = (() => {
 
   function startFloor() {
     g.dungeon = Dungeon.generateFloor(g.floorNum);
+    g.portal = null; // portals never carry across floors
     enterRoom(g.dungeon.start, null);
   }
 
   function enterRoom(room, fromDir) {
+    // drops are persistent: whatever was left on this room's floor is still there
+    if (g.room) g.room.savedPickups = g.pickups;
     g.room = room;
     room.visited = true;
     g.monsters = [];
     g.projectiles = [];
-    // pickups don't carry across rooms (coins are collected or lost - keeps rooms clean)
-    g.pickups = [];
+    g.pickups = room.savedPickups || [];
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
 
@@ -2596,6 +2733,11 @@ const UI = (() => {
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
     }
 
+    // elite buff drops: temporary powers, rare enough to feel like an event
+    if (['tank', 'summoner', 'shielded', 'glass', 'mimic'].includes(m.type) && Math.random() < 0.12) {
+      spawnPickup(['buffShield', 'buffRage', 'buffHaste'][(Math.random() * 3) | 0], m.x, m.y);
+    }
+
     // weapon drops
     const tier = Monsters.tierFor(g.floorNum, g.room.dist);
     if (m.type === 'mimic') {
@@ -2632,15 +2774,37 @@ const UI = (() => {
         g.monsters.every(m => m.dead)) {
       g.room.cleared = true;
       g.player.roomsCleared++;
+      vacuumPickups(); // room-clear reward: every dropped coin flies to you
       Sfx.play('unlock');
       Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
-        Fx.text(W / 2, H / 2 - 30, g.floorNum >= 3 ? 'THE BOSS DOOR OPENS...' : 'THE STAIRS ARE OPEN', '#ffd24c', 15);
+        if (g.floorNum >= 3) {
+          Fx.text(W / 2, H / 2 - 30, 'THE BOSS DOOR OPENS...', '#ffd24c', 15);
+        } else {
+          openPortal(); // floor done: a portal to the stairs room opens right here
+          Fx.text(W / 2, H / 2 - 30, 'A PORTAL TO THE STAIRS OPENS', '#4cc9a8', 15);
+        }
         Sfx.play('stairs');
       }
     }
     // treasure-room mimic fights unlock the room again when the mimic dies
-    if (g.room.type === 'treasure' && g.monsters.every(m => m.dead)) g.room.cleared = true;
+    if (g.room.type === 'treasure' && g.monsters.every(m => m.dead)) {
+      g.room.cleared = true;
+      vacuumPickups();
+    }
+  }
+
+  // send every loose (non-weapon) pickup racing to the player
+  function vacuumPickups() {
+    for (const pk of g.pickups) if (pk.kind !== 'weapon') pk.vacuum = true;
+  }
+
+  function openPortal() {
+    if (g.portal) return;
+    // room centers are kept clear of obstacles by the generator, so it's safe
+    g.portal = { room: g.room, x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, t: 0 };
+    Fx.burst(g.portal.x, g.portal.y, ['#4cc9a8', '#b88aff', '#fff'], 26, { speed: 160, life: 0.8, glow: true });
+    Sfx.play('levelup');
   }
 
   function onPlayerDeath() {
@@ -2754,6 +2918,7 @@ const UI = (() => {
     if (g.room.stairs && g.room.stairs.open !== undefined) {
       if (Dungeon.uncleared(g.dungeon) === 0) consider(g.room.stairs.x, g.room.stairs.y, { kind: 'stairs' });
     }
+    if (g.portal && g.portal.room === g.room) consider(g.portal.x, g.portal.y, { kind: 'portal' });
     return best;
   }
 
@@ -2819,6 +2984,18 @@ const UI = (() => {
       g.floorNum++;
       g.player.heal(20); // breather between floors
       startFloor();
+    }
+
+    if (t.kind === 'portal') {
+      // one-way ride to the stairs room
+      const stairsRoom = g.dungeon.rooms.find(r => r.type === 'stairs');
+      if (stairsRoom) {
+        Sfx.play('stairs');
+        Fx.burst(p.x, p.y, ['#4cc9a8', '#b88aff'], 20, { speed: 180, life: 0.5, glow: true });
+        g.portal = null;
+        enterRoom(stairsRoom, null);
+        p.y += 90; // land beside the stairwell, not inside it
+      }
     }
   }
 
@@ -2892,14 +3069,34 @@ const UI = (() => {
   }
 
   function updateTitle() {
+    if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'start') { newRun(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
+          if (r.action === 'share') shareGame();
         }
       }
+    }
+  }
+
+  function shareGame() {
+    const url = UI.GAME_URL;
+    Sfx.play('ui');
+    // native share sheet on phones/tablets, clipboard on desktop,
+    // and a visible URL as the everything-failed fallback
+    if (navigator.share) {
+      navigator.share({ title: 'Dungeon of the Gilded King', url }).catch(() => { });
+      g.shareMsg = { text: 'Sharing...', t: 2 };
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => { g.shareMsg = { text: 'Link copied! ' + url, t: 3.5 }; })
+        .catch(() => { g.shareMsg = { text: url, t: 6 }; });
+      g.shareMsg = { text: 'Link copied! ' + url, t: 3.5 };
+    } else {
+      g.shareMsg = { text: url, t: 6 };
     }
   }
 
@@ -2925,6 +3122,11 @@ const UI = (() => {
 
     const p = g.player;
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
+    if (!p.dead && input.pressed('KeyF')) {
+      g.autoAttack = !g.autoAttack;
+      Sfx.play('ui');
+      Fx.text(p.x, p.y - 30, g.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', '#ffd24c', 13);
+    }
     p.update(dt, g, input);
     tryRoomExit();
     if (g.state !== 'play') return; // transition may have started
@@ -3042,6 +3244,10 @@ const UI = (() => {
       const pr = g.projectiles[i];
       pr.x += pr.vx * dt; pr.y += pr.vy * dt;
       pr.life -= dt;
+      // enchant trail on player arrows (fire streaks behind a Flame arrow, etc.)
+      if (pr.trail && Math.random() < 0.85) {
+        Fx.burst(pr.x, pr.y, pr.trail, 1, { speed: 18, life: 0.22, glow: pr.glowTrail, size: 2.2 });
+      }
       let dead = pr.life <= 0 ||
         pr.x < PF.x - 10 || pr.x > PF.x + PF.w + 10 || pr.y < PF.y - 10 || pr.y > PF.y + PF.h + 10;
 
@@ -3084,8 +3290,13 @@ const UI = (() => {
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
-      const d = Math.hypot(p.x - pk.x, p.y - pk.y);
-      if (d < 85 && pk.t > 0.25) {
+      const d = Math.hypot(p.x - pk.x, p.y - pk.y) || 1;
+      if (pk.vacuum && pk.t > 0.2) {
+        // room-clear vacuum: full-room pull, accelerating as it closes in
+        const sp = 380 + Math.max(0, 300 - d);
+        pk.x += (p.x - pk.x) / d * sp * dt;
+        pk.y += (p.y - pk.y) / d * sp * dt;
+      } else if (d < 85 && pk.t > 0.25) {
         pk.x += (p.x - pk.x) / d * 320 * dt;
         pk.y += (p.y - pk.y) / d * 320 * dt;
       }
@@ -3100,6 +3311,9 @@ const UI = (() => {
         }
         if (pk.kind === 'heart') p.heal(15);
         if (pk.kind === 'essence') { p.essenceRun++; Sfx.play('pickup'); }
+        if (pk.kind === 'buffShield') { p.buffs.shield = 1; Sfx.play('upgrade'); Fx.text(p.x, p.y - 28, 'SHIELD CHARM', '#7fd4ff', 14); }
+        if (pk.kind === 'buffRage') { p.buffs.rageT = 10; Sfx.play('upgrade'); Fx.text(p.x, p.y - 28, 'RAGE +35% DMG', '#e05555', 14); }
+        if (pk.kind === 'buffHaste') { p.buffs.hasteT = 10; Sfx.play('upgrade'); Fx.text(p.x, p.y - 28, 'HASTE +30% SPEED', '#ffe08a', 14); }
         g.pickups.splice(i, 1);
       }
     }
@@ -3326,6 +3540,31 @@ const UI = (() => {
     // shop furnishing
     if (room.type === 'shop' && room.shopStock) drawShop(c, room);
 
+    // floor-clear portal: a swirling ring of the stairs' teal + essence purple
+    if (g.portal && g.portal.room === room) {
+      const pt = g.portal;
+      c.save();
+      c.translate(pt.x, pt.y);
+      const spin = g.time * 2.2;
+      for (let i = 0; i < 3; i++) {
+        c.strokeStyle = i === 1 ? 'rgba(184,138,255,0.8)' : 'rgba(76,201,168,0.8)';
+        c.lineWidth = 4 - i;
+        c.beginPath();
+        c.ellipse(0, 0, 26 + i * 7 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.4, Math.PI * 2 - 0.4);
+        c.stroke();
+      }
+      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 30);
+      grad.addColorStop(0, 'rgba(76,201,168,0.55)');
+      grad.addColorStop(1, 'rgba(76,201,168,0)');
+      c.fillStyle = grad;
+      c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
+      if (Math.random() < 0.25) Fx.burst(pt.x + (Math.random() * 40 - 20), pt.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#4cc9a8' : '#b88aff', 1, { speed: 30, life: 0.6, glow: true });
+      c.restore();
+      c.font = 'bold 12px monospace'; c.textAlign = 'center';
+      c.fillStyle = '#4cc9a8';
+      c.fillText('E - TO THE STAIRS', pt.x, pt.y + 48);
+    }
+
     // start-room hint
     if (room.type === 'start' && g.floorNum === 1) {
       c.font = '13px monospace'; c.textAlign = 'center';
@@ -3523,6 +3762,28 @@ const UI = (() => {
       c.fillStyle = '#b88aff';
       c.beginPath(); c.moveTo(0, -6); c.lineTo(5, 0); c.lineTo(0, 6); c.lineTo(-5, 0); c.closePath(); c.fill();
       c.restore();
+    } else if (pk.kind === 'buffShield') {
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.shadowColor = '#7fd4ff'; c.shadowBlur = 8;
+      c.fillStyle = '#7fd4ff';
+      c.beginPath(); c.moveTo(0, -8); c.lineTo(7, -4); c.lineTo(7, 3); c.lineTo(0, 9); c.lineTo(-7, 3); c.lineTo(-7, -4);
+      c.closePath(); c.fill();
+      c.fillStyle = '#0e2a3a'; c.fillRect(-1.2, -5, 2.4, 10);
+      c.restore();
+    } else if (pk.kind === 'buffRage') {
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.shadowColor = '#e05555'; c.shadowBlur = 8;
+      c.fillStyle = '#e05555';
+      c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 0); c.lineTo(2.5, 0); c.lineTo(2.5, 8); c.lineTo(-2.5, 8); c.lineTo(-2.5, 0); c.lineTo(-6, 0);
+      c.closePath(); c.fill(); // up-arrow: damage up
+      c.restore();
+    } else if (pk.kind === 'buffHaste') {
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.shadowColor = '#ffe08a'; c.shadowBlur = 8;
+      c.fillStyle = '#ffe08a';
+      c.beginPath(); c.moveTo(2, -9); c.lineTo(-5, 1); c.lineTo(-1, 1); c.lineTo(-2, 9); c.lineTo(5, -1); c.lineTo(1, -1);
+      c.closePath(); c.fill(); // lightning bolt
+      c.restore();
     } else if (pk.kind === 'weapon') {
       drawWeaponGlyph(c, pk.weapon, pk.x, pk.y + bobY, 1);
     }
@@ -3535,7 +3796,7 @@ const UI = (() => {
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
     if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E - take'; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
-    if (t.kind === 'stairs') return; // stairs draw their own prompt
+    if (t.kind === 'stairs' || t.kind === 'portal') return; // these draw their own prompt
     c.save();
     c.font = 'bold 12px monospace'; c.textAlign = 'center';
     c.fillStyle = 'rgba(0,0,0,0.6)';

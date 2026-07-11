@@ -4,6 +4,9 @@
 const UI = (() => {
   const W = 960, H = 540;
 
+  // canonical public home of the game (GitHub Pages) - what the share button copies
+  const GAME_URL = 'https://goofproof.github.io/gilded-king/';
+
   // --- META-PROGRESSION UPGRADES (hub screen; persisted in localStorage) --------
   // Kept deliberately modest so runs live or die on in-run choices.
   const META_UPGRADES = [
@@ -66,6 +69,19 @@ const UI = (() => {
       c.fillText(`${p.essenceRun} (+${g.meta.essence} banked)`, hbX + 22, ey + 4);
     }
 
+    // active buffs (shield charm / rage / haste) with remaining seconds
+    let by = hbY + hbH + 74;
+    const buffs = [];
+    if (p.buffs.shield > 0) buffs.push({ label: '⛨ shield', color: '#7fd4ff' });
+    if (p.buffs.rageT > 0) buffs.push({ label: `↑ rage ${Math.ceil(p.buffs.rageT)}s`, color: '#e05555' });
+    if (p.buffs.hasteT > 0) buffs.push({ label: `» haste ${Math.ceil(p.buffs.hasteT)}s`, color: '#ffe08a' });
+    c.font = 'bold 12px monospace';
+    for (const b of buffs) {
+      c.fillStyle = b.color;
+      c.fillText(b.label, hbX, by);
+      by += 17;
+    }
+
     // floor tag
     c.font = 'bold 13px monospace';
     c.fillStyle = '#8fa3bf';
@@ -77,6 +93,11 @@ const UI = (() => {
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
+    if (g.autoAttack) {
+      c.font = 'bold 11px monospace';
+      c.fillStyle = '#ffd24c';
+      c.fillText('AUTO [F]', 112, H - 78);
+    }
 
     c.restore();
   }
@@ -120,7 +141,7 @@ const UI = (() => {
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
   function drawMinimap(c, g) {
-    const cell = 20, gap = 5, pad = 10;
+    const cell = 27, gap = 6, pad = 10;
     const rooms = g.dungeon.rooms.filter(r => r.visited);
     if (!rooms.length) return;
     // bounds of the VISITED map only - fog of war: unvisited rooms don't exist here
@@ -151,7 +172,7 @@ const UI = (() => {
         c.beginPath();
         c.moveTo(cx + dx * cell / 2, cy + dy * cell / 2);
         if (n.visited) c.lineTo(cx + dx * (cell / 2 + gap), cy + dy * (cell / 2 + gap));
-        else c.lineTo(cx + dx * (cell / 2 + 3.5), cy + dy * (cell / 2 + 3.5)); // stub only
+        else c.lineTo(cx + dx * (cell / 2 + 4.5), cy + dy * (cell / 2 + 4.5)); // stub only
         c.stroke();
       }
     }
@@ -169,11 +190,11 @@ const UI = (() => {
       // room-type glyphs, readable at the bigger cell size
       const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!' }[r.type];
       if (glyph) {
-        c.font = 'bold 13px monospace'; c.textAlign = 'center';
+        c.font = 'bold 17px monospace'; c.textAlign = 'center';
         c.fillStyle = 'rgba(0,0,0,0.65)';
-        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + 5);
+        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + 6.5);
         c.fillStyle = 'rgba(255,255,255,0.85)';
-        c.fillText(glyph, x + cell / 2, y + cell / 2 + 4.5);
+        c.fillText(glyph, x + cell / 2, y + cell / 2 + 6);
       }
       if (r === g.room) {
         c.strokeStyle = '#ffffff'; c.lineWidth = 2;
@@ -249,7 +270,7 @@ const UI = (() => {
 
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('WASD move · mouse aim/attack · SPACE dodge roll · E interact · Tab swap weapon · M mute · P pause', W / 2, 205);
+    c.fillText('WASD move · mouse aim/attack · SPACE dodge roll · E interact · Tab swap · F auto-attack · M mute · P pause', W / 2, 205);
 
     // start button
     const startR = { x: W / 2 - 130, y: 232, w: 260, h: 46, action: 'start' };
@@ -310,6 +331,25 @@ const UI = (() => {
     c.font = '11px monospace';
     c.fillStyle = '#445';
     c.fillText('designed by the boss himself · built with Claude', W / 2, H - 14);
+
+    // share button (bottom-right): copies the game's public link
+    const shareR = { x: W - 150, y: H - 46, w: 136, h: 30, action: 'share' };
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
+    c.strokeRect(shareR.x, shareR.y, shareR.w, shareR.h);
+    c.font = 'bold 12px monospace';
+    c.fillStyle = '#8fa3bf';
+    c.fillText('SHARE THE GAME', shareR.x + shareR.w / 2, shareR.y + 19);
+    rects.push(shareR);
+
+    // share toast
+    if (g.shareMsg && g.shareMsg.t > 0) {
+      c.globalAlpha = Math.min(1, g.shareMsg.t);
+      c.font = 'bold 13px monospace';
+      c.fillStyle = '#ffd24c';
+      c.fillText(g.shareMsg.text, W / 2, H - 60);
+      c.globalAlpha = 1;
+    }
+
     c.restore();
     return rects;
   }
@@ -434,5 +474,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd };
 })();

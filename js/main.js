@@ -84,7 +84,7 @@
     dungeon: null, room: null,
     player: null,
     monsters: [], projectiles: [], pickups: [],
-    boss: null, bossIntroT: 0, winTimer: -1,
+    boss: null, bossIntroT: 0, winTimer: -1, portal: null, autoAttack: false,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     transition: null,     // {dir, next, t}
     uiRects: [],
@@ -121,16 +121,18 @@
 
   function startFloor() {
     g.dungeon = Dungeon.generateFloor(g.floorNum);
+    g.portal = null; // portals never carry across floors
     enterRoom(g.dungeon.start, null);
   }
 
   function enterRoom(room, fromDir) {
+    // drops are persistent: whatever was left on this room's floor is still there
+    if (g.room) g.room.savedPickups = g.pickups;
     g.room = room;
     room.visited = true;
     g.monsters = [];
     g.projectiles = [];
-    // pickups don't carry across rooms (coins are collected or lost - keeps rooms clean)
-    g.pickups = [];
+    g.pickups = room.savedPickups || [];
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
 
@@ -213,6 +215,11 @@
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
     }
 
+    // elite buff drops: temporary powers, rare enough to feel like an event
+    if (['tank', 'summoner', 'shielded', 'glass', 'mimic'].includes(m.type) && Math.random() < 0.12) {
+      spawnPickup(['buffShield', 'buffRage', 'buffHaste'][(Math.random() * 3) | 0], m.x, m.y);
+    }
+
     // weapon drops
     const tier = Monsters.tierFor(g.floorNum, g.room.dist);
     if (m.type === 'mimic') {
@@ -249,15 +256,37 @@
         g.monsters.every(m => m.dead)) {
       g.room.cleared = true;
       g.player.roomsCleared++;
+      vacuumPickups(); // room-clear reward: every dropped coin flies to you
       Sfx.play('unlock');
       Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
-        Fx.text(W / 2, H / 2 - 30, g.floorNum >= 3 ? 'THE BOSS DOOR OPENS...' : 'THE STAIRS ARE OPEN', '#ffd24c', 15);
+        if (g.floorNum >= 3) {
+          Fx.text(W / 2, H / 2 - 30, 'THE BOSS DOOR OPENS...', '#ffd24c', 15);
+        } else {
+          openPortal(); // floor done: a portal to the stairs room opens right here
+          Fx.text(W / 2, H / 2 - 30, 'A PORTAL TO THE STAIRS OPENS', '#4cc9a8', 15);
+        }
         Sfx.play('stairs');
       }
     }
     // treasure-room mimic fights unlock the room again when the mimic dies
-    if (g.room.type === 'treasure' && g.monsters.every(m => m.dead)) g.room.cleared = true;
+    if (g.room.type === 'treasure' && g.monsters.every(m => m.dead)) {
+      g.room.cleared = true;
+      vacuumPickups();
+    }
+  }
+
+  // send every loose (non-weapon) pickup racing to the player
+  function vacuumPickups() {
+    for (const pk of g.pickups) if (pk.kind !== 'weapon') pk.vacuum = true;
+  }
+
+  function openPortal() {
+    if (g.portal) return;
+    // room centers are kept clear of obstacles by the generator, so it's safe
+    g.portal = { room: g.room, x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, t: 0 };
+    Fx.burst(g.portal.x, g.portal.y, ['#4cc9a8', '#b88aff', '#fff'], 26, { speed: 160, life: 0.8, glow: true });
+    Sfx.play('levelup');
   }
 
   function onPlayerDeath() {
@@ -371,6 +400,7 @@
     if (g.room.stairs && g.room.stairs.open !== undefined) {
       if (Dungeon.uncleared(g.dungeon) === 0) consider(g.room.stairs.x, g.room.stairs.y, { kind: 'stairs' });
     }
+    if (g.portal && g.portal.room === g.room) consider(g.portal.x, g.portal.y, { kind: 'portal' });
     return best;
   }
 
@@ -436,6 +466,18 @@
       g.floorNum++;
       g.player.heal(20); // breather between floors
       startFloor();
+    }
+
+    if (t.kind === 'portal') {
+      // one-way ride to the stairs room
+      const stairsRoom = g.dungeon.rooms.find(r => r.type === 'stairs');
+      if (stairsRoom) {
+        Sfx.play('stairs');
+        Fx.burst(p.x, p.y, ['#4cc9a8', '#b88aff'], 20, { speed: 180, life: 0.5, glow: true });
+        g.portal = null;
+        enterRoom(stairsRoom, null);
+        p.y += 90; // land beside the stairwell, not inside it
+      }
     }
   }
 
@@ -509,14 +551,34 @@
   }
 
   function updateTitle() {
+    if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'start') { newRun(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
+          if (r.action === 'share') shareGame();
         }
       }
+    }
+  }
+
+  function shareGame() {
+    const url = UI.GAME_URL;
+    Sfx.play('ui');
+    // native share sheet on phones/tablets, clipboard on desktop,
+    // and a visible URL as the everything-failed fallback
+    if (navigator.share) {
+      navigator.share({ title: 'Dungeon of the Gilded King', url }).catch(() => { });
+      g.shareMsg = { text: 'Sharing...', t: 2 };
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => { g.shareMsg = { text: 'Link copied! ' + url, t: 3.5 }; })
+        .catch(() => { g.shareMsg = { text: url, t: 6 }; });
+      g.shareMsg = { text: 'Link copied! ' + url, t: 3.5 };
+    } else {
+      g.shareMsg = { text: url, t: 6 };
     }
   }
 
@@ -542,6 +604,11 @@
 
     const p = g.player;
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
+    if (!p.dead && input.pressed('KeyF')) {
+      g.autoAttack = !g.autoAttack;
+      Sfx.play('ui');
+      Fx.text(p.x, p.y - 30, g.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', '#ffd24c', 13);
+    }
     p.update(dt, g, input);
     tryRoomExit();
     if (g.state !== 'play') return; // transition may have started
@@ -659,6 +726,10 @@
       const pr = g.projectiles[i];
       pr.x += pr.vx * dt; pr.y += pr.vy * dt;
       pr.life -= dt;
+      // enchant trail on player arrows (fire streaks behind a Flame arrow, etc.)
+      if (pr.trail && Math.random() < 0.85) {
+        Fx.burst(pr.x, pr.y, pr.trail, 1, { speed: 18, life: 0.22, glow: pr.glowTrail, size: 2.2 });
+      }
       let dead = pr.life <= 0 ||
         pr.x < PF.x - 10 || pr.x > PF.x + PF.w + 10 || pr.y < PF.y - 10 || pr.y > PF.y + PF.h + 10;
 
@@ -701,8 +772,13 @@
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
-      const d = Math.hypot(p.x - pk.x, p.y - pk.y);
-      if (d < 85 && pk.t > 0.25) {
+      const d = Math.hypot(p.x - pk.x, p.y - pk.y) || 1;
+      if (pk.vacuum && pk.t > 0.2) {
+        // room-clear vacuum: full-room pull, accelerating as it closes in
+        const sp = 380 + Math.max(0, 300 - d);
+        pk.x += (p.x - pk.x) / d * sp * dt;
+        pk.y += (p.y - pk.y) / d * sp * dt;
+      } else if (d < 85 && pk.t > 0.25) {
         pk.x += (p.x - pk.x) / d * 320 * dt;
         pk.y += (p.y - pk.y) / d * 320 * dt;
       }
@@ -717,6 +793,9 @@
         }
         if (pk.kind === 'heart') p.heal(15);
         if (pk.kind === 'essence') { p.essenceRun++; Sfx.play('pickup'); }
+        if (pk.kind === 'buffShield') { p.buffs.shield = 1; Sfx.play('upgrade'); Fx.text(p.x, p.y - 28, 'SHIELD CHARM', '#7fd4ff', 14); }
+        if (pk.kind === 'buffRage') { p.buffs.rageT = 10; Sfx.play('upgrade'); Fx.text(p.x, p.y - 28, 'RAGE +35% DMG', '#e05555', 14); }
+        if (pk.kind === 'buffHaste') { p.buffs.hasteT = 10; Sfx.play('upgrade'); Fx.text(p.x, p.y - 28, 'HASTE +30% SPEED', '#ffe08a', 14); }
         g.pickups.splice(i, 1);
       }
     }
@@ -943,6 +1022,31 @@
     // shop furnishing
     if (room.type === 'shop' && room.shopStock) drawShop(c, room);
 
+    // floor-clear portal: a swirling ring of the stairs' teal + essence purple
+    if (g.portal && g.portal.room === room) {
+      const pt = g.portal;
+      c.save();
+      c.translate(pt.x, pt.y);
+      const spin = g.time * 2.2;
+      for (let i = 0; i < 3; i++) {
+        c.strokeStyle = i === 1 ? 'rgba(184,138,255,0.8)' : 'rgba(76,201,168,0.8)';
+        c.lineWidth = 4 - i;
+        c.beginPath();
+        c.ellipse(0, 0, 26 + i * 7 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.4, Math.PI * 2 - 0.4);
+        c.stroke();
+      }
+      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 30);
+      grad.addColorStop(0, 'rgba(76,201,168,0.55)');
+      grad.addColorStop(1, 'rgba(76,201,168,0)');
+      c.fillStyle = grad;
+      c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
+      if (Math.random() < 0.25) Fx.burst(pt.x + (Math.random() * 40 - 20), pt.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#4cc9a8' : '#b88aff', 1, { speed: 30, life: 0.6, glow: true });
+      c.restore();
+      c.font = 'bold 12px monospace'; c.textAlign = 'center';
+      c.fillStyle = '#4cc9a8';
+      c.fillText('E - TO THE STAIRS', pt.x, pt.y + 48);
+    }
+
     // start-room hint
     if (room.type === 'start' && g.floorNum === 1) {
       c.font = '13px monospace'; c.textAlign = 'center';
@@ -1140,6 +1244,28 @@
       c.fillStyle = '#b88aff';
       c.beginPath(); c.moveTo(0, -6); c.lineTo(5, 0); c.lineTo(0, 6); c.lineTo(-5, 0); c.closePath(); c.fill();
       c.restore();
+    } else if (pk.kind === 'buffShield') {
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.shadowColor = '#7fd4ff'; c.shadowBlur = 8;
+      c.fillStyle = '#7fd4ff';
+      c.beginPath(); c.moveTo(0, -8); c.lineTo(7, -4); c.lineTo(7, 3); c.lineTo(0, 9); c.lineTo(-7, 3); c.lineTo(-7, -4);
+      c.closePath(); c.fill();
+      c.fillStyle = '#0e2a3a'; c.fillRect(-1.2, -5, 2.4, 10);
+      c.restore();
+    } else if (pk.kind === 'buffRage') {
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.shadowColor = '#e05555'; c.shadowBlur = 8;
+      c.fillStyle = '#e05555';
+      c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 0); c.lineTo(2.5, 0); c.lineTo(2.5, 8); c.lineTo(-2.5, 8); c.lineTo(-2.5, 0); c.lineTo(-6, 0);
+      c.closePath(); c.fill(); // up-arrow: damage up
+      c.restore();
+    } else if (pk.kind === 'buffHaste') {
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.shadowColor = '#ffe08a'; c.shadowBlur = 8;
+      c.fillStyle = '#ffe08a';
+      c.beginPath(); c.moveTo(2, -9); c.lineTo(-5, 1); c.lineTo(-1, 1); c.lineTo(-2, 9); c.lineTo(5, -1); c.lineTo(1, -1);
+      c.closePath(); c.fill(); // lightning bolt
+      c.restore();
     } else if (pk.kind === 'weapon') {
       drawWeaponGlyph(c, pk.weapon, pk.x, pk.y + bobY, 1);
     }
@@ -1152,7 +1278,7 @@
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
     if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E - take'; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
-    if (t.kind === 'stairs') return; // stairs draw their own prompt
+    if (t.kind === 'stairs' || t.kind === 'portal') return; // these draw their own prompt
     c.save();
     c.font = 'bold 12px monospace'; c.textAlign = 'center';
     c.fillStyle = 'rgba(0,0,0,0.6)';

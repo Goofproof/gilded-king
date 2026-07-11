@@ -131,6 +131,12 @@ const Weapons = (() => {
       price: rar.price + tier * 5,
     };
     applyEnchantStats(w);
+    // rarity FEEL bump: higher-tier melee swings reach a little further and wider,
+    // so a Mythic maul is visibly (and mechanically) grander than a Worn one
+    if (archKey !== 'bow') {
+      w.range *= 1 + rarIdx * 0.05;
+      w.arc = Math.min(Math.PI * 1.9, w.arc * (1 + rarIdx * 0.04));
+    }
     return w;
   }
 
@@ -147,10 +153,26 @@ const Weapons = (() => {
 
   function has(w, key) { const e = w && w.enchants.find(e => e.key === key); return e ? (e.level || 1) : 0; }
 
+  // particle palette for swing/arrow effects, driven by the weapon's enchants -
+  // this is what makes a Fire Aspect maul FEEL like a fire maul
+  function fxPalette(w) {
+    const h = k => w.enchants.some(e => e.key === k);
+    if (h('fireaspect') || h('flame')) return { colors: ['#ff8833', '#ffcc44', '#ff4422'], glow: true };
+    if (h('vampiric'))                 return { colors: ['#e05555', '#8b1a1a'], glow: true };
+    if (h('executioner'))              return { colors: ['#ffd24c', '#fff5d0'], glow: true };
+    if (h('multishot') || h('infinity')) return { colors: ['#b88aff', '#e8d5ff'], glow: true };
+    if (h('punch') || h('knockback'))  return { colors: ['#7fd4ff', '#cfe9ff'], glow: false };
+    if (h('sweeping'))                 return { colors: ['#9be8d8', '#4cc9a8'], glow: false };
+    if (h('looting'))                  return { colors: ['#ffd24c', '#b8912f'], glow: false };
+    if (h('momentum'))                 return { colors: ['#ffe08a', '#ffffff'], glow: false };
+    if (h('sharpness') || h('power'))  return { colors: ['#ffffff', '#c8d2e0'], glow: false };
+    return { colors: [w.color], glow: w.rarIdx >= 3 };
+  }
+
   function displayName(w) {
     const en = w.enchants.map(e => e.name + (e.level ? ' ' + ROMAN[e.level] : '')).join(', ');
     return w.name + (en ? ` [${en}]` : '');
   }
 
-  return { RARITY, ENCHANTS, ARCHETYPES, TIER_NAMES, rollWeapon, has, displayName };
+  return { RARITY, ENCHANTS, ARCHETYPES, TIER_NAMES, rollWeapon, has, displayName, fxPalette };
 })();

@@ -25,6 +25,7 @@ then open http://localhost:8471/
 | SPACE / Shift | dodge roll (i-frames!) |
 | E | open chests, buy, pick up weapons, descend stairs |
 | Tab / right-click / wheel | swap melee <-> bow |
+| F | toggle auto-attack (aims and swings at the nearest enemy) |
 | P / Esc | pause |
 | M | mute |
 
