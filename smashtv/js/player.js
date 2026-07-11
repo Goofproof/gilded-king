@@ -1,0 +1,674 @@
+// ============================================================================
+// player.js - movement, the dodge roll (headline mechanic!), weapons, leveling.
+// ============================================================================
+const PlayerDef = (() => {
+  const PF = Dungeon.PF;
+
+  // --- PLAYER TUNING ----------------------------------------------------------
+  const T = {
+    speed: 205,
+    maxHp: 100,
+    rollSpeed: 430,
+    rollDur: 0.26,
+    rollCooldown: 0.85,     // headline mechanic: 0.5-1s per the design doc
+    rollIframes: 0.30,      // slightly longer than the roll itself (forgiving)
+    hurtIframes: 0.7,       // grace period after taking a hit
+    critBase: 0.05,
+    critMult: 1.7,
+  };
+
+  class Player {
+    constructor(meta) {
+      this.x = PF.x + PF.w / 2; this.y = PF.y + PF.h / 2;
+      this.r = 13;
+      // meta-progression boosts (from the hub) fold into starting stats
+      const mHp = (meta?.ranks?.vitality || 0) * 10;
+      this.maxHp = T.maxHp + mHp;
+      this.hp = this.maxHp;
+      this.coins = 0; this.essenceRun = 0; this.shards = 0;
+      this.xp = 0; this.level = 1;
+      this.kills = 0; this.roomsCleared = 0;
+      // temporary buffs from elite drops: shield absorbs one hit, the others are timed
+      this.buffs = { shield: 0, rageT: 0, hasteT: 0 };
+
+      // evolution system: stacks per upgrade key + accumulated fx primitives
+      this.upgradeStacks = {};
+      this.evo = {};              // summed fx (see evolutions.js legend)
+      this.lifelineUsed = 0;
+      this.frenzy = { s: 0, t: 0 };
+
+      // armor slot
+      this.armor = null;          // armor item (weapons.js rollArmor)
+      this.armorMods = {};        // derived from the equipped armor
+      this.phoenixUsed = false;
+
+      // stat multipliers - passive upgrades stack into these
+      this.stats = {
+        dmgMul: 1 + (meta?.ranks?.might || 0) * 0.05,
+        speedMul: 1,
+        rollCdMul: 1 - (meta?.ranks?.acrobat || 0) * 0.08,
+        crit: 0,
+        coinMul: 1 + (meta?.ranks?.greed || 0) * 0.10,
+        regen: 0,
+        atkSpeedMul: 1,
+      };
+
+      // two FREE weapon slots - any mix (two swords is a fine build).
+      // Tab / wheel / right-click to swap.
+      // always start with exactly a Common light melee (Uncommon with the Armory unlock)
+      const startRarity = meta?.ranks?.armory ? 1 : 0;
+      this.weapons = {
+        a: Weapons.rollWeapon(1, { archetype: 'light', exactRarity: startRarity }),
+        b: null,
+      };
+      this.slot = 'a';
+
+      this.vx = 0; this.vy = 0;
+      this.facing = 0;           // aim angle (mouse)
+      this.moveAngle = 0;        // last movement direction (roll uses this)
+      this.moving = false;
+
+      this.rollT = -1;           // >=0 while rolling
+      this.rollCd = 0;
+      this.iframes = 0;
+      this.ghostTimer = 0;
+
+      this.attackCd = 0;
+      this.swing = null;         // {t,dur,windup,fired,arc,range,dir}
+      this.drawT = -1;           // bow draw time (>=0 while drawing)
+      this.momentumT = 0;        // ORIGINAL enchant: speed burst after kills
+      this.flash = 0;
+      this.dead = false;
+    }
+
+    get weapon() { return this.weapons[this.slot] || this.weapons.a || this.weapons.b; }
+
+    xpToNext() { return 18 + (this.level - 1) * 14; } // leveling curve
+
+    // --- evolution / armor helpers ------------------------------------------
+    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0); }
+
+    applyEvolution(fx) {
+      for (const k of Object.keys(fx)) {
+        const v = fx[k];
+        if (k === 'maxHpPct') {
+          const gain = Math.round(this.maxHp * v);
+          this.maxHp += gain;
+          this.hp += gain;
+        } else if (k === 'midasPer') {
+          this.evo.midasPer = Math.min(this.evo.midasPer || 1e9, v);
+        } else {
+          this.evo[k] = (this.evo[k] || 0) + v;
+        }
+      }
+    }
+
+    equipArmor(a, g) {
+      const old = this.armor;
+      this.armor = a;
+      // derive armor mods fresh each equip (never stack across swaps)
+      const m = {};
+      m.reduce = a.defense;
+      for (const e of a.enchants) {
+        if (e.key === 'protection') m.reduce += 0.03 * (e.level || 1);
+        if (e.key === 'swiftness') m.spd = (m.spd || 0) + 0.06;
+        if (e.key === 'recovery') m.regenFlat = (m.regenFlat || 0) + 0.4;
+        if (e.key === 'acrobatics') m.rollCd = (m.rollCd || 0) + 0.08;
+        if (e.key === 'fortune') m.coin = (m.coin || 0) + 0.10;
+        if (e.key === 'thornmail') m.thorns = (m.thorns || 0) + 8;
+        if (e.key === 'bulwark') m.bulwark = 1;
+        if (e.key === 'juggernaut') { m.reduce += 0.12; m.dmg = (m.dmg || 0) + 0.10; }
+        if (e.key === 'phoenix') m.phoenix = 1;
+      }
+      this.armorMods = m;
+      // Bulwark grants one immediate shield on first equip of THIS item, so armor
+      // found on the final floor still does something (per-item gate stops
+      // drop/re-equip farming; the per-floor refresh lives in startFloor)
+      if (m.bulwark && !a.bulwarkGranted) {
+        a.bulwarkGranted = true;
+        if (this.buffs.shield < 1) {
+          this.buffs.shield = 1;
+          Fx.text(this.x, this.y - 40, 'BULWARK', '#7fd4ff', 13);
+        }
+      }
+      if (old) g.dropArmorPickup(old, this.x, this.y + 30);
+      Sfx.play('pickup');
+      Fx.text(this.x, this.y - 26, Weapons.displayName(a), a.color, 12);
+    }
+
+    // one damage formula for every player attack: melee and arrows both route here
+    computeDmg(base, target, g) {
+      let dmg = base * this.stats.dmgMul * (1 + this.mod('dmg'));
+      if (this.buffs.rageT > 0) dmg *= 1.35;
+      if (this.mod('lowHpRage') && this.hp <= this.maxHp * 0.35) dmg *= 1 + this.mod('lowHpRage');
+      if (target) {
+        if (this.mod('dmgVsWounded') && target.hp <= target.maxHp * 0.3) dmg *= 1 + this.mod('dmgVsWounded');
+        if (this.mod('firstStrike') && target.hp >= target.maxHp) dmg *= 1 + this.mod('firstStrike');
+        if (this.mod('bossSlayer') && target.isBoss) dmg *= 1 + this.mod('bossSlayer');
+      }
+      if (this.evo.midasPer) dmg += Math.min(this.evo.midasCap || 0, Math.floor(this.coins / this.evo.midasPer));
+      const crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh');
+      if (crit) dmg *= T.critMult + this.mod('critDmg');
+      return { dmg, crit };
+    }
+
+    // shared post-hit hook: frenzy stacks, crit lifesteal
+    onHitLanded(crit, g) {
+      if (this.mod('frenzyMax')) {
+        this.frenzy.s = Math.min(this.mod('frenzyMax'), this.frenzy.s + 1);
+        this.frenzy.t = 3;
+      }
+      if (crit && this.mod('critHeal')) this.heal(this.mod('critHeal'), true);
+    }
+
+    addXp(n, g) {
+      this.xp += n;
+      while (this.xp >= this.xpToNext()) {
+        this.xp -= this.xpToNext();
+        this.level++;
+        this.hp = Math.min(this.maxHp, this.hp + 15); // level-up heals a chunk
+        Sfx.play('levelup');
+        Fx.burst(this.x, this.y, ['#ffd24c', '#7fd4ff', '#fff'], 24, { speed: 200, life: 0.8, glow: true });
+        g.queueLevelUp();
+      }
+    }
+
+    swapWeapon() {
+      if (this.weapons.a && this.weapons.b) {
+        this.slot = this.slot === 'a' ? 'b' : 'a';
+        this.drawT = -1;
+        this.swing = null; // swap cancels a committed swing (applyMelee reads the live weapon)
+        Sfx.play('ui');
+      }
+    }
+
+    // pickups fill an empty slot first; only when both are full does the new
+    // weapon replace the ACTIVE one (which drops behind you, so it's reversible)
+    pickupWeapon(w, g) {
+      let slot;
+      if (!this.weapons.a) slot = 'a';
+      else if (!this.weapons.b) slot = 'b';
+      else slot = this.slot;
+      const old = this.weapons[slot];
+      this.weapons[slot] = w;
+      this.slot = slot;
+      this.drawT = -1;
+      this.swing = null;
+      if (old) g.dropWeaponPickup(old, this.x, this.y + 30);
+      Sfx.play('pickup');
+      Fx.text(this.x, this.y - 26, Weapons.displayName(w), w.color, 12);
+    }
+
+    damage(dmg, sx, sy, g, src) {
+      // winTimer > 0 = boss just died: celebration invulnerability, and it closes
+      // the die-after-victory race that double-banked essence
+      if (this.iframes > 0 || this.dead || g.state !== 'play' || g.winTimer > 0) return;
+      // shield charm eats the whole hit
+      if (this.buffs.shield > 0) {
+        this.buffs.shield--;
+        this.iframes = 0.5;
+        Sfx.play('hit');
+        Fx.text(this.x, this.y - 26, 'SHIELDED', '#7fd4ff', 14);
+        Fx.burst(this.x, this.y, ['#7fd4ff', '#cfe9ff'], 16, { speed: 160, life: 0.4, glow: true });
+        return;
+      }
+      // damage reduction from armor + evolutions (capped so nothing is free)
+      const reduce = Math.min(0.6, this.mod('reduce'));
+      dmg = dmg * (1 - reduce);
+      this.hp -= dmg;
+      this.iframes = T.hurtIframes;
+      this.flash = 0.25;
+      Fx.shake(6, 0.25);
+      Sfx.play('hurt');
+      Fx.burst(this.x, this.y, '#ff5555', 10, { speed: 150, life: 0.4 });
+      // thorns bite back at whoever touched you
+      if (src && !src.dead && this.mod('thorns')) {
+        src.takeHit(this.mod('thorns'), { sx: this.x, sy: this.y, fromPlayer: true }, g);
+      }
+      // Bombardier Reflex: retaliation blast
+      if (this.mod('retaliateNova')) {
+        Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a'], 18, { speed: 220, life: 0.4, glow: true });
+        for (const m of g.monsters) {
+          if (!m.dead && !m.airborne && Math.hypot(m.x - this.x, m.y - this.y) < 130 + m.r) {
+            m.takeHit(this.mod('retaliateNova'), { sx: this.x, sy: this.y, knock: 200, fromPlayer: true }, g);
+          }
+        }
+      }
+      // knock away from the source
+      const a = Math.atan2(this.y - sy, this.x - sx);
+      this.vx += Math.cos(a) * 180; this.vy += Math.sin(a) * 180;
+      if (this.hp <= 0) {
+        // Lazarus Taxon (evolution), then Phoenix Plume (armor): cheat death
+        if (this.evo.lifeline > this.lifelineUsed) {
+          this.lifelineUsed++;
+          this.hp = 1;
+          this.iframes = 1.5;
+          Sfx.play('levelup');
+          Fx.text(this.x, this.y - 34, 'LAZARUS TAXON', '#6ee7a0', 16);
+          Fx.burst(this.x, this.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+          return;
+        }
+        if (this.armorMods.phoenix && !this.phoenixUsed) {
+          this.phoenixUsed = true;
+          this.hp = Math.round(this.maxHp * 0.3);
+          this.iframes = 1.5;
+          Sfx.play('levelup');
+          Fx.text(this.x, this.y - 34, 'PHOENIX PLUME', '#ff9a3d', 16);
+          Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a', '#ff4422'], 40, { speed: 280, life: 0.9, glow: true });
+          return;
+        }
+        this.hp = 0; this.dead = true; g.onPlayerDeath();
+      }
+    }
+
+    heal(n, quiet) {
+      // evolution hooks: flat healing boost + Body of Theseus missing-hp scaling
+      let amount = n * (1 + this.mod('healMult'));
+      if (this.mod('theseus')) {
+        const missing = 1 - this.hp / this.maxHp;
+        amount *= 1 + this.mod('theseus') * missing;
+      }
+      amount = Math.round(amount);
+      const over = this.hp + amount - this.maxHp;
+      this.hp = Math.min(this.maxHp, this.hp + amount);
+      // Second Spleen: overheal becomes a shield charm
+      if (over > 0 && this.mod('overhealShield') && this.buffs.shield < 1) {
+        this.buffs.shield = 1;
+        Fx.text(this.x, this.y - 38, 'OVERHEAL SHIELD', '#7fd4ff', 12);
+      }
+      if (!quiet) {
+        Sfx.play('heal');
+        Fx.burst(this.x, this.y, '#6ee7a0', 12, { speed: 90, life: 0.6, glow: true });
+      }
+      Fx.text(this.x, this.y - 24, '+' + amount, '#6ee7a0', quiet ? 11 : 13);
+    }
+
+    update(dt, g, input) {
+      if (this.dead) return;
+      const stats = this.stats;
+
+      if (this.iframes > 0) this.iframes -= dt;
+      if (this.rollCd > 0) this.rollCd -= dt;
+      if (this.attackCd > 0) this.attackCd -= dt * (stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02);
+      if (this.flash > 0) this.flash -= dt;
+      if (this.momentumT > 0) this.momentumT -= dt;
+      if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
+      if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
+      if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
+      const totalRegen = stats.regen + this.mod('regenFlat');
+      if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
+
+      // aim at the mouse - unless auto-attack (F) has a target, then aim locks on
+      this.facing = Math.atan2(input.mouse.y - this.y, input.mouse.x - this.x);
+      let autoTarget = null, autoDist = 1e9;
+      if (g.autoAttack) {
+        for (const m of g.monsters) {
+          if (m.dead || m.spawnT > 0 || m.airborne) continue;
+          const d = Math.hypot(m.x - this.x, m.y - this.y);
+          if (d < autoDist) { autoDist = d; autoTarget = m; }
+        }
+        if (autoTarget) this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
+      }
+
+      // --- movement ---------------------------------------------------------
+      let mx = 0, my = 0;
+      if (input.key('KeyW') || input.key('ArrowUp')) my -= 1;
+      if (input.key('KeyS') || input.key('ArrowDown')) my += 1;
+      if (input.key('KeyA') || input.key('ArrowLeft')) mx -= 1;
+      if (input.key('KeyD') || input.key('ArrowRight')) mx += 1;
+      this.moving = mx !== 0 || my !== 0;
+      if (this.moving) {
+        const len = Math.hypot(mx, my);
+        mx /= len; my /= len;
+        this.moveAngle = Math.atan2(my, mx);
+      }
+
+      // --- DODGE ROLL: the headline mechanic ----------------------------------
+      if (this.rollT >= 0) {
+        this.rollT += dt;
+        const k = this.rollT / T.rollDur;
+        // rollNova evolutions: bowling through enemies hurts them (once per roll each)
+        if (this.mod('rollNova')) {
+          for (const m of g.monsters) {
+            if (m.dead || m.airborne || this.rollHits.has(m)) continue;
+            if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 6) {
+              this.rollHits.add(m);
+              m.takeHit(this.mod('rollNova'), { sx: this.x, sy: this.y, knock: 220, fromPlayer: true }, g);
+            }
+          }
+        }
+        if (k >= 1) {
+          this.rollT = -1;
+          // Wind Wake evolutions: speed burst as you come out of the roll
+          if (this.mod('windWake')) this.momentumT = Math.max(this.momentumT, this.mod('windWake'));
+        } else {
+          // burst of speed along the roll direction, eased out
+          const sp = T.rollSpeed * (1 - k * 0.45);
+          this.x += Math.cos(this.rollAngle) * sp * dt;
+          this.y += Math.sin(this.rollAngle) * sp * dt;
+          // afterimage trail
+          this.ghostTimer -= dt;
+          if (this.ghostTimer <= 0) {
+            this.ghostTimer = 0.028;
+            Fx.ghost({ x: this.x, y: this.y, r: this.r, rot: k * Math.PI * 2, color: '#7fd4ff' });
+          }
+        }
+      } else {
+        // normal movement (momentum enchant gives a brief speed burst after kills);
+        // cleared rooms grant a traversal boost so backtracking to doors is snappy
+        const mom = this.momentumT > 0 ? 1.25 : 1;
+        const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
+        const traversal = g.monsters.some(m => !m.dead) ? 1 : 1.28;
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal;
+        this.x += mx * sp * dt;
+        this.y += my * sp * dt;
+        // roll trigger
+        if ((input.pressed('Space') || input.pressed('ShiftLeft') || input.pressed('ShiftRight')) && this.rollCd <= 0) {
+          this.rollT = 0;
+          this.rollAngle = this.moving ? this.moveAngle : this.facing;
+          this.rollCd = T.rollCooldown * stats.rollCdMul * (1 - Math.min(0.5, this.mod('rollCd')));
+          this.rollCdMax = this.rollCd; // HUD arc renders against this (stays right through refunds/mod changes)
+          this.iframes = Math.max(this.iframes, T.rollIframes + this.mod('phantomStep'));
+          this.rollHits = new Set(); // fresh rollNova targets each roll
+          this.drawT = -1; // rolling cancels a bow draw
+          Sfx.play('roll');
+          Fx.burst(this.x, this.y, '#7fd4ff', 6, { speed: 80, life: 0.3 });
+        }
+      }
+
+      // hit knockback decay
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      this.vx *= Math.pow(0.001, dt); this.vy *= Math.pow(0.001, dt);
+
+      // obstacles + walls
+      for (const o of g.room.obstacles) {
+        const dx = this.x - o.x, dy = this.y - o.y, d = Math.hypot(dx, dy);
+        if (d < o.r + this.r && d > 0) { this.x = o.x + (dx / d) * (o.r + this.r); this.y = o.y + (dy / d) * (o.r + this.r); }
+      }
+      // (walls/doors are handled by main.js so it can detect room exits)
+
+      // --- attacking -----------------------------------------------------------
+      const w = this.weapon;
+      // auto-attack: melee swings only when the target is actually in reach;
+      // the bow self-draws and releases at a solid (not full) draw
+      const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8;
+      const attackHeld = input.mouse.down || input.key('KeyJ'); // J = keyboard attack (aim stays on mouse)
+      if (w.archetype === 'bow') {
+        const wantDraw = (attackHeld || autoTarget) && this.rollT < 0;
+        if (wantDraw) {
+          if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
+          if (this.drawT >= 0) this.drawT += dt;
+          if (!attackHeld && autoTarget && this.drawT >= 0.55) {
+            this.fireBow(g); // auto release at ~70% power; hold the button for full draws
+            this.drawT = -1;
+          }
+        } else if (this.drawT >= 0) {
+          this.fireBow(g);
+          this.drawT = -1;
+        }
+      } else {
+        if ((attackHeld || autoMelee) && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
+      }
+
+      // ongoing swing (heavy applies damage at end of windup)
+      if (this.swing) {
+        this.swing.t += dt;
+        if (!this.swing.fired && this.swing.t >= this.swing.windup) {
+          this.swing.fired = true;
+          this.applyMelee(g);
+        }
+        if (this.swing.t >= this.swing.dur) this.swing = null;
+      }
+    }
+
+    startSwing(g) {
+      const w = this.weapon;
+      const windup = w.windup;
+      this.swing = {
+        t: 0, windup,
+        dur: windup + 0.18,
+        dir: this.facing,
+        arc: w.arc, range: w.range,
+        fired: windup === 0 ? false : false,
+        side: (this.lastSide = -(this.lastSide || 1)), // light alternates swing side
+        heavy: w.archetype === 'heavy',
+        fx: Weapons.fxPalette(w), rarIdx: w.rarIdx, // enchant/rarity flair for the sweep
+      };
+      this.attackCd = w.cooldown;
+      if (windup === 0) { this.swing.fired = true; this.applyMelee(g); Sfx.play('swing'); }
+      else Sfx.play('swing');
+    }
+
+    applyMelee(g) {
+      const w = this.weapon, stats = this.stats;
+      const dir = this.facing; // heavy re-aims at release: feels responsive
+      this.swing.dir = dir;
+      if (w.archetype === 'heavy') {
+        Sfx.play('heavy');
+        Fx.hitstop(0.055);      // hit-stop freeze frame on the heavy swing
+        Fx.shake(5, 0.18);
+      }
+      let hitAny = false;
+      const swingOnce = (dmgScale) => {
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne) continue;
+          const dx = m.x - this.x, dy = m.y - this.y;
+          const d = Math.hypot(dx, dy);
+          if (d > w.range + m.r) continue;
+          let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          if (diff > w.arc / 2) continue;
+          const { dmg, crit } = this.computeDmg(w.dmg * dmgScale, m, g);
+          const landed = m.takeHit(dmg, {
+            sx: this.x, sy: this.y,
+            knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
+            flame: Weapons.has(w, 'fireaspect') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+            stagger: w.stagger,
+            execute: !!Weapons.has(w, 'executioner'),
+            hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
+            crit, fromPlayer: true,
+          }, g);
+          if (landed) { this.onHitLanded(crit, g); hitAny = true; } // blocked hits earn nothing
+        }
+      };
+      swingOnce(1);
+      // Echo evolutions: light swings sometimes strike twice (second at half power)
+      if (w.archetype === 'light' && this.mod('echo') && Math.random() < this.mod('echo')) {
+        swingOnce(0.5);
+        Fx.text(this.x, this.y - 34, 'ECHO', '#ff9a3d', 11);
+      }
+      if (hitAny && w.archetype === 'heavy') Fx.shake(7, 0.22);
+
+      // enchant sparks along the swept arc - more of them the rarer the weapon
+      const fx = this.swing.fx || { colors: [w.color], glow: false };
+      const n = 6 + w.rarIdx * 3;
+      for (let i = 0; i <= n; i++) {
+        const a = dir - w.arc / 2 + w.arc * (i / n);
+        Fx.burst(this.x + Math.cos(a) * w.range * 0.85, this.y + Math.sin(a) * w.range * 0.85,
+          fx.colors, 1, { speed: 55, life: 0.3, glow: fx.glow, size: 2.5 });
+      }
+    }
+
+    fireBow(g) {
+      const w = this.weapon, stats = this.stats;
+      const draw = Math.min(1, this.drawT / 0.8); // full power at 0.8s draw
+      if (this.drawT < 0.08) { this.attackCd = 0.1; return; } // tap = dry-fire nothing
+      const n = Weapons.has(w, 'multishot') ? 3 : 1;
+      const spread = 0.14;
+      const fx = Weapons.fxPalette(w); // arrows trail their enchant's element
+      for (let i = 0; i < n; i++) {
+        const a = this.facing + (i - (n - 1) / 2) * spread;
+        // computeDmg without a target: per-target bonuses apply via projectile flags
+        const { dmg, crit } = this.computeDmg(w.dmg * (0.55 + draw * 0.65), null, g);
+        g.projectiles.push({
+          trail: fx.colors, glowTrail: fx.glow,
+          x: this.x + Math.cos(a) * 16, y: this.y + Math.sin(a) * 16,
+          vx: Math.cos(a) * w.projSpeed * (0.65 + draw * 0.5),
+          vy: Math.sin(a) * w.projSpeed * (0.65 + draw * 0.5),
+          r: 4, dmg,
+          from: 'player', color: crit ? '#ffd24c' : '#e8e3d0', life: 1.6,
+          pierce: Weapons.has(w, 'piercing') ? 3 : 0,
+          knock: Weapons.has(w, 'punch') ? 240 : 60,
+          flame: Weapons.has(w, 'flame') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+          hitSfx: 'hitArrow',
+          crit, arrow: true, hitSet: new Set(),
+        });
+      }
+      this.attackCd = w.cooldown;
+      Sfx.play('bowfire');
+    }
+
+    // --- rendering -----------------------------------------------------------------
+    draw(c, g) {
+      if (this.dead) return;
+      c.save();
+      c.translate(this.x, this.y);
+
+      // roll cooldown indicator: small radial arc under the player
+      if (this.rollCd > 0) {
+        const k = 1 - this.rollCd / (this.rollCdMax || (T.rollCooldown * this.stats.rollCdMul));
+        c.strokeStyle = 'rgba(127,212,255,0.5)';
+        c.lineWidth = 3;
+        c.beginPath(); c.arc(0, this.r + 8, 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); c.stroke();
+      } else {
+        c.fillStyle = 'rgba(127,212,255,0.55)';
+        c.beginPath(); c.arc(0, this.r + 8, 3, 0, Math.PI * 2); c.fill();
+      }
+
+      // buff auras
+      if (this.buffs.shield > 0) {
+        c.strokeStyle = `rgba(127,212,255,${0.5 + Math.sin(Date.now() / 200) * 0.25})`;
+        c.lineWidth = 2;
+        c.beginPath(); c.arc(0, 0, this.r + 6, 0, Math.PI * 2); c.stroke();
+      }
+      if (this.buffs.rageT > 0 && Math.random() < 0.3) {
+        Fx.burst(this.x + (Math.random() * 16 - 8), this.y - this.r, ['#e05555', '#ff9a3d'], 1, { speed: 30, life: 0.35, vy: -40 });
+      }
+      if (this.buffs.hasteT > 0 && this.moving && Math.random() < 0.4) {
+        Fx.burst(this.x, this.y + this.r * 0.5, '#ffe08a', 1, { speed: 20, life: 0.3 });
+      }
+
+      // i-frame flicker
+      if (this.iframes > 0 && this.rollT < 0 && Math.sin(Date.now() / 30) > 0) c.globalAlpha = 0.45;
+
+      // squash & stretch + spin through the roll
+      if (this.rollT >= 0) {
+        const k = this.rollT / T.rollDur;
+        c.rotate(this.rollAngle + k * Math.PI * 2 * (Math.cos(this.rollAngle) >= 0 ? 1 : -1));
+        c.scale(1 + 0.25 * Math.sin(k * Math.PI), 1 - 0.3 * Math.sin(k * Math.PI));
+      }
+
+      // shadow
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 0.9, this.r * 0.35, 0, 0, Math.PI * 2); c.fill();
+
+      // cloak
+      c.fillStyle = this.flash > 0 ? '#ff8080' : '#2c3e60';
+      c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
+      // body
+      c.fillStyle = this.flash > 0 ? '#ffb0b0' : '#4a6fa5';
+      c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
+      // visor facing aim
+      c.save();
+      c.rotate(this.rollT >= 0 ? 0 : this.facing);
+      c.fillStyle = '#0e1420';
+      c.fillRect(this.r * 0.15, -4, this.r * 0.75, 8);
+      c.fillStyle = '#9ee7ff';
+      c.fillRect(this.r * 0.3, -2.5, this.r * 0.5, 5);
+      c.restore();
+
+      c.restore();
+
+      // weapon rendering (outside the roll transform)
+      if (this.rollT < 0) this.drawWeapon(c);
+    }
+
+    drawWeapon(c) {
+      const w = this.weapon;
+      c.save();
+      c.translate(this.x, this.y);
+      c.rotate(this.facing);
+      if (w.archetype === 'bow') {
+        const pull = this.drawT >= 0 ? Math.min(1, this.drawT / 0.8) : 0;
+        c.strokeStyle = w.color; c.lineWidth = 3;
+        c.beginPath(); c.arc(this.r + 7, 0, 11, -Math.PI / 2.1, Math.PI / 2.1); c.stroke();
+        c.strokeStyle = '#ccc'; c.lineWidth = 1;
+        const tipY = Math.sin(Math.PI / 2.1) * 11;
+        c.beginPath();
+        c.moveTo(this.r + 7 + Math.cos(-Math.PI / 2.1) * 11, -tipY);
+        c.lineTo(this.r + 7 - pull * 8, 0);
+        c.lineTo(this.r + 7 + Math.cos(Math.PI / 2.1) * 11, tipY);
+        c.stroke();
+        if (pull > 0) {
+          c.strokeStyle = '#e8e3d0'; c.lineWidth = 2.5;
+          c.beginPath(); c.moveTo(this.r + 7 - pull * 8, 0); c.lineTo(this.r + 18 - pull * 8, 0); c.stroke();
+          // full-draw sparkle
+          if (pull >= 1) { c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(this.r + 19 - pull * 8, 0, 2.5, 0, Math.PI * 2); c.fill(); }
+        }
+        c.restore();
+        return;
+      }
+      c.restore();
+
+      // melee: draw the swing arc while swinging, otherwise blade at rest
+      if (this.swing) {
+        const s = this.swing;
+        const w2 = this.weapon;
+        c.save();
+        c.translate(this.x, this.y);
+        if (!s.fired) {
+          // windup: blade raised behind, growing glow (the heavy telegraph);
+          // epic+ weapons gather sparks at the blade tip while charging
+          const k = s.t / s.windup;
+          c.rotate(s.dir - s.arc * 0.7);
+          c.strokeStyle = `rgba(255,255,255,${0.25 + k * 0.5})`;
+          c.lineWidth = 4;
+          c.beginPath(); c.moveTo(this.r, 0); c.lineTo(this.r + w2.range * 0.55, 0); c.stroke();
+          if (s.rarIdx >= 2 && Math.random() < 0.5) {
+            const tip = s.dir - s.arc * 0.7;
+            Fx.burst(this.x + Math.cos(tip) * w2.range * 0.55, this.y + Math.sin(tip) * w2.range * 0.55,
+              s.fx.colors, 1, { speed: 25, life: 0.25, glow: s.fx.glow, size: 2 });
+          }
+        } else {
+          // release: arc sweep tinted by rarity, elemental sparks riding the edge
+          const k = (s.t - s.windup) / (s.dur - s.windup);
+          const a0 = s.dir - s.arc / 2, a1 = s.dir - s.arc / 2 + s.arc * Math.min(1, k * 1.5);
+          const grad = c.createRadialGradient(0, 0, this.r, 0, 0, w2.range);
+          grad.addColorStop(0, 'rgba(255,255,255,0)');
+          grad.addColorStop(0.7, `rgba(255,255,255,${0.35 * (1 - k)})`);
+          grad.addColorStop(1, w2.color + '00');
+          c.fillStyle = grad;
+          c.beginPath();
+          c.moveTo(0, 0);
+          c.arc(0, 0, w2.range, a0, a1);
+          c.closePath(); c.fill();
+          // inner white flash + rarity-colored blade edge (thicker as rarity climbs)
+          c.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`;
+          c.lineWidth = s.heavy ? 5 : 3;
+          c.beginPath(); c.arc(0, 0, w2.range * 0.9, a0, a1); c.stroke();
+          c.globalAlpha = 0.85 * (1 - k);
+          c.strokeStyle = w2.color;
+          c.lineWidth = (s.heavy ? 3 : 2) + (s.rarIdx || 0);
+          c.beginPath(); c.arc(0, 0, w2.range * 0.99, a0, a1); c.stroke();
+          c.globalAlpha = 1;
+          // sparks stream off the leading edge of the sweep
+          if (s.fx && Math.random() < 0.8) {
+            Fx.burst(this.x + Math.cos(a1) * w2.range * 0.95, this.y + Math.sin(a1) * w2.range * 0.95,
+              s.fx.colors, 1, { speed: 45, life: 0.28, glow: s.fx.glow, size: 2.2 });
+          }
+        }
+        c.restore();
+      } else {
+        // idle blade at the hip
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.facing + 0.7);
+        c.strokeStyle = this.weapon.color; c.lineWidth = this.weapon.archetype === 'heavy' ? 5 : 3;
+        c.beginPath(); c.moveTo(this.r * 0.6, 0);
+        c.lineTo(this.r * 0.6 + (this.weapon.archetype === 'heavy' ? 20 : 14), 0); c.stroke();
+        c.restore();
+      }
+    }
+  }
+
+  return { Player, T };
+})();
