@@ -57,19 +57,6 @@ meta-progression essence, coin vacuum, floor-clear portal, celebration door lock
 - All sounds are synthesized in js/audio.js; Claude can't hear them - flag that
   Sam's ears are the judge and offer to tune.
 
-## Smash Arena TV reskin (added 2026-07-11)
-A full game-show reskin lives in `smashtv/` (its own fork - root Gilded King is
-byte-for-byte untouched). Live at https://goofproof.github.io/gilded-king/smashtv/.
-Homage to Williams' Smash TV. `smashtv/js/skin.js` holds the show config (SHOW
-strings, NEON palette) + the Host announcer artwork + studio backdrop. New game
-state 'intro' (click-gated cutscene, the Host shouts "I'D BUY THAT FOR A DOLLAR!").
-Cosmetic + intro only - every mechanic identical to the base game. To iterate on
-it: edit files under smashtv/, deploy by staging BOTH the root game and smashtv/
-into the Pages repo (see the deploy2 staging pattern). Separate artifact URL:
-https://claude.ai/code/artifact/61515c37-6d9c-4d75-837f-3ce2c5d25f17
-Reskin pass-1 limit: monster/player sprites are recolored by palette but keep
-their fantasy shapes - deeper "game-show goon" art is a future pass.
-
 ## Open threads (not started)
 - Touch/mobile controls (virtual joystick + auto-attack carry) - was recommended,
   never built. The son may only have a tablet at his mom's.
