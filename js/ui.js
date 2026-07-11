@@ -58,6 +58,22 @@ const UI = (() => {
     c.font = 'bold 14px monospace';
     c.fillText(`${p.coins}`, hbX + 22, hbY + hbH + 37);
 
+    // shards (salvage currency) - shown once you have any
+    if (p.shards > 0) {
+      const sx = hbX + 110, sy = hbY + hbH + 32;
+      c.fillStyle = '#7fe8e0';
+      c.beginPath(); c.moveTo(sx, sy - 7); c.lineTo(sx + 6, sy + 4); c.lineTo(sx - 6, sy + 4); c.closePath(); c.fill();
+      c.font = 'bold 13px monospace'; c.textAlign = 'left';
+      c.fillText(`${p.shards}`, sx + 11, sy + 5);
+      const w = p.weapon;
+      if (w && (w.upLvl || 0) < 5) {
+        const cost = 5 + (w.upLvl || 0) * 4;
+        c.font = '10px monospace';
+        c.fillStyle = p.shards >= cost ? '#7fe8e0' : 'rgba(127,232,224,0.4)';
+        c.fillText(`U hone ${cost}◈`, sx + 40, sy + 5);
+      }
+    }
+
     // essence (meta currency), only when carrying any
     if (p.essenceRun > 0 || g.meta.essence > 0) {
       c.fillStyle = '#b88aff';
@@ -87,9 +103,10 @@ const UI = (() => {
     c.fillStyle = '#8fa3bf';
     c.fillText(`FLOOR ${g.floorNum}/3`, hbX, H - 16);
 
-    // weapon slots (bottom-left) - two free slots, any mix
+    // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
     drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
+    drawArmorSlot(c, p.armor, 110, H - 106);
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
@@ -137,6 +154,83 @@ const UI = (() => {
       });
     }
     c.restore();
+  }
+
+  function drawArmorSlot(c, a, x, y) {
+    c.save();
+    c.globalAlpha = 0.85;
+    c.fillStyle = 'rgba(0,0,0,0.6)';
+    c.fillRect(x, y, 42, 42);
+    c.strokeStyle = a ? a.color : '#444';
+    c.lineWidth = 1.5;
+    c.strokeRect(x, y, 42, 42);
+    if (a) {
+      c.translate(x + 21, y + 19);
+      c.fillStyle = a.color;
+      c.beginPath();
+      c.moveTo(0, -11); c.lineTo(9, -6); c.lineTo(9, 3); c.lineTo(0, 12); c.lineTo(-9, 3); c.lineTo(-9, -6);
+      c.closePath(); c.fill();
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.fillRect(-1.2, -7, 2.4, 14);
+      a.enchants.forEach((e, i) => {
+        c.fillStyle = e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a';
+        c.beginPath(); c.arc(-14 + i * 9, 16, 3, 0, Math.PI * 2); c.fill();
+      });
+    } else {
+      c.fillStyle = '#3a3f4d';
+      c.font = '9px monospace'; c.textAlign = 'center';
+      c.fillText('armor', x + 21, y + 24);
+    }
+    c.restore();
+  }
+
+  // --- EVOLUTION CHOICE (Sam's system: stack a stat to 3/6/9/12) --------------------
+  function drawEvolution(c, g) {
+    const ev = g.evoChoices;
+    const e = overlayEase(g);
+    const dy = (1 - e) * 26;
+    c.save();
+    c.globalAlpha = e;
+    c.translate(0, dy);
+    c.fillStyle = 'rgba(10,5,16,0.85)';
+    c.fillRect(0, -30, W, H + 60);
+    c.textAlign = 'center';
+    c.font = 'bold 30px monospace';
+    c.fillStyle = '#b88aff';
+    c.fillText(`${Evolutions.STAT_NAMES[ev.key]} EVOLUTION ${Evolutions.TIER_LABEL[ev.stacks]}`, W / 2, 118);
+    c.font = '13px monospace';
+    c.fillStyle = '#8fa3bf';
+    c.fillText('your training crystallizes into something stranger - choose', W / 2, 146);
+
+    const n = ev.options.length;
+    const cardW = 262, cardH = 190, gap = 20;
+    const totalW = n * cardW + (n - 1) * gap;
+    const rects = [];
+    for (let i = 0; i < n; i++) {
+      const opt = ev.options[i];
+      const x = (W - totalW) / 2 + i * (cardW + gap), y = 185;
+      const hov = g.hoverChoice === i;
+      c.fillStyle = hov ? 'rgba(184,138,255,0.14)' : 'rgba(255,255,255,0.05)';
+      c.fillRect(x, y, cardW, cardH);
+      c.strokeStyle = hov ? '#b88aff' : '#5a4a78';
+      c.lineWidth = hov ? 2.5 : 1.5;
+      c.strokeRect(x, y, cardW, cardH);
+      c.font = 'bold 15px monospace';
+      c.fillStyle = '#e8d5ff';
+      wrapText(c, opt.name, x + cardW / 2, y + 34, cardW - 24, 19);
+      c.font = '12px monospace';
+      c.fillStyle = '#9fb0c8';
+      wrapText(c, opt.desc, x + cardW / 2, y + 92, cardW - 26, 16);
+      c.font = 'bold 13px monospace';
+      c.fillStyle = '#5a6478';
+      c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 12);
+      rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i });
+    }
+    c.font = '11px monospace';
+    c.fillStyle = '#667';
+    c.fillText('every evolution is a real thing - look them up later', W / 2, 420);
+    c.restore();
+    return rects;
   }
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
@@ -328,9 +422,9 @@ const UI = (() => {
       cx += cardW + gap;
     }
 
-    c.font = '11px monospace';
-    c.fillStyle = '#445';
-    c.fillText('designed by the boss himself · built with Claude', W / 2, H - 14);
+    c.font = 'italic 12px monospace';
+    c.fillStyle = '#8a7340';
+    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
 
     // high-scores button (top-left)
     const scoresR = { x: 14, y: 14, w: 150, h: 30, action: 'scores' };
@@ -516,6 +610,20 @@ const UI = (() => {
       c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 10);
       rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i }); // hitbox tracks the drift
     }
+    // once-per-level-up reroll
+    if (!g.levelRerolled) {
+      const rr = { x: W / 2 - 110, y: 385, w: 220, h: 34, reroll: true };
+      c.strokeStyle = '#7fd4ff'; c.lineWidth = 1.5;
+      c.strokeRect(rr.x, rr.y, rr.w, rr.h);
+      c.font = 'bold 13px monospace';
+      c.fillStyle = '#7fd4ff';
+      c.fillText('↻ REROLL CHOICES (R)', W / 2, rr.y + 22);
+      rects.push({ ...rr, y: rr.y + dy });
+    } else {
+      c.font = '11px monospace';
+      c.fillStyle = '#556';
+      c.fillText('reroll spent', W / 2, 405);
+    }
     c.restore();
     return rects;
   }
@@ -580,5 +688,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd, drawInitials };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawEnd, drawInitials };
 })();

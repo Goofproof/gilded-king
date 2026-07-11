@@ -153,6 +153,67 @@ const Weapons = (() => {
 
   function has(w, key) { const e = w && w.enchants.find(e => e.key === key); return e ? (e.level || 1) : 0; }
 
+  // --- ARMOR ------------------------------------------------------------------
+  // same rarity table and slot rules as weapons; its own enchant pool.
+  // 'Bulwark' and 'Phoenix Plume' are ORIGINAL (not from Minecraft).
+  const ARMOR_ENCHANTS = [
+    { key: 'protection', name: 'Protection',    tier: 1, leveled: true, desc: '+3% damage reduction per level' },
+    { key: 'swiftness',  name: 'Swiftness',     tier: 1, desc: '+6% move speed' },
+    { key: 'recovery',   name: 'Recovery',      tier: 1, desc: 'Regenerate +0.4 HP/s' },
+    { key: 'acrobatics', name: 'Acrobatics',    tier: 1, desc: '-8% roll cooldown' },
+    { key: 'fortune',    name: 'Fortune',       tier: 1, desc: '+10% coins' },
+    { key: 'thornmail',  name: 'Thornmail',     tier: 2, desc: 'Contact attackers take 8 damage' },
+    { key: 'bulwark',    name: 'Bulwark',       tier: 2, desc: 'A shield charm at the start of each floor' },      // ORIGINAL
+    { key: 'juggernaut', name: 'Juggernaut',    tier: 3, desc: '+12% damage reduction, +10% damage' },             // ORIGINAL
+    { key: 'phoenix',    name: 'Phoenix Plume', tier: 3, desc: 'Cheat death once per run (revive at 30% HP)' },    // ORIGINAL
+  ];
+  const ARMOR_NAMES = ['Jerkin', 'Chain Hauberk', 'Scale Cuirass', 'Brigandine', 'Plate Aegis'];
+
+  function rollArmorEnchants(rar) {
+    const rarIdx = RARITY.indexOf(rar);
+    const nSlots = rar.slots[0] + ((Math.random() * (rar.slots[1] - rar.slots[0] + 1)) | 0);
+    const avail = ARMOR_ENCHANTS.filter(e => e.tier <= rar.maxTier);
+    const out = [];
+    let needSignature = rar.key === 'legendary';
+    for (let s = 0; s < nSlots && avail.length; s++) {
+      let candidates = null;
+      if (needSignature && s === nSlots - 1 && !out.some(e => e.tier === 3)) {
+        candidates = avail.filter(e => e.tier === 3 && !out.some(o => o.key === e.key));
+      } else {
+        const tierRoll = weightedPick(TIER_WEIGHTS.filter(t => t.tier <= rar.maxTier), 'w').tier;
+        for (let t = tierRoll; t >= 1 && !(candidates && candidates.length); t--) {
+          candidates = avail.filter(e => e.tier === t && !out.some(o => o.key === e.key));
+        }
+      }
+      if (!candidates || !candidates.length) candidates = avail.filter(e => !out.some(o => o.key === e.key));
+      if (!candidates.length) break;
+      const e = candidates[(Math.random() * candidates.length) | 0];
+      const ench = { key: e.key, name: e.name, tier: e.tier, desc: e.desc, level: 0 };
+      if (e.leveled) {
+        const maxLv = rarIdx >= 3 ? 3 : rarIdx >= 2 ? 2 : 1;
+        const roll = Math.random();
+        ench.level = roll < 0.55 ? 1 : roll < 0.85 ? Math.min(2, maxLv) : maxLv;
+      }
+      out.push(ench);
+    }
+    return out;
+  }
+
+  function rollArmor(tier = 1, opts = {}) {
+    const rar = rollRarity(opts);
+    const rarIdx = RARITY.indexOf(rar);
+    const a = {
+      isArmor: true,
+      rarity: rar.key, rarityName: rar.name, color: rar.color, rarIdx,
+      name: `${PREFIX[rar.key]} ${ARMOR_NAMES[(Math.random() * ARMOR_NAMES.length) | 0]}`,
+      defense: 0.04 + rarIdx * 0.02 + (tier - 1) * 0.005, // base damage reduction
+      enchants: rollArmorEnchants(rar),
+      price: rar.price + tier * 5,
+    };
+    a.price += a.enchants.reduce((s, e) => s + e.tier * 8 + (e.level || 0) * 4, 0);
+    return a;
+  }
+
   // particle palette for swing/arrow effects, driven by the weapon's enchants -
   // this is what makes a Fire Aspect maul FEEL like a fire maul
   function fxPalette(w) {
@@ -171,8 +232,8 @@ const Weapons = (() => {
 
   function displayName(w) {
     const en = w.enchants.map(e => e.name + (e.level ? ' ' + ROMAN[e.level] : '')).join(', ');
-    return w.name + (en ? ` [${en}]` : '');
+    return w.name + (w.upLvl ? ` +${w.upLvl}` : '') + (en ? ` [${en}]` : '');
   }
 
-  return { RARITY, ENCHANTS, ARCHETYPES, TIER_NAMES, rollWeapon, has, displayName, fxPalette };
+  return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette };
 })();

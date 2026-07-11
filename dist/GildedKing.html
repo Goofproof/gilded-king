@@ -164,6 +164,17 @@ const Sfx = (() => {
       };
       amb.timers.push(setTimeout(loop, 500 + Math.random() * maxS * 500));
     };
+    // MUSIC: fn schedules one phrase of notes (via tone delays) and returns its
+    // length in seconds; we re-invoke just before it ends for a continuous loop
+    const phraseLoop = (fn) => {
+      const loop = () => {
+        if (amb.theme !== theme) return;
+        let dur = 2;
+        if (!muted) dur = fn();
+        amb.timers.push(setTimeout(loop, Math.max(400, dur * 1000 - 120)));
+      };
+      amb.timers.push(setTimeout(loop, 900));
+    };
     if (theme === 'forest') {
       noiseBed(300, 0.05); // wind through leaves
       every(2.5, 7, () => { // birdsong: quick rising chirps
@@ -171,16 +182,82 @@ const Sfx = (() => {
         const n = 2 + ((Math.random() * 3) | 0);
         for (let i = 0; i < n; i++) tone('sine', base * (0.9 + Math.random() * 0.2), base * 1.18, 0.02, 0.08, 0.05, i * 0.11);
       });
+      // APEX PREDATOR: a distant wolf, once or twice a floor
+      every(35, 75, () => {
+        tone('sine', 340, 520, 0.35, 0.25, 0.055);          // rise
+        tone('sine', 500, 240, 0.05, 1.4, 0.05, 0.55);      // long mournful fall
+        tone('sine', 470, 230, 0.05, 1.2, 0.028, 0.75);     // packmate echoes, further off
+      });
+      // MUSIC: sparse folk plucks in D minor pentatonic, wandering like a path
+      phraseLoop(() => {
+        const scale = [293.66, 349.23, 392.0, 440.0, 523.25, 587.33];
+        const step = 0.44;
+        let t = 0;
+        for (let i = 0; i < 8; i++) {
+          if (Math.random() < 0.65) {
+            const f = scale[(Math.random() * scale.length) | 0] * (Math.random() < 0.2 ? 0.5 : 1);
+            tone('triangle', f, f, 0.01, 0.55, 0.042, t);
+          }
+          t += step;
+        }
+        return t;
+      });
     } else if (theme === 'swamp') {
       noiseBed(170, 0.055); // thick murk
       drone('sine', 52, 0.035, 300); // something large breathing below
       every(3, 8, () => tone('sine', 240 + Math.random() * 140, 70, 0.02, 0.24, 0.08)); // bloop
       every(5, 12, () => noise(0.5, 0.028, 'bandpass', 4300, 3700)); // insect hiss
+      // APEX PREDATOR: a bull hippo bellows from the deep water
+      every(30, 65, () => {
+        tone('sawtooth', 90, 55, 0.06, 0.8, 0.09);
+        noise(0.5, 0.06, 'lowpass', 400, 120);
+        tone('sawtooth', 80, 60, 0.04, 0.35, 0.07, 0.9);   // second grunt
+        tone('sawtooth', 75, 58, 0.04, 0.3, 0.05, 1.25);   // third, shorter
+      });
+      // MUSIC: slow doomy bass ostinato with the occasional wrong-feeling note
+      phraseLoop(() => {
+        const line = [73.42, 87.31, 65.41, 73.42]; // D2 F2 C2 D2
+        const noteLen = 1.7;
+        line.forEach((f, i) => {
+          const wrong = Math.random() < 0.12;
+          tone('sine', wrong ? f * 1.414 : f, f * 0.99, 0.08, noteLen * 0.9, 0.055, i * noteLen);
+          tone('triangle', f * 1.5, f * 1.5, 0.1, noteLen * 0.5, 0.014, i * noteLen + 0.3); // ghost fifth
+        });
+        return line.length * noteLen;
+      });
     } else if (theme === 'castle') {
       drone('sawtooth', 55, 0.017, 220);   // detuned regal drone
       drone('sawtooth', 55.7, 0.017, 220);
       noiseBed(120, 0.03); // vast cold hall
       every(7, 15, () => tone('sine', 660, 650, 0.5, 1.4, 0.03)); // distant bell
+      // APEX PREDATOR: the court is conniving - whispers and a sly, low chuckle
+      every(28, 55, () => {
+        noise(0.3, 0.035, 'bandpass', 3200, 1800);          // whisper wisp
+        noise(0.25, 0.03, 'bandpass', 2600, 1400, 0.4);     // answering whisper
+        tone('square', 300, 280, 0.02, 0.09, 0.03, 0.9);    // heh
+        tone('square', 260, 240, 0.02, 0.09, 0.03, 1.08);   // heh
+        tone('square', 220, 190, 0.02, 0.12, 0.03, 1.26);   // hehh
+      });
+      // MUSIC: baroque harpsichord arpeggios - Am G F E, the court dances on
+      phraseLoop(() => {
+        const chords = [
+          [220.0, 261.63, 329.63, 440.0],   // Am
+          [196.0, 246.94, 293.66, 392.0],   // G
+          [174.61, 220.0, 261.63, 349.23],  // F
+          [164.81, 207.65, 246.94, 329.63], // E
+        ];
+        const noteLen = 0.15, perChord = 8;
+        let t = 0;
+        for (const ch of chords) {
+          tone('triangle', ch[0] / 2, ch[0] / 2, 0.02, noteLen * perChord * 0.9, 0.03, t); // bass root
+          for (let i = 0; i < perChord; i++) {
+            const f = ch[i % 4] * (i >= 4 ? 2 : 1);
+            tone('square', f, f, 0.005, 0.14, 0.016, t + i * noteLen);
+          }
+          t += noteLen * perChord;
+        }
+        return t;
+      });
     }
   }
 
@@ -491,6 +568,67 @@ const Weapons = (() => {
 
   function has(w, key) { const e = w && w.enchants.find(e => e.key === key); return e ? (e.level || 1) : 0; }
 
+  // --- ARMOR ------------------------------------------------------------------
+  // same rarity table and slot rules as weapons; its own enchant pool.
+  // 'Bulwark' and 'Phoenix Plume' are ORIGINAL (not from Minecraft).
+  const ARMOR_ENCHANTS = [
+    { key: 'protection', name: 'Protection',    tier: 1, leveled: true, desc: '+3% damage reduction per level' },
+    { key: 'swiftness',  name: 'Swiftness',     tier: 1, desc: '+6% move speed' },
+    { key: 'recovery',   name: 'Recovery',      tier: 1, desc: 'Regenerate +0.4 HP/s' },
+    { key: 'acrobatics', name: 'Acrobatics',    tier: 1, desc: '-8% roll cooldown' },
+    { key: 'fortune',    name: 'Fortune',       tier: 1, desc: '+10% coins' },
+    { key: 'thornmail',  name: 'Thornmail',     tier: 2, desc: 'Contact attackers take 8 damage' },
+    { key: 'bulwark',    name: 'Bulwark',       tier: 2, desc: 'A shield charm at the start of each floor' },      // ORIGINAL
+    { key: 'juggernaut', name: 'Juggernaut',    tier: 3, desc: '+12% damage reduction, +10% damage' },             // ORIGINAL
+    { key: 'phoenix',    name: 'Phoenix Plume', tier: 3, desc: 'Cheat death once per run (revive at 30% HP)' },    // ORIGINAL
+  ];
+  const ARMOR_NAMES = ['Jerkin', 'Chain Hauberk', 'Scale Cuirass', 'Brigandine', 'Plate Aegis'];
+
+  function rollArmorEnchants(rar) {
+    const rarIdx = RARITY.indexOf(rar);
+    const nSlots = rar.slots[0] + ((Math.random() * (rar.slots[1] - rar.slots[0] + 1)) | 0);
+    const avail = ARMOR_ENCHANTS.filter(e => e.tier <= rar.maxTier);
+    const out = [];
+    let needSignature = rar.key === 'legendary';
+    for (let s = 0; s < nSlots && avail.length; s++) {
+      let candidates = null;
+      if (needSignature && s === nSlots - 1 && !out.some(e => e.tier === 3)) {
+        candidates = avail.filter(e => e.tier === 3 && !out.some(o => o.key === e.key));
+      } else {
+        const tierRoll = weightedPick(TIER_WEIGHTS.filter(t => t.tier <= rar.maxTier), 'w').tier;
+        for (let t = tierRoll; t >= 1 && !(candidates && candidates.length); t--) {
+          candidates = avail.filter(e => e.tier === t && !out.some(o => o.key === e.key));
+        }
+      }
+      if (!candidates || !candidates.length) candidates = avail.filter(e => !out.some(o => o.key === e.key));
+      if (!candidates.length) break;
+      const e = candidates[(Math.random() * candidates.length) | 0];
+      const ench = { key: e.key, name: e.name, tier: e.tier, desc: e.desc, level: 0 };
+      if (e.leveled) {
+        const maxLv = rarIdx >= 3 ? 3 : rarIdx >= 2 ? 2 : 1;
+        const roll = Math.random();
+        ench.level = roll < 0.55 ? 1 : roll < 0.85 ? Math.min(2, maxLv) : maxLv;
+      }
+      out.push(ench);
+    }
+    return out;
+  }
+
+  function rollArmor(tier = 1, opts = {}) {
+    const rar = rollRarity(opts);
+    const rarIdx = RARITY.indexOf(rar);
+    const a = {
+      isArmor: true,
+      rarity: rar.key, rarityName: rar.name, color: rar.color, rarIdx,
+      name: `${PREFIX[rar.key]} ${ARMOR_NAMES[(Math.random() * ARMOR_NAMES.length) | 0]}`,
+      defense: 0.04 + rarIdx * 0.02 + (tier - 1) * 0.005, // base damage reduction
+      enchants: rollArmorEnchants(rar),
+      price: rar.price + tier * 5,
+    };
+    a.price += a.enchants.reduce((s, e) => s + e.tier * 8 + (e.level || 0) * 4, 0);
+    return a;
+  }
+
   // particle palette for swing/arrow effects, driven by the weapon's enchants -
   // this is what makes a Fire Aspect maul FEEL like a fire maul
   function fxPalette(w) {
@@ -509,10 +647,259 @@ const Weapons = (() => {
 
   function displayName(w) {
     const en = w.enchants.map(e => e.name + (e.level ? ' ' + ROMAN[e.level] : '')).join(', ');
-    return w.name + (en ? ` [${en}]` : '');
+    return w.name + (w.upLvl ? ` +${w.upLvl}` : '') + (en ? ` [${en}]` : '');
   }
 
-  return { RARITY, ENCHANTS, ARCHETYPES, TIER_NAMES, rollWeapon, has, displayName, fxPalette };
+  return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette };
+})();
+
+</script>
+<script>
+// ============================================================================
+// evolutions.js - the upgrade evolution tree (Sam's design, 2026-07-10).
+// Stack the same level-up pick to 3 / 6 / 9 / 12 and choose one of three
+// themed evolutions for that stat.
+//
+// NAMING RULE (Sam): every evolution references something REAL - biology,
+// physics, history, myth - catchy enough to be cool, obscure enough that the
+// player googles it and learns something. Body of Theseus and Sanguivorous
+// Gut Microbiome (Sam's own) set the bar.
+//
+// fx legend (all additive unless noted):
+//   healMult          all healing x(1+v)
+//   theseus           healing scales with missing health: x(1 + v * missingFraction)
+//   soulFeast         enemies dying within 140px heal v% of max HP
+//   regenFlat         +v HP/s regeneration
+//   overhealShield    healing past full grants a shield charm (bool)
+//   lifeline          survive a killing blow at 1 HP, v times per run
+//   reduce            damage taken x(1-v)  (total capped at 60%)
+//   thorns            contact attackers take v damage
+//   retaliateNova     taking a hit blasts v damage in a 130px ring
+//   maxHpPct          +v% max health (applied immediately)
+//   dmg               +v% damage (all sources)
+//   dmgVsWounded      +v% damage vs enemies below 30% health
+//   firstStrike       +v% damage vs enemies at full health
+//   bossSlayer        +v% damage vs the boss
+//   lowHpRage         +v% damage while YOU are below 35% health
+//   spd               +v% move speed
+//   windWake          rolling grants a speed burst for v seconds
+//   phantomStep       +v seconds of i-frames on every roll
+//   rollNova          rolling through enemies deals v damage
+//   rollReset         kills refund v seconds of roll cooldown
+//   rollCd            -v% roll cooldown
+//   critCh            +v crit chance
+//   critDmg           +v crit damage multiplier
+//   critHeal          crits heal v HP
+//   critBleed         crits ignite (bleed) at intensity v
+//   coin              +v% coins
+//   magnetR           +v px pickup magnet radius
+//   midasPer/midasCap +1 damage per (midasPer) coins held, capped at midasCap
+//   eliteCoins        elites drop +v bonus coins
+//   atkSpd            +v% attack speed
+//   frenzyMax         hits grant +2% attack speed for 3s, stacking to v
+//   echo              light-melee swings have v chance to strike twice (2nd at 50%)
+// ============================================================================
+const Evolutions = (() => {
+
+  const STAT_NAMES = {
+    hp: 'TOUGH', dmg: 'BRUTAL', spd: 'FLEET', roll: 'ACROBAT',
+    crit: 'DEADLY', coin: 'GREEDY', regen: 'MENDING', atkspd: 'FRENZY',
+  };
+
+  const TABLE = {
+    // -------------------------------------------------- MENDING (regen)
+    regen: {
+      3: [
+        { name: 'Body of Theseus', desc: 'Healing is stronger the more health you are missing (up to double)', fx: { theseus: 1.0 } },
+        { name: 'Sanguivorous Gut Microbiome', desc: 'Enemies slain within arm\'s reach heal 2% of your max health', fx: { soulFeast: 2 } },
+        { name: 'Kleptoplasty', desc: 'Steal the sun like a solar sea slug: regenerate +0.8 HP/s, always', fx: { regenFlat: 0.8 } },
+      ],
+      6: [
+        { name: 'Axolotl Factor', desc: 'All healing +35%', fx: { healMult: 0.35 } },
+        { name: 'Hirudotherapy', desc: 'Nearby deaths heal 4% of your max health', fx: { soulFeast: 4 } },
+        { name: 'Tardigrade Tun', desc: 'Take 6% less damage and regenerate +0.5 HP/s', fx: { reduce: 0.06, regenFlat: 0.5 } },
+      ],
+      9: [
+        { name: 'Planarian Split', desc: 'Regenerate +2 HP/s, always', fx: { regenFlat: 2.0 } },
+        { name: 'Lamprey Covenant', desc: 'Nearby deaths heal 6%; low-health healing +50%', fx: { soulFeast: 6, theseus: 0.5 } },
+        { name: 'Second Spleen', desc: 'Healing past full converts into a shield charm', fx: { overhealShield: 1 } },
+      ],
+      12: [
+        { name: 'Telomerase Wellspring', desc: 'All healing +60% and regenerate +1.5 HP/s', fx: { healMult: 0.6, regenFlat: 1.5 } },
+        { name: 'Vampire Finch', desc: 'Nearby deaths heal a monstrous 10% of max health', fx: { soulFeast: 10 } },
+        { name: 'Lazarus Taxon', desc: 'Survive death once per run, clinging on at 1 HP', fx: { lifeline: 1 } },
+      ],
+    },
+    // -------------------------------------------------- TOUGH (hp)
+    hp: {
+      3: [
+        { name: 'Osteoderm Plating', desc: 'Crocodile-bone skin: take 8% less damage', fx: { reduce: 0.08 } },
+        { name: 'Hedgehog\'s Dilemma', desc: 'Enemies that touch you take 6 damage', fx: { thorns: 6 } },
+        { name: 'Wolff\'s Law', desc: 'Bone builds under load: +15% max health', fx: { maxHpPct: 0.15 } },
+      ],
+      6: [
+        { name: 'Mithridatism', desc: 'A little poison every day: take 12% less damage', fx: { reduce: 0.12 } },
+        { name: 'Crown-of-Thorns', desc: 'Contact thorns deal 12 damage', fx: { thorns: 12 } },
+        { name: 'Square-Cube Heresy', desc: 'The law says you can\'t scale up. Heresy: +25% max health', fx: { maxHpPct: 0.25 } },
+      ],
+      9: [
+        { name: 'Testudo Formation', desc: 'Take 15% less damage; 8 thorns damage', fx: { reduce: 0.15, thorns: 8 } },
+        { name: 'Bombardier Reflex', desc: 'Getting hit blasts 20 damage to everything nearby', fx: { retaliateNova: 20 } },
+        { name: 'Blue Whale Heart', desc: '+35% max health', fx: { maxHpPct: 0.35 } },
+      ],
+      12: [
+        { name: 'Osmium Lattice', desc: 'Densest matter there is: take 22% less damage', fx: { reduce: 0.22 } },
+        { name: 'Pistol Shrimp Reprisal', desc: '25 thorns damage and a 30-damage snap when struck', fx: { thorns: 25, retaliateNova: 30 } },
+        { name: 'Sauropod Scale', desc: '+60% max health', fx: { maxHpPct: 0.6 } },
+      ],
+    },
+    // -------------------------------------------------- BRUTAL (dmg)
+    dmg: {
+      3: [
+        { name: 'Coup de Grâce', desc: '+30% damage to enemies below 30% health', fx: { dmgVsWounded: 0.3 } },
+        { name: 'Trapdoor Doctrine', desc: 'Spider patience: +40% damage to enemies at full health', fx: { firstStrike: 0.4 } },
+        { name: 'Mantis Shrimp Strike', desc: 'Fastest punch in the ocean: +12% damage', fx: { dmg: 0.12 } },
+      ],
+      6: [
+        { name: 'Regicide', desc: '+35% damage to bosses', fx: { bossSlayer: 0.35 } },
+        { name: 'Berserkergang', desc: '+40% damage while below 35% health', fx: { lowHpRage: 0.4 } },
+        { name: 'Newton\'s Second Law', desc: 'Force equals mass times acceleration: +18% damage', fx: { dmg: 0.18 } },
+      ],
+      9: [
+        { name: 'Damnatio Memoriae', desc: 'Erase them: +60% damage to enemies below 30% health', fx: { dmgVsWounded: 0.6 } },
+        { name: 'Cursorial Hunter', desc: 'Run them down: +15% damage and +8% move speed', fx: { dmg: 0.15, spd: 0.08 } },
+        { name: 'Nantucket Sleighride', desc: 'Harpoon the big one: +50% damage to bosses', fx: { bossSlayer: 0.5 } },
+      ],
+      12: [
+        { name: 'Occam\'s Cleaver', desc: 'The simplest solution: +40% damage', fx: { dmg: 0.4 } },
+        { name: 'Running Amok', desc: 'Double damage while below 35% health', fx: { lowHpRage: 1.0 } },
+        { name: 'Trophic Cascade', desc: 'Apex predator effects: +50% vs the wounded AND the untouched', fx: { dmgVsWounded: 0.5, firstStrike: 0.5 } },
+      ],
+    },
+    // -------------------------------------------------- FLEET (spd)
+    spd: {
+      3: [
+        { name: 'Kármán Vortex', desc: 'Rolling leaves the air spinning: 1s speed burst after each roll', fx: { windWake: 1.0 } },
+        { name: 'Sidewinder', desc: '+10% move speed', fx: { spd: 0.10 } },
+        { name: 'Lagrange Point', desc: 'Things fall toward you: +50px pickup magnet range', fx: { magnetR: 50 } },
+      ],
+      6: [
+        { name: 'Mercurial Humour', desc: '+15% move speed', fx: { spd: 0.15 } },
+        { name: 'Zephyrus Contract', desc: 'The west wind owes you: 1.6s speed burst after each roll', fx: { windWake: 1.6 } },
+        { name: 'Quantum Tunneling', desc: '+0.08s of i-frames on every roll', fx: { phantomStep: 0.08 } },
+      ],
+      9: [
+        { name: 'Cheetah Spine', desc: '+20% move speed', fx: { spd: 0.20 } },
+        { name: 'Tachypsychia', desc: 'Time slows when it matters: +0.15s of i-frames on every roll', fx: { phantomStep: 0.15 } },
+        { name: 'Jet Stream Rider', desc: '2.2s roll speed burst and +8% move speed', fx: { windWake: 2.2, spd: 0.08 } },
+      ],
+      12: [
+        { name: 'Myelin Overdrive', desc: 'Insulated nerves fire faster: +35% move speed', fx: { spd: 0.35 } },
+        { name: 'Phase Velocity', desc: 'Faster than light (in a medium): +15% speed, +0.2s roll i-frames', fx: { spd: 0.15, phantomStep: 0.2 } },
+        { name: 'Cherenkov Wake', desc: 'Your roll glows past the limit: 35 damage rolling through enemies, +10% speed', fx: { rollNova: 35, spd: 0.10 } },
+      ],
+    },
+    // -------------------------------------------------- ACROBAT (roll)
+    roll: {
+      3: [
+        { name: 'Saccadic Masking', desc: 'Your brain edits out the blur: +0.1s of i-frames on every roll', fx: { phantomStep: 0.10 } },
+        { name: 'Ukemi', desc: 'The judoka\'s art of falling: kills refund 0.15s of roll cooldown', fx: { rollReset: 0.15 } },
+        { name: 'Crumple Zone', desc: 'Built to absorb the hit: take 5% less damage', fx: { reduce: 0.05 } },
+      ],
+      6: [
+        { name: 'Escapology', desc: 'Houdini\'s trade: +0.15s of i-frames on every roll', fx: { phantomStep: 0.15 } },
+        { name: 'Flywheel Effect', desc: 'Kills refund 0.3s of roll cooldown', fx: { rollReset: 0.3 } },
+        { name: 'Pangolin Gambit', desc: 'Roll like armor: rolling through enemies deals 20 damage', fx: { rollNova: 20 } },
+      ],
+      9: [
+        { name: 'Vestibular Overclock', desc: 'Inner ear, outer limits: -15% roll cooldown', fx: { rollCd: 0.15 } },
+        { name: 'Boulder of Sisyphus', desc: 'Let them feel the rock: rolling through enemies deals 40 damage', fx: { rollNova: 40 } },
+        { name: 'Matador\'s Veronica', desc: 'The slowest, closest pass: +0.2s roll i-frames, -8% cooldown', fx: { phantomStep: 0.2, rollCd: 0.08 } },
+      ],
+      12: [
+        { name: 'Heisenberg Uncertainty', desc: 'Position unknowable: +0.35s of i-frames on every roll', fx: { phantomStep: 0.35 } },
+        { name: 'Human Cannonball', desc: 'Rolling through enemies deals 70 damage', fx: { rollNova: 70 } },
+        { name: 'Perpetuum Mobile', desc: 'The impossible machine: kills refund 0.5s, -15% roll cooldown', fx: { rollReset: 0.5, rollCd: 0.15 } },
+      ],
+    },
+    // -------------------------------------------------- DEADLY (crit)
+    crit: {
+      3: [
+        { name: 'Dim Mak', desc: 'The fabled death touch: +8% crit chance', fx: { critCh: 0.08 } },
+        { name: 'Jugular Sense', desc: 'Crits hit 50% harder', fx: { critDmg: 0.5 } },
+        { name: 'Desmodus Draw', desc: 'The vampire bat\'s trick: crits heal 2 HP', fx: { critHeal: 2 } },
+      ],
+      6: [
+        { name: 'Obsidian Edge', desc: 'Sharper than surgical steel: +10% crit chance, +30% crit damage', fx: { critCh: 0.10, critDmg: 0.3 } },
+        { name: 'Komodo Gambit', desc: 'The wound does the work: crits make enemies bleed', fx: { critBleed: 1 } },
+        { name: 'Phlebotomy Dividend', desc: 'Bloodletting, but it pays YOU: crits heal 4 HP', fx: { critHeal: 4 } },
+      ],
+      9: [
+        { name: 'Achilles Registry', desc: 'Every heel catalogued: crits hit 100% harder', fx: { critDmg: 1.0 } },
+        { name: 'Artery Atlas', desc: '+15% crit chance', fx: { critCh: 0.15 } },
+        { name: 'Ikejime Rhythm', desc: 'The cleanest cut: bleeding crits that also heal 3 HP', fx: { critBleed: 2, critHeal: 3 } },
+      ],
+      12: [
+        { name: 'Madame Guillotine', desc: '+20% crit chance, +80% crit damage', fx: { critCh: 0.20, critDmg: 0.8 } },
+        { name: 'Exsanguinator', desc: 'Savage bleeds; crits heal 6 HP', fx: { critBleed: 3, critHeal: 6 } },
+        { name: 'Death of a Thousand Cuts', desc: '+30% crit chance', fx: { critCh: 0.30 } },
+      ],
+    },
+    // -------------------------------------------------- GREEDY (coin)
+    coin: {
+      3: [
+        { name: 'Numismatist\'s Pull', desc: 'Coins know a collector: +80px pickup magnet range', fx: { magnetR: 80 } },
+        { name: 'Letter of Marque', desc: 'Licensed piracy: elites drop +2 bonus coins', fx: { eliteCoins: 2 } },
+        { name: 'Midas Metacarpals', desc: '+1 damage per 40 coins held (max +10)', fx: { midasPer: 40, midasCap: 10 } },
+      ],
+      6: [
+        { name: 'Dowser\'s Divining', desc: '+30% coins from everything', fx: { coin: 0.3 } },
+        { name: 'Gold Standard', desc: '+1 damage per 30 coins held (max +14)', fx: { midasPer: 30, midasCap: 14 } },
+        { name: 'War Profiteer', desc: 'Elites drop +4 bonus coins', fx: { eliteCoins: 4 } },
+      ],
+      9: [
+        { name: 'Seigniorage', desc: 'Profit from the mint itself: +1 damage per 30 coins (max +20)', fx: { midasPer: 30, midasCap: 20 } },
+        { name: 'Rare Earth Attractor', desc: '+160px magnet range, +20% coins', fx: { magnetR: 160, coin: 0.2 } },
+        { name: 'Prize Court', desc: 'The admiralty rules in your favor: elites drop +6 coins', fx: { eliteCoins: 6 } },
+      ],
+      12: [
+        { name: 'The Gilded Touch', desc: '+1 damage per 25 coins held (max +30)', fx: { midasPer: 25, midasCap: 30 } },
+        { name: 'Mansa Musa Moment', desc: 'Richest human who ever lived: +80% coins', fx: { coin: 0.8 } },
+        { name: 'King\'s Ransom', desc: 'Elites drop +10 coins; +100px magnet range', fx: { eliteCoins: 10, magnetR: 100 } },
+      ],
+    },
+    // -------------------------------------------------- FRENZY (atkspd)
+    atkspd: {
+      3: [
+        { name: 'Epinephrine Cascade', desc: 'Hits build +2% attack speed (3s), stacking to 5', fx: { frenzyMax: 5 } },
+        { name: 'Fast-Twitch Fibers', desc: '+12% attack speed', fx: { atkSpd: 0.12 } },
+        { name: 'Stroboscopic Strike', desc: 'Light swings have a 15% chance to strike twice', fx: { echo: 0.15 } },
+      ],
+      6: [
+        { name: 'Neural Overclock', desc: '+18% attack speed', fx: { atkSpd: 0.18 } },
+        { name: 'Battle Trance', desc: 'Frenzy stacks to 10', fx: { frenzyMax: 10 } },
+        { name: 'Flam Rudiment', desc: 'The drummer\'s double-hit: 25% chance light swings strike twice', fx: { echo: 0.25 } },
+      ],
+      9: [
+        { name: 'Hummingbird Heart', desc: '1,200 beats a minute: +25% attack speed', fx: { atkSpd: 0.25 } },
+        { name: 'Tarantism', desc: 'The dancing plague takes you: frenzy stacks to 15', fx: { frenzyMax: 15 } },
+        { name: 'Paradiddle Doctrine', desc: '35% chance light swings strike twice', fx: { echo: 0.35 } },
+      ],
+      12: [
+        { name: 'Time Dilation', desc: '+40% attack speed', fx: { atkSpd: 0.40 } },
+        { name: 'Thousand-Armed Kannon', desc: 'Half of all light swings strike twice', fx: { echo: 0.5 } },
+        { name: 'St. Vitus\' Dance', desc: 'Frenzy stacks to 25', fx: { frenzyMax: 25 } },
+      ],
+    },
+  };
+
+  const TIER_LABEL = { 3: 'I', 6: 'II', 9: 'III', 12: 'IV' };
+
+  function optionsFor(statKey, stacks) {
+    return (TABLE[statKey] && TABLE[statKey][stacks]) || null;
+  }
+
+  return { TABLE, STAT_NAMES, TIER_LABEL, optionsFor };
 })();
 
 </script>
@@ -652,10 +1039,12 @@ const Dungeon = (() => {
         }
       }
       if (r.type === 'treasure') {
+        // each chest rolls its mimic chance INDEPENDENTLY - twins can both bite.
+        // symmetric placement so position never reads as a tell.
         const nChests = Math.random() < 0.35 ? 2 : 1;
         for (let i = 0; i < nChests; i++) {
           r.chests.push({
-            x: PF.x + PF.w / 2 + (i === 0 ? 0 : (Math.random() < 0.5 ? -90 : 90)),
+            x: PF.x + PF.w / 2 + (nChests === 1 ? 0 : (i === 0 ? -90 : 90)),
             y: PF.y + PF.h / 2,
             opened: false,
             mimic: Math.random() < MIMIC_CHANCE,
@@ -763,7 +1152,7 @@ const Monsters = (() => {
     if (m.contactCd > 0) return;
     const p = g.player;
     if (Math.hypot(p.x - m.x, p.y - m.y) < m.r + p.r + 2) {
-      p.damage(m.dmg * mult, m.x, m.y, g);
+      p.damage(m.dmg * mult, m.x, m.y, g, m); // src ref lets thorns bite back
       m.contactCd = 0.8;
     }
   }
@@ -984,7 +1373,7 @@ const Monsters = (() => {
 
   // --- damage ---------------------------------------------------------------
   function takeHit(m, dmg, opts, g) {
-    if (m.dead || m.spawnT > 0) return;
+    if (m.dead || m.spawnT > 0) return false;
     // Shielded: blocks hits arriving from its front 120-degree arc while shield is up
     if (m.type === 'shielded' && m.shieldUp && opts.sx !== undefined) {
       const hitAngle = Math.atan2(opts.sy - m.y, opts.sx - m.x);
@@ -993,7 +1382,7 @@ const Monsters = (() => {
         Fx.burst(m.x + Math.cos(hitAngle) * m.r, m.y + Math.sin(hitAngle) * m.r, '#aaddff', 6, { speed: 120, life: 0.3 });
         Fx.text(m.x, m.y - m.r - 8, 'BLOCKED', '#aaddff', 11);
         Sfx.play('hit');
-        return;
+        return false; // blocked hits earn no frenzy stacks or crit lifesteal
       }
     }
     if (opts.knock) {
@@ -1013,6 +1402,7 @@ const Monsters = (() => {
       }
     }
     applyDamage(m, dmg, g, opts);
+    return true; // hit landed
   }
 
   function applyDamage(m, dmg, g, opts) {
@@ -1379,7 +1769,7 @@ const Boss = (() => {
         b.jaw = 4 + Math.sin(b.t * 5) * 2;
         moveToward(b, p.x, p.y, dt, STATS.speed * sm);
         if (b.contactCd <= 0 && dist < b.r + p.r + 2) {
-          p.damage(STATS.contactDmg, b.x, b.y, g);
+          p.damage(STATS.contactDmg, b.x, b.y, g, b); // src: thorns bite kings too
           b.contactCd = 0.9;
         }
         const wait = phase(b) === 3 ? 1.1 : 1.8;
@@ -1415,7 +1805,7 @@ const Boss = (() => {
         b.jaw = 16;
         Fx.burst(b.x, b.y, '#d4af37', 2, { speed: 60, life: 0.3 });
         if (b.contactCd <= 0 && dist < b.r + p.r + 4) {
-          p.damage(STATS.lungeDmg, b.x, b.y, g);
+          p.damage(STATS.lungeDmg, b.x, b.y, g, b);
           b.contactCd = 0.9;
         }
         if (b.t >= 0.42) { b.state = 'idle'; b.t = 0; }
@@ -1475,7 +1865,7 @@ const Boss = (() => {
             const baby = Monsters.make('mimicbaby', b.x + Math.cos(a) * 70, b.y + Math.sin(a) * 70, 2);
             g.monsters.push(baby);
           }
-          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(STATS.slamDmg, b.x, b.y, g);
+          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(STATS.slamDmg, b.x, b.y, g, b);
         }
         break;
       }
@@ -1508,7 +1898,7 @@ const Boss = (() => {
   }
 
   function takeHit(b, dmg, opts, g) {
-    if (b.dead || b.airborne) return; // can't be hit mid-slam-leap
+    if (b.dead || b.airborne) return false; // can't be hit mid-slam-leap
     if (opts.flame) b.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
     b.hp -= dmg;
     b.flash = 0.1;
@@ -1517,6 +1907,7 @@ const Boss = (() => {
     Sfx.play(opts.crit ? 'crit' : (opts.hitSfx || 'hit'));
     if (opts.flame) Sfx.play('burn');
     if (b.hp <= 0) die(b, g);
+    return true; // hit landed (callers use this to gate on-hit rewards)
   }
 
   function die(b, g) {
@@ -1655,11 +2046,22 @@ const PlayerDef = (() => {
       const mHp = (meta?.ranks?.vitality || 0) * 10;
       this.maxHp = T.maxHp + mHp;
       this.hp = this.maxHp;
-      this.coins = 0; this.essenceRun = 0;
+      this.coins = 0; this.essenceRun = 0; this.shards = 0;
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
       this.buffs = { shield: 0, rageT: 0, hasteT: 0 };
+
+      // evolution system: stacks per upgrade key + accumulated fx primitives
+      this.upgradeStacks = {};
+      this.evo = {};              // summed fx (see evolutions.js legend)
+      this.lifelineUsed = 0;
+      this.frenzy = { s: 0, t: 0 };
+
+      // armor slot
+      this.armor = null;          // armor item (weapons.js rollArmor)
+      this.armorMods = {};        // derived from the equipped armor
+      this.phoenixUsed = false;
 
       // stat multipliers - passive upgrades stack into these
       this.stats = {
@@ -1704,6 +2106,82 @@ const PlayerDef = (() => {
 
     xpToNext() { return 18 + (this.level - 1) * 14; } // leveling curve
 
+    // --- evolution / armor helpers ------------------------------------------
+    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0); }
+
+    applyEvolution(fx) {
+      for (const k of Object.keys(fx)) {
+        const v = fx[k];
+        if (k === 'maxHpPct') {
+          const gain = Math.round(this.maxHp * v);
+          this.maxHp += gain;
+          this.hp += gain;
+        } else if (k === 'midasPer') {
+          this.evo.midasPer = Math.min(this.evo.midasPer || 1e9, v);
+        } else {
+          this.evo[k] = (this.evo[k] || 0) + v;
+        }
+      }
+    }
+
+    equipArmor(a, g) {
+      const old = this.armor;
+      this.armor = a;
+      // derive armor mods fresh each equip (never stack across swaps)
+      const m = {};
+      m.reduce = a.defense;
+      for (const e of a.enchants) {
+        if (e.key === 'protection') m.reduce += 0.03 * (e.level || 1);
+        if (e.key === 'swiftness') m.spd = (m.spd || 0) + 0.06;
+        if (e.key === 'recovery') m.regenFlat = (m.regenFlat || 0) + 0.4;
+        if (e.key === 'acrobatics') m.rollCd = (m.rollCd || 0) + 0.08;
+        if (e.key === 'fortune') m.coin = (m.coin || 0) + 0.10;
+        if (e.key === 'thornmail') m.thorns = (m.thorns || 0) + 8;
+        if (e.key === 'bulwark') m.bulwark = 1;
+        if (e.key === 'juggernaut') { m.reduce += 0.12; m.dmg = (m.dmg || 0) + 0.10; }
+        if (e.key === 'phoenix') m.phoenix = 1;
+      }
+      this.armorMods = m;
+      // Bulwark grants one immediate shield on first equip of THIS item, so armor
+      // found on the final floor still does something (per-item gate stops
+      // drop/re-equip farming; the per-floor refresh lives in startFloor)
+      if (m.bulwark && !a.bulwarkGranted) {
+        a.bulwarkGranted = true;
+        if (this.buffs.shield < 1) {
+          this.buffs.shield = 1;
+          Fx.text(this.x, this.y - 40, 'BULWARK', '#7fd4ff', 13);
+        }
+      }
+      if (old) g.dropArmorPickup(old, this.x, this.y + 30);
+      Sfx.play('pickup');
+      Fx.text(this.x, this.y - 26, Weapons.displayName(a), a.color, 12);
+    }
+
+    // one damage formula for every player attack: melee and arrows both route here
+    computeDmg(base, target, g) {
+      let dmg = base * this.stats.dmgMul * (1 + this.mod('dmg'));
+      if (this.buffs.rageT > 0) dmg *= 1.35;
+      if (this.mod('lowHpRage') && this.hp <= this.maxHp * 0.35) dmg *= 1 + this.mod('lowHpRage');
+      if (target) {
+        if (this.mod('dmgVsWounded') && target.hp <= target.maxHp * 0.3) dmg *= 1 + this.mod('dmgVsWounded');
+        if (this.mod('firstStrike') && target.hp >= target.maxHp) dmg *= 1 + this.mod('firstStrike');
+        if (this.mod('bossSlayer') && target.isBoss) dmg *= 1 + this.mod('bossSlayer');
+      }
+      if (this.evo.midasPer) dmg += Math.min(this.evo.midasCap || 0, Math.floor(this.coins / this.evo.midasPer));
+      const crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh');
+      if (crit) dmg *= T.critMult + this.mod('critDmg');
+      return { dmg, crit };
+    }
+
+    // shared post-hit hook: frenzy stacks, crit lifesteal
+    onHitLanded(crit, g) {
+      if (this.mod('frenzyMax')) {
+        this.frenzy.s = Math.min(this.mod('frenzyMax'), this.frenzy.s + 1);
+        this.frenzy.t = 3;
+      }
+      if (crit && this.mod('critHeal')) this.heal(this.mod('critHeal'), true);
+    }
+
     addXp(n, g) {
       this.xp += n;
       while (this.xp >= this.xpToNext()) {
@@ -1742,7 +2220,7 @@ const PlayerDef = (() => {
       Fx.text(this.x, this.y - 26, Weapons.displayName(w), w.color, 12);
     }
 
-    damage(dmg, sx, sy, g) {
+    damage(dmg, sx, sy, g, src) {
       // winTimer > 0 = boss just died: celebration invulnerability, and it closes
       // the die-after-victory race that double-banked essence
       if (this.iframes > 0 || this.dead || g.state !== 'play' || g.winTimer > 0) return;
@@ -1755,23 +2233,75 @@ const PlayerDef = (() => {
         Fx.burst(this.x, this.y, ['#7fd4ff', '#cfe9ff'], 16, { speed: 160, life: 0.4, glow: true });
         return;
       }
+      // damage reduction from armor + evolutions (capped so nothing is free)
+      const reduce = Math.min(0.6, this.mod('reduce'));
+      dmg = dmg * (1 - reduce);
       this.hp -= dmg;
       this.iframes = T.hurtIframes;
       this.flash = 0.25;
       Fx.shake(6, 0.25);
       Sfx.play('hurt');
       Fx.burst(this.x, this.y, '#ff5555', 10, { speed: 150, life: 0.4 });
+      // thorns bite back at whoever touched you
+      if (src && !src.dead && this.mod('thorns')) {
+        src.takeHit(this.mod('thorns'), { sx: this.x, sy: this.y, fromPlayer: true }, g);
+      }
+      // Bombardier Reflex: retaliation blast
+      if (this.mod('retaliateNova')) {
+        Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a'], 18, { speed: 220, life: 0.4, glow: true });
+        for (const m of g.monsters) {
+          if (!m.dead && !m.airborne && Math.hypot(m.x - this.x, m.y - this.y) < 130 + m.r) {
+            m.takeHit(this.mod('retaliateNova'), { sx: this.x, sy: this.y, knock: 200, fromPlayer: true }, g);
+          }
+        }
+      }
       // knock away from the source
       const a = Math.atan2(this.y - sy, this.x - sx);
       this.vx += Math.cos(a) * 180; this.vy += Math.sin(a) * 180;
-      if (this.hp <= 0) { this.hp = 0; this.dead = true; g.onPlayerDeath(); }
+      if (this.hp <= 0) {
+        // Lazarus Taxon (evolution), then Phoenix Plume (armor): cheat death
+        if (this.evo.lifeline > this.lifelineUsed) {
+          this.lifelineUsed++;
+          this.hp = 1;
+          this.iframes = 1.5;
+          Sfx.play('levelup');
+          Fx.text(this.x, this.y - 34, 'LAZARUS TAXON', '#6ee7a0', 16);
+          Fx.burst(this.x, this.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+          return;
+        }
+        if (this.armorMods.phoenix && !this.phoenixUsed) {
+          this.phoenixUsed = true;
+          this.hp = Math.round(this.maxHp * 0.3);
+          this.iframes = 1.5;
+          Sfx.play('levelup');
+          Fx.text(this.x, this.y - 34, 'PHOENIX PLUME', '#ff9a3d', 16);
+          Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a', '#ff4422'], 40, { speed: 280, life: 0.9, glow: true });
+          return;
+        }
+        this.hp = 0; this.dead = true; g.onPlayerDeath();
+      }
     }
 
-    heal(n) {
-      this.hp = Math.min(this.maxHp, this.hp + n);
-      Sfx.play('heal');
-      Fx.burst(this.x, this.y, '#6ee7a0', 12, { speed: 90, life: 0.6, glow: true });
-      Fx.text(this.x, this.y - 24, '+' + n, '#6ee7a0', 13);
+    heal(n, quiet) {
+      // evolution hooks: flat healing boost + Body of Theseus missing-hp scaling
+      let amount = n * (1 + this.mod('healMult'));
+      if (this.mod('theseus')) {
+        const missing = 1 - this.hp / this.maxHp;
+        amount *= 1 + this.mod('theseus') * missing;
+      }
+      amount = Math.round(amount);
+      const over = this.hp + amount - this.maxHp;
+      this.hp = Math.min(this.maxHp, this.hp + amount);
+      // Second Spleen: overheal becomes a shield charm
+      if (over > 0 && this.mod('overhealShield') && this.buffs.shield < 1) {
+        this.buffs.shield = 1;
+        Fx.text(this.x, this.y - 38, 'OVERHEAL SHIELD', '#7fd4ff', 12);
+      }
+      if (!quiet) {
+        Sfx.play('heal');
+        Fx.burst(this.x, this.y, '#6ee7a0', 12, { speed: 90, life: 0.6, glow: true });
+      }
+      Fx.text(this.x, this.y - 24, '+' + amount, '#6ee7a0', quiet ? 11 : 13);
     }
 
     update(dt, g, input) {
@@ -1780,12 +2310,14 @@ const PlayerDef = (() => {
 
       if (this.iframes > 0) this.iframes -= dt;
       if (this.rollCd > 0) this.rollCd -= dt;
-      if (this.attackCd > 0) this.attackCd -= dt * stats.atkSpeedMul;
+      if (this.attackCd > 0) this.attackCd -= dt * (stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02);
       if (this.flash > 0) this.flash -= dt;
       if (this.momentumT > 0) this.momentumT -= dt;
       if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
-      if (stats.regen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + stats.regen * dt);
+      if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
+      const totalRegen = stats.regen + this.mod('regenFlat');
+      if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
       // aim at the mouse - unless auto-attack (F) has a target, then aim locks on
       this.facing = Math.atan2(input.mouse.y - this.y, input.mouse.x - this.x);
@@ -1816,8 +2348,20 @@ const PlayerDef = (() => {
       if (this.rollT >= 0) {
         this.rollT += dt;
         const k = this.rollT / T.rollDur;
+        // rollNova evolutions: bowling through enemies hurts them (once per roll each)
+        if (this.mod('rollNova')) {
+          for (const m of g.monsters) {
+            if (m.dead || m.airborne || this.rollHits.has(m)) continue;
+            if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 6) {
+              this.rollHits.add(m);
+              m.takeHit(this.mod('rollNova'), { sx: this.x, sy: this.y, knock: 220, fromPlayer: true }, g);
+            }
+          }
+        }
         if (k >= 1) {
           this.rollT = -1;
+          // Wind Wake evolutions: speed burst as you come out of the roll
+          if (this.mod('windWake')) this.momentumT = Math.max(this.momentumT, this.mod('windWake'));
         } else {
           // burst of speed along the roll direction, eased out
           const sp = T.rollSpeed * (1 - k * 0.45);
@@ -1836,15 +2380,17 @@ const PlayerDef = (() => {
         const mom = this.momentumT > 0 ? 1.25 : 1;
         const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
         const traversal = g.monsters.some(m => !m.dead) ? 1 : 1.28;
-        const sp = T.speed * stats.speedMul * mom * haste * traversal;
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger
         if ((input.pressed('Space') || input.pressed('ShiftLeft') || input.pressed('ShiftRight')) && this.rollCd <= 0) {
           this.rollT = 0;
           this.rollAngle = this.moving ? this.moveAngle : this.facing;
-          this.rollCd = T.rollCooldown * stats.rollCdMul;
-          this.iframes = Math.max(this.iframes, T.rollIframes);
+          this.rollCd = T.rollCooldown * stats.rollCdMul * (1 - Math.min(0.5, this.mod('rollCd')));
+          this.rollCdMax = this.rollCd; // HUD arc renders against this (stays right through refunds/mod changes)
+          this.iframes = Math.max(this.iframes, T.rollIframes + this.mod('phantomStep'));
+          this.rollHits = new Set(); // fresh rollNova targets each roll
           this.drawT = -1; // rolling cancels a bow draw
           Sfx.play('roll');
           Fx.burst(this.x, this.y, '#7fd4ff', 6, { speed: 80, life: 0.3 });
@@ -1924,26 +2470,32 @@ const PlayerDef = (() => {
         Fx.shake(5, 0.18);
       }
       let hitAny = false;
-      for (const m of g.monsters) {
-        if (m.dead) continue;
-        const dx = m.x - this.x, dy = m.y - this.y;
-        const d = Math.hypot(dx, dy);
-        if (d > w.range + m.r) continue;
-        let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        if (diff > w.arc / 2) continue;
-        const crit = Math.random() < T.critBase + stats.crit;
-        const rage = this.buffs.rageT > 0 ? 1.35 : 1;
-        const dmg = w.dmg * stats.dmgMul * rage * (crit ? T.critMult : 1);
-        m.takeHit(dmg, {
-          sx: this.x, sy: this.y,
-          knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
-          flame: Weapons.has(w, 'fireaspect'),
-          stagger: w.stagger,
-          execute: !!Weapons.has(w, 'executioner'),
-          hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
-          crit, fromPlayer: true,
-        }, g);
-        hitAny = true;
+      const swingOnce = (dmgScale) => {
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne) continue;
+          const dx = m.x - this.x, dy = m.y - this.y;
+          const d = Math.hypot(dx, dy);
+          if (d > w.range + m.r) continue;
+          let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          if (diff > w.arc / 2) continue;
+          const { dmg, crit } = this.computeDmg(w.dmg * dmgScale, m, g);
+          const landed = m.takeHit(dmg, {
+            sx: this.x, sy: this.y,
+            knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
+            flame: Weapons.has(w, 'fireaspect') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+            stagger: w.stagger,
+            execute: !!Weapons.has(w, 'executioner'),
+            hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
+            crit, fromPlayer: true,
+          }, g);
+          if (landed) { this.onHitLanded(crit, g); hitAny = true; } // blocked hits earn nothing
+        }
+      };
+      swingOnce(1);
+      // Echo evolutions: light swings sometimes strike twice (second at half power)
+      if (w.archetype === 'light' && this.mod('echo') && Math.random() < this.mod('echo')) {
+        swingOnce(0.5);
+        Fx.text(this.x, this.y - 34, 'ECHO', '#ff9a3d', 11);
       }
       if (hitAny && w.archetype === 'heavy') Fx.shake(7, 0.22);
 
@@ -1966,17 +2518,18 @@ const PlayerDef = (() => {
       const fx = Weapons.fxPalette(w); // arrows trail their enchant's element
       for (let i = 0; i < n; i++) {
         const a = this.facing + (i - (n - 1) / 2) * spread;
-        const crit = Math.random() < T.critBase + stats.crit;
+        // computeDmg without a target: per-target bonuses apply via projectile flags
+        const { dmg, crit } = this.computeDmg(w.dmg * (0.55 + draw * 0.65), null, g);
         g.projectiles.push({
           trail: fx.colors, glowTrail: fx.glow,
           x: this.x + Math.cos(a) * 16, y: this.y + Math.sin(a) * 16,
           vx: Math.cos(a) * w.projSpeed * (0.65 + draw * 0.5),
           vy: Math.sin(a) * w.projSpeed * (0.65 + draw * 0.5),
-          r: 4, dmg: w.dmg * stats.dmgMul * (this.buffs.rageT > 0 ? 1.35 : 1) * (0.55 + draw * 0.65) * (crit ? T.critMult : 1),
+          r: 4, dmg,
           from: 'player', color: crit ? '#ffd24c' : '#e8e3d0', life: 1.6,
           pierce: Weapons.has(w, 'piercing') ? 3 : 0,
           knock: Weapons.has(w, 'punch') ? 240 : 60,
-          flame: Weapons.has(w, 'flame'),
+          flame: Weapons.has(w, 'flame') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
           hitSfx: 'hitArrow',
           crit, arrow: true, hitSet: new Set(),
         });
@@ -1993,7 +2546,7 @@ const PlayerDef = (() => {
 
       // roll cooldown indicator: small radial arc under the player
       if (this.rollCd > 0) {
-        const k = 1 - this.rollCd / (T.rollCooldown * this.stats.rollCdMul);
+        const k = 1 - this.rollCd / (this.rollCdMax || (T.rollCooldown * this.stats.rollCdMul));
         c.strokeStyle = 'rgba(127,212,255,0.5)';
         c.lineWidth = 3;
         c.beginPath(); c.arc(0, this.r + 8, 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); c.stroke();
@@ -2203,6 +2756,22 @@ const UI = (() => {
     c.font = 'bold 14px monospace';
     c.fillText(`${p.coins}`, hbX + 22, hbY + hbH + 37);
 
+    // shards (salvage currency) - shown once you have any
+    if (p.shards > 0) {
+      const sx = hbX + 110, sy = hbY + hbH + 32;
+      c.fillStyle = '#7fe8e0';
+      c.beginPath(); c.moveTo(sx, sy - 7); c.lineTo(sx + 6, sy + 4); c.lineTo(sx - 6, sy + 4); c.closePath(); c.fill();
+      c.font = 'bold 13px monospace'; c.textAlign = 'left';
+      c.fillText(`${p.shards}`, sx + 11, sy + 5);
+      const w = p.weapon;
+      if (w && (w.upLvl || 0) < 5) {
+        const cost = 5 + (w.upLvl || 0) * 4;
+        c.font = '10px monospace';
+        c.fillStyle = p.shards >= cost ? '#7fe8e0' : 'rgba(127,232,224,0.4)';
+        c.fillText(`U hone ${cost}◈`, sx + 40, sy + 5);
+      }
+    }
+
     // essence (meta currency), only when carrying any
     if (p.essenceRun > 0 || g.meta.essence > 0) {
       c.fillStyle = '#b88aff';
@@ -2232,9 +2801,10 @@ const UI = (() => {
     c.fillStyle = '#8fa3bf';
     c.fillText(`FLOOR ${g.floorNum}/3`, hbX, H - 16);
 
-    // weapon slots (bottom-left) - two free slots, any mix
+    // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
     drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
+    drawArmorSlot(c, p.armor, 110, H - 106);
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
@@ -2282,6 +2852,83 @@ const UI = (() => {
       });
     }
     c.restore();
+  }
+
+  function drawArmorSlot(c, a, x, y) {
+    c.save();
+    c.globalAlpha = 0.85;
+    c.fillStyle = 'rgba(0,0,0,0.6)';
+    c.fillRect(x, y, 42, 42);
+    c.strokeStyle = a ? a.color : '#444';
+    c.lineWidth = 1.5;
+    c.strokeRect(x, y, 42, 42);
+    if (a) {
+      c.translate(x + 21, y + 19);
+      c.fillStyle = a.color;
+      c.beginPath();
+      c.moveTo(0, -11); c.lineTo(9, -6); c.lineTo(9, 3); c.lineTo(0, 12); c.lineTo(-9, 3); c.lineTo(-9, -6);
+      c.closePath(); c.fill();
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.fillRect(-1.2, -7, 2.4, 14);
+      a.enchants.forEach((e, i) => {
+        c.fillStyle = e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a';
+        c.beginPath(); c.arc(-14 + i * 9, 16, 3, 0, Math.PI * 2); c.fill();
+      });
+    } else {
+      c.fillStyle = '#3a3f4d';
+      c.font = '9px monospace'; c.textAlign = 'center';
+      c.fillText('armor', x + 21, y + 24);
+    }
+    c.restore();
+  }
+
+  // --- EVOLUTION CHOICE (Sam's system: stack a stat to 3/6/9/12) --------------------
+  function drawEvolution(c, g) {
+    const ev = g.evoChoices;
+    const e = overlayEase(g);
+    const dy = (1 - e) * 26;
+    c.save();
+    c.globalAlpha = e;
+    c.translate(0, dy);
+    c.fillStyle = 'rgba(10,5,16,0.85)';
+    c.fillRect(0, -30, W, H + 60);
+    c.textAlign = 'center';
+    c.font = 'bold 30px monospace';
+    c.fillStyle = '#b88aff';
+    c.fillText(`${Evolutions.STAT_NAMES[ev.key]} EVOLUTION ${Evolutions.TIER_LABEL[ev.stacks]}`, W / 2, 118);
+    c.font = '13px monospace';
+    c.fillStyle = '#8fa3bf';
+    c.fillText('your training crystallizes into something stranger - choose', W / 2, 146);
+
+    const n = ev.options.length;
+    const cardW = 262, cardH = 190, gap = 20;
+    const totalW = n * cardW + (n - 1) * gap;
+    const rects = [];
+    for (let i = 0; i < n; i++) {
+      const opt = ev.options[i];
+      const x = (W - totalW) / 2 + i * (cardW + gap), y = 185;
+      const hov = g.hoverChoice === i;
+      c.fillStyle = hov ? 'rgba(184,138,255,0.14)' : 'rgba(255,255,255,0.05)';
+      c.fillRect(x, y, cardW, cardH);
+      c.strokeStyle = hov ? '#b88aff' : '#5a4a78';
+      c.lineWidth = hov ? 2.5 : 1.5;
+      c.strokeRect(x, y, cardW, cardH);
+      c.font = 'bold 15px monospace';
+      c.fillStyle = '#e8d5ff';
+      wrapText(c, opt.name, x + cardW / 2, y + 34, cardW - 24, 19);
+      c.font = '12px monospace';
+      c.fillStyle = '#9fb0c8';
+      wrapText(c, opt.desc, x + cardW / 2, y + 92, cardW - 26, 16);
+      c.font = 'bold 13px monospace';
+      c.fillStyle = '#5a6478';
+      c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 12);
+      rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i });
+    }
+    c.font = '11px monospace';
+    c.fillStyle = '#667';
+    c.fillText('every evolution is a real thing - look them up later', W / 2, 420);
+    c.restore();
+    return rects;
   }
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
@@ -2473,9 +3120,9 @@ const UI = (() => {
       cx += cardW + gap;
     }
 
-    c.font = '11px monospace';
-    c.fillStyle = '#445';
-    c.fillText('designed by the boss himself · built with Claude', W / 2, H - 14);
+    c.font = 'italic 12px monospace';
+    c.fillStyle = '#8a7340';
+    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
 
     // high-scores button (top-left)
     const scoresR = { x: 14, y: 14, w: 150, h: 30, action: 'scores' };
@@ -2661,6 +3308,20 @@ const UI = (() => {
       c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 10);
       rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i }); // hitbox tracks the drift
     }
+    // once-per-level-up reroll
+    if (!g.levelRerolled) {
+      const rr = { x: W / 2 - 110, y: 385, w: 220, h: 34, reroll: true };
+      c.strokeStyle = '#7fd4ff'; c.lineWidth = 1.5;
+      c.strokeRect(rr.x, rr.y, rr.w, rr.h);
+      c.font = 'bold 13px monospace';
+      c.fillStyle = '#7fd4ff';
+      c.fillText('↻ REROLL CHOICES (R)', W / 2, rr.y + 22);
+      rects.push({ ...rr, y: rr.y + dy });
+    } else {
+      c.font = '11px monospace';
+      c.fillStyle = '#556';
+      c.fillText('reroll spent', W / 2, 405);
+    }
     c.restore();
     return rects;
   }
@@ -2725,7 +3386,7 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd, drawInitials };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawEnd, drawInitials };
 })();
 
 </script>
@@ -2836,7 +3497,9 @@ const UI = (() => {
     dungeon: null, room: null,
     player: null,
     monsters: [], projectiles: [], pickups: [],
-    boss: null, bossIntroT: 0, winTimer: -1, portal: null, autoAttack: false,
+    boss: null, bossIntroT: 0, winTimer: -1, portal: null,
+    autoAttack: (() => { try { return localStorage.getItem('drl_auto') === '1'; } catch { return false; } })(),
+    evoQueue: [], evoChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, scores: loadScores(),
     transition: null,     // {dir, next, t}
@@ -2849,6 +3512,7 @@ const UI = (() => {
     onKill(m) { onKill(m); },
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
+    dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
   };
 
   // ============================ RUN LIFECYCLE ============================
@@ -2860,6 +3524,8 @@ const UI = (() => {
     g.essenceEarned = 0;
     g.levelUpQueue = 0;
     g.levelChoices = [];
+    g.evoQueue = [];
+    g.evoChoices = null;
     g.winTimer = -1;
     g.deathTimer = -1;
     g.runEnded = false;
@@ -2878,6 +3544,11 @@ const UI = (() => {
     const theme = Dungeon.themeFor(g.floorNum);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
     Sfx.setAmbient(theme.ambient);
+    // Bulwark armor: a shield charm greets you on every floor
+    if (g.player.armorMods.bulwark) {
+      g.player.buffs.shield = 1;
+      Fx.text(g.player.x, g.player.y - 30, 'BULWARK', '#7fd4ff', 13);
+    }
     enterRoom(g.dungeon.start, null);
   }
 
@@ -2930,6 +3601,7 @@ const UI = (() => {
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1 }), x: PF.x + 200, y: PF.y + 160 },
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1 }), x: PF.x + 430, y: PF.y + 160 },
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.5 }), x: PF.x + 660, y: PF.y + 160 },
+        { kind: 'armor', armor: Weapons.rollArmor(tier, { minRarity: 1 }), x: PF.x + 120, y: PF.y + 320 },
         { kind: 'potion', x: PF.x + 320, y: PF.y + 320 },
         { kind: 'reroll', x: PF.x + 540, y: PF.y + 320 },
       ],
@@ -2937,6 +3609,7 @@ const UI = (() => {
     };
     for (const it of room.shopStock.items) {
       if (it.kind === 'weapon') it.price = it.weapon.price;
+      if (it.kind === 'armor') it.price = it.armor.price;
       if (it.kind === 'potion') it.price = POTION_PRICE;
       if (it.kind === 'reroll') it.price = REROLL_BASE;
     }
@@ -2955,6 +3628,11 @@ const UI = (() => {
     // ORIGINAL enchants: Momentum speed burst, Vampiric heal on kill
     if (Weapons.has(w, 'momentum')) p.momentumT = 1.2;
     if (Weapons.has(w, 'vampiric')) p.heal(2);
+    // evolution kill-hooks: proximity lifesteal + roll cooldown refunds
+    if (p.mod('soulFeast') && Math.hypot(m.x - p.x, m.y - p.y) < 140) {
+      p.heal(Math.max(1, Math.round(p.maxHp * p.mod('soulFeast') / 100)), true);
+    }
+    if (p.mod('rollReset') && p.rollCd > 0) p.rollCd -= p.mod('rollReset');
 
     // coins
     const [c0, c1] = m.coins;
@@ -2969,6 +3647,8 @@ const UI = (() => {
     if (['tank', 'summoner', 'shielded', 'mimic'].includes(m.type)) {
       const ne = 1 + ((Math.random() * 2) | 0);
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
+      // Greedy evolutions: bounty coins from elites
+      for (let i = 0; i < (p.mod('eliteCoins') || 0); i++) spawnPickup('coin', m.x, m.y);
     }
 
     // elite buff drops: temporary powers, rare enough to feel like an event
@@ -2984,14 +3664,17 @@ const UI = (() => {
       g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y, t: 0 });
       p.addXp(15, g);
     } else if (m.isBoss) {
-      // THE MIMIC KING: guaranteed legendary + coin fountain + essence shower
+      // THE MIMIC KING: guaranteed legendary + royal armor + coin fountain + essence
       const wp = Weapons.rollWeapon(tier, { minRarity: 4 });
       g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y - 20, t: 0 });
+      g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { minRarity: 3 }), x: m.x + 40, y: m.y, t: 0 });
       for (let i = 0; i < 36; i++) spawnPickup('coin', m.x, m.y);
       for (let i = 0; i < 12; i++) spawnPickup('essence', m.x, m.y);
       g.winTimer = 2.6; // savor it, then victory screen
     } else if (Math.random() < 0.045 * (1 + 0.5 * looting)) {
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier), x: m.x, y: m.y, t: 0 });
+    } else if (Math.random() < 0.035 * (1 + 0.5 * looting)) {
+      g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier), x: m.x, y: m.y, t: 0 });
     }
 
     checkRoomCleared();
@@ -3032,9 +3715,9 @@ const UI = (() => {
     }
   }
 
-  // send every loose (non-weapon) pickup racing to the player
+  // send every loose (non-gear) pickup racing to the player
   function vacuumPickups() {
-    for (const pk of g.pickups) if (pk.kind !== 'weapon') pk.vacuum = true;
+    for (const pk of g.pickups) if (pk.kind !== 'weapon' && pk.kind !== 'armorItem') pk.vacuum = true;
   }
 
   function openPortal() {
@@ -3207,7 +3890,10 @@ const UI = (() => {
       if (d < bestD) { bestD = d; best = obj; }
     };
     for (const ch of g.room.chests) if (!ch.opened) consider(ch.x, ch.y, { kind: 'chest', ch });
-    for (const pk of g.pickups) if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
+    for (const pk of g.pickups) {
+      if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
+      if (pk.kind === 'armorItem') consider(pk.x, pk.y, { kind: 'armorPickup', pk });
+    }
     if (g.room.type === 'shop' && g.room.shopStock) {
       for (const it of g.room.shopStock.items) if (!it.sold) consider(it.x, it.y, { kind: 'shopItem', it });
     }
@@ -3233,12 +3919,18 @@ const UI = (() => {
       for (let i = 0; i < nCoins; i++) spawnPickup('coin', ch.x, ch.y - 10);
       const tier = Monsters.tierFor(g.floorNum, g.room.dist);
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35 }), x: ch.x, y: ch.y + 34, t: 0 });
+      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3 }), x: ch.x - 50, y: ch.y + 20, t: 0 });
       if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y);
       p.addXp(10, g);
     }
 
     if (t.kind === 'weaponPickup') {
       p.pickupWeapon(t.pk.weapon, g);
+      g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+    }
+
+    if (t.kind === 'armorPickup') {
+      p.equipArmor(t.pk.armor, g);
       g.pickups.splice(g.pickups.indexOf(t.pk), 1);
     }
 
@@ -3252,6 +3944,10 @@ const UI = (() => {
       if (it.kind === 'weapon') {
         p.coins -= it.price; it.sold = true;
         p.pickupWeapon(it.weapon, g);
+        Sfx.play('buy');
+      } else if (it.kind === 'armor') {
+        p.coins -= it.price; it.sold = true;
+        p.equipArmor(it.armor, g);
         Sfx.play('buy');
       } else if (it.kind === 'potion') {
         if (p.hp >= p.maxHp) { g.shopMsg = { text: 'Already at full health', t: 1.2 }; Sfx.play('error'); return; }
@@ -3268,6 +3964,10 @@ const UI = (() => {
           if (s.kind === 'weapon' && !s.sold) {
             s.weapon = Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.2 * stock.rerolls });
             s.price = s.weapon.price;
+          }
+          if (s.kind === 'armor' && !s.sold) {
+            s.armor = Weapons.rollArmor(tier, { minRarity: 1, luck: 0.2 * stock.rerolls });
+            s.price = s.armor.price;
           }
         }
         it.price = REROLL_BASE + 5 * stock.rerolls;
@@ -3293,6 +3993,48 @@ const UI = (() => {
         p.y += 90; // land beside the stairwell, not inside it
       }
     }
+  }
+
+  // --- SHARD SALVAGE (Sam's idea: floor loot shouldn't be waste) ------------------
+  // X breaks a nearby dropped weapon/armor into shards; U spends shards to hone
+  // your equipped weapon (+8% damage per hone, 5 hones max per weapon).
+  const SHARD_VALUE = [1, 2, 4, 7, 12]; // by rarity index
+  const HONE_MAX = 5;
+  const honeCost = w => 5 + (w.upLvl || 0) * 4;
+
+  function salvageNearest() {
+    const t = nearestInteractable();
+    if (!t || (t.kind !== 'weaponPickup' && t.kind !== 'armorPickup')) return;
+    const item = t.pk.weapon || t.pk.armor;
+    const val = SHARD_VALUE[item.rarIdx] || 1;
+    g.player.shards += val;
+    g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+    Sfx.play('kill');
+    Fx.burst(t.pk.x, t.pk.y, ['#7fe8e0', item.color], 14, { speed: 150, life: 0.5, glow: true });
+    Fx.text(t.pk.x, t.pk.y - 20, `+${val} SHARDS`, '#7fe8e0', 13);
+  }
+
+  function honeWeapon() {
+    const p = g.player, w = p.weapon;
+    if (!w) return;
+    w.upLvl = w.upLvl || 0;
+    if (w.upLvl >= HONE_MAX) {
+      g.shopMsg = { text: 'This weapon is fully honed', t: 1.4 };
+      Sfx.play('error');
+      return;
+    }
+    const cost = honeCost(w);
+    if (p.shards < cost) {
+      g.shopMsg = { text: `Need ${cost} shards to hone (have ${p.shards})`, t: 1.6 };
+      Sfx.play('error');
+      return;
+    }
+    p.shards -= cost;
+    w.upLvl++;
+    w.dmg = Math.round(w.dmg * 1.08);
+    Sfx.play('upgrade');
+    Fx.burst(p.x, p.y, ['#7fe8e0', w.color, '#fff'], 20, { speed: 170, life: 0.6, glow: true });
+    Fx.text(p.x, p.y - 30, `${w.name} +${w.upLvl} · ${w.dmg} DMG`, w.color, 13);
   }
 
   function wakeMimic(ch) {
@@ -3353,6 +4095,7 @@ const UI = (() => {
       case 'title': updateTitle(); break;
       case 'play': updatePlay(dt); break;
       case 'levelup': g.overlayT += dt; updateLevelUp(); break;
+      case 'evolution': g.overlayT += dt; updateEvolution(); break;
       case 'pause':
         g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
@@ -3427,6 +4170,7 @@ const UI = (() => {
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
     if (!p.dead && input.pressed('KeyF')) {
       g.autoAttack = !g.autoAttack;
+      try { localStorage.setItem('drl_auto', g.autoAttack ? '1' : '0'); } catch { }
       Sfx.play('ui');
       Fx.text(p.x, p.y - 30, g.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', '#ffd24c', 13);
     }
@@ -3437,6 +4181,8 @@ const UI = (() => {
     if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
       checkMimicProximity();
       if (input.pressed('KeyE')) interact();
+      if (input.pressed('KeyX')) salvageNearest();
+      if (input.pressed('KeyU')) honeWeapon();
     }
 
     for (const m of g.monsters) if (!m.dead) m.update(dt, g);
@@ -3455,11 +4201,27 @@ const UI = (() => {
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
     if (g.floorBanner && g.floorBanner.t > 0) g.floorBanner.t -= dt;
 
+    // evolution menus take priority over further level-ups (the pick that
+    // triggered the evolution should resolve before the next level-up card)
+    if (g.evoQueue.length > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+      const evo = g.evoQueue.shift();
+      const options = Evolutions.optionsFor(evo.key, evo.stacks);
+      if (options) { // guard: an invalid queue entry (dbg typo) must never soft-lock
+        g.evoChoices = { key: evo.key, stacks: evo.stacks, options };
+        g.hoverChoice = -1;
+        g.state = 'evolution';
+        g.overlayT = 0;
+        p.drawT = -1;
+        Sfx.play('mimic'); // something stirs in you
+        return;
+      }
+    }
     // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
     // skipped once the boss is down (victory is seconds away) or the player is dead.
     if (g.levelUpQueue > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       g.levelUpQueue--;
       g.levelChoices = pickUpgrades();
+      g.levelRerolled = false; // one reroll per level-up
       g.hoverChoice = -1;
       g.state = 'levelup';
       g.overlayT = 0;
@@ -3488,8 +4250,35 @@ const UI = (() => {
       case 'regen': s.regen += 0.6; break;
       case 'atkspd': s.atkSpeedMul += 0.10; break;
     }
+    // EVOLUTIONS (Sam's design): the 3rd/6th/9th/12th stack of a stat opens
+    // an evolution menu for it, immediately
+    p.upgradeStacks[ch.key] = (p.upgradeStacks[ch.key] || 0) + 1;
+    const stacks = p.upgradeStacks[ch.key];
+    if (Evolutions.optionsFor(ch.key, stacks)) g.evoQueue.push({ key: ch.key, stacks });
     Sfx.play('upgrade');
     g.state = 'play';
+  }
+
+  function applyEvolutionChoice(opt) {
+    g.player.applyEvolution(opt.fx);
+    Sfx.play('levelup');
+    Fx.text(g.player.x, g.player.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
+    Fx.burst(g.player.x, g.player.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
+    g.evoChoices = null;
+    g.state = 'play';
+  }
+
+  function updateEvolution() {
+    g.hoverChoice = -1;
+    for (const r of g.uiRects) {
+      if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+        g.hoverChoice = r.idx;
+        if (input.mouse.clicked) { applyEvolutionChoice(g.evoChoices.options[r.idx]); return; }
+      }
+    }
+    if (input.pressed('Digit1') && g.evoChoices.options[0]) { applyEvolutionChoice(g.evoChoices.options[0]); return; }
+    if (input.pressed('Digit2') && g.evoChoices.options[1]) { applyEvolutionChoice(g.evoChoices.options[1]); return; }
+    if (input.pressed('Digit3') && g.evoChoices.options[2]) { applyEvolutionChoice(g.evoChoices.options[2]); return; }
   }
 
   function updateLevelUp() {
@@ -3497,13 +4286,26 @@ const UI = (() => {
     g.hoverChoice = -1;
     for (const r of g.uiRects) {
       if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+        if (r.reroll) {
+          if (input.mouse.clicked && !g.levelRerolled) { rerollLevelChoices(); return; }
+          continue;
+        }
         g.hoverChoice = r.idx;
         if (input.mouse.clicked) { applyUpgrade(g.levelChoices[r.idx]); return; }
       }
     }
-    if (input.pressed('Digit1') && g.levelChoices[0]) applyUpgrade(g.levelChoices[0]);
-    if (input.pressed('Digit2') && g.levelChoices[1]) applyUpgrade(g.levelChoices[1]);
-    if (input.pressed('Digit3') && g.levelChoices[2]) applyUpgrade(g.levelChoices[2]);
+    if (input.pressed('Digit1') && g.levelChoices[0]) { applyUpgrade(g.levelChoices[0]); return; }
+    if (input.pressed('Digit2') && g.levelChoices[1]) { applyUpgrade(g.levelChoices[1]); return; }
+    if (input.pressed('Digit3') && g.levelChoices[2]) { applyUpgrade(g.levelChoices[2]); return; }
+    // once-per-level-up reroll (R or the button)
+    if (input.pressed('KeyR') && !g.levelRerolled) rerollLevelChoices();
+  }
+
+  function rerollLevelChoices() {
+    g.levelRerolled = true;
+    g.levelChoices = pickUpgrades();
+    g.hoverChoice = -1;
+    Sfx.play('ui');
   }
 
   function updateTransition(dt) {
@@ -3569,11 +4371,18 @@ const UI = (() => {
         for (const m of g.monsters) {
           if (m.dead || m.airborne || (pr.hitSet && pr.hitSet.has(m))) continue; // airborne boss can't eat arrows
           if (Math.hypot(pr.x - m.x, pr.y - m.y) < m.r + pr.r) {
-            m.takeHit(pr.dmg, {
+            // target-conditional evolution bonuses resolve at impact for arrows
+            const P = g.player;
+            let dmg = pr.dmg;
+            if (P.mod('dmgVsWounded') && m.hp <= m.maxHp * 0.3) dmg *= 1 + P.mod('dmgVsWounded');
+            if (P.mod('firstStrike') && m.hp >= m.maxHp) dmg *= 1 + P.mod('firstStrike');
+            if (P.mod('bossSlayer') && m.isBoss) dmg *= 1 + P.mod('bossSlayer');
+            const landed = m.takeHit(dmg, {
               sx: pr.x - pr.vx * 0.02, sy: pr.y - pr.vy * 0.02,
               knock: pr.knock, flame: pr.flame, crit: pr.crit, fromPlayer: true,
               hitSfx: pr.hitSfx,
             }, g);
+            if (landed) P.onHitLanded(pr.crit, g);
             if (pr.pierce && pr.hitSet.size < pr.pierce) { pr.hitSet.add(m); pr.dmg *= 0.8; }
             else { dead = true; break; }
           }
@@ -3591,7 +4400,7 @@ const UI = (() => {
     for (let i = g.pickups.length - 1; i >= 0; i--) {
       const pk = g.pickups[i];
       pk.t += dt;
-      if (pk.kind === 'weapon') continue; // weapons sit still; E to pick up
+      if (pk.kind === 'weapon' || pk.kind === 'armorItem') continue; // gear sits still; E to pick up
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
@@ -3601,7 +4410,7 @@ const UI = (() => {
         const sp = 380 + Math.max(0, 300 - d);
         pk.x += (p.x - pk.x) / d * sp * dt;
         pk.y += (p.y - pk.y) / d * sp * dt;
-      } else if (d < 85 && pk.t > 0.25) {
+      } else if (d < 85 + p.mod('magnetR') && pk.t > 0.25) {
         pk.x += (p.x - pk.x) / d * 320 * dt;
         pk.y += (p.y - pk.y) / d * 320 * dt;
       }
@@ -3609,7 +4418,7 @@ const UI = (() => {
         if (pk.kind === 'coin') {
           // fractional carry so +10/20% coin upgrades actually pay out over time
           // (Math.round per 1-value coin was a dead zone below +50%)
-          p.coinFrac = (p.coinFrac || 0) + pk.value * p.stats.coinMul;
+          p.coinFrac = (p.coinFrac || 0) + pk.value * (p.stats.coinMul + p.mod('coin'));
           const v = Math.floor(p.coinFrac);
           if (v > 0) { p.coinFrac -= v; p.coins += v; p.coinsTotal += v; }
           Sfx.play('coin');
@@ -3727,6 +4536,7 @@ const UI = (() => {
     }
     if (g.state === 'bossintro') UI.drawBossIntro(c, g);
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
+    if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'pause') UI.drawPause(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
@@ -4052,6 +4862,7 @@ const UI = (() => {
       c.fillRect(it.x - 18, it.y - 2, 36, 8);
 
       if (it.kind === 'weapon') drawWeaponGlyph(c, it.weapon, it.x, it.y - 18, 1.1);
+      if (it.kind === 'armor') drawArmorGlyph(c, it.armor, it.x, it.y - 18, 1.1);
       if (it.kind === 'potion') {
         c.fillStyle = '#e05555';
         c.beginPath(); c.arc(it.x, it.y - 14, 9, 0, Math.PI * 2); c.fill();
@@ -4098,6 +4909,21 @@ const UI = (() => {
       c.fillRect(fat ? -3 : -1.5, -15, fat ? 6 : 3, 20);
       c.fillRect(-6, 4, 12, 3);
     }
+    c.restore();
+  }
+
+  function drawArmorGlyph(c, a, x, y, scale = 1) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+    c.shadowColor = a.color; c.shadowBlur = a.rarIdx >= 3 ? 12 : a.rarIdx >= 2 ? 6 : 0;
+    c.fillStyle = a.color;
+    c.beginPath();
+    c.moveTo(0, -12); c.lineTo(10, -7); c.lineTo(10, 3); c.lineTo(0, 13); c.lineTo(-10, 3); c.lineTo(-10, -7);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.fillRect(-1.5, -8, 3, 16);
     c.restore();
   }
 
@@ -4153,6 +4979,8 @@ const UI = (() => {
       c.restore();
     } else if (pk.kind === 'weapon') {
       drawWeaponGlyph(c, pk.weapon, pk.x, pk.y + bobY, 1);
+    } else if (pk.kind === 'armorItem') {
+      drawArmorGlyph(c, pk.armor, pk.x, pk.y + bobY, 1);
     }
   }
 
@@ -4161,7 +4989,8 @@ const UI = (() => {
     if (!t) return;
     let x, y, label = 'E';
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
-    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E - take'; }
+    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12][t.pk.weapon.rarIdx]}◈`; }
+    if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'stairs' || t.kind === 'portal') return; // these draw their own prompt
     c.save();
@@ -4172,14 +5001,19 @@ const UI = (() => {
     c.fillStyle = '#fff';
     c.fillText(label, x, y);
 
-    // weapon info card
+    // gear info card (weapons and armor share the layout)
     let w = null;
     if (t.kind === 'weaponPickup') w = t.pk.weapon;
+    if (t.kind === 'armorPickup') w = t.pk.armor;
     if (t.kind === 'shopItem' && t.it.kind === 'weapon') w = t.it.weapon;
+    if (t.kind === 'shopItem' && t.it.kind === 'armor') w = t.it.armor;
     if (w) {
+      const subtitle = w.isArmor
+        ? `Armor · ${Math.round(w.defense * 100)}% protection`
+        : `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`;
       const lines = [
         { text: `${w.rarityName} ${w.name}`, color: w.color, bold: true },
-        { text: `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`, color: '#c8d2e0' },
+        { text: subtitle, color: '#c8d2e0' },
         ...w.enchants.map(e => ({
           text: `${e.name}${e.level ? ' ' + ['', 'I', 'II', 'III'][e.level] : ''} - ${e.desc}`,
           color: e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a',
@@ -4221,6 +5055,13 @@ const UI = (() => {
       return Weapons.displayName(w);
     },
     coins(n) { if (g.player) g.player.coins += n || 100; },
+    armor(rarity) {
+      if (!g.player) return 'no run';
+      const a = Weapons.rollArmor(3, { minRarity: rarity ?? 2 });
+      g.player.equipArmor(a, g);
+      return Weapons.displayName(a);
+    },
+    evo(key, stacks) { g.evoQueue.push({ key: key || 'regen', stacks: stacks || 3 }); },
     god() { if (g.player) { g.player.maxHp = 9999; g.player.hp = 9999; } },
     lvl() { if (g.player) g.player.addXp(g.player.xpToNext(), g); },
     start() { if (g.state === 'title') newRun(); },

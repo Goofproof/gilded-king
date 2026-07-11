@@ -143,6 +143,17 @@ const Sfx = (() => {
       };
       amb.timers.push(setTimeout(loop, 500 + Math.random() * maxS * 500));
     };
+    // MUSIC: fn schedules one phrase of notes (via tone delays) and returns its
+    // length in seconds; we re-invoke just before it ends for a continuous loop
+    const phraseLoop = (fn) => {
+      const loop = () => {
+        if (amb.theme !== theme) return;
+        let dur = 2;
+        if (!muted) dur = fn();
+        amb.timers.push(setTimeout(loop, Math.max(400, dur * 1000 - 120)));
+      };
+      amb.timers.push(setTimeout(loop, 900));
+    };
     if (theme === 'forest') {
       noiseBed(300, 0.05); // wind through leaves
       every(2.5, 7, () => { // birdsong: quick rising chirps
@@ -150,16 +161,82 @@ const Sfx = (() => {
         const n = 2 + ((Math.random() * 3) | 0);
         for (let i = 0; i < n; i++) tone('sine', base * (0.9 + Math.random() * 0.2), base * 1.18, 0.02, 0.08, 0.05, i * 0.11);
       });
+      // APEX PREDATOR: a distant wolf, once or twice a floor
+      every(35, 75, () => {
+        tone('sine', 340, 520, 0.35, 0.25, 0.055);          // rise
+        tone('sine', 500, 240, 0.05, 1.4, 0.05, 0.55);      // long mournful fall
+        tone('sine', 470, 230, 0.05, 1.2, 0.028, 0.75);     // packmate echoes, further off
+      });
+      // MUSIC: sparse folk plucks in D minor pentatonic, wandering like a path
+      phraseLoop(() => {
+        const scale = [293.66, 349.23, 392.0, 440.0, 523.25, 587.33];
+        const step = 0.44;
+        let t = 0;
+        for (let i = 0; i < 8; i++) {
+          if (Math.random() < 0.65) {
+            const f = scale[(Math.random() * scale.length) | 0] * (Math.random() < 0.2 ? 0.5 : 1);
+            tone('triangle', f, f, 0.01, 0.55, 0.042, t);
+          }
+          t += step;
+        }
+        return t;
+      });
     } else if (theme === 'swamp') {
       noiseBed(170, 0.055); // thick murk
       drone('sine', 52, 0.035, 300); // something large breathing below
       every(3, 8, () => tone('sine', 240 + Math.random() * 140, 70, 0.02, 0.24, 0.08)); // bloop
       every(5, 12, () => noise(0.5, 0.028, 'bandpass', 4300, 3700)); // insect hiss
+      // APEX PREDATOR: a bull hippo bellows from the deep water
+      every(30, 65, () => {
+        tone('sawtooth', 90, 55, 0.06, 0.8, 0.09);
+        noise(0.5, 0.06, 'lowpass', 400, 120);
+        tone('sawtooth', 80, 60, 0.04, 0.35, 0.07, 0.9);   // second grunt
+        tone('sawtooth', 75, 58, 0.04, 0.3, 0.05, 1.25);   // third, shorter
+      });
+      // MUSIC: slow doomy bass ostinato with the occasional wrong-feeling note
+      phraseLoop(() => {
+        const line = [73.42, 87.31, 65.41, 73.42]; // D2 F2 C2 D2
+        const noteLen = 1.7;
+        line.forEach((f, i) => {
+          const wrong = Math.random() < 0.12;
+          tone('sine', wrong ? f * 1.414 : f, f * 0.99, 0.08, noteLen * 0.9, 0.055, i * noteLen);
+          tone('triangle', f * 1.5, f * 1.5, 0.1, noteLen * 0.5, 0.014, i * noteLen + 0.3); // ghost fifth
+        });
+        return line.length * noteLen;
+      });
     } else if (theme === 'castle') {
       drone('sawtooth', 55, 0.017, 220);   // detuned regal drone
       drone('sawtooth', 55.7, 0.017, 220);
       noiseBed(120, 0.03); // vast cold hall
       every(7, 15, () => tone('sine', 660, 650, 0.5, 1.4, 0.03)); // distant bell
+      // APEX PREDATOR: the court is conniving - whispers and a sly, low chuckle
+      every(28, 55, () => {
+        noise(0.3, 0.035, 'bandpass', 3200, 1800);          // whisper wisp
+        noise(0.25, 0.03, 'bandpass', 2600, 1400, 0.4);     // answering whisper
+        tone('square', 300, 280, 0.02, 0.09, 0.03, 0.9);    // heh
+        tone('square', 260, 240, 0.02, 0.09, 0.03, 1.08);   // heh
+        tone('square', 220, 190, 0.02, 0.12, 0.03, 1.26);   // hehh
+      });
+      // MUSIC: baroque harpsichord arpeggios - Am G F E, the court dances on
+      phraseLoop(() => {
+        const chords = [
+          [220.0, 261.63, 329.63, 440.0],   // Am
+          [196.0, 246.94, 293.66, 392.0],   // G
+          [174.61, 220.0, 261.63, 349.23],  // F
+          [164.81, 207.65, 246.94, 329.63], // E
+        ];
+        const noteLen = 0.15, perChord = 8;
+        let t = 0;
+        for (const ch of chords) {
+          tone('triangle', ch[0] / 2, ch[0] / 2, 0.02, noteLen * perChord * 0.9, 0.03, t); // bass root
+          for (let i = 0; i < perChord; i++) {
+            const f = ch[i % 4] * (i >= 4 ? 2 : 1);
+            tone('square', f, f, 0.005, 0.14, 0.016, t + i * noteLen);
+          }
+          t += noteLen * perChord;
+        }
+        return t;
+      });
     }
   }
 

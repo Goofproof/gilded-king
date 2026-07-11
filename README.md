@@ -26,8 +26,16 @@ then open http://localhost:8471/
 | E | open chests, buy, pick up weapons, stairs, portals |
 | Tab / right-click / wheel | swap between your two weapon slots (any mix) |
 | F | toggle auto-attack (aims and swings at the nearest enemy) |
+| X | salvage a dropped weapon/armor into shards |
+| U | spend shards to hone your weapon (+8% dmg, 5x max) |
+| R | reroll level-up choices (once per level-up) |
 | P / Esc | pause |
 | M | mute |
+
+Stack the same level-up pick to 3/6/9/12 and it EVOLVES - every evolution is
+named after something real (Kleptoplasty, Tachypsychia, Mithridatism...);
+google the weird ones. Armor drops with the same rarity rules as weapons.
+Each floor has its own music and an apex predator you'll hear but never see.
 
 Three floors, three places: the Whispering Forest, the Sunken Swamp, and the
 Gilded Keep - each with its own look and soundscape. Clear a floor and a portal

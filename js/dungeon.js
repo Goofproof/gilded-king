@@ -133,10 +133,12 @@ const Dungeon = (() => {
         }
       }
       if (r.type === 'treasure') {
+        // each chest rolls its mimic chance INDEPENDENTLY - twins can both bite.
+        // symmetric placement so position never reads as a tell.
         const nChests = Math.random() < 0.35 ? 2 : 1;
         for (let i = 0; i < nChests; i++) {
           r.chests.push({
-            x: PF.x + PF.w / 2 + (i === 0 ? 0 : (Math.random() < 0.5 ? -90 : 90)),
+            x: PF.x + PF.w / 2 + (nChests === 1 ? 0 : (i === 0 ? -90 : 90)),
             y: PF.y + PF.h / 2,
             opened: false,
             mimic: Math.random() < MIMIC_CHANCE,

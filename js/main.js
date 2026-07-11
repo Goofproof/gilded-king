@@ -104,7 +104,9 @@
     dungeon: null, room: null,
     player: null,
     monsters: [], projectiles: [], pickups: [],
-    boss: null, bossIntroT: 0, winTimer: -1, portal: null, autoAttack: false,
+    boss: null, bossIntroT: 0, winTimer: -1, portal: null,
+    autoAttack: (() => { try { return localStorage.getItem('drl_auto') === '1'; } catch { return false; } })(),
+    evoQueue: [], evoChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, scores: loadScores(),
     transition: null,     // {dir, next, t}
@@ -117,6 +119,7 @@
     onKill(m) { onKill(m); },
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
+    dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
   };
 
   // ============================ RUN LIFECYCLE ============================
@@ -128,6 +131,8 @@
     g.essenceEarned = 0;
     g.levelUpQueue = 0;
     g.levelChoices = [];
+    g.evoQueue = [];
+    g.evoChoices = null;
     g.winTimer = -1;
     g.deathTimer = -1;
     g.runEnded = false;
@@ -146,6 +151,11 @@
     const theme = Dungeon.themeFor(g.floorNum);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
     Sfx.setAmbient(theme.ambient);
+    // Bulwark armor: a shield charm greets you on every floor
+    if (g.player.armorMods.bulwark) {
+      g.player.buffs.shield = 1;
+      Fx.text(g.player.x, g.player.y - 30, 'BULWARK', '#7fd4ff', 13);
+    }
     enterRoom(g.dungeon.start, null);
   }
 
@@ -198,6 +208,7 @@
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1 }), x: PF.x + 200, y: PF.y + 160 },
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1 }), x: PF.x + 430, y: PF.y + 160 },
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.5 }), x: PF.x + 660, y: PF.y + 160 },
+        { kind: 'armor', armor: Weapons.rollArmor(tier, { minRarity: 1 }), x: PF.x + 120, y: PF.y + 320 },
         { kind: 'potion', x: PF.x + 320, y: PF.y + 320 },
         { kind: 'reroll', x: PF.x + 540, y: PF.y + 320 },
       ],
@@ -205,6 +216,7 @@
     };
     for (const it of room.shopStock.items) {
       if (it.kind === 'weapon') it.price = it.weapon.price;
+      if (it.kind === 'armor') it.price = it.armor.price;
       if (it.kind === 'potion') it.price = POTION_PRICE;
       if (it.kind === 'reroll') it.price = REROLL_BASE;
     }
@@ -223,6 +235,11 @@
     // ORIGINAL enchants: Momentum speed burst, Vampiric heal on kill
     if (Weapons.has(w, 'momentum')) p.momentumT = 1.2;
     if (Weapons.has(w, 'vampiric')) p.heal(2);
+    // evolution kill-hooks: proximity lifesteal + roll cooldown refunds
+    if (p.mod('soulFeast') && Math.hypot(m.x - p.x, m.y - p.y) < 140) {
+      p.heal(Math.max(1, Math.round(p.maxHp * p.mod('soulFeast') / 100)), true);
+    }
+    if (p.mod('rollReset') && p.rollCd > 0) p.rollCd -= p.mod('rollReset');
 
     // coins
     const [c0, c1] = m.coins;
@@ -237,6 +254,8 @@
     if (['tank', 'summoner', 'shielded', 'mimic'].includes(m.type)) {
       const ne = 1 + ((Math.random() * 2) | 0);
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
+      // Greedy evolutions: bounty coins from elites
+      for (let i = 0; i < (p.mod('eliteCoins') || 0); i++) spawnPickup('coin', m.x, m.y);
     }
 
     // elite buff drops: temporary powers, rare enough to feel like an event
@@ -252,14 +271,17 @@
       g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y, t: 0 });
       p.addXp(15, g);
     } else if (m.isBoss) {
-      // THE MIMIC KING: guaranteed legendary + coin fountain + essence shower
+      // THE MIMIC KING: guaranteed legendary + royal armor + coin fountain + essence
       const wp = Weapons.rollWeapon(tier, { minRarity: 4 });
       g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y - 20, t: 0 });
+      g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { minRarity: 3 }), x: m.x + 40, y: m.y, t: 0 });
       for (let i = 0; i < 36; i++) spawnPickup('coin', m.x, m.y);
       for (let i = 0; i < 12; i++) spawnPickup('essence', m.x, m.y);
       g.winTimer = 2.6; // savor it, then victory screen
     } else if (Math.random() < 0.045 * (1 + 0.5 * looting)) {
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier), x: m.x, y: m.y, t: 0 });
+    } else if (Math.random() < 0.035 * (1 + 0.5 * looting)) {
+      g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier), x: m.x, y: m.y, t: 0 });
     }
 
     checkRoomCleared();
@@ -300,9 +322,9 @@
     }
   }
 
-  // send every loose (non-weapon) pickup racing to the player
+  // send every loose (non-gear) pickup racing to the player
   function vacuumPickups() {
-    for (const pk of g.pickups) if (pk.kind !== 'weapon') pk.vacuum = true;
+    for (const pk of g.pickups) if (pk.kind !== 'weapon' && pk.kind !== 'armorItem') pk.vacuum = true;
   }
 
   function openPortal() {
@@ -475,7 +497,10 @@
       if (d < bestD) { bestD = d; best = obj; }
     };
     for (const ch of g.room.chests) if (!ch.opened) consider(ch.x, ch.y, { kind: 'chest', ch });
-    for (const pk of g.pickups) if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
+    for (const pk of g.pickups) {
+      if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
+      if (pk.kind === 'armorItem') consider(pk.x, pk.y, { kind: 'armorPickup', pk });
+    }
     if (g.room.type === 'shop' && g.room.shopStock) {
       for (const it of g.room.shopStock.items) if (!it.sold) consider(it.x, it.y, { kind: 'shopItem', it });
     }
@@ -501,12 +526,18 @@
       for (let i = 0; i < nCoins; i++) spawnPickup('coin', ch.x, ch.y - 10);
       const tier = Monsters.tierFor(g.floorNum, g.room.dist);
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35 }), x: ch.x, y: ch.y + 34, t: 0 });
+      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3 }), x: ch.x - 50, y: ch.y + 20, t: 0 });
       if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y);
       p.addXp(10, g);
     }
 
     if (t.kind === 'weaponPickup') {
       p.pickupWeapon(t.pk.weapon, g);
+      g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+    }
+
+    if (t.kind === 'armorPickup') {
+      p.equipArmor(t.pk.armor, g);
       g.pickups.splice(g.pickups.indexOf(t.pk), 1);
     }
 
@@ -520,6 +551,10 @@
       if (it.kind === 'weapon') {
         p.coins -= it.price; it.sold = true;
         p.pickupWeapon(it.weapon, g);
+        Sfx.play('buy');
+      } else if (it.kind === 'armor') {
+        p.coins -= it.price; it.sold = true;
+        p.equipArmor(it.armor, g);
         Sfx.play('buy');
       } else if (it.kind === 'potion') {
         if (p.hp >= p.maxHp) { g.shopMsg = { text: 'Already at full health', t: 1.2 }; Sfx.play('error'); return; }
@@ -536,6 +571,10 @@
           if (s.kind === 'weapon' && !s.sold) {
             s.weapon = Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.2 * stock.rerolls });
             s.price = s.weapon.price;
+          }
+          if (s.kind === 'armor' && !s.sold) {
+            s.armor = Weapons.rollArmor(tier, { minRarity: 1, luck: 0.2 * stock.rerolls });
+            s.price = s.armor.price;
           }
         }
         it.price = REROLL_BASE + 5 * stock.rerolls;
@@ -561,6 +600,48 @@
         p.y += 90; // land beside the stairwell, not inside it
       }
     }
+  }
+
+  // --- SHARD SALVAGE (Sam's idea: floor loot shouldn't be waste) ------------------
+  // X breaks a nearby dropped weapon/armor into shards; U spends shards to hone
+  // your equipped weapon (+8% damage per hone, 5 hones max per weapon).
+  const SHARD_VALUE = [1, 2, 4, 7, 12]; // by rarity index
+  const HONE_MAX = 5;
+  const honeCost = w => 5 + (w.upLvl || 0) * 4;
+
+  function salvageNearest() {
+    const t = nearestInteractable();
+    if (!t || (t.kind !== 'weaponPickup' && t.kind !== 'armorPickup')) return;
+    const item = t.pk.weapon || t.pk.armor;
+    const val = SHARD_VALUE[item.rarIdx] || 1;
+    g.player.shards += val;
+    g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+    Sfx.play('kill');
+    Fx.burst(t.pk.x, t.pk.y, ['#7fe8e0', item.color], 14, { speed: 150, life: 0.5, glow: true });
+    Fx.text(t.pk.x, t.pk.y - 20, `+${val} SHARDS`, '#7fe8e0', 13);
+  }
+
+  function honeWeapon() {
+    const p = g.player, w = p.weapon;
+    if (!w) return;
+    w.upLvl = w.upLvl || 0;
+    if (w.upLvl >= HONE_MAX) {
+      g.shopMsg = { text: 'This weapon is fully honed', t: 1.4 };
+      Sfx.play('error');
+      return;
+    }
+    const cost = honeCost(w);
+    if (p.shards < cost) {
+      g.shopMsg = { text: `Need ${cost} shards to hone (have ${p.shards})`, t: 1.6 };
+      Sfx.play('error');
+      return;
+    }
+    p.shards -= cost;
+    w.upLvl++;
+    w.dmg = Math.round(w.dmg * 1.08);
+    Sfx.play('upgrade');
+    Fx.burst(p.x, p.y, ['#7fe8e0', w.color, '#fff'], 20, { speed: 170, life: 0.6, glow: true });
+    Fx.text(p.x, p.y - 30, `${w.name} +${w.upLvl} · ${w.dmg} DMG`, w.color, 13);
   }
 
   function wakeMimic(ch) {
@@ -621,6 +702,7 @@
       case 'title': updateTitle(); break;
       case 'play': updatePlay(dt); break;
       case 'levelup': g.overlayT += dt; updateLevelUp(); break;
+      case 'evolution': g.overlayT += dt; updateEvolution(); break;
       case 'pause':
         g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
@@ -695,6 +777,7 @@
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
     if (!p.dead && input.pressed('KeyF')) {
       g.autoAttack = !g.autoAttack;
+      try { localStorage.setItem('drl_auto', g.autoAttack ? '1' : '0'); } catch { }
       Sfx.play('ui');
       Fx.text(p.x, p.y - 30, g.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', '#ffd24c', 13);
     }
@@ -705,6 +788,8 @@
     if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
       checkMimicProximity();
       if (input.pressed('KeyE')) interact();
+      if (input.pressed('KeyX')) salvageNearest();
+      if (input.pressed('KeyU')) honeWeapon();
     }
 
     for (const m of g.monsters) if (!m.dead) m.update(dt, g);
@@ -723,11 +808,27 @@
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
     if (g.floorBanner && g.floorBanner.t > 0) g.floorBanner.t -= dt;
 
+    // evolution menus take priority over further level-ups (the pick that
+    // triggered the evolution should resolve before the next level-up card)
+    if (g.evoQueue.length > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+      const evo = g.evoQueue.shift();
+      const options = Evolutions.optionsFor(evo.key, evo.stacks);
+      if (options) { // guard: an invalid queue entry (dbg typo) must never soft-lock
+        g.evoChoices = { key: evo.key, stacks: evo.stacks, options };
+        g.hoverChoice = -1;
+        g.state = 'evolution';
+        g.overlayT = 0;
+        p.drawT = -1;
+        Sfx.play('mimic'); // something stirs in you
+        return;
+      }
+    }
     // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
     // skipped once the boss is down (victory is seconds away) or the player is dead.
     if (g.levelUpQueue > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       g.levelUpQueue--;
       g.levelChoices = pickUpgrades();
+      g.levelRerolled = false; // one reroll per level-up
       g.hoverChoice = -1;
       g.state = 'levelup';
       g.overlayT = 0;
@@ -756,8 +857,35 @@
       case 'regen': s.regen += 0.6; break;
       case 'atkspd': s.atkSpeedMul += 0.10; break;
     }
+    // EVOLUTIONS (Sam's design): the 3rd/6th/9th/12th stack of a stat opens
+    // an evolution menu for it, immediately
+    p.upgradeStacks[ch.key] = (p.upgradeStacks[ch.key] || 0) + 1;
+    const stacks = p.upgradeStacks[ch.key];
+    if (Evolutions.optionsFor(ch.key, stacks)) g.evoQueue.push({ key: ch.key, stacks });
     Sfx.play('upgrade');
     g.state = 'play';
+  }
+
+  function applyEvolutionChoice(opt) {
+    g.player.applyEvolution(opt.fx);
+    Sfx.play('levelup');
+    Fx.text(g.player.x, g.player.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
+    Fx.burst(g.player.x, g.player.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
+    g.evoChoices = null;
+    g.state = 'play';
+  }
+
+  function updateEvolution() {
+    g.hoverChoice = -1;
+    for (const r of g.uiRects) {
+      if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+        g.hoverChoice = r.idx;
+        if (input.mouse.clicked) { applyEvolutionChoice(g.evoChoices.options[r.idx]); return; }
+      }
+    }
+    if (input.pressed('Digit1') && g.evoChoices.options[0]) { applyEvolutionChoice(g.evoChoices.options[0]); return; }
+    if (input.pressed('Digit2') && g.evoChoices.options[1]) { applyEvolutionChoice(g.evoChoices.options[1]); return; }
+    if (input.pressed('Digit3') && g.evoChoices.options[2]) { applyEvolutionChoice(g.evoChoices.options[2]); return; }
   }
 
   function updateLevelUp() {
@@ -765,13 +893,26 @@
     g.hoverChoice = -1;
     for (const r of g.uiRects) {
       if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+        if (r.reroll) {
+          if (input.mouse.clicked && !g.levelRerolled) { rerollLevelChoices(); return; }
+          continue;
+        }
         g.hoverChoice = r.idx;
         if (input.mouse.clicked) { applyUpgrade(g.levelChoices[r.idx]); return; }
       }
     }
-    if (input.pressed('Digit1') && g.levelChoices[0]) applyUpgrade(g.levelChoices[0]);
-    if (input.pressed('Digit2') && g.levelChoices[1]) applyUpgrade(g.levelChoices[1]);
-    if (input.pressed('Digit3') && g.levelChoices[2]) applyUpgrade(g.levelChoices[2]);
+    if (input.pressed('Digit1') && g.levelChoices[0]) { applyUpgrade(g.levelChoices[0]); return; }
+    if (input.pressed('Digit2') && g.levelChoices[1]) { applyUpgrade(g.levelChoices[1]); return; }
+    if (input.pressed('Digit3') && g.levelChoices[2]) { applyUpgrade(g.levelChoices[2]); return; }
+    // once-per-level-up reroll (R or the button)
+    if (input.pressed('KeyR') && !g.levelRerolled) rerollLevelChoices();
+  }
+
+  function rerollLevelChoices() {
+    g.levelRerolled = true;
+    g.levelChoices = pickUpgrades();
+    g.hoverChoice = -1;
+    Sfx.play('ui');
   }
 
   function updateTransition(dt) {
@@ -837,11 +978,18 @@
         for (const m of g.monsters) {
           if (m.dead || m.airborne || (pr.hitSet && pr.hitSet.has(m))) continue; // airborne boss can't eat arrows
           if (Math.hypot(pr.x - m.x, pr.y - m.y) < m.r + pr.r) {
-            m.takeHit(pr.dmg, {
+            // target-conditional evolution bonuses resolve at impact for arrows
+            const P = g.player;
+            let dmg = pr.dmg;
+            if (P.mod('dmgVsWounded') && m.hp <= m.maxHp * 0.3) dmg *= 1 + P.mod('dmgVsWounded');
+            if (P.mod('firstStrike') && m.hp >= m.maxHp) dmg *= 1 + P.mod('firstStrike');
+            if (P.mod('bossSlayer') && m.isBoss) dmg *= 1 + P.mod('bossSlayer');
+            const landed = m.takeHit(dmg, {
               sx: pr.x - pr.vx * 0.02, sy: pr.y - pr.vy * 0.02,
               knock: pr.knock, flame: pr.flame, crit: pr.crit, fromPlayer: true,
               hitSfx: pr.hitSfx,
             }, g);
+            if (landed) P.onHitLanded(pr.crit, g);
             if (pr.pierce && pr.hitSet.size < pr.pierce) { pr.hitSet.add(m); pr.dmg *= 0.8; }
             else { dead = true; break; }
           }
@@ -859,7 +1007,7 @@
     for (let i = g.pickups.length - 1; i >= 0; i--) {
       const pk = g.pickups[i];
       pk.t += dt;
-      if (pk.kind === 'weapon') continue; // weapons sit still; E to pick up
+      if (pk.kind === 'weapon' || pk.kind === 'armorItem') continue; // gear sits still; E to pick up
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
@@ -869,7 +1017,7 @@
         const sp = 380 + Math.max(0, 300 - d);
         pk.x += (p.x - pk.x) / d * sp * dt;
         pk.y += (p.y - pk.y) / d * sp * dt;
-      } else if (d < 85 && pk.t > 0.25) {
+      } else if (d < 85 + p.mod('magnetR') && pk.t > 0.25) {
         pk.x += (p.x - pk.x) / d * 320 * dt;
         pk.y += (p.y - pk.y) / d * 320 * dt;
       }
@@ -877,7 +1025,7 @@
         if (pk.kind === 'coin') {
           // fractional carry so +10/20% coin upgrades actually pay out over time
           // (Math.round per 1-value coin was a dead zone below +50%)
-          p.coinFrac = (p.coinFrac || 0) + pk.value * p.stats.coinMul;
+          p.coinFrac = (p.coinFrac || 0) + pk.value * (p.stats.coinMul + p.mod('coin'));
           const v = Math.floor(p.coinFrac);
           if (v > 0) { p.coinFrac -= v; p.coins += v; p.coinsTotal += v; }
           Sfx.play('coin');
@@ -995,6 +1143,7 @@
     }
     if (g.state === 'bossintro') UI.drawBossIntro(c, g);
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
+    if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'pause') UI.drawPause(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
@@ -1320,6 +1469,7 @@
       c.fillRect(it.x - 18, it.y - 2, 36, 8);
 
       if (it.kind === 'weapon') drawWeaponGlyph(c, it.weapon, it.x, it.y - 18, 1.1);
+      if (it.kind === 'armor') drawArmorGlyph(c, it.armor, it.x, it.y - 18, 1.1);
       if (it.kind === 'potion') {
         c.fillStyle = '#e05555';
         c.beginPath(); c.arc(it.x, it.y - 14, 9, 0, Math.PI * 2); c.fill();
@@ -1366,6 +1516,21 @@
       c.fillRect(fat ? -3 : -1.5, -15, fat ? 6 : 3, 20);
       c.fillRect(-6, 4, 12, 3);
     }
+    c.restore();
+  }
+
+  function drawArmorGlyph(c, a, x, y, scale = 1) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+    c.shadowColor = a.color; c.shadowBlur = a.rarIdx >= 3 ? 12 : a.rarIdx >= 2 ? 6 : 0;
+    c.fillStyle = a.color;
+    c.beginPath();
+    c.moveTo(0, -12); c.lineTo(10, -7); c.lineTo(10, 3); c.lineTo(0, 13); c.lineTo(-10, 3); c.lineTo(-10, -7);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.fillRect(-1.5, -8, 3, 16);
     c.restore();
   }
 
@@ -1421,6 +1586,8 @@
       c.restore();
     } else if (pk.kind === 'weapon') {
       drawWeaponGlyph(c, pk.weapon, pk.x, pk.y + bobY, 1);
+    } else if (pk.kind === 'armorItem') {
+      drawArmorGlyph(c, pk.armor, pk.x, pk.y + bobY, 1);
     }
   }
 
@@ -1429,7 +1596,8 @@
     if (!t) return;
     let x, y, label = 'E';
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
-    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E - take'; }
+    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12][t.pk.weapon.rarIdx]}◈`; }
+    if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'stairs' || t.kind === 'portal') return; // these draw their own prompt
     c.save();
@@ -1440,14 +1608,19 @@
     c.fillStyle = '#fff';
     c.fillText(label, x, y);
 
-    // weapon info card
+    // gear info card (weapons and armor share the layout)
     let w = null;
     if (t.kind === 'weaponPickup') w = t.pk.weapon;
+    if (t.kind === 'armorPickup') w = t.pk.armor;
     if (t.kind === 'shopItem' && t.it.kind === 'weapon') w = t.it.weapon;
+    if (t.kind === 'shopItem' && t.it.kind === 'armor') w = t.it.armor;
     if (w) {
+      const subtitle = w.isArmor
+        ? `Armor · ${Math.round(w.defense * 100)}% protection`
+        : `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`;
       const lines = [
         { text: `${w.rarityName} ${w.name}`, color: w.color, bold: true },
-        { text: `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`, color: '#c8d2e0' },
+        { text: subtitle, color: '#c8d2e0' },
         ...w.enchants.map(e => ({
           text: `${e.name}${e.level ? ' ' + ['', 'I', 'II', 'III'][e.level] : ''} - ${e.desc}`,
           color: e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a',
@@ -1489,6 +1662,13 @@
       return Weapons.displayName(w);
     },
     coins(n) { if (g.player) g.player.coins += n || 100; },
+    armor(rarity) {
+      if (!g.player) return 'no run';
+      const a = Weapons.rollArmor(3, { minRarity: rarity ?? 2 });
+      g.player.equipArmor(a, g);
+      return Weapons.displayName(a);
+    },
+    evo(key, stacks) { g.evoQueue.push({ key: key || 'regen', stacks: stacks || 3 }); },
     god() { if (g.player) { g.player.maxHp = 9999; g.player.hp = 9999; } },
     lvl() { if (g.player) g.player.addXp(g.player.xpToNext(), g); },
     start() { if (g.state === 'title') newRun(); },

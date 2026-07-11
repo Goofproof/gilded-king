@@ -73,7 +73,7 @@ const Monsters = (() => {
     if (m.contactCd > 0) return;
     const p = g.player;
     if (Math.hypot(p.x - m.x, p.y - m.y) < m.r + p.r + 2) {
-      p.damage(m.dmg * mult, m.x, m.y, g);
+      p.damage(m.dmg * mult, m.x, m.y, g, m); // src ref lets thorns bite back
       m.contactCd = 0.8;
     }
   }
@@ -294,7 +294,7 @@ const Monsters = (() => {
 
   // --- damage ---------------------------------------------------------------
   function takeHit(m, dmg, opts, g) {
-    if (m.dead || m.spawnT > 0) return;
+    if (m.dead || m.spawnT > 0) return false;
     // Shielded: blocks hits arriving from its front 120-degree arc while shield is up
     if (m.type === 'shielded' && m.shieldUp && opts.sx !== undefined) {
       const hitAngle = Math.atan2(opts.sy - m.y, opts.sx - m.x);
@@ -303,7 +303,7 @@ const Monsters = (() => {
         Fx.burst(m.x + Math.cos(hitAngle) * m.r, m.y + Math.sin(hitAngle) * m.r, '#aaddff', 6, { speed: 120, life: 0.3 });
         Fx.text(m.x, m.y - m.r - 8, 'BLOCKED', '#aaddff', 11);
         Sfx.play('hit');
-        return;
+        return false; // blocked hits earn no frenzy stacks or crit lifesteal
       }
     }
     if (opts.knock) {
@@ -323,6 +323,7 @@ const Monsters = (() => {
       }
     }
     applyDamage(m, dmg, g, opts);
+    return true; // hit landed
   }
 
   function applyDamage(m, dmg, g, opts) {

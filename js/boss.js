@@ -78,7 +78,7 @@ const Boss = (() => {
         b.jaw = 4 + Math.sin(b.t * 5) * 2;
         moveToward(b, p.x, p.y, dt, STATS.speed * sm);
         if (b.contactCd <= 0 && dist < b.r + p.r + 2) {
-          p.damage(STATS.contactDmg, b.x, b.y, g);
+          p.damage(STATS.contactDmg, b.x, b.y, g, b); // src: thorns bite kings too
           b.contactCd = 0.9;
         }
         const wait = phase(b) === 3 ? 1.1 : 1.8;
@@ -114,7 +114,7 @@ const Boss = (() => {
         b.jaw = 16;
         Fx.burst(b.x, b.y, '#d4af37', 2, { speed: 60, life: 0.3 });
         if (b.contactCd <= 0 && dist < b.r + p.r + 4) {
-          p.damage(STATS.lungeDmg, b.x, b.y, g);
+          p.damage(STATS.lungeDmg, b.x, b.y, g, b);
           b.contactCd = 0.9;
         }
         if (b.t >= 0.42) { b.state = 'idle'; b.t = 0; }
@@ -174,7 +174,7 @@ const Boss = (() => {
             const baby = Monsters.make('mimicbaby', b.x + Math.cos(a) * 70, b.y + Math.sin(a) * 70, 2);
             g.monsters.push(baby);
           }
-          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(STATS.slamDmg, b.x, b.y, g);
+          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(STATS.slamDmg, b.x, b.y, g, b);
         }
         break;
       }
@@ -207,7 +207,7 @@ const Boss = (() => {
   }
 
   function takeHit(b, dmg, opts, g) {
-    if (b.dead || b.airborne) return; // can't be hit mid-slam-leap
+    if (b.dead || b.airborne) return false; // can't be hit mid-slam-leap
     if (opts.flame) b.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
     b.hp -= dmg;
     b.flash = 0.1;
@@ -216,6 +216,7 @@ const Boss = (() => {
     Sfx.play(opts.crit ? 'crit' : (opts.hitSfx || 'hit'));
     if (opts.flame) Sfx.play('burn');
     if (b.hp <= 0) die(b, g);
+    return true; // hit landed (callers use this to gate on-hit rewards)
   }
 
   function die(b, g) {

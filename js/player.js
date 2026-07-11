@@ -25,11 +25,22 @@ const PlayerDef = (() => {
       const mHp = (meta?.ranks?.vitality || 0) * 10;
       this.maxHp = T.maxHp + mHp;
       this.hp = this.maxHp;
-      this.coins = 0; this.essenceRun = 0;
+      this.coins = 0; this.essenceRun = 0; this.shards = 0;
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
       this.buffs = { shield: 0, rageT: 0, hasteT: 0 };
+
+      // evolution system: stacks per upgrade key + accumulated fx primitives
+      this.upgradeStacks = {};
+      this.evo = {};              // summed fx (see evolutions.js legend)
+      this.lifelineUsed = 0;
+      this.frenzy = { s: 0, t: 0 };
+
+      // armor slot
+      this.armor = null;          // armor item (weapons.js rollArmor)
+      this.armorMods = {};        // derived from the equipped armor
+      this.phoenixUsed = false;
 
       // stat multipliers - passive upgrades stack into these
       this.stats = {
@@ -74,6 +85,82 @@ const PlayerDef = (() => {
 
     xpToNext() { return 18 + (this.level - 1) * 14; } // leveling curve
 
+    // --- evolution / armor helpers ------------------------------------------
+    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0); }
+
+    applyEvolution(fx) {
+      for (const k of Object.keys(fx)) {
+        const v = fx[k];
+        if (k === 'maxHpPct') {
+          const gain = Math.round(this.maxHp * v);
+          this.maxHp += gain;
+          this.hp += gain;
+        } else if (k === 'midasPer') {
+          this.evo.midasPer = Math.min(this.evo.midasPer || 1e9, v);
+        } else {
+          this.evo[k] = (this.evo[k] || 0) + v;
+        }
+      }
+    }
+
+    equipArmor(a, g) {
+      const old = this.armor;
+      this.armor = a;
+      // derive armor mods fresh each equip (never stack across swaps)
+      const m = {};
+      m.reduce = a.defense;
+      for (const e of a.enchants) {
+        if (e.key === 'protection') m.reduce += 0.03 * (e.level || 1);
+        if (e.key === 'swiftness') m.spd = (m.spd || 0) + 0.06;
+        if (e.key === 'recovery') m.regenFlat = (m.regenFlat || 0) + 0.4;
+        if (e.key === 'acrobatics') m.rollCd = (m.rollCd || 0) + 0.08;
+        if (e.key === 'fortune') m.coin = (m.coin || 0) + 0.10;
+        if (e.key === 'thornmail') m.thorns = (m.thorns || 0) + 8;
+        if (e.key === 'bulwark') m.bulwark = 1;
+        if (e.key === 'juggernaut') { m.reduce += 0.12; m.dmg = (m.dmg || 0) + 0.10; }
+        if (e.key === 'phoenix') m.phoenix = 1;
+      }
+      this.armorMods = m;
+      // Bulwark grants one immediate shield on first equip of THIS item, so armor
+      // found on the final floor still does something (per-item gate stops
+      // drop/re-equip farming; the per-floor refresh lives in startFloor)
+      if (m.bulwark && !a.bulwarkGranted) {
+        a.bulwarkGranted = true;
+        if (this.buffs.shield < 1) {
+          this.buffs.shield = 1;
+          Fx.text(this.x, this.y - 40, 'BULWARK', '#7fd4ff', 13);
+        }
+      }
+      if (old) g.dropArmorPickup(old, this.x, this.y + 30);
+      Sfx.play('pickup');
+      Fx.text(this.x, this.y - 26, Weapons.displayName(a), a.color, 12);
+    }
+
+    // one damage formula for every player attack: melee and arrows both route here
+    computeDmg(base, target, g) {
+      let dmg = base * this.stats.dmgMul * (1 + this.mod('dmg'));
+      if (this.buffs.rageT > 0) dmg *= 1.35;
+      if (this.mod('lowHpRage') && this.hp <= this.maxHp * 0.35) dmg *= 1 + this.mod('lowHpRage');
+      if (target) {
+        if (this.mod('dmgVsWounded') && target.hp <= target.maxHp * 0.3) dmg *= 1 + this.mod('dmgVsWounded');
+        if (this.mod('firstStrike') && target.hp >= target.maxHp) dmg *= 1 + this.mod('firstStrike');
+        if (this.mod('bossSlayer') && target.isBoss) dmg *= 1 + this.mod('bossSlayer');
+      }
+      if (this.evo.midasPer) dmg += Math.min(this.evo.midasCap || 0, Math.floor(this.coins / this.evo.midasPer));
+      const crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh');
+      if (crit) dmg *= T.critMult + this.mod('critDmg');
+      return { dmg, crit };
+    }
+
+    // shared post-hit hook: frenzy stacks, crit lifesteal
+    onHitLanded(crit, g) {
+      if (this.mod('frenzyMax')) {
+        this.frenzy.s = Math.min(this.mod('frenzyMax'), this.frenzy.s + 1);
+        this.frenzy.t = 3;
+      }
+      if (crit && this.mod('critHeal')) this.heal(this.mod('critHeal'), true);
+    }
+
     addXp(n, g) {
       this.xp += n;
       while (this.xp >= this.xpToNext()) {
@@ -112,7 +199,7 @@ const PlayerDef = (() => {
       Fx.text(this.x, this.y - 26, Weapons.displayName(w), w.color, 12);
     }
 
-    damage(dmg, sx, sy, g) {
+    damage(dmg, sx, sy, g, src) {
       // winTimer > 0 = boss just died: celebration invulnerability, and it closes
       // the die-after-victory race that double-banked essence
       if (this.iframes > 0 || this.dead || g.state !== 'play' || g.winTimer > 0) return;
@@ -125,23 +212,75 @@ const PlayerDef = (() => {
         Fx.burst(this.x, this.y, ['#7fd4ff', '#cfe9ff'], 16, { speed: 160, life: 0.4, glow: true });
         return;
       }
+      // damage reduction from armor + evolutions (capped so nothing is free)
+      const reduce = Math.min(0.6, this.mod('reduce'));
+      dmg = dmg * (1 - reduce);
       this.hp -= dmg;
       this.iframes = T.hurtIframes;
       this.flash = 0.25;
       Fx.shake(6, 0.25);
       Sfx.play('hurt');
       Fx.burst(this.x, this.y, '#ff5555', 10, { speed: 150, life: 0.4 });
+      // thorns bite back at whoever touched you
+      if (src && !src.dead && this.mod('thorns')) {
+        src.takeHit(this.mod('thorns'), { sx: this.x, sy: this.y, fromPlayer: true }, g);
+      }
+      // Bombardier Reflex: retaliation blast
+      if (this.mod('retaliateNova')) {
+        Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a'], 18, { speed: 220, life: 0.4, glow: true });
+        for (const m of g.monsters) {
+          if (!m.dead && !m.airborne && Math.hypot(m.x - this.x, m.y - this.y) < 130 + m.r) {
+            m.takeHit(this.mod('retaliateNova'), { sx: this.x, sy: this.y, knock: 200, fromPlayer: true }, g);
+          }
+        }
+      }
       // knock away from the source
       const a = Math.atan2(this.y - sy, this.x - sx);
       this.vx += Math.cos(a) * 180; this.vy += Math.sin(a) * 180;
-      if (this.hp <= 0) { this.hp = 0; this.dead = true; g.onPlayerDeath(); }
+      if (this.hp <= 0) {
+        // Lazarus Taxon (evolution), then Phoenix Plume (armor): cheat death
+        if (this.evo.lifeline > this.lifelineUsed) {
+          this.lifelineUsed++;
+          this.hp = 1;
+          this.iframes = 1.5;
+          Sfx.play('levelup');
+          Fx.text(this.x, this.y - 34, 'LAZARUS TAXON', '#6ee7a0', 16);
+          Fx.burst(this.x, this.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+          return;
+        }
+        if (this.armorMods.phoenix && !this.phoenixUsed) {
+          this.phoenixUsed = true;
+          this.hp = Math.round(this.maxHp * 0.3);
+          this.iframes = 1.5;
+          Sfx.play('levelup');
+          Fx.text(this.x, this.y - 34, 'PHOENIX PLUME', '#ff9a3d', 16);
+          Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a', '#ff4422'], 40, { speed: 280, life: 0.9, glow: true });
+          return;
+        }
+        this.hp = 0; this.dead = true; g.onPlayerDeath();
+      }
     }
 
-    heal(n) {
-      this.hp = Math.min(this.maxHp, this.hp + n);
-      Sfx.play('heal');
-      Fx.burst(this.x, this.y, '#6ee7a0', 12, { speed: 90, life: 0.6, glow: true });
-      Fx.text(this.x, this.y - 24, '+' + n, '#6ee7a0', 13);
+    heal(n, quiet) {
+      // evolution hooks: flat healing boost + Body of Theseus missing-hp scaling
+      let amount = n * (1 + this.mod('healMult'));
+      if (this.mod('theseus')) {
+        const missing = 1 - this.hp / this.maxHp;
+        amount *= 1 + this.mod('theseus') * missing;
+      }
+      amount = Math.round(amount);
+      const over = this.hp + amount - this.maxHp;
+      this.hp = Math.min(this.maxHp, this.hp + amount);
+      // Second Spleen: overheal becomes a shield charm
+      if (over > 0 && this.mod('overhealShield') && this.buffs.shield < 1) {
+        this.buffs.shield = 1;
+        Fx.text(this.x, this.y - 38, 'OVERHEAL SHIELD', '#7fd4ff', 12);
+      }
+      if (!quiet) {
+        Sfx.play('heal');
+        Fx.burst(this.x, this.y, '#6ee7a0', 12, { speed: 90, life: 0.6, glow: true });
+      }
+      Fx.text(this.x, this.y - 24, '+' + amount, '#6ee7a0', quiet ? 11 : 13);
     }
 
     update(dt, g, input) {
@@ -150,12 +289,14 @@ const PlayerDef = (() => {
 
       if (this.iframes > 0) this.iframes -= dt;
       if (this.rollCd > 0) this.rollCd -= dt;
-      if (this.attackCd > 0) this.attackCd -= dt * stats.atkSpeedMul;
+      if (this.attackCd > 0) this.attackCd -= dt * (stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02);
       if (this.flash > 0) this.flash -= dt;
       if (this.momentumT > 0) this.momentumT -= dt;
       if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
-      if (stats.regen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + stats.regen * dt);
+      if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
+      const totalRegen = stats.regen + this.mod('regenFlat');
+      if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
       // aim at the mouse - unless auto-attack (F) has a target, then aim locks on
       this.facing = Math.atan2(input.mouse.y - this.y, input.mouse.x - this.x);
@@ -186,8 +327,20 @@ const PlayerDef = (() => {
       if (this.rollT >= 0) {
         this.rollT += dt;
         const k = this.rollT / T.rollDur;
+        // rollNova evolutions: bowling through enemies hurts them (once per roll each)
+        if (this.mod('rollNova')) {
+          for (const m of g.monsters) {
+            if (m.dead || m.airborne || this.rollHits.has(m)) continue;
+            if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 6) {
+              this.rollHits.add(m);
+              m.takeHit(this.mod('rollNova'), { sx: this.x, sy: this.y, knock: 220, fromPlayer: true }, g);
+            }
+          }
+        }
         if (k >= 1) {
           this.rollT = -1;
+          // Wind Wake evolutions: speed burst as you come out of the roll
+          if (this.mod('windWake')) this.momentumT = Math.max(this.momentumT, this.mod('windWake'));
         } else {
           // burst of speed along the roll direction, eased out
           const sp = T.rollSpeed * (1 - k * 0.45);
@@ -206,15 +359,17 @@ const PlayerDef = (() => {
         const mom = this.momentumT > 0 ? 1.25 : 1;
         const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
         const traversal = g.monsters.some(m => !m.dead) ? 1 : 1.28;
-        const sp = T.speed * stats.speedMul * mom * haste * traversal;
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger
         if ((input.pressed('Space') || input.pressed('ShiftLeft') || input.pressed('ShiftRight')) && this.rollCd <= 0) {
           this.rollT = 0;
           this.rollAngle = this.moving ? this.moveAngle : this.facing;
-          this.rollCd = T.rollCooldown * stats.rollCdMul;
-          this.iframes = Math.max(this.iframes, T.rollIframes);
+          this.rollCd = T.rollCooldown * stats.rollCdMul * (1 - Math.min(0.5, this.mod('rollCd')));
+          this.rollCdMax = this.rollCd; // HUD arc renders against this (stays right through refunds/mod changes)
+          this.iframes = Math.max(this.iframes, T.rollIframes + this.mod('phantomStep'));
+          this.rollHits = new Set(); // fresh rollNova targets each roll
           this.drawT = -1; // rolling cancels a bow draw
           Sfx.play('roll');
           Fx.burst(this.x, this.y, '#7fd4ff', 6, { speed: 80, life: 0.3 });
@@ -294,26 +449,32 @@ const PlayerDef = (() => {
         Fx.shake(5, 0.18);
       }
       let hitAny = false;
-      for (const m of g.monsters) {
-        if (m.dead) continue;
-        const dx = m.x - this.x, dy = m.y - this.y;
-        const d = Math.hypot(dx, dy);
-        if (d > w.range + m.r) continue;
-        let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        if (diff > w.arc / 2) continue;
-        const crit = Math.random() < T.critBase + stats.crit;
-        const rage = this.buffs.rageT > 0 ? 1.35 : 1;
-        const dmg = w.dmg * stats.dmgMul * rage * (crit ? T.critMult : 1);
-        m.takeHit(dmg, {
-          sx: this.x, sy: this.y,
-          knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
-          flame: Weapons.has(w, 'fireaspect'),
-          stagger: w.stagger,
-          execute: !!Weapons.has(w, 'executioner'),
-          hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
-          crit, fromPlayer: true,
-        }, g);
-        hitAny = true;
+      const swingOnce = (dmgScale) => {
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne) continue;
+          const dx = m.x - this.x, dy = m.y - this.y;
+          const d = Math.hypot(dx, dy);
+          if (d > w.range + m.r) continue;
+          let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          if (diff > w.arc / 2) continue;
+          const { dmg, crit } = this.computeDmg(w.dmg * dmgScale, m, g);
+          const landed = m.takeHit(dmg, {
+            sx: this.x, sy: this.y,
+            knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
+            flame: Weapons.has(w, 'fireaspect') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+            stagger: w.stagger,
+            execute: !!Weapons.has(w, 'executioner'),
+            hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
+            crit, fromPlayer: true,
+          }, g);
+          if (landed) { this.onHitLanded(crit, g); hitAny = true; } // blocked hits earn nothing
+        }
+      };
+      swingOnce(1);
+      // Echo evolutions: light swings sometimes strike twice (second at half power)
+      if (w.archetype === 'light' && this.mod('echo') && Math.random() < this.mod('echo')) {
+        swingOnce(0.5);
+        Fx.text(this.x, this.y - 34, 'ECHO', '#ff9a3d', 11);
       }
       if (hitAny && w.archetype === 'heavy') Fx.shake(7, 0.22);
 
@@ -336,17 +497,18 @@ const PlayerDef = (() => {
       const fx = Weapons.fxPalette(w); // arrows trail their enchant's element
       for (let i = 0; i < n; i++) {
         const a = this.facing + (i - (n - 1) / 2) * spread;
-        const crit = Math.random() < T.critBase + stats.crit;
+        // computeDmg without a target: per-target bonuses apply via projectile flags
+        const { dmg, crit } = this.computeDmg(w.dmg * (0.55 + draw * 0.65), null, g);
         g.projectiles.push({
           trail: fx.colors, glowTrail: fx.glow,
           x: this.x + Math.cos(a) * 16, y: this.y + Math.sin(a) * 16,
           vx: Math.cos(a) * w.projSpeed * (0.65 + draw * 0.5),
           vy: Math.sin(a) * w.projSpeed * (0.65 + draw * 0.5),
-          r: 4, dmg: w.dmg * stats.dmgMul * (this.buffs.rageT > 0 ? 1.35 : 1) * (0.55 + draw * 0.65) * (crit ? T.critMult : 1),
+          r: 4, dmg,
           from: 'player', color: crit ? '#ffd24c' : '#e8e3d0', life: 1.6,
           pierce: Weapons.has(w, 'piercing') ? 3 : 0,
           knock: Weapons.has(w, 'punch') ? 240 : 60,
-          flame: Weapons.has(w, 'flame'),
+          flame: Weapons.has(w, 'flame') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
           hitSfx: 'hitArrow',
           crit, arrow: true, hitSet: new Set(),
         });
@@ -363,7 +525,7 @@ const PlayerDef = (() => {
 
       // roll cooldown indicator: small radial arc under the player
       if (this.rollCd > 0) {
-        const k = 1 - this.rollCd / (T.rollCooldown * this.stats.rollCdMul);
+        const k = 1 - this.rollCd / (this.rollCdMax || (T.rollCooldown * this.stats.rollCdMul));
         c.strokeStyle = 'rgba(127,212,255,0.5)';
         c.lineWidth = 3;
         c.beginPath(); c.arc(0, this.r + 8, 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); c.stroke();
