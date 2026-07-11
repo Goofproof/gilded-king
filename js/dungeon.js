@@ -15,17 +15,25 @@ const Dungeon = (() => {
   const PF = { x: 48, y: 48, w: 864, h: 444 };
   const DOOR_W = 76; // width of the door gap in a wall
 
-  // room-type palettes: readable at a glance, per the design doc.
-  // floor 2 shifts mossy, floor 3 shifts crimson (applied as a tint in tint()).
+  // FLOOR THEMES (Sam, 2026-07-10): each floor is a place, not just a number.
+  // Ordinary rooms (start/combat) wear the theme; special rooms keep their
+  // signature palettes so room type stays readable at a glance.
+  const FLOOR_THEMES = {
+    1: { name: 'THE WHISPERING FOREST', floor: '#232e1d', wall: '#131a0e', accent: '#6b8f4e', detail: '#31402a',
+         obstacle: 'tree', ambient: 'forest' },
+    2: { name: 'THE SUNKEN SWAMP',      floor: '#1d2a26', wall: '#0e1715', accent: '#4a7a6a', detail: '#2a3a33',
+         obstacle: 'stump', ambient: 'swamp' },
+    3: { name: "THE GILDED KEEP",       floor: '#2b222a', wall: '#170f16', accent: '#b08d3f', detail: '#3d2f3a',
+         obstacle: 'pillar', ambient: 'castle' },
+  };
+
+  // special-room palettes: readable at a glance, per the design doc
   const PALETTES = {
-    start:    { floor: '#2a2d3a', wall: '#1a1c26', accent: '#8899bb', detail: '#333748' },
-    combat:   { floor: '#262a33', wall: '#171a20', accent: '#5c6b80', detail: '#2e3440' },
     treasure: { floor: '#332d22', wall: '#211c12', accent: '#d4af37', detail: '#453b28' },
     shop:     { floor: '#33281f', wall: '#221812', accent: '#e8a04c', detail: '#46392c' },
     boss:     { floor: '#221820', wall: '#120c12', accent: '#a03050', detail: '#301f2c' },
     stairs:   { floor: '#232a2c', wall: '#141a1c', accent: '#4cc9a8', detail: '#2c3a3c' },
   };
-  const FLOOR_TINT = { 1: null, 2: 'rgba(60,120,70,0.06)', 3: 'rgba(150,40,40,0.08)' };
 
   const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
   const OPP = { N: 'S', S: 'N', E: 'W', W: 'E' };
@@ -149,7 +157,12 @@ const Dungeon = (() => {
     return dungeon.rooms.filter(r => r.type === 'combat' && !r.cleared).length;
   }
 
-  function paletteFor(room) { return PALETTES[room.type] || PALETTES.combat; }
+  function paletteFor(room, floorNum) {
+    if (PALETTES[room.type]) return PALETTES[room.type];
+    return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1];
+  }
 
-  return { generateFloor, uncleared, paletteFor, PF, DOOR_W, DIRS, OPP, FLOOR_TINT, MIMIC_CHANCE };
+  function themeFor(floorNum) { return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1]; }
+
+  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE };
 })();

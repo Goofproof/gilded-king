@@ -42,14 +42,15 @@ const PlayerDef = (() => {
         atkSpeedMul: 1,
       };
 
-      // weapon slots: one melee + one bow. Tab / wheel / right-click to swap.
+      // two FREE weapon slots - any mix (two swords is a fine build).
+      // Tab / wheel / right-click to swap.
       // always start with exactly a Common light melee (Uncommon with the Armory unlock)
       const startRarity = meta?.ranks?.armory ? 1 : 0;
       this.weapons = {
-        melee: Weapons.rollWeapon(1, { archetype: 'light', exactRarity: startRarity }),
-        bow: null,
+        a: Weapons.rollWeapon(1, { archetype: 'light', exactRarity: startRarity }),
+        b: null,
       };
-      this.slot = 'melee';
+      this.slot = 'a';
 
       this.vx = 0; this.vy = 0;
       this.facing = 0;           // aim angle (mouse)
@@ -69,7 +70,7 @@ const PlayerDef = (() => {
       this.dead = false;
     }
 
-    get weapon() { return this.weapons[this.slot] || this.weapons.melee; }
+    get weapon() { return this.weapons[this.slot] || this.weapons.a || this.weapons.b; }
 
     xpToNext() { return 18 + (this.level - 1) * 14; } // leveling curve
 
@@ -86,20 +87,26 @@ const PlayerDef = (() => {
     }
 
     swapWeapon() {
-      if (this.weapons.bow && this.weapons.melee) {
-        this.slot = this.slot === 'melee' ? 'bow' : 'melee';
+      if (this.weapons.a && this.weapons.b) {
+        this.slot = this.slot === 'a' ? 'b' : 'a';
         this.drawT = -1;
         this.swing = null; // swap cancels a committed swing (applyMelee reads the live weapon)
         Sfx.play('ui');
       }
     }
 
-    // picking up a weapon replaces the one in its slot; old one drops behind you
+    // pickups fill an empty slot first; only when both are full does the new
+    // weapon replace the ACTIVE one (which drops behind you, so it's reversible)
     pickupWeapon(w, g) {
-      const slot = w.archetype === 'bow' ? 'bow' : 'melee';
+      let slot;
+      if (!this.weapons.a) slot = 'a';
+      else if (!this.weapons.b) slot = 'b';
+      else slot = this.slot;
       const old = this.weapons[slot];
       this.weapons[slot] = w;
       this.slot = slot;
+      this.drawT = -1;
+      this.swing = null;
       if (old) g.dropWeaponPickup(old, this.x, this.y + 30);
       Sfx.play('pickup');
       Fx.text(this.x, this.y - 26, Weapons.displayName(w), w.color, 12);
@@ -194,10 +201,12 @@ const PlayerDef = (() => {
           }
         }
       } else {
-        // normal movement (momentum enchant gives a brief speed burst after kills)
+        // normal movement (momentum enchant gives a brief speed burst after kills);
+        // cleared rooms grant a traversal boost so backtracking to doors is snappy
         const mom = this.momentumT > 0 ? 1.25 : 1;
         const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
-        const sp = T.speed * stats.speedMul * mom * haste;
+        const traversal = g.monsters.some(m => !m.dead) ? 1 : 1.28;
+        const sp = T.speed * stats.speedMul * mom * haste * traversal;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger
@@ -228,13 +237,14 @@ const PlayerDef = (() => {
       // auto-attack: melee swings only when the target is actually in reach;
       // the bow self-draws and releases at a solid (not full) draw
       const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8;
+      const attackHeld = input.mouse.down || input.key('KeyJ'); // J = keyboard attack (aim stays on mouse)
       if (w.archetype === 'bow') {
-        const wantDraw = (input.mouse.down || autoTarget) && this.rollT < 0;
+        const wantDraw = (attackHeld || autoTarget) && this.rollT < 0;
         if (wantDraw) {
           if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
           if (this.drawT >= 0) this.drawT += dt;
-          if (!input.mouse.down && autoTarget && this.drawT >= 0.55) {
-            this.fireBow(g); // auto release at ~70% power; hold the mouse for full draws
+          if (!attackHeld && autoTarget && this.drawT >= 0.55) {
+            this.fireBow(g); // auto release at ~70% power; hold the button for full draws
             this.drawT = -1;
           }
         } else if (this.drawT >= 0) {
@@ -242,7 +252,7 @@ const PlayerDef = (() => {
           this.drawT = -1;
         }
       } else {
-        if ((input.mouse.down || autoMelee) && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
+        if ((attackHeld || autoMelee) && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
       }
 
       // ongoing swing (heavy applies damage at end of windup)

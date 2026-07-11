@@ -99,9 +99,74 @@ const Sfx = (() => {
     burn:     () => { noise(0.12, 0.12, 'bandpass', 1200, 600); },
   };
 
+  // --- per-floor ambient soundscapes (all synthesized, no assets) --------------
+  let amb = { theme: null, nodes: [], timers: [], pending: null };
+  function stopAmbient() {
+    for (const t of amb.timers) clearTimeout(t);
+    amb.timers = [];
+    for (const n of amb.nodes) { try { if (n.stop) n.stop(); n.disconnect(); } catch { } }
+    amb.nodes = [];
+    amb.theme = null;
+  }
+  function applyAmbient() {
+    const theme = amb.pending;
+    if (theme === amb.theme || !ctx) return;
+    stopAmbient();
+    amb.theme = theme;
+    if (!theme) return;
+    const bus = ctx.createGain(); bus.gain.value = 1; bus.connect(master); amb.nodes.push(bus);
+    const noiseBed = (freq, vol) => {
+      const len = ctx.sampleRate * 2;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = freq;
+      const gn = ctx.createGain(); gn.gain.value = vol;
+      src.connect(fl); fl.connect(gn); gn.connect(bus);
+      src.start();
+      amb.nodes.push(src, fl, gn);
+    };
+    const drone = (type, f, vol, lp) => {
+      const o = ctx.createOscillator(); o.type = type; o.frequency.value = f;
+      const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp || 400;
+      const gn = ctx.createGain(); gn.gain.value = vol;
+      o.connect(fl); fl.connect(gn); gn.connect(bus);
+      o.start();
+      amb.nodes.push(o, fl, gn);
+    };
+    const every = (minS, maxS, fn) => {
+      const loop = () => {
+        if (amb.theme !== theme || muted) { if (amb.theme === theme) amb.timers.push(setTimeout(loop, 2000)); return; }
+        fn();
+        amb.timers.push(setTimeout(loop, (minS + Math.random() * (maxS - minS)) * 1000));
+      };
+      amb.timers.push(setTimeout(loop, 500 + Math.random() * maxS * 500));
+    };
+    if (theme === 'forest') {
+      noiseBed(300, 0.05); // wind through leaves
+      every(2.5, 7, () => { // birdsong: quick rising chirps
+        const base = 2100 + Math.random() * 1300;
+        const n = 2 + ((Math.random() * 3) | 0);
+        for (let i = 0; i < n; i++) tone('sine', base * (0.9 + Math.random() * 0.2), base * 1.18, 0.02, 0.08, 0.05, i * 0.11);
+      });
+    } else if (theme === 'swamp') {
+      noiseBed(170, 0.055); // thick murk
+      drone('sine', 52, 0.035, 300); // something large breathing below
+      every(3, 8, () => tone('sine', 240 + Math.random() * 140, 70, 0.02, 0.24, 0.08)); // bloop
+      every(5, 12, () => noise(0.5, 0.028, 'bandpass', 4300, 3700)); // insect hiss
+    } else if (theme === 'castle') {
+      drone('sawtooth', 55, 0.017, 220);   // detuned regal drone
+      drone('sawtooth', 55.7, 0.017, 220);
+      noiseBed(120, 0.03); // vast cold hall
+      every(7, 15, () => tone('sine', 660, 650, 0.5, 1.4, 0.03)); // distant bell
+    }
+  }
+
   return {
     ensure,
     play(name) { if (ctx && !muted && table[name]) table[name](); },
+    setAmbient(theme) { amb.pending = theme; if (ctx) applyAmbient(); },
     toggleMute() {
       muted = !muted;
       try { localStorage.setItem('drl_muted', muted ? '1' : '0'); } catch { }

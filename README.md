@@ -21,13 +21,18 @@ then open http://localhost:8471/
 |---|---|
 | WASD / arrows | move |
 | mouse | aim |
-| left click | attack (hold to draw the bow) |
+| left click / J | attack (hold to draw the bow) |
 | SPACE / Shift | dodge roll (i-frames!) |
-| E | open chests, buy, pick up weapons, descend stairs |
-| Tab / right-click / wheel | swap melee <-> bow |
+| E | open chests, buy, pick up weapons, stairs, portals |
+| Tab / right-click / wheel | swap between your two weapon slots (any mix) |
 | F | toggle auto-attack (aims and swings at the nearest enemy) |
 | P / Esc | pause |
 | M | mute |
+
+Three floors, three places: the Whispering Forest, the Sunken Swamp, and the
+Gilded Keep - each with its own look and soundscape. Clear a floor and a portal
+opens straight to the stairs. High scores (essence banked in a single run) live
+on the title screen - arcade rules, three initials, no mercy.
 
 ### The run
 Clear rooms, collect coins, spend them at the shop, level up and pick upgrades.

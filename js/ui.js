@@ -87,9 +87,9 @@ const UI = (() => {
     c.fillStyle = '#8fa3bf';
     c.fillText(`FLOOR ${g.floorNum}/3`, hbX, H - 16);
 
-    // weapon slots (bottom-left)
-    drawWeaponSlot(c, p.weapons.melee, 14, H - 106, p.slot === 'melee');
-    drawWeaponSlot(c, p.weapons.bow, 62, H - 106, p.slot === 'bow');
+    // weapon slots (bottom-left) - two free slots, any mix
+    drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
+    drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
@@ -270,7 +270,7 @@ const UI = (() => {
 
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('WASD move · mouse aim/attack · SPACE dodge roll · E interact · Tab swap · F auto-attack · M mute · P pause', W / 2, 205);
+    c.fillText('WASD move · mouse aims · click or J attacks · SPACE rolls · E interact · Tab swap · F auto-attack · M mute', W / 2, 205);
 
     // start button
     const startR = { x: W / 2 - 130, y: 232, w: 260, h: 46, action: 'start' };
@@ -332,6 +332,15 @@ const UI = (() => {
     c.fillStyle = '#445';
     c.fillText('designed by the boss himself · built with Claude', W / 2, H - 14);
 
+    // high-scores button (top-left)
+    const scoresR = { x: 14, y: 14, w: 150, h: 30, action: 'scores' };
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
+    c.strokeRect(scoresR.x, scoresR.y, scoresR.w, scoresR.h);
+    c.font = 'bold 12px monospace';
+    c.fillStyle = '#ffd24c';
+    c.fillText('★ HIGH SCORES', scoresR.x + scoresR.w / 2, scoresR.y + 19);
+    rects.push(scoresR);
+
     // share button (bottom-right): copies the game's public link
     const shareR = { x: W - 150, y: H - 46, w: 136, h: 30, action: 'share' };
     c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
@@ -350,6 +359,98 @@ const UI = (() => {
       c.globalAlpha = 1;
     }
 
+    // scoreboard overlay
+    if (g.showScores) drawScoreboard(c, g);
+
+    c.restore();
+    return rects;
+  }
+
+  function drawScoreboard(c, g) {
+    const scores = g.scores || [];
+    const pw = 470, ph = 400, px = (W - pw) / 2, py = 70;
+    c.fillStyle = 'rgba(5,5,12,0.92)';
+    c.fillRect(0, 0, W, H);
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
+    c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 26px monospace';
+    c.fillStyle = '#ffd24c';
+    c.fillText('★ HIGH SCORES ★', W / 2, py + 40);
+    c.font = '11px monospace';
+    c.fillStyle = '#667';
+    c.fillText('essence banked in a single run · ♛ = slew the king', W / 2, py + 60);
+    if (!scores.length) {
+      c.font = '14px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText('no runs on the board yet - go make history', W / 2, py + 180);
+    }
+    c.font = 'bold 16px monospace';
+    scores.slice(0, 10).forEach((s, i) => {
+      const y = py + 95 + i * 29;
+      const isNew = g.newScoreRank === i + 1;
+      c.fillStyle = isNew ? '#ffd24c' : i === 0 ? '#e8b52f' : '#c8d2e0';
+      c.textAlign = 'right';
+      c.fillText(`${i + 1}.`, px + 70, y);
+      c.textAlign = 'left';
+      c.fillText(s.initials, px + 95, y);
+      c.textAlign = 'right';
+      c.fillText(`${s.score} ◆`, px + 300, y);
+      c.textAlign = 'left';
+      c.fillStyle = '#8fa3bf';
+      c.fillText(`floor ${s.floor}`, px + 330, y);
+      if (s.won) { c.fillStyle = '#ffd24c'; c.fillText('♛', px + 420, y); }
+    });
+    c.textAlign = 'center';
+    c.font = '12px monospace'; c.fillStyle = '#667';
+    c.fillText('click anywhere or Esc to close', W / 2, py + ph - 14);
+  }
+
+  // arcade three-letter initials entry
+  function drawInitials(c, g) {
+    const ini = g.initials;
+    const e = overlayEase(g);
+    c.save();
+    c.globalAlpha = e;
+    c.fillStyle = 'rgba(8,6,2,0.92)';
+    c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    c.font = 'bold 38px monospace';
+    c.fillStyle = '#ffd24c';
+    c.fillText('NEW HIGH SCORE!', W / 2, 130);
+    c.font = 'bold 24px monospace';
+    c.fillStyle = '#b88aff';
+    c.fillText(`${g.essenceEarned} ◆ essence`, W / 2, 172);
+    c.font = '14px monospace';
+    c.fillStyle = '#8fa3bf';
+    c.fillText('enter your initials', W / 2, 205);
+
+    const rects = [];
+    for (let i = 0; i < 3; i++) {
+      const x = W / 2 + (i - 1) * 95, y = 285;
+      const active = ini.slot === i;
+      // letter box
+      c.strokeStyle = active ? '#ffd24c' : '#5a6478';
+      c.lineWidth = active ? 3 : 1.5;
+      c.strokeRect(x - 34, y - 42, 68, 76);
+      c.font = 'bold 52px monospace';
+      c.fillStyle = active ? '#fff' : '#c8d2e0';
+      c.fillText(String.fromCharCode(ini.letters[i]), x, y + 16);
+      // up/down arrows
+      const pulse = active ? 0.5 + Math.sin(Date.now() / 250) * 0.3 : 0.35;
+      c.fillStyle = `rgba(255,210,76,${pulse})`;
+      c.beginPath(); c.moveTo(x, y - 66); c.lineTo(x - 12, y - 50); c.lineTo(x + 12, y - 50); c.fill();
+      c.beginPath(); c.moveTo(x, y + 58); c.lineTo(x - 12, y + 42); c.lineTo(x + 12, y + 42); c.fill();
+      rects.push({ x: x - 20, y: y - 74, w: 40, h: 28, action: 'up', idx: i });
+      rects.push({ x: x - 20, y: y + 38, w: 40, h: 28, action: 'down', idx: i });
+    }
+    const ok = { x: W / 2 - 90, y: 390, w: 180, h: 40, action: 'ok' };
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
+    c.strokeRect(ok.x, ok.y, ok.w, ok.h);
+    c.font = 'bold 16px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText('CLAIM IT', W / 2, ok.y + 26);
+    rects.push(ok);
+    c.font = '12px monospace'; c.fillStyle = '#667';
+    c.fillText('type letters · arrows to adjust · Enter to confirm · Esc to skip', W / 2, 460);
     c.restore();
     return rects;
   }
@@ -462,6 +563,11 @@ const UI = (() => {
       `Essence earned     ${g.essenceEarned || 0} ◆`,
     ];
     lines.forEach((l, i) => c.fillText(l, W / 2, 240 + i * 26));
+    if (g.newScoreRank) {
+      c.font = 'bold 16px monospace';
+      c.fillStyle = '#ffd24c';
+      c.fillText(`★ HIGH SCORE #${g.newScoreRank} ★`, W / 2, 240 + lines.length * 26 + 8);
+    }
 
     const r = { x: W / 2 - 110, y: 420, w: 220, h: 44, action: 'again' };
     c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
@@ -474,5 +580,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawPause, drawEnd, drawInitials };
 })();

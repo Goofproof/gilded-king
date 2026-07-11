@@ -24,6 +24,24 @@
   const REROLL_BASE = 10;
 
   // --- persistent meta (survives death via localStorage) ---------------------------
+  // --- arcade leaderboard (per-device, localStorage) -----------------------------
+  // score = essence collected in a single run (banked total, incl. victory bonus)
+  function loadScores() {
+    try {
+      const s = JSON.parse(localStorage.getItem('drl_scores'));
+      if (Array.isArray(s)) return s.filter(e => e && typeof e.score === 'number').slice(0, 10);
+    } catch { }
+    return [];
+  }
+  function saveScores(scores) {
+    try { localStorage.setItem('drl_scores', JSON.stringify(scores.slice(0, 10))); } catch { }
+  }
+  function scoreQualifies(score) {
+    if (score <= 0) return false;
+    const s = loadScores();
+    return s.length < 10 || score > s[s.length - 1].score;
+  }
+
   function loadMeta() {
     // normalize shape too - a hand-edited/corrupt drl_meta must never brick the title screen
     let m = null;
@@ -57,8 +75,10 @@
     input.mouse.x = (e.clientX - r.left) * (W / r.width);
     input.mouse.y = (e.clientY - r.top) * (H / r.height);
   }
-  canvas.addEventListener('mousemove', mousePos);
-  canvas.addEventListener('mousedown', e => {
+  // listen on window, not canvas: clicks that land on the letterbox bars
+  // still count as attacks (nobody should whiff for clicking 5px off-screen)
+  window.addEventListener('mousemove', mousePos);
+  window.addEventListener('mousedown', e => {
     mousePos(e); Sfx.ensure();
     if (e.button === 0) { input.mouse.down = true; input.mouse.clicked = true; }
     if (e.button === 2) g.player && g.state === 'play' && g.player.swapWeapon();
@@ -86,6 +106,7 @@
     monsters: [], projectiles: [], pickups: [],
     boss: null, bossIntroT: 0, winTimer: -1, portal: null, autoAttack: false,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
+    initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, scores: loadScores(),
     transition: null,     // {dir, next, t}
     uiRects: [],
     essenceEarned: 0,
@@ -122,6 +143,9 @@
   function startFloor() {
     g.dungeon = Dungeon.generateFloor(g.floorNum);
     g.portal = null; // portals never carry across floors
+    const theme = Dungeon.themeFor(g.floorNum);
+    g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
+    Sfx.setAmbient(theme.ambient);
     enterRoom(g.dungeon.start, null);
   }
 
@@ -309,8 +333,66 @@
     g.essenceEarned = g.player.essenceRun + Math.floor(g.player.coins * 0.10) + 20; // victory bonus
     g.meta.essence += g.essenceEarned;
     saveMeta();
-    g.state = 'win';
+    endToScreen('win');
+  }
+
+  // route a finished run to the end screen, via arcade initials entry if it placed
+  function endToScreen(which) {
+    Sfx.setAmbient(null);
+    g.newScoreRank = 0;
+    if (scoreQualifies(g.essenceEarned)) {
+      g.afterInitials = which;
+      g.initials = { letters: [65, 65, 65], slot: 0 }; // 'AAA'
+      g.state = 'initials';
+      g.overlayT = 0;
+      Sfx.play('levelup');
+    } else {
+      g.state = which;
+      g.overlayT = 0;
+    }
+  }
+
+  function commitInitials(skip) {
+    if (!skip) {
+      const name = g.initials.letters.map(c => String.fromCharCode(c)).join('');
+      const scores = loadScores();
+      scores.push({ initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' });
+      scores.sort((a, b) => b.score - a.score);
+      g.scores = scores.slice(0, 10);
+      saveScores(g.scores);
+      g.newScoreRank = g.scores.findIndex(s => s.score === g.essenceEarned && s.initials === name) + 1;
+      Sfx.play('upgrade');
+    }
+    g.state = g.afterInitials;
     g.overlayT = 0;
+    g.initials = null;
+  }
+
+  function updateInitials() {
+    const ini = g.initials;
+    // direct typing: letter keys fill the current slot and advance
+    for (const code of input.just) {
+      if (/^Key[A-Z]$/.test(code)) {
+        ini.letters[ini.slot] = code.charCodeAt(3);
+        ini.slot = Math.min(2, ini.slot + 1);
+      }
+    }
+    if (input.pressed('ArrowUp')) { ini.letters[ini.slot] = ini.letters[ini.slot] >= 90 ? 65 : ini.letters[ini.slot] + 1; Sfx.play('ui'); }
+    if (input.pressed('ArrowDown')) { ini.letters[ini.slot] = ini.letters[ini.slot] <= 65 ? 90 : ini.letters[ini.slot] - 1; Sfx.play('ui'); }
+    if (input.pressed('ArrowRight')) ini.slot = Math.min(2, ini.slot + 1);
+    if (input.pressed('ArrowLeft') || input.pressed('Backspace')) ini.slot = Math.max(0, ini.slot - 1);
+    if (input.pressed('Enter')) { commitInitials(false); return; }
+    if (input.pressed('Escape')) { commitInitials(true); return; }
+    // mouse: arrows above/below each slot
+    if (input.mouse.clicked) {
+      for (const r of g.uiRects) {
+        if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+          if (r.action === 'up') { ini.slot = r.idx; ini.letters[r.idx] = ini.letters[r.idx] >= 90 ? 65 : ini.letters[r.idx] + 1; Sfx.play('ui'); }
+          if (r.action === 'down') { ini.slot = r.idx; ini.letters[r.idx] = ini.letters[r.idx] <= 65 ? 90 : ini.letters[r.idx] - 1; Sfx.play('ui'); }
+          if (r.action === 'ok') { commitInitials(false); return; }
+        }
+      }
+    }
   }
 
   // ============================ DOORS / MOVEMENT GATING ============================
@@ -546,12 +628,18 @@
       case 'transition': updateTransition(dt); break;
       case 'bossintro': updateBossIntro(dt); break;
       case 'dead': case 'win': g.overlayT += dt; updateEnd(); break;
+      case 'initials': g.overlayT += dt; updateInitials(); break;
     }
     Fx.update(dt);
   }
 
   function updateTitle() {
     if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
+    if (g.showScores) {
+      // scoreboard overlay: any click or Esc closes it
+      if (input.mouse.clicked || input.pressed('Escape')) g.showScores = false;
+      return;
+    }
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
@@ -559,6 +647,7 @@
           if (r.action === 'start') { newRun(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
+          if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
         }
       }
     }
@@ -628,10 +717,11 @@
     }
     if (g.deathTimer > 0) {
       g.deathTimer -= dt;
-      if (g.deathTimer <= 0) { g.state = 'dead'; g.overlayT = 0; return; }
+      if (g.deathTimer <= 0) { endToScreen('dead'); return; }
     }
     if (g.gateMsg > 0) g.gateMsg -= dt;
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
+    if (g.floorBanner && g.floorBanner.t > 0) g.floorBanner.t -= dt;
 
     // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
     // skipped once the boss is down (victory is seconds away) or the player is dead.
@@ -867,6 +957,19 @@
     UI.drawMinimap(c, g);
     if (g.room.type === 'boss') UI.drawBossBar(c, g);
 
+    // floor-entry banner: FLOOR 2 · THE SUNKEN SWAMP
+    if (g.floorBanner && g.floorBanner.t > 0 && g.state === 'play') {
+      const a = Math.min(1, g.floorBanner.t) * Math.min(1, (3.5 - g.floorBanner.t) * 2);
+      c.save();
+      c.globalAlpha = a;
+      c.font = 'bold 24px monospace'; c.textAlign = 'center';
+      c.fillStyle = '#0a0a0a';
+      c.fillText(g.floorBanner.text, W / 2 + 2, 92);
+      c.fillStyle = '#e8d5a0';
+      c.fillText(g.floorBanner.text, W / 2, 90);
+      c.restore();
+    }
+
     // gate toast
     if (g.gateMsg > 0) {
       c.save();
@@ -895,6 +998,7 @@
     if (g.state === 'pause') UI.drawPause(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
+    if (g.state === 'initials') g.uiRects = UI.drawInitials(c, g);
   }
 
   // deterministic per-room decoration random
@@ -904,7 +1008,8 @@
   }
 
   function drawRoom(c, room) {
-    const pal = Dungeon.paletteFor(room);
+    const pal = Dungeon.paletteFor(room, g.floorNum);
+    const theme = Dungeon.themeFor(g.floorNum);
     // outer wall fill
     c.fillStyle = pal.wall;
     c.fillRect(0, 0, W, H);
@@ -927,9 +1032,21 @@
       const y = PF.y + roomRand(room, i + 50) * PF.h;
       c.fillRect(x, y, 3 + roomRand(room, i + 100) * 4, 2 + roomRand(room, i + 150) * 3);
     }
-    // floor tint by depth
-    const tint = Dungeon.FLOOR_TINT[g.floorNum];
-    if (tint) { c.fillStyle = tint; c.fillRect(PF.x, PF.y, PF.w, PF.h); }
+    // theme ambience: drifting particles that sell the place
+    if (theme.ambient === 'forest' && Math.random() < 0.06) {
+      Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h * 0.4,
+        ['#7a9a4e', '#c9a227', '#5d7a4a'], 1, { speed: 8, life: 2.2, grav: 14, vx: 12, size: 2.5, drag: 0.999 });
+    }
+    if (theme.ambient === 'swamp') {
+      if (Math.random() < 0.05) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 60,
+        'rgba(160,220,200,0.5)', 1, { speed: 5, life: 1.8, grav: -22, size: 2.2, drag: 0.999 });
+      if (Math.random() < 0.03) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h,
+        '#d8e86a', 1, { speed: 12, life: 1.4, glow: true, size: 1.8, drag: 0.995 }); // fireflies
+    }
+    if (theme.ambient === 'castle' && Math.random() < 0.05) {
+      Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h,
+        'rgba(212,175,55,0.45)', 1, { speed: 6, life: 2.4, grav: 6, size: 1.6, drag: 0.999 }); // gold motes
+    }
 
     // wall inner edge highlight
     c.strokeStyle = pal.accent + '44';
@@ -1000,14 +1117,49 @@
       }
     }
 
-    // obstacles (rocks)
+    // obstacles, dressed for the floor's theme
     for (const o of room.obstacles) {
       c.fillStyle = 'rgba(0,0,0,0.3)';
       c.beginPath(); c.ellipse(o.x + 3, o.y + 4, o.r, o.r * 0.7, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = pal.detail;
-      c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill();
-      c.fillStyle = pal.accent + '33';
-      c.beginPath(); c.arc(o.x - o.r * 0.25, o.y - o.r * 0.3, o.r * 0.5, 0, Math.PI * 2); c.fill();
+      if (theme.obstacle === 'tree') {
+        // top-down tree: trunk + layered canopy
+        c.fillStyle = '#4a3520';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.4, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#2e4420';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 1.05, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#3d5a2a';
+        c.beginPath(); c.arc(o.x - o.r * 0.2, o.y - o.r * 0.25, o.r * 0.75, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#4e7034';
+        c.beginPath(); c.arc(o.x - o.r * 0.3, o.y - o.r * 0.35, o.r * 0.4, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'stump') {
+        // gnarled swamp stump in a murky puddle
+        c.fillStyle = 'rgba(40,70,60,0.5)';
+        c.beginPath(); c.ellipse(o.x, o.y + 2, o.r * 1.35, o.r * 0.8, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#3a2c1c';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.85, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#241a10'; c.lineWidth = 2;
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.55, 0, Math.PI * 2); c.stroke();
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.28, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = '#3a2c1c'; // root knuckles
+        c.beginPath(); c.arc(o.x + o.r * 0.8, o.y + o.r * 0.3, o.r * 0.25, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.arc(o.x - o.r * 0.75, o.y - o.r * 0.4, o.r * 0.22, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'pillar') {
+        // marble column with a gold ring, seen from above
+        c.fillStyle = '#8d8698';
+        c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#d4af37'; c.lineWidth = 3;
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.8, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = '#a9a2b5';
+        c.beginPath(); c.arc(o.x - o.r * 0.2, o.y - o.r * 0.25, o.r * 0.5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#c5bfd2';
+        c.beginPath(); c.arc(o.x - o.r * 0.28, o.y - o.r * 0.33, o.r * 0.22, 0, Math.PI * 2); c.fill();
+      } else {
+        // plain rock (special rooms keep the classic look)
+        c.fillStyle = pal.detail;
+        c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = pal.accent + '33';
+        c.beginPath(); c.arc(o.x - o.r * 0.25, o.y - o.r * 0.3, o.r * 0.5, 0, Math.PI * 2); c.fill();
+      }
     }
 
     // chests
