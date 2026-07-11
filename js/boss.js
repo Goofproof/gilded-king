@@ -213,7 +213,8 @@ const Boss = (() => {
     b.flash = 0.1;
     Fx.text(b.x + (Math.random() * 30 - 15), b.y - b.r - 10, Math.round(dmg), opts.crit ? '#ffd24c' : '#fff', opts.crit ? 16 : 12);
     Fx.burst(b.x, b.y, '#d4af37', 4, { speed: 100, life: 0.3 });
-    Sfx.play(opts.crit ? 'crit' : 'hit');
+    Sfx.play(opts.crit ? 'crit' : (opts.hitSfx || 'hit'));
+    if (opts.flame) Sfx.play('burn');
     if (b.hp <= 0) die(b, g);
   }
 

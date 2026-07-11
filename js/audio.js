@@ -57,10 +57,20 @@ const Sfx = (() => {
   }
 
   // --- the sound table ------------------------------------------------------
+  // v() gives every hit a +/-10% pitch wobble so rapid attacks don't machine-gun
+  const v = () => 0.9 + Math.random() * 0.2;
   const table = {
     swing:    () => { noise(0.09, 0.25, 'bandpass', 900, 2400); },
     heavy:    () => { noise(0.16, 0.4, 'bandpass', 300, 1400); tone('square', 120, 60, 0.01, 0.12, 0.25); },
-    hit:      () => { noise(0.06, 0.3, 'highpass', 1000, 3000); tone('square', 220, 90, 0.005, 0.06, 0.2); },
+    // impact family: the sound tells you WHAT connected
+    hit:      () => { const k = v(); noise(0.06, 0.3, 'highpass', 1000 * k, 3000); tone('triangle', 300 * k, 110, 0.005, 0.08, 0.22); }, // generic (enemy-on-enemy, fallback)
+    hitLight: () => { const k = v(); noise(0.05, 0.34, 'bandpass', 2600 * k, 900); tone('triangle', 950 * k, 320, 0.004, 0.06, 0.2); }, // crisp slice
+    hitHeavy: () => { const k = v();
+      tone('sine', 115 * k, 42, 0.005, 0.17, 0.55);              // deep body thud
+      noise(0.13, 0.45, 'lowpass', 900 * k, 140);                // meat
+      noise(0.04, 0.22, 'highpass', 1900, 3600);                 // bone-crunch snap
+    },
+    hitArrow: () => { const k = v(); noise(0.045, 0.36, 'highpass', 2300 * k, 700); tone('square', 430 * k, 170, 0.004, 0.07, 0.22); }, // woody thock
     hurt:     () => { tone('sawtooth', 200, 70, 0.01, 0.18, 0.35); noise(0.12, 0.2, 'lowpass', 800, 200); },
     kill:     () => { tone('square', 300, 40, 0.01, 0.2, 0.25); noise(0.15, 0.25, 'lowpass', 1200, 100); },
     coin:     () => { tone('sine', 1100, 1600, 0.005, 0.09, 0.18); tone('sine', 1650, 2200, 0.005, 0.08, 0.12, 0.05); },
@@ -80,7 +90,12 @@ const Sfx = (() => {
     stairs:   () => { [300, 240, 190, 150].forEach((f, i) => tone('triangle', f, f * 0.9, 0.01, 0.18, 0.2, i * 0.11)); },
     ui:       () => { tone('sine', 700, 900, 0.005, 0.06, 0.12); },
     upgrade:  () => { [523, 659, 784].forEach((f, i) => tone('sine', f, f, 0.01, 0.2, 0.18, i * 0.07)); },
-    crit:     () => { noise(0.08, 0.35, 'highpass', 2000, 5000); tone('square', 900, 300, 0.005, 0.09, 0.2); },
+    crit:     () => { const k = v();
+      noise(0.09, 0.4, 'highpass', 2000 * k, 5000);              // bright snap
+      tone('square', 900 * k, 300, 0.005, 0.09, 0.22);
+      tone('sawtooth', 480 * k, 110, 0.005, 0.14, 0.3);          // falling bite
+      tone('sine', 95 * k, 45, 0.005, 0.12, 0.35);               // low weight
+    },
     burn:     () => { noise(0.12, 0.12, 'bandpass', 1200, 600); },
   };
 

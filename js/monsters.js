@@ -339,7 +339,9 @@ const Monsters = (() => {
     if (!opts.silent) {
       Fx.text(m.x + (Math.random() * 16 - 8), m.y - m.r - 6, Math.round(dmg), opts.crit ? '#ffd24c' : '#ffffff', opts.crit ? 16 : 12);
       Fx.burst(m.x, m.y, opts.crit ? '#ffd24c' : '#ff6655', opts.crit ? 10 : 5, { speed: 110, life: 0.35 });
-      Sfx.play(opts.crit ? 'crit' : 'hit');
+      // impact sound matches the weapon that landed (hitSfx from the attacker)
+      Sfx.play(opts.crit ? 'crit' : (opts.hitSfx || 'hit'));
+      if (opts.flame) Sfx.play('burn'); // fire weapons sizzle on contact
     }
     if (m.hp <= 0) {
       if (m.type === 'bomber' && !m.exploded) {

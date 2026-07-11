@@ -300,6 +300,7 @@ const PlayerDef = (() => {
           flame: Weapons.has(w, 'fireaspect'),
           stagger: w.stagger,
           execute: !!Weapons.has(w, 'executioner'),
+          hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
           crit, fromPlayer: true,
         }, g);
         hitAny = true;
@@ -336,6 +337,7 @@ const PlayerDef = (() => {
           pierce: Weapons.has(w, 'piercing') ? 3 : 0,
           knock: Weapons.has(w, 'punch') ? 240 : 60,
           flame: Weapons.has(w, 'flame'),
+          hitSfx: 'hitArrow',
           crit, arrow: true, hitSet: new Set(),
         });
       }

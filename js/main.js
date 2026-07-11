@@ -750,6 +750,7 @@
             m.takeHit(pr.dmg, {
               sx: pr.x - pr.vx * 0.02, sy: pr.y - pr.vy * 0.02,
               knock: pr.knock, flame: pr.flame, crit: pr.crit, fromPlayer: true,
+              hitSfx: pr.hitSfx,
             }, g);
             if (pr.pierce && pr.hitSet.size < pr.pierce) { pr.hitSet.add(m); pr.dmg *= 0.8; }
             else { dead = true; break; }
