@@ -559,51 +559,49 @@ const UI = (() => {
 
     const rects = [startR, coopR];
 
-    // hub: meta upgrades
-    c.font = 'bold 14px monospace';
-    c.fillStyle = '#b88aff';
-    c.fillText(`◆ ESSENCE: ${meta.essence}`, W / 2, 312);
-    c.font = '11px monospace';
-    c.fillStyle = '#667';
-    c.fillText('essence survives death - spend it on permanent boosts', W / 2, 330);
-
-    const cardW = 168, cardH = 108, gap = 12;
-    const totalW = META_UPGRADES.length * cardW + (META_UPGRADES.length - 1) * gap;
-    let cx = (W - totalW) / 2;
+    // --- ESSENCE upgrades: a compact character-sheet panel down the LEFT edge ---
+    c.textAlign = 'left';
+    c.font = 'bold 15px monospace'; c.fillStyle = '#b88aff';
+    c.fillText(`◆ ESSENCE  ${meta.essence}`, 18, 150);
+    c.font = '10px monospace'; c.fillStyle = '#667';
+    c.fillText('permanent boosts - they survive death', 18, 167);
+    const rowW = 246, rowH = 42; // stays left of the centre ENTER DUNGEON button
+    let ry = 180;
     for (const u of META_UPGRADES) {
       const rank = meta.ranks[u.key] || 0;
       const cost = metaCost(u, rank);
       const maxed = cost === null;                    // only capped upgrades ever max
       const afford = cost !== null && meta.essence >= cost;
       const past = rank >= u.maxRank;                 // into the endless tiers
-      const r = { x: cx, y: 346, w: cardW, h: cardH, action: 'upgrade', key: u.key };
-      c.fillStyle = maxed ? 'rgba(184,138,255,0.10)' : 'rgba(255,255,255,0.04)';
+      const r = { x: 14, y: ry, w: rowW, h: rowH, action: 'upgrade', key: u.key };
+      c.fillStyle = maxed ? 'rgba(184,138,255,0.10)' : afford ? 'rgba(184,138,255,0.06)' : 'rgba(255,255,255,0.02)';
       c.fillRect(r.x, r.y, r.w, r.h);
-      c.strokeStyle = maxed ? '#b88aff' : afford ? '#8fa3bf' : '#3a3f4d';
-      c.lineWidth = 1.5;
-      c.strokeRect(r.x, r.y, r.w, r.h);
-      c.font = 'bold 13px monospace';
-      c.fillStyle = maxed ? '#b88aff' : '#dde3ee';
-      c.fillText(u.name, cx + cardW / 2, 368);
-      c.font = '11px monospace';
-      c.fillStyle = '#8fa3bf';
-      wrapText(c, u.desc, cx + cardW / 2, 386, cardW - 16, 13);
-      // rank display: pips up to maxRank, then a "Lv N" once you're past it (endless)
+      c.strokeStyle = maxed ? '#b88aff' : afford ? '#6a5a8a' : '#2c3040';
+      c.lineWidth = 1; c.strokeRect(r.x, r.y, r.w, r.h);
+      // name + effect (left two lines)
+      c.textAlign = 'left';
+      c.font = 'bold 12px monospace'; c.fillStyle = maxed ? '#b88aff' : '#dde3ee';
+      c.fillText(u.name, r.x + 10, r.y + 17);
+      c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText(u.desc, r.x + 10, r.y + 32);
+      // cost (top-right) + rank pips / Lv (bottom-right)
+      c.textAlign = 'right';
+      c.font = 'bold 11px monospace';
+      c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#555';
+      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, r.x + rowW - 10, r.y + 17);
       if (past && u.endless) {
-        c.font = 'bold 12px monospace'; c.fillStyle = '#b88aff';
-        c.fillText(`Lv ${rank}`, cx + cardW / 2, 422);
+        c.font = 'bold 10px monospace'; c.fillStyle = '#b88aff';
+        c.fillText(`Lv ${rank}`, r.x + rowW - 10, r.y + 33);
       } else {
         for (let i = 0; i < u.maxRank; i++) {
           c.fillStyle = i < rank ? '#b88aff' : '#2c3040';
-          c.beginPath(); c.arc(cx + cardW / 2 - (u.maxRank - 1) * 7 + i * 14, 418, 4, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(r.x + rowW - 12 - (u.maxRank - 1 - i) * 11, r.y + 29, 3, 0, Math.PI * 2); c.fill();
         }
       }
-      c.font = 'bold 12px monospace';
-      c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#555';
-      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, cx + cardW / 2, 442);
       rects.push(r);
-      cx += cardW + gap;
+      ry += rowH + 6;
     }
+    c.textAlign = 'center';
 
     // --- STABLE: pets you've befriended; pick one to start the next run with ---
     const roster = (typeof Descent !== 'undefined' && Descent.PETS) || [];
@@ -647,15 +645,6 @@ const UI = (() => {
     // mythic-collection laurel (top-right accolade)
     drawLaurel(c, W - 72, 62, (meta.mythics || []).length, Weapons.MYTHIC_TOTAL);
 
-    // high-scores button (top-left)
-    const scoresR = { x: 14, y: 14, w: 150, h: 30, action: 'scores' };
-    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
-    c.strokeRect(scoresR.x, scoresR.y, scoresR.w, scoresR.h);
-    c.font = 'bold 12px monospace';
-    c.fillStyle = '#ffd24c';
-    c.fillText('★ HIGH SCORES', scoresR.x + scoresR.w / 2, scoresR.y + 19);
-    rects.push(scoresR);
-
     // patch-notes button (top-right, under the mythic laurel)
     if (typeof PatchNotes !== 'undefined') {
       const pnR = { x: W - 164, y: 108, w: 150, h: 28, action: 'patchnotes' };
@@ -667,14 +656,21 @@ const UI = (() => {
       rects.push(pnR);
     }
 
-    // always-visible TOP 5 under the button (the full board is behind the button)
+    // high-scores button + TOP 5 (right side, below patch notes - the left is essence now)
+    const scoresR = { x: W - 164, y: 150, w: 150, h: 28, action: 'scores' };
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
+    c.strokeRect(scoresR.x, scoresR.y, scoresR.w, scoresR.h);
+    c.font = 'bold 12px monospace';
+    c.fillStyle = '#ffd24c';
+    c.fillText('★ HIGH SCORES', scoresR.x + scoresR.w / 2, scoresR.y + 19);
+    rects.push(scoresR);
     c.textAlign = 'left';
     c.font = 'bold 11px monospace'; c.fillStyle = '#c9a227';
-    c.fillText('TOP RAIDERS', 16, 62);
+    c.fillText('TOP RAIDERS', W - 162, 200);
     (g.scores || []).slice(0, 5).forEach((s, i) => {
       c.font = '11px monospace';
       c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
-      c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, 16, 80 + i * 16);
+      c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, W - 162, 218 + i * 16);
     });
     c.textAlign = 'center';
 
