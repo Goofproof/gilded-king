@@ -1974,6 +1974,12 @@
     if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
       checkMimicProximity();
       if (input.pressed('KeyE')) interact();
+      if (input.pressed('KeyF')) { // #51 toggle auto-attack
+        p.autoAttack = !p.autoAttack;
+        p.drawT = -1; // drop any held bow draw when switching off
+        Fx.text(p.x, p.y - 34, p.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', p.autoAttack ? '#7ee0a0' : '#ff9a3d', 13);
+        Sfx.play('ui');
+      }
       if (input.pressed('KeyQ')) useAbility();
       if (input.pressed('KeyR')) useAbilityR();
       if (input.mouse.clicked && g.player.abilityUlt) useUltimate(); // left-click = ultimate

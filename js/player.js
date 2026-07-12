@@ -126,6 +126,7 @@ const PlayerDef = (() => {
       this.ghostTimer = 0;
 
       this.attackCd = 0;
+      this.autoAttack = true;    // #51 toggle with F; when off, hold fire entirely
       this.swing = null;         // {t,dur,windup,fired,arc,range,dir}
       this.drawT = -1;           // bow draw time (>=0 while drawing)
       this.momentumT = 0;        // ORIGINAL enchant: speed burst after kills
@@ -523,7 +524,7 @@ const PlayerDef = (() => {
       const lead = w.windup > 0 ? w.windup * ((meleeTarget && meleeTarget.speed) || 0) + 8 : 3;
       const autoMelee = meleeTarget && meleeDist <= w.range + meleeTarget.r + lead;
       if (w.archetype === 'bow') {
-        const wantDraw = autoTarget && this.rollT < 0;
+        const wantDraw = this.autoAttack && autoTarget && this.rollT < 0;
         if (wantDraw) {
           if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
           // attack speed charges the DRAW too, not just the between-shots cooldown -
@@ -545,10 +546,10 @@ const PlayerDef = (() => {
           if (this.magicWarnT <= 0) { this.magicWarnT = 1.2; Fx.text(this.x, this.y - 32, `NEEDS MAGIC ${w.magicReq}`, '#b06bff', 12); Sfx.play('error'); }
         } else if (w.archetype === 'wand') {
           // wand: fast auto-fired magic bolts, no draw - rip when a target exists
-          if (autoTarget && this.attackCd <= 0 && this.rollT < 0) this.fireSpell(g);
+          if (this.autoAttack && autoTarget && this.attackCd <= 0 && this.rollT < 0) this.fireSpell(g);
         } else {
           // staff: a charged cast (drawT = charge); fires a fireball at full charge
-          const wantCast = autoTarget && this.rollT < 0;
+          const wantCast = this.autoAttack && autoTarget && this.rollT < 0;
           if (wantCast) {
             if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
             const asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
@@ -560,7 +561,7 @@ const PlayerDef = (() => {
         }
       } else {
         // face the nearest in-reach enemy for the swing (so the arc lands on it)
-        if (autoMelee && this.attackCd <= 0 && this.rollT < 0) {
+        if (this.autoAttack && autoMelee && this.attackCd <= 0 && this.rollT < 0) {
           this.facing = Math.atan2(meleeTarget.y - this.y, meleeTarget.x - this.x);
           this.startSwing(g);
         }

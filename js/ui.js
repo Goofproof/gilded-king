@@ -134,6 +134,10 @@ const UI = (() => {
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
+    // #51 auto-attack state (subtle when on, loud when off so you know why you're idle)
+    c.textAlign = 'left';
+    c.fillStyle = p.autoAttack ? 'rgba(126,224,160,0.55)' : '#ff9a3d';
+    c.fillText(p.autoAttack ? 'F auto-atk ON' : 'F AUTO-ATK OFF', 110, H - 112);
 
     // ability badges (Q / R / Ultimate), bottom-centre; hover shows what each does
     for (const b of abilityBadges(p)) drawAbility(c, b.a, b.key, b.x);
