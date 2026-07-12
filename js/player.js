@@ -737,17 +737,18 @@ const PlayerDef = (() => {
         const tier = Math.min(4, Math.floor(stacks / 3));   // 1..4
         const g = 0.55 + tier * 0.11;                        // grow with tier
         const col = (EVO_PAL[k] || {}).accent || '#fff';
-        if (layer === 'back' && k === 'spd') {               // SWIFT -> wings
-          c.save(); c.globalAlpha = 0.9;
+        if (layer === 'back' && k === 'spd') {               // SWIFT -> wings (compact)
+          c.save(); c.globalAlpha = 0.85;
+          const wr = 0.75 + g * 0.28;                        // much smaller than before
           for (const s of [-1, 1]) {
             c.save(); c.scale(s, 1); c.fillStyle = col;
             c.beginPath();
-            c.moveTo(r * 0.35, -r * 0.4);
-            c.quadraticCurveTo(r * (1.5 + g), -r * (0.9 + g * 0.5), r * (1.7 + g), r * 0.25);
-            c.quadraticCurveTo(r * 1.0, r * 0.05, r * 0.45, r * 0.35);
+            c.moveTo(r * 0.3, -r * 0.25);
+            c.quadraticCurveTo(r * (0.95 * wr + 0.4), -r * (0.6 + g * 0.3), r * (1.05 * wr + 0.35), r * 0.2);
+            c.quadraticCurveTo(r * 0.7, r * 0.05, r * 0.4, r * 0.28);
             c.closePath(); c.fill();
-            c.strokeStyle = 'rgba(255,255,255,0.25)'; c.lineWidth = 1;
-            c.beginPath(); c.moveTo(r * 0.5, -r * 0.2); c.lineTo(r * (1.5 + g), r * 0.0); c.stroke();
+            c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 1;
+            c.beginPath(); c.moveTo(r * 0.42, -r * 0.12); c.lineTo(r * (0.95 * wr + 0.3), r * 0.0); c.stroke();
             c.restore();
           }
           c.restore();
@@ -931,13 +932,32 @@ const PlayerDef = (() => {
         }
         c.restore();
       } else {
-        // idle blade at the hip
+        // #45: a distinct idle weapon MODEL per archetype so you can see what you wield
+        const w = this.weapon, L = this.r * 0.6;
         c.save();
         c.translate(this.x, this.y);
         c.rotate(this.facing + 0.7);
-        c.strokeStyle = this.weapon.color; c.lineWidth = this.weapon.archetype === 'heavy' ? 5 : 3;
-        c.beginPath(); c.moveTo(this.r * 0.6, 0);
-        c.lineTo(this.r * 0.6 + (this.weapon.archetype === 'heavy' ? 20 : 14), 0); c.stroke();
+        if (w.archetype === 'heavy') {           // AXE: wooden haft + a broad blade head
+          c.strokeStyle = '#6a5030'; c.lineWidth = 3; c.lineCap = 'round';
+          c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 20, 0); c.stroke();
+          c.fillStyle = w.color;
+          c.beginPath();
+          c.moveTo(L + 11, -2.5);
+          c.quadraticCurveTo(L + 25, -10, L + 23, 0);
+          c.quadraticCurveTo(L + 25, 10, L + 11, 2.5);
+          c.closePath(); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.25)';
+          c.beginPath(); c.moveTo(L + 11, -2.5); c.quadraticCurveTo(L + 20, -7, L + 21, -1); c.lineTo(L + 12, -1); c.closePath(); c.fill();
+        } else {                                  // SWORD: blade, crossguard, grip, pommel
+          c.strokeStyle = '#6a5030'; c.lineWidth = 2.5; c.lineCap = 'round';
+          c.beginPath(); c.moveTo(L - 4, 0); c.lineTo(L, 0); c.stroke();       // grip
+          c.strokeStyle = w.color; c.lineWidth = 2; c.lineCap = 'butt';
+          c.beginPath(); c.moveTo(L, -3.5); c.lineTo(L, 3.5); c.stroke();      // crossguard
+          c.lineWidth = 3;
+          c.beginPath(); c.moveTo(L, 0); c.lineTo(L + 17, 0); c.stroke();      // blade
+          c.fillStyle = w.color;
+          c.beginPath(); c.moveTo(L + 17, -2); c.lineTo(L + 22, 0); c.lineTo(L + 17, 2); c.closePath(); c.fill(); // tip
+        }
         c.restore();
       }
     }
