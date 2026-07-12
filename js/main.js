@@ -416,22 +416,22 @@
     if (m.type === 'mimic') {
       // mimics reward the risk: guaranteed good weapon + bonus XP
       const wp = Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.6 });
-      g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y, t: 0 });
+      dropGear('weapon', wp, m.x, m.y);
       p.addXp(15, g);
     } else if (m.isBoss) {
       // THE KING (and every Circle Warden): guaranteed legendary + royal armor +
       // coin fountain + essence. In the Descent he pays out more the deeper you are.
       const wp = Weapons.rollWeapon(tier, { minRarity: 4 });
-      g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y - 20, t: 0 });
-      g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { minRarity: 3 }), x: m.x + 40, y: m.y, t: 0 });
+      dropGear('weapon', wp, m.x, m.y - 20);
+      dropGear('armorItem', Weapons.rollArmor(tier, { minRarity: 3 }), m.x + 40, m.y);
       for (let i = 0; i < 36; i++) spawnPickup('coin', m.x, m.y);
       const ne = m.isDescentBoss ? Descent.bossEssence(g.floorNum) : 12;
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
       // Circle Wardens are the only creatures that guard mythics
       if (m.isDescentBoss && Math.random() < Descent.MYTHIC_DROP_CHANCE) {
         const item = Weapons.rollMythic(undefined, { exclude: g.meta.mythics, tier });
-        if (item.isArmor) g.pickups.push({ kind: 'armorItem', armor: item, x: m.x - 40, y: m.y, t: 0 });
-        else g.pickups.push({ kind: 'weapon', weapon: item, x: m.x, y: m.y + 24, t: 0 });
+        if (item.isArmor) dropGear('armorItem', item, m.x - 40, m.y);
+        else dropGear('weapon', item, m.x, m.y + 24);
         Fx.text(m.x, m.y - 50, 'A MYTHIC STIRS IN THE ASH...', item.color, 15);
       }
       if (!m.isDescentBoss) { g.kingSlain = true; p.essenceRun += 20; } // King's victory bonus
@@ -444,11 +444,11 @@
       if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
-      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 }), x: m.x, y: m.y, t: 0 });
+      dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 }), m.x, m.y);
     } else if (Math.random() < 0.045 * (1 + 0.5 * looting)) {
-      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier), x: m.x, y: m.y, t: 0 });
+      dropGear('weapon', Weapons.rollWeapon(tier), m.x, m.y);
     } else if (Math.random() < 0.035 * (1 + 0.5 * looting)) {
-      g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier), x: m.x, y: m.y, t: 0 });
+      dropGear('armorItem', Weapons.rollArmor(tier), m.x, m.y);
     }
 
     checkRoomCleared();
@@ -465,6 +465,20 @@
     // who spawns its OWN copy into its OWN wallet (both players progress economically).
     // Guard on Net.isHost so the guest's own spawns don't echo back.
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'pk', k: kind, x: Math.round(x), y: Math.round(y) });
+  }
+
+  // drop a GEAR pickup (weapon/armor) and, in co-op, mirror it to guests as their
+  // OWN instanced copy so player 2/3 get stronger loot too (kills only run on the
+  // host, so guests never generate these locally). Weapon/armor objects are plain
+  // data - safe to send over the wire and reconstruct as-is on the guest.
+  function dropGear(kind, item, x, y) {
+    const pk = { kind, x, y, t: 0 };
+    if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
+    g.pickups.push(pk);
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
+      Net.send({ t: 'gear', kind, item, x: Math.round(x), y: Math.round(y) });
+    }
+    return pk;
   }
 
   function checkRoomCleared() {
@@ -1300,6 +1314,15 @@
     Net.on('boom', m => { if (isCoopGuest()) { Fx.shake(9, 0.3); Sfx.play('explode'); Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 28, { speed: 260, life: 0.6, glow: true }); } });
     // P1-D: currency drop mirrored from the host -> guest's own instance (own wallet)
     Net.on('pk', m => { if (isCoopGuest()) spawnPickup(m.k, m.x, m.y); });
+    // #32: GEAR drop mirrored from the host -> guest's OWN instanced copy on the
+    // ground, so player 2/3 can walk over + grab stronger weapons/armor of their own
+    Net.on('gear', m => {
+      if (!isCoopGuest()) return;
+      const pk = { kind: m.kind, x: m.x, y: m.y, t: 0 };
+      if (m.kind === 'weapon') pk.weapon = m.item; else pk.armor = m.item;
+      g.pickups.push(pk);
+      Fx.text(m.x, m.y - 24, 'LOOT', m.item && m.item.color || '#ffd24c', 12);
+    });
     // P1-D: room cleared on the host -> guest vacuums its coins + unseals its doors
     Net.on('roomclear', m => {
       if (!isCoopGuest() || !g.dungeon) return;
@@ -1432,6 +1455,7 @@
     const k = Math.min(1, dt * 12);
     for (const rp of g.remotePlayers.values()) {
       if (rp.tx !== undefined) { rp.x += (rp.tx - rp.x) * k; rp.y += (rp.ty - rp.y) * k; }
+      if (rp.swing) { rp.swing.t += dt; if (rp.swing.t >= rp.swing.dur) rp.swing = null; }
     }
   }
 
@@ -1452,6 +1476,7 @@
         c.fillText('DOWNED', rp.x, rp.y - 24);
         continue;
       }
+      if (rp.swing) drawPeerSwing(c, rp);
       c.save();
       c.translate(rp.x, rp.y);
       c.fillStyle = 'rgba(0,0,0,0.35)';
@@ -1472,6 +1497,28 @@
         c.fillStyle = '#7ee0a0'; c.fillRect(rp.x - bw / 2, rp.y - 18, bw * kk, 2);
       }
     }
+  }
+
+  // a networked teammate's melee swing: the arc-sweep sweep (no windup phase, we
+  // receive it at release), mirrors the local player's drawWeapon release visual
+  function drawPeerSwing(c, rp) {
+    const s = rp.swing;
+    const k = Math.min(1, s.t / s.dur);
+    const a0 = s.dir - s.arc / 2, a1 = s.dir - s.arc / 2 + s.arc * Math.min(1, k * 1.5);
+    c.save();
+    c.translate(rp.x, rp.y);
+    const grad = c.createRadialGradient(0, 0, 6, 0, 0, s.range);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.7, `rgba(255,255,255,${0.35 * (1 - k)})`);
+    grad.addColorStop(1, s.color + '00');
+    c.fillStyle = grad;
+    c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, s.range, a0, a1); c.closePath(); c.fill();
+    c.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; c.lineWidth = s.heavy ? 5 : 3;
+    c.beginPath(); c.arc(0, 0, s.range * 0.9, a0, a1); c.stroke();
+    c.globalAlpha = 0.85 * (1 - k); c.strokeStyle = s.color; c.lineWidth = (s.heavy ? 3 : 2) + (s.rarIdx || 0);
+    c.beginPath(); c.arc(0, 0, s.range * 0.99, a0, a1); c.stroke();
+    c.globalAlpha = 1;
+    c.restore();
   }
 
   // --- M4: host-authoritative monsters, guest renders + damages proxies -----
@@ -1665,6 +1712,10 @@
   // play a PEER's attack as a visual (damage stays host-authoritative via mob sync)
   function playPeerAttack(m) {
     if (m.k === 'm') {
+      // attach a swing to the sender so drawRemotePlayers renders the actual arc
+      // sweep (not just a spark trail) - you can now SEE a teammate's blade land
+      const rp = g.remotePlayers.get(m.from);
+      if (rp) rp.swing = { t: 0, dur: 0.22, dir: m.d, arc: m.a, range: m.r, color: m.c || '#dfe8f0', rarIdx: m.ri || 0, heavy: !!m.hv };
       const n = 8;
       for (let i = 0; i <= n; i++) {
         const a = m.d - m.a / 2 + m.a * (i / n);

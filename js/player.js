@@ -523,7 +523,7 @@ const PlayerDef = (() => {
       this.swing.dir = dir;
       // co-op: let the other players SEE this swing (visual only)
       if (g.coop && typeof Net !== 'undefined' && Net.connected) {
-        Net.send({ t: 'atk', k: 'm', x: Math.round(this.x), y: Math.round(this.y), d: +dir.toFixed(2), r: Math.round(w.range), a: +w.arc.toFixed(2), c: w.color });
+        Net.send({ t: 'atk', k: 'm', x: Math.round(this.x), y: Math.round(this.y), d: +dir.toFixed(2), r: Math.round(w.range), a: +w.arc.toFixed(2), c: w.color, ri: w.rarIdx || 0, hv: w.archetype === 'heavy' ? 1 : 0 });
       }
       if (w.archetype === 'heavy') {
         Sfx.play('heavy');
