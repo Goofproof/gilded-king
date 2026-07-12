@@ -144,15 +144,31 @@ const Dungeon = (() => {
 
     // populate room furniture (not monsters - those spawn on first entry)
     for (const r of list) {
-      if (r.type === 'combat' || r.type === 'boss') {
-        const n = OBSTACLES_PER_COMBAT[0] +
-          ((rnd() * (OBSTACLES_PER_COMBAT[1] - OBSTACLES_PER_COMBAT[0] + 1)) | 0);
-        for (let i = 0; i < (r.type === 'boss' ? 0 : n); i++) {
-          // keep rocks away from door lanes and the center spawn area
-          const ox = PF.x + 90 + rnd() * (PF.w - 180);
-          const oy = PF.y + 90 + rnd() * (PF.h - 180);
-          if (Math.abs(ox - (PF.x + PF.w / 2)) < 120 && Math.abs(oy - (PF.y + PF.h / 2)) < 120) continue;
-          r.obstacles.push({ x: ox, y: oy, r: 16 + rnd() * 12 });
+      if (r.type === 'combat') {
+        // #27 room-shape variety: pick an obstacle LAYOUT so rooms feel different
+        // (a pillared hall, a central arena ring, blocked corners, a columned
+        // corridor) instead of pure random scatter. Seeded, so co-op stays in sync.
+        const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2;
+        const doorPt = d => d === 'N' ? { x: cx, y: PF.y } : d === 'S' ? { x: cx, y: PF.y + PF.h } : d === 'W' ? { x: PF.x, y: cy } : { x: PF.x + PF.w, y: cy };
+        const push = (x, y, rad) => {
+          if (Math.abs(x - cx) < 95 && Math.abs(y - cy) < 95) return;      // keep the spawn area clear
+          for (const dir in r.doors) { const dp = doorPt(dir); if (Math.hypot(x - dp.x, y - dp.y) < 88) return; } // never seal a door lane
+          r.obstacles.push({ x, y, r: rad });
+        };
+        const layout = ['scatter', 'scatter', 'pillars', 'ring', 'corners', 'columns'][(rnd() * 6) | 0];
+        r.layout = layout;
+        if (layout === 'pillars') {
+          for (let gx = 0; gx < 3; gx++) for (let gy = 0; gy < 2; gy++) push(PF.x + PF.w * (0.26 + gx * 0.24), PF.y + PF.h * (0.30 + gy * 0.40), 15);
+        } else if (layout === 'ring') {
+          const R = Math.min(PF.w, PF.h) * 0.35;
+          for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; push(cx + Math.cos(a) * R, cy + Math.sin(a) * R, 16); }
+        } else if (layout === 'corners') {
+          for (const sx of [-1, 1]) for (const sy of [-1, 1]) { push(cx + sx * PF.w * 0.33, cy + sy * PF.h * 0.33, 24); push(cx + sx * PF.w * 0.24, cy + sy * PF.h * 0.30, 16); push(cx + sx * PF.w * 0.30, cy + sy * PF.h * 0.22, 16); }
+        } else if (layout === 'columns') {
+          for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) push(cx + sx * PF.w * 0.30, PF.y + PF.h * (0.26 + i * 0.24), 15);
+        } else {
+          const n = OBSTACLES_PER_COMBAT[0] + ((rnd() * (OBSTACLES_PER_COMBAT[1] - OBSTACLES_PER_COMBAT[0] + 1)) | 0);
+          for (let i = 0; i < n; i++) push(PF.x + 90 + rnd() * (PF.w - 180), PF.y + 90 + rnd() * (PF.h - 180), 16 + rnd() * 12);
         }
       }
       if (r.type === 'treasure') {

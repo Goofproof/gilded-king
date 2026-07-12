@@ -6,6 +6,16 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #27 ROOM SHAPES - obstacle layouts, not a PF refactor (2026-07-12)
+- Sam asked for "changing the shape of the rooms." A true non-rectangular play
+  field would mean refactoring PF (the fixed rect used for ALL collision, wall
+  and door-lane math) - too risky to attempt blind while Sam is away (high chance
+  of breaking movement/walls game-wide). Instead I added obstacle LAYOUTS (pillars
+  / ring / corners / columns / scatter) that make rooms FEEL like different shapes
+  while reusing the existing, collision-safe obstacle system. Seeded so co-op stays
+  in sync; every layout guards against sealing a door (verified 0 sealed doors over
+  275 rooms). If Sam wants literally non-rect rooms, that's a separate PF refactor.
+
 ## #27 enemy variety - design calls (2026-07-12)
 - **Spawn rates / stats are first-pass guesses.** New enemies (seeker, miner, pulser,
   worm) got hand-tuned hp/dmg/speed and were slotted into the tier 3-5 spawn tables at
