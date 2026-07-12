@@ -41,7 +41,10 @@ last items rather than build them blind. Reasoning per item (for Sam to steer):
 - **#46 Stat-system rework** - Sam explicitly wants to design the connecting "web"
   together (stat relationships, what each drill-down shows, invisible-on-C). Needs
   his design input before build.
-- **#13 HUD corners** - vague (which element overlaps). Deferred, not guessed.
+- **#13 HUD corners** - DONE (2026-07-12). Interpreted as: the top-left stats panel
+  and top-right minimap sit over the room's corners and hide mobs lurking there. Made
+  both fade (extra when a live monster is actually under them) so corner mobs stay
+  visible. If Sam meant something else by "HUD covers corners," easy to adjust.
 - **#20 Reroll + honing wording** - ambiguous (which reroll, what wording). Deferred.
 
 ## #27 ROOM SHAPES - obstacle layouts, not a PF refactor (2026-07-12)

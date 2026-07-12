@@ -32,6 +32,11 @@ const UI = (() => {
   function drawHUD(c, g) {
     const p = g.player;
     c.save();
+    // #13: the top-left stats panel can hide a mob in the room's corner - fade it,
+    // dropping further when a live monster is actually under it
+    let hudA = 0.94;
+    if (g.monsters && g.monsters.some(m => !m.dead && m.x < 230 && m.y < 115)) hudA = 0.58;
+    c.globalAlpha = hudA;
     c.font = '12px monospace';
     c.textAlign = 'left';
 
@@ -358,6 +363,11 @@ const UI = (() => {
     const ox = W - pad - mw, oy = pad + 22;
 
     c.save();
+    // #13: the minimap/HUD sit over the room's top corners; fade them so mobs lurking
+    // behind them stay visible - and fade EXTRA when a live monster is under the map
+    let mapAlpha = 0.82;
+    if (g.monsters && g.monsters.some(m => !m.dead && m.x > ox - 10 && m.y < oy + rows * (cell + gap) + 10)) mapAlpha = 0.5;
+    c.globalAlpha = mapAlpha;
     // level name above the minimap, right-aligned to its edge
     const theme = Dungeon.themeFor(g.floorNum);
     c.textAlign = 'right';
