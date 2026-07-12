@@ -6,6 +6,26 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## HOLDING the remaining big/ambiguous items (2026-07-12)
+After clearing everything cleanly buildable, I stopped prod-changing work on the
+last items rather than build them blind. Reasoning per item (for Sam to steer):
+- **#16 Magic system (wands/staffs)** - spec'd, but it means new branches in the
+  CORE auto-attack/fire loop (today only heavy/light/bow) + a new stat + ~6 spells.
+  A large blind addition there risks regressing well-tested combat. Wants a scoping
+  pass: build wand+staff as new archetypes first (fast bolt / slow fireball), then
+  layer utility spells (blink, time-freeze) and elemental staffs. Recommend I do
+  that increment next session with Sam able to react.
+- **#30 Base classes + per-level trees** - big, and it overlaps heavily with #46
+  (the stat-web rework). Building classes before the stat web is settled would mean
+  redoing them. Sequence after #46.
+- **#43 Prestige page** - the prestige SYSTEM isn't designed yet ("may earn its own
+  page"). Building a page for an undefined system is premature.
+- **#46 Stat-system rework** - Sam explicitly wants to design the connecting "web"
+  together (stat relationships, what each drill-down shows, invisible-on-C). Needs
+  his design input before build.
+- **#13 HUD corners** - vague (which element overlaps). Deferred, not guessed.
+- **#20 Reroll + honing wording** - ambiguous (which reroll, what wording). Deferred.
+
 ## #27 ROOM SHAPES - obstacle layouts, not a PF refactor (2026-07-12)
 - Sam asked for "changing the shape of the rooms." A true non-rectangular play
   field would mean refactoring PF (the fixed rect used for ALL collision, wall
