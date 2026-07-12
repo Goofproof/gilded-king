@@ -1206,8 +1206,8 @@
   function buyMetaUpgrade(key) {
     const u = UI.META_UPGRADES.find(u => u.key === key);
     const rank = g.meta.ranks[key] || 0;
-    if (rank >= u.maxRank) { Sfx.play('error'); return; }
-    const cost = u.costs[rank];
+    const cost = UI.metaCost(u, rank);              // null once a capped upgrade is maxed
+    if (cost === null) { Sfx.play('error'); return; }
     if (g.meta.essence < cost) { Sfx.play('error'); return; }
     g.meta.essence -= cost;
     g.meta.ranks[key] = rank + 1;
@@ -1601,6 +1601,7 @@
             const landed = m.takeHit(dmg, {
               sx: pr.x - pr.vx * 0.02, sy: pr.y - pr.vy * 0.02,
               knock: pr.knock, flame: pr.flame, crit: pr.crit, fromPlayer: true,
+              chill: pr.chill, venom: pr.venom, chain: pr.chain,
               hitSfx: pr.hitSfx,
             }, g);
             if (landed) P.onHitLanded(pr.crit, g);

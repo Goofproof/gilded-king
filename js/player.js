@@ -443,7 +443,11 @@ const PlayerDef = (() => {
       const w = this.weapon;
       // auto-attack: melee swings only when the target is actually in reach;
       // the bow self-draws and releases at a solid (not full) draw
-      const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8;
+      // pre-swing (Sam): start the swing just before the target reaches range so
+      // the hit lands as it arrives - lead by the distance it closes during windup
+      // (applyMelee re-checks range at release, so an early swing that whiffs is fine)
+      const lead = w.windup * ((autoTarget && autoTarget.speed) || 0) + 10;
+      const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8 + lead;
       const attackHeld = input.mouse.down || input.key('KeyJ'); // J = keyboard attack (aim stays on mouse)
       if (w.archetype === 'bow') {
         const wantDraw = (attackHeld || autoTarget) && this.rollT < 0;
@@ -525,6 +529,7 @@ const PlayerDef = (() => {
             sx: this.x, sy: this.y,
             knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
             flame: Weapons.has(w, 'fireaspect') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+            chill: Weapons.has(w, 'frost'), venom: Weapons.has(w, 'venom'), chain: Weapons.has(w, 'chain'),
             stagger: w.stagger,
             execute: !!Weapons.has(w, 'executioner'),
             hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
@@ -572,6 +577,7 @@ const PlayerDef = (() => {
           pierce: Weapons.has(w, 'piercing') ? 3 : 0,
           knock: Weapons.has(w, 'punch') ? 240 : 60,
           flame: Weapons.has(w, 'flame') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+          chill: Weapons.has(w, 'frost'), venom: Weapons.has(w, 'venom'), chain: Weapons.has(w, 'chain'),
           hitSfx: 'hitArrow',
           crit, arrow: true, hitSet: new Set(),
         });
