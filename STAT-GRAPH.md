@@ -91,6 +91,10 @@ graph that a redesign must keep fed.
    mana-or-cooldown utility)?
 2. **spd vs roll overlap.** They share so many effects (i-frames, windWake,
    rollNova) they read as one stat split in two. Merge, or sharpen the distinction?
+   > RESOLVED (2026-07-12): sharpened, not merged. phantomStep (roll i-frames) and
+   > rollNova (roll-through damage) are now exclusive to ACROBAT. FLEET became pure
+   > movement: raw speed / slipstream (windWake) / a magnet+coin economy line that is
+   > its FLOW bridge. The two trees now share zero fx keys.
 3. **Hidden damage stats.** hp (thorns/nova) and coin (Midas) quietly deal damage.
    Is that the intended "web," or should the sheet make those cross-links explicit
    so the player can plan them?
