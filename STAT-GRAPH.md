@@ -33,6 +33,10 @@ that tier (Tier I / II / III / IV). Eight of the nine stats have a full 4-tier t
 **THE GAP: `magic` (Attunement) has NO evolution tree.** It is the only stat that
 stacks with no evolutions behind it. Decision for #46: give Magic its own tree
 (spell-power / mana / elemental themes) or fold it into the web differently.
+> RESOLVED (#46b, 2026-07-12): Magic now has a full 4-tier ARCANE tree (Spell
+> Power / Elemental Reach / Cast Tempo), and the C sheet groups all nine stats into
+> the three schools with a clickable per-stat drill-down. This map is now built,
+> not just proposed. Remaining open items are the design questions in section 4.
 
 The three branches per stat are thematically distinct sub-paths. Summarized by the
 mechanic each branch pushes (full names/numbers in js/evolutions.js):

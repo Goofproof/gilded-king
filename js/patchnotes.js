@@ -8,9 +8,18 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.8';
+  const VERSION = 'v2.9';
 
   const NOTES = [
+    {
+      v: 'v2.9', title: 'The Arcane School', date: '2026-07-12',
+      items: [
+        'MAGIC finally evolves: stack Attunement to 3 / 6 / 9 / 12 and choose from a full ARCANE tree - raw Spell Power, wider Elemental bursts, or faster Cast Tempo.',
+        'NEW character sheet (press C): your stats are now grouped into three schools - MIGHT, VIGOR, and FLOW.',
+        'CLICK any stat to drill into its full evolution tree and see which paths you\'ve taken and what\'s still ahead.',
+        'Each stat shows how it reaches into another school (the "web") - like crit healing you, or hoarded coins turning into damage.',
+      ],
+    },
     {
       v: 'v2.8', title: 'Magic, Tactics & Reroll', date: '2026-07-12',
       items: [
