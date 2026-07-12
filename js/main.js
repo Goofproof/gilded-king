@@ -364,6 +364,9 @@
     const p = g.player;
     p.kills++;
     p.addXp(m.xp, g);
+    // co-op: the whole party levels off shared kills (kills only ever happen on
+    // the host, so it grants everyone the same XP)
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'xp', a: m.xp });
     Fx.burst(m.x, m.y, ['#fff', '#ffd24c', '#ff6655'], 14, { speed: 180, life: 0.5 });
     Sfx.play('kill');
 
@@ -1250,6 +1253,10 @@
     Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
     Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list); });
+    // co-op: the guest levels off the host's shared kills
+    Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
+    // co-op: play a peer's attack visual so you can SEE them fighting
+    Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)
     Net.on('hit', m => {
       if (g.coop && Net.isHost) {
@@ -1453,6 +1460,22 @@
         }
       },
     };
+  }
+
+  // play a PEER's attack as a visual (damage stays host-authoritative via mob sync)
+  function playPeerAttack(m) {
+    if (m.k === 'm') {
+      const n = 8;
+      for (let i = 0; i <= n; i++) {
+        const a = m.d - m.a / 2 + m.a * (i / n);
+        Fx.burst(m.x + Math.cos(a) * m.r * 0.85, m.y + Math.sin(a) * m.r * 0.85, [m.c || '#dfe8f0', '#fff'], 1, { speed: 55, life: 0.3, glow: true, size: 2.5 });
+      }
+      Sfx.play('swing');
+    } else if (m.k === 'b') {
+      // visual-only arrow: from:'remote' so updateProjectiles never applies damage
+      g.projectiles.push({ from: 'remote', x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: 4, color: m.c || '#e8e3d0', life: 1.4, arrow: true, hitSet: new Set() });
+      Sfx.play('bowfire');
+    }
   }
 
   // guest: smooth proxies toward their reported position + take contact damage

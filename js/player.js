@@ -508,6 +508,10 @@ const PlayerDef = (() => {
       const w = this.weapon, stats = this.stats;
       const dir = this.facing; // heavy re-aims at release: feels responsive
       this.swing.dir = dir;
+      // co-op: let the other players SEE this swing (visual only)
+      if (g.coop && typeof Net !== 'undefined' && Net.connected) {
+        Net.send({ t: 'atk', k: 'm', x: Math.round(this.x), y: Math.round(this.y), d: +dir.toFixed(2), r: Math.round(w.range), a: +w.arc.toFixed(2), c: w.color });
+      }
       if (w.archetype === 'heavy') {
         Sfx.play('heavy');
         Fx.hitstop(0.055);      // hit-stop freeze frame on the heavy swing
@@ -579,6 +583,12 @@ const PlayerDef = (() => {
           hitSfx: 'hitArrow',
           crit, arrow: true, hitSet: new Set(),
         });
+        // co-op: mirror the arrow to peers as a visual-only projectile
+        if (g.coop && typeof Net !== 'undefined' && Net.connected) {
+          Net.send({ t: 'atk', k: 'b', x: Math.round(this.x + Math.cos(a) * 16), y: Math.round(this.y + Math.sin(a) * 16),
+            vx: Math.round(Math.cos(a) * w.projSpeed * (0.65 + draw * 0.5)), vy: Math.round(Math.sin(a) * w.projSpeed * (0.65 + draw * 0.5)),
+            c: (fx.colors && fx.colors[0]) || '#e8e3d0' });
+        }
       }
       this.attackCd = w.cooldown;
       Sfx.play('bowfire');
