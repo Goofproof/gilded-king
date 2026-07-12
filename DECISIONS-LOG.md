@@ -6,6 +6,26 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #48 enemy unit tactics - role mapping (2026-07-12)
+Sam's spec named "thorns mobs / chargers / small purples." Mapped to the actual
+enemy roster (no "thorns" type exists; closest role match):
+- BULWARK = `shielded` (the shield mob). When a ranged ally (archer/glass/seeker/
+  pulser/miner/summoner) is alive, it plants itself ~42% of the way from that ally
+  toward the player, shield facing the player, screening the shooter. It drops the
+  screen and does its normal bash only when the player pushes inside ~95px.
+- FLANKER/cavalry = `chaser` (also mimicbaby/add, same case). At >120px it swings to
+  a fixed flank side (each rider picks left/right once) instead of a head-on charge,
+  then commits straight to lunge once close.
+- PICKET = `swarmer` (small purples). While a ranged ally is alive and the player is
+  >150px away, the swarm orbits/guards that ally; it peels off to swarm the player
+  the moment the player closes.
+All three fall back to their original behavior when no ranged ally is in the room.
+Verified in-sim (dbg): shielded sits between player and archer; swarmer holds ~46px
+picket on the archer then closes on the player (85->37px) when the player nears;
+chaser assigns a flank side and curves in; shielded runs idle->windup->bash->recover
+once engaged. flankSide/orbit use Math.random, which only runs host-side (monster AI
+is host-authoritative), so co-op stays in sync.
+
 ## #16 magic audit (reeled in per Sam) + fixes (2026-07-12)
 Ran a 5-dimension review workflow on the magic integration; Sam flagged it was
 spawning too many agents (a prior "workflow_agent_overrun" is on THE LIST), so I

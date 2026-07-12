@@ -117,6 +117,19 @@ const Monsters = (() => {
     for (const t of ts) { const d = Math.hypot(t.x - m.x, t.y - m.y); if (d < bd) { bd = d; best = t; } }
     return best;
   }
+  // #48 UNIT TACTICS: enemies that shoot from range are "line troops" the melee
+  // units screen for. Bulwarks (shielded) body-block for them, swarmers picket
+  // them, and chasers flank the player instead of charging straight in.
+  const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1 };
+  function nearestRangedAlly(m, g) {
+    let best = null, bd = 1e9;
+    for (const o of g.monsters) {
+      if (o === m || o.dead || o.spawnT > 0 || !RANGED_ALLY[o.type]) continue;
+      const d = Math.hypot(o.x - m.x, o.y - m.y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
   function tryContactHit(m, g, p, mult = 1) {
     if (m.contactCd > 0) return;
     if (Math.hypot(p.x - m.x, p.y - m.y) < m.r + p.r + 2) {
@@ -175,9 +188,17 @@ const Monsters = (() => {
       case 'chaser':
       case 'mimicbaby':
       case 'add': {
-        // telegraphed lunge when close: pause + flash, then dash
+        // telegraphed lunge when close: pause + flash, then dash.
+        // #48 cavalry: at range it swings wide to the player's flank (each rider
+        // commits to a side) instead of charging head-on; commits straight once near.
         if (m.state === 'idle') {
-          moveToward(m, p.x, p.y, dt, m.speed);
+          let tx = p.x, ty = p.y;
+          if (dist > 120) {
+            if (m.flankSide === undefined) m.flankSide = Math.random() < 0.5 ? 1 : -1;
+            const bearing = Math.atan2(m.y - p.y, m.x - p.x) + m.flankSide * 0.9;
+            tx = p.x + Math.cos(bearing) * 120; ty = p.y + Math.sin(bearing) * 120;
+          }
+          moveToward(m, tx, ty, dt, m.speed);
           if (dist < 95 && m.t > 0.4) { m.state = 'windup'; m.t = 0; m.lungeAngle = Math.atan2(p.y - m.y, p.x - m.x); }
           tryContactHit(m, g, p);
         } else if (m.state === 'windup') {
@@ -192,9 +213,17 @@ const Monsters = (() => {
         break;
       }
       case 'swarmer': {
-        // jittery fast chase, threatens through numbers
+        // jittery fast chase, threatens through numbers.
+        // #48 picket: while a ranged ally is alive and the player is at range, the
+        // swarm orbits/screens that ally; it peels off to swarm once the player closes.
         const jx = Math.sin(m.t * 9 + m.x) * 40;
-        moveToward(m, p.x + jx, p.y + Math.cos(m.t * 7) * 30, dt, m.speed);
+        const ward = nearestRangedAlly(m, g);
+        if (ward && dist > 150) {
+          const a = m.t * 2 + (m.x % 6);
+          moveToward(m, ward.x + Math.cos(a) * 46, ward.y + Math.sin(a) * 46, dt, m.speed * 0.7);
+        } else {
+          moveToward(m, p.x + jx, p.y + Math.cos(m.t * 7) * 30, dt, m.speed);
+        }
         tryContactHit(m, g, p);
         break;
       }
@@ -333,10 +362,20 @@ const Monsters = (() => {
         break;
       }
       case 'shielded': {
-        // shield blocks frontal damage; bash leaves it open - flank or bait
+        // shield blocks frontal damage; bash leaves it open - flank or bait.
+        // #48 bulwark: if it's guarding a ranged ally, it plants itself between the
+        // player and that ally (shield toward the threat) instead of closing; it only
+        // breaks formation to bash once the player pushes into it.
         if (m.state === 'idle') {
           m.shieldUp = true;
-          moveToward(m, p.x, p.y, dt, m.speed);
+          const ward = nearestRangedAlly(m, g);
+          if (ward && dist > 95) {
+            const bx = ward.x + (p.x - ward.x) * 0.42, by = ward.y + (p.y - ward.y) * 0.42;
+            moveToward(m, bx, by, dt, m.speed);
+            m.facing = Math.atan2(p.y - m.y, p.x - m.x); // keep the shield facing the player
+          } else {
+            moveToward(m, p.x, p.y, dt, m.speed);
+          }
           if (dist < 110 && m.t > 1.2) { m.state = 'windup'; m.t = 0; }
           tryContactHit(m, g, p, 0.7);
         } else if (m.state === 'windup') {
