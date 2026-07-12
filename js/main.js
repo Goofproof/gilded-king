@@ -679,17 +679,24 @@
 
   function clampPlayer() {
     const p = g.player;
-    // allow standing inside an unlocked doorway lane, otherwise clamp to the field
-    let inLaneX = false, inLaneY = false;
+    // Each wall is clamped INDEPENDENTLY: a wall only opens if there's a real door
+    // on THAT side and the player is lined up with its lane. (Bug fix: N and S doors
+    // share the same centre-X lane, so the old "inLaneY" let a north door leak you
+    // out through the south wall - and W/E likewise.)
+    let openTop = false, openBot = false, openLeft = false, openRight = false;
     if (!doorsLocked()) {
       for (const d of doorRects(g.room)) {
         if (doorSealed(g.room, d.dir)) continue;
-        if ((d.dir === 'N' || d.dir === 'S') && p.x > d.x && p.x < d.x + d.w) inLaneY = true;
-        if ((d.dir === 'W' || d.dir === 'E') && p.y > d.y && p.y < d.y + d.h) inLaneX = true;
+        if (d.dir === 'N' && p.x > d.x && p.x < d.x + d.w) openTop = true;
+        if (d.dir === 'S' && p.x > d.x && p.x < d.x + d.w) openBot = true;
+        if (d.dir === 'W' && p.y > d.y && p.y < d.y + d.h) openLeft = true;
+        if (d.dir === 'E' && p.y > d.y && p.y < d.y + d.h) openRight = true;
       }
     }
-    if (!inLaneX) p.x = Math.max(PF.x + p.r, Math.min(PF.x + PF.w - p.r, p.x));
-    if (!inLaneY) p.y = Math.max(PF.y + p.r, Math.min(PF.y + PF.h - p.r, p.y));
+    if (!openTop) p.y = Math.max(PF.y + p.r, p.y);
+    if (!openBot) p.y = Math.min(PF.y + PF.h - p.r, p.y);
+    if (!openLeft) p.x = Math.max(PF.x + p.r, p.x);
+    if (!openRight) p.x = Math.min(PF.x + PF.w - p.r, p.x);
   }
 
   // ============================ INTERACTION (E) ============================
@@ -2716,21 +2723,33 @@
       })),
       ...(w.flavor ? [{ text: `"${w.flavor}"`, color: '#9a8f7a', italic: true }] : []),
     ];
-    const cw = 250, lh = 16, chh = lines.length * lh + 14;
+    const cw = 262, pad = 10, maxTextW = cw - pad * 2, lh = 15;
+    c.save();
+    // wrap every raw line to the box width, using each line's own font, so long
+    // mythic flavor/enchant text stays INSIDE the card (bug: it used to overflow)
+    const render = [];
+    for (const l of lines) {
+      const font = (l.bold ? 'bold 12px' : l.italic ? 'italic 11px' : '11px') + ' monospace';
+      c.font = font;
+      let cur = '';
+      for (const wd of l.text.split(' ')) {
+        const test = cur ? cur + ' ' + wd : wd;
+        if (c.measureText(test).width > maxTextW && cur) { render.push({ text: cur, font, color: l.color }); cur = wd; }
+        else cur = test;
+      }
+      if (cur) render.push({ text: cur, font, color: l.color });
+    }
+    const chh = render.length * lh + 12;
     let cx = Math.min(W - cw - 8, Math.max(8, anchorX - cw / 2));
     let cy = anchorY - chh - 22;
     if (cy < 8) cy = anchorY + 30;
-    c.save();
-    c.fillStyle = 'rgba(8,8,16,0.92)';
+    cy = Math.max(8, Math.min(cy, H - chh - 8)); // never spill off the bottom either
+    c.fillStyle = 'rgba(8,8,16,0.94)';
     c.fillRect(cx, cy, cw, chh);
     c.strokeStyle = w.color; c.lineWidth = 1.5;
     c.strokeRect(cx, cy, cw, chh);
     c.textAlign = 'left';
-    lines.forEach((l, i) => {
-      c.font = (l.bold ? 'bold 12px' : l.italic ? 'italic 11px' : '11px') + ' monospace';
-      c.fillStyle = l.color;
-      c.fillText(l.text, cx + 10, cy + 18 + i * lh);
-    });
+    render.forEach((l, i) => { c.font = l.font; c.fillStyle = l.color; c.fillText(l.text, cx + pad, cy + 16 + i * lh); });
     c.restore();
   }
 

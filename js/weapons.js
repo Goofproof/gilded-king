@@ -59,7 +59,9 @@ const Weapons = (() => {
     bow:   { dmg: 14, cooldown: 0.45, windup: 0.0,  range: 0,  arc: 0, projSpeed: 540,
              names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'] },
   };
-  const PREFIX = { common: 'Worn', uncommon: 'Sturdy', rare: 'Fine', epic: 'Runed', legendary: 'Mythic' };
+  // legendary prefix must NOT be 'Mythic' (that's the tier ABOVE it) - it read as
+  // "Legendary Mythic X" and looked like a mythic. 'Ancient' keeps the flavor.
+  const PREFIX = { common: 'Worn', uncommon: 'Sturdy', rare: 'Fine', epic: 'Runed', legendary: 'Ancient' };
   const ROMAN = ['', 'I', 'II', 'III'];
 
   // --- helpers ---------------------------------------------------------------
