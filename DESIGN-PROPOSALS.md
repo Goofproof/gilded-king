@@ -87,6 +87,10 @@ stat web. Building classes before the stat web is settled means redoing them.
 after #46 settles the stat web. It delivers the "pick a class" feel quickly and we
 can grow it into per-level trees once the web is locked. Sequence: #46 -> #30 LIGHT
 -> (optional) #30 HEAVY trees.
+> SHIPPED (#30 LIGHT, 2026-07-12): 5 classes on the home screen (Adventurer,
+> Warrior, Ranger, Mage, Rogue), each a starting weapon + stat bias + one perk,
+> persisted in meta.selectedClass. The HEAVY per-level class TREES remain the open
+> follow-on - say the word and I'll build them on top of the settled stat web.
 
 ---
 
