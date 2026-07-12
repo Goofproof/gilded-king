@@ -8,9 +8,16 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.10';
+  const VERSION = 'v2.11';
 
   const NOTES = [
+    {
+      v: 'v2.11', title: 'Haggle With the Keeper', date: '2026-07-12',
+      items: [
+        'HAGGLE: press the shopkeeper (E) to gamble on prices - a coin flip that either drops every price 30% or drives it up 30%.',
+        'One attempt per shop, so choose your moment. The mythic shop never haggles.',
+      ],
+    },
     {
       v: 'v2.10', title: 'Choose Your Class', date: '2026-07-12',
       items: [

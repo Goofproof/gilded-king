@@ -386,6 +386,10 @@
         { kind: 'reroll', x: PF.x + 540, y: PF.y + 320 },
       ],
       rerolls: 0,
+      // #50 the shopkeeper you can haggle with (once per shop). Position matches
+      // the hooded merchant already drawn in drawShop so you press the visible NPC.
+      keeper: { x: PF.x + PF.w / 2, y: PF.y + 62 },
+      haggled: false,
     };
     for (const it of room.shopStock.items) {
       if (it.kind === 'weapon') it.price = it.weapon.price;
@@ -797,6 +801,11 @@
     if ((g.room.type === 'shop' || g.room.type === 'mythicshop') && g.room.shopStock) {
       for (const it of g.room.shopStock.items) if (!it.sold) consider(it.x, it.y, { kind: 'shopItem', it });
     }
+    // #50 haggle with the shopkeeper (regular shops only; mythics stay premium)
+    if (g.room.type === 'shop' && g.room.shopStock && g.room.shopStock.keeper) {
+      const k = g.room.shopStock.keeper;
+      consider(k.x, k.y, { kind: 'shopkeeper', k });
+    }
     if (g.room.stairs && g.room.stairs.open !== undefined) {
       if (Dungeon.uncleared(g.dungeon) === 0) consider(g.room.stairs.x, g.room.stairs.y, { kind: 'stairs' });
     }
@@ -875,6 +884,32 @@
         }
         it.price = REROLL_BASE + 5 * stock.rerolls;
         Fx.burst(it.x, it.y, '#7fd4ff', 15, { speed: 120, life: 0.5 });
+      }
+    }
+
+    // #50 HAGGLE: press the shopkeeper for a 50/50 gamble - every price drops 30%
+    // or climbs 30%. One attempt per shop (the keeper won't be pushed twice).
+    if (t.kind === 'shopkeeper') {
+      const stock = g.room.shopStock, k = t.k;
+      if (stock.haggled) {
+        g.shopMsg = { text: 'The keeper won\'t haggle twice', t: 1.6 };
+        Sfx.play('error');
+        return;
+      }
+      stock.haggled = true;
+      const win = Math.random() < 0.5;
+      const factor = win ? 0.7 : 1.3;
+      for (const it of stock.items) it.price = Math.max(1, Math.round(it.price * factor));
+      if (win) {
+        g.shopMsg = { text: 'Haggled! Every price drops 30%', t: 2.2 };
+        Sfx.play('buy');
+        Fx.text(k.x, k.y - 30, 'PRICES -30%', '#7ee0a0', 15);
+        Fx.burst(k.x, k.y, ['#7ee0a0', '#ffd24c', '#fff'], 20, { speed: 160, life: 0.6, glow: true });
+      } else {
+        g.shopMsg = { text: 'The keeper drives a hard bargain: prices +30%', t: 2.2 };
+        Sfx.play('error');
+        Fx.text(k.x, k.y - 30, 'PRICES +30%', '#ff6b6b', 15);
+        Fx.burst(k.x, k.y, ['#ff6b6b', '#8a5a5a'], 16, { speed: 120, life: 0.5 });
       }
     }
 
@@ -3119,6 +3154,7 @@
     if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12,20][t.pk.weapon.rarIdx]}◈`; }
     if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
+    if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
     if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
     if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }
     if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal') return; // these draw their own prompt
