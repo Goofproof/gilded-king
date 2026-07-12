@@ -287,6 +287,8 @@
 
     // hired mercenaries travel with you: drop them in beside the player
     for (const merc of g.mercs) { merc.x = p.x - 30 + Math.random() * 60; merc.y = p.y + 34; }
+    // pet travels with you too - snap it beside the player (was left across the room)
+    if (p.pet) { p.pet.x = p.x - 24; p.pet.y = p.y - 18; }
 
     if (room.type === 'boss' && !room.cleared) {
       g.state = 'bossintro';
@@ -527,6 +529,11 @@
   }
 
   function onPlayerDeath() {
+    // P1-C co-op: you don't END on death - you go DOWNED and can be revived. The
+    // run only ends when the WHOLE party is down (host broadcasts {t:'gameover'}).
+    // Crucially the host keeps simulating (state stays 'play') so the guest never
+    // freezes on a host death.
+    if (g.coop) { goDowned(); return; }
     if (g.runEnded) return; // never bank twice (death/victory race)
     g.runEnded = true;
     // bank essence: what you carried + 10% of unspent coins
@@ -1255,9 +1262,14 @@
       rp.tx = m.x; rp.ty = m.y;
       if (rp.x === undefined) { rp.x = m.x; rp.y = m.y; }
       rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = m.from;
+      rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.last = g.time;
     });
     Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
+    // P1-C: downed / revive / party-wipe game-over
+    Net.on('downed', m => { const rp = g.remotePlayers.get(m.id); if (rp) rp.downed = true; });
+    Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
+    Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
     Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list); });
     // co-op: the guest levels off the host's shared kills
@@ -1366,7 +1378,7 @@
     Net.send({
       t: 'p', x: Math.round(p.x), y: Math.round(p.y), f: +p.facing.toFixed(2),
       r: [g.room.gx, g.room.gy], hp: Math.round(p.hp), mh: Math.round(p.maxHp),
-      wc: p.weapon ? p.weapon.color : '#9ee7ff',
+      wc: p.weapon ? p.weapon.color : '#9ee7ff', dd: p.downed ? 1 : 0,
     });
   }
 
@@ -1383,6 +1395,18 @@
     for (const [id, rp] of g.remotePlayers) {
       if (g.time - (rp.last || 0) > 3) continue;                       // gone quiet
       if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue; // elsewhere
+      if (rp.downed) { // P1-C: a revivable teammate - stand on them to bring them back
+        c.save(); c.translate(rp.x, rp.y);
+        c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 6, 15, 5, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#3a3f4d'; c.beginPath(); c.ellipse(0, 2, 15, 9, 0, 0, Math.PI * 2); c.fill();
+        c.restore();
+        const t = Date.now() / 300;
+        c.strokeStyle = `rgba(127,212,255,${0.4 + Math.sin(t) * 0.2})`; c.lineWidth = 2;
+        c.beginPath(); c.arc(rp.x, rp.y, 20 + Math.sin(t) * 3, 0, Math.PI * 2); c.stroke();
+        c.textAlign = 'center'; c.font = 'bold 10px monospace'; c.fillStyle = '#7fd4ff';
+        c.fillText('DOWNED', rp.x, rp.y - 24);
+        continue;
+      }
       c.save();
       c.translate(rp.x, rp.y);
       c.fillStyle = 'rgba(0,0,0,0.35)';
@@ -1431,6 +1455,64 @@
   }
   g.partyTargets = partyTargets;
   g.hurtTarget = hurtTarget;
+
+  // P1-C: DOWNED / REVIVE / party-wipe -----------------------------------------
+  function goDowned() {
+    const p = g.player; // p.dead already true
+    p.downed = true;
+    Fx.text(p.x, p.y - 40, 'DOWNED - hold on!', '#7fd4ff', 15);
+    Sfx.play('hurt');
+    if (typeof Net !== 'undefined') Net.send({ t: 'downed', id: Net.id });
+  }
+  function reviveLocal() {
+    const p = g.player;
+    p.dead = false; p.downed = false;
+    p.hp = Math.max(1, Math.round(p.maxHp * 0.3));
+    p.iframes = 1.6;
+    Sfx.play('levelup');
+    Fx.text(p.x, p.y - 34, 'REVIVED', '#6ee7a0', 16);
+    Fx.burst(p.x, p.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+  }
+  // a LIVING player standing on a downed peer for ~3s revives them
+  function reviveNearbyDowned(dt) {
+    const p = g.player;
+    if (p.dead) return; // the downed can't revive
+    for (const [id, rp] of g.remotePlayers) {
+      if (!rp.downed || !rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) { rp.reviveT = 0; continue; }
+      if (Math.hypot(rp.x - p.x, rp.y - p.y) < 46) {
+        rp.reviveT = (rp.reviveT || 0) + dt;
+        Fx.burst(rp.x, rp.y, ['#7fd4ff'], 1, { speed: 20, life: 0.3 });
+        if (rp.reviveT >= 3) { rp.reviveT = 0; rp.downed = false; Net.send({ t: 'revive', id }); Fx.text(rp.x, rp.y - 30, 'REVIVED!', '#6ee7a0', 14); }
+      } else rp.reviveT = 0;
+    }
+  }
+  // host: end the run only when EVERYONE is down
+  function checkPartyWipe() {
+    if (!Net.isHost || g.runEnded) return;
+    // a peer is only "down" if we've been TOLD so ({t:'downed'} / dd flag). A present
+    // but lagging peer counts as ALIVE - never false-wipe on a network hiccup. Peers
+    // that truly leave are removed from remotePlayers by {t:'peer-leave'}.
+    let anyAlive = !g.player.dead;
+    for (const rp of g.remotePlayers.values()) if (!rp.downed) anyAlive = true;
+    if (anyAlive) return;
+    g.runEnded = true;
+    const fromCoins = Math.floor(g.player.coins * 0.10);
+    g.essenceEarned = g.player.essenceRun + fromCoins;
+    g.meta.essence += (g.player.essenceRun - g.essenceCheckpoint) + fromCoins;
+    saveMeta();
+    Net.send({ t: 'gameover', floor: g.floorNum, king: g.kingSlain ? 1 : 0 });
+    endToScreen('dead');
+  }
+  function coopGameOver(m) {
+    if (g.runEnded) return;
+    g.runEnded = true;
+    const fromCoins = Math.floor(g.player.coins * 0.10);
+    g.essenceEarned = g.player.essenceRun + fromCoins;
+    g.meta.essence += (g.player.essenceRun - g.essenceCheckpoint) + fromCoins;
+    saveMeta();
+    if (m && m.king) g.kingSlain = true;
+    endToScreen('dead');
+  }
 
   // M5: scale a freshly-spawned monster set up for the party (Sam: at least 2x).
   // HP scales with head-count; damage a little; and extra bodies join the fight.
@@ -1586,10 +1668,11 @@
     updateProjectiles(dt);
     updatePickups(dt);
 
-    // co-op: broadcast our position + smooth the other players; sync monsters
+    // co-op: broadcast our position + smooth the other players; sync monsters;
+    // revive downed teammates; end only on a full party wipe
     if (g.coop) {
-      broadcastSelf(dt); interpRemotes(dt);
-      if (isCoopGuest()) updateGuestMobs(dt); else broadcastMobs(dt);
+      broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
+      if (isCoopGuest()) updateGuestMobs(dt); else { broadcastMobs(dt); checkPartyWipe(); }
     }
 
     if (g.winTimer > 0) {

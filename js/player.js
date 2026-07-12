@@ -102,6 +102,7 @@ const PlayerDef = (() => {
       this.momentumT = 0;        // ORIGINAL enchant: speed burst after kills
       this.flash = 0;
       this.dead = false;
+      this.downed = false;  // co-op: dead-but-revivable (the run doesn't end until the party wipes)
     }
 
     get weapon() { return this.weapons[this.slot] || this.weapons.a || this.weapons.b; }
@@ -596,7 +597,10 @@ const PlayerDef = (() => {
 
     // --- rendering -----------------------------------------------------------------
     draw(c, g) {
-      if (this.dead) return;
+      if (this.dead) {
+        if (this.downed) this.drawDowned(c); // co-op: a revivable corpse, not gone
+        return;
+      }
       if (this.pet) this.drawPet(c);
       c.save();
       c.translate(this.x, this.y);
@@ -696,6 +700,25 @@ const PlayerDef = (() => {
 
       // weapon rendering (outside the roll transform)
       if (this.rollT < 0) this.drawWeapon(c);
+    }
+
+    // co-op downed pose: a greyed, slumped body under a pulsing revive ring
+    drawDowned(c) {
+      c.save();
+      c.translate(this.x, this.y);
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.beginPath(); c.ellipse(0, 6, this.r * 1.1, this.r * 0.4, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#3a3f4d';
+      c.beginPath(); c.ellipse(0, 2, this.r * 1.1, this.r * 0.7, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#5a6478';
+      c.beginPath(); c.arc(this.r * 0.5, 0, this.r * 0.5, 0, Math.PI * 2); c.fill();
+      c.restore();
+      const t = Date.now() / 300;
+      const pr = this.r + 8 + Math.sin(t) * 3;
+      c.strokeStyle = `rgba(127,212,255,${0.4 + Math.sin(t) * 0.2})`; c.lineWidth = 2;
+      c.beginPath(); c.arc(this.x, this.y, pr, 0, Math.PI * 2); c.stroke();
+      c.textAlign = 'center'; c.font = 'bold 10px monospace'; c.fillStyle = '#7fd4ff';
+      c.fillText('DOWNED', this.x, this.y - this.r - 10);
     }
 
     drawPet(c) {
