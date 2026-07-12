@@ -28,6 +28,8 @@ const Monsters = (() => {
     seeker:   { hp: 30, dmg: 12, speed: 58,  r: 13, xp: 9,  coins: [2, 5] },
     // #27 minelayer: kites and litters the floor with proximity mines
     miner:    { hp: 44, dmg: 15, speed: 74,  r: 14, xp: 10, coins: [2, 5] },
+    // #27 pulser: slow bruiser that erupts rings of bullets like the Mimic King
+    pulser:   { hp: 58, dmg: 10, speed: 44,  r: 15, xp: 13, coins: [3, 6] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
@@ -35,8 +37,8 @@ const Monsters = (() => {
     1: ['chaser', 'chaser', 'swarmer'],
     2: ['chaser', 'swarmer', 'archer', 'bomber'],
     3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser'],
   };
   const COUNT = t => Math.min(8, 2 + t + ((Math.random() * 3) | 0)); // monsters per combat room
 
@@ -276,6 +278,26 @@ const Monsters = (() => {
             m.state = 'idle'; m.t = 0;
             fireProjectile(g, m, m.facing, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
             Sfx.play('bowfire');
+          }
+        }
+        break;
+      }
+      case 'pulser': {
+        // erupts a radiating RING of bullets every ~3s (Mimic-King style); slow, so
+        // it wants space - each ring is spun a little so consecutive rings interleave
+        if (dist < 130) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+        else if (dist > 300) moveToward(m, p.x, p.y, dt, m.speed * 0.6);
+        else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'idle' && m.t > 3.0) { m.state = 'charge'; m.t = 0; }
+        if (m.state === 'charge') {
+          m.telegraph = 0.85 - m.t;
+          if (m.t >= 0.85) {
+            m.state = 'idle'; m.t = 0;
+            const n = 14;
+            for (let i = 0; i < n; i++) fireProjectile(g, m, (i / n) * Math.PI * 2 + (m.pulseSpin || 0), 172, m.dmg, '#b06bff', 5, { glow: true });
+            m.pulseSpin = (m.pulseSpin || 0) + 0.224;
+            Fx.shake(4, 0.2); Sfx.play('mimic');
+            Fx.burst(m.x, m.y, ['#b06bff', '#fff'], 20, { speed: 200, life: 0.4, glow: true });
           }
         }
         break;
@@ -601,6 +623,7 @@ const Monsters = (() => {
       case 'goblin': drawGoblin(c, m, flash, ex, ey); break;
       case 'seeker': drawSeeker(c, m, flash, ex, ey); break;
       case 'miner': drawMiner(c, m, flash, ex, ey); break;
+      case 'pulser': drawPulser(c, m, flash, ex, ey); break;
     }
 
     // elite aura: a pulsing ring + faint glow in the affix color
@@ -695,6 +718,19 @@ const Monsters = (() => {
     c.fillStyle = m.state === 'charge' ? '#fff6c0' : '#ff8a3d';
     c.beginPath(); c.arc(ex * 1.4, ey * 1.4, m.r * 0.34, 0, Math.PI * 2); c.fill();
     if (m.state === 'charge') { c.strokeStyle = 'rgba(255,180,80,0.8)'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, m.r + 4 + Math.sin(Date.now() / 60) * 2, 0, Math.PI * 2); c.stroke(); }
+  }
+  function drawPulser(c, m, flash, ex, ey) {
+    // a throbbing violet core wrapped in concentric rings; swells while charging
+    const pulse = m.state === 'charge' ? (m.t / 0.85) : (0.5 + Math.sin(Date.now() / 400) * 0.5);
+    c.save();
+    c.strokeStyle = `rgba(176,107,255,${0.3 + pulse * 0.5})`; c.lineWidth = 2;
+    for (const rr of [m.r + 4, m.r + 9]) { c.beginPath(); c.arc(0, 0, rr + pulse * 4, 0, Math.PI * 2); c.stroke(); }
+    c.restore();
+    body(c, m, flash ? '#fff' : '#7b48b8', flash);
+    c.fillStyle = flash ? '#fff' : '#c9a0ff';
+    c.beginPath(); c.arc(0, 0, m.r * 0.5 + pulse * 2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#2a1440'; c.beginPath(); c.arc(0, 0, m.r * 0.28, 0, Math.PI * 2); c.fill();
+    eyes(c, ex, ey, 3.5, 2, '#e0c8ff');
   }
   function drawMiner(c, m, flash, ex, ey) {
     // squat armored beetle with mine-spikes ridging its back
