@@ -356,6 +356,11 @@
         for (const m of g.monsters) m.netId = ++g.netMobId;   // stamp for co-op sync
       }
       Sfx.play('door'); // doors slam
+      // #27 themed-room banner (an all-one-type gauntlet)
+      if (room.enemyTheme) {
+        const NAME = { archer: 'AMBUSH', bomber: 'MINEFIELD', swarmer: 'SWARM', glass: 'ARTILLERY', shielded: 'PHALANX', seeker: 'THE HUNT', miner: 'MINEFIELD', pulser: 'BULLET HELL', worm: 'THE NEST', chaser: 'THE HORDE' };
+        g.floorBanner = { text: `${NAME[room.enemyTheme] || 'GAUNTLET'}`, t: 2.2, sub: `nothing here but ${room.enemyTheme}s` };
+      }
     }
     if ((room.type === 'shop' || room.type === 'mythicshop') && !room.shopStock) {
       if (room.type === 'mythicshop') rollMythicShopStock(room); else rollShopStock(room);
@@ -2458,6 +2463,10 @@
       c.fillText(g.floorBanner.text, W / 2 + 2, 92);
       c.fillStyle = '#e8d5a0';
       c.fillText(g.floorBanner.text, W / 2, 90);
+      if (g.floorBanner.sub) {
+        c.font = '12px monospace'; c.fillStyle = '#9a8f7a';
+        c.fillText(g.floorBanner.sub, W / 2, 110);
+      }
       c.restore();
     }
 

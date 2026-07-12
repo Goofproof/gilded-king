@@ -577,8 +577,18 @@ const Monsters = (() => {
     if (th) n = Math.min(14, Math.round(n * th.count));
     const out = [];
     const p = g.player;
+    // #27 THEMED ROOM: ~22% of combat rooms are a single enemy type (an all-archer
+    // gauntlet, a bomb room, a nest of worms...). Cached on the room so it shows a
+    // banner. A couple of types make miserable full rooms, so they're excluded.
+    const BAD_THEME = ['summoner', 'tank', 'mimic', 'mimicbaby', 'add'];
+    let themeType = null;
+    if (room.enemyTheme === undefined) {
+      const pool = table.filter(t => !BAD_THEME.includes(t));
+      room.enemyTheme = (pool.length && Math.random() < 0.22) ? pool[(Math.random() * pool.length) | 0] : null;
+    }
+    themeType = room.enemyTheme;
     for (let i = 0; i < n; i++) {
-      const type = table[(Math.random() * table.length) | 0];
+      const type = themeType || table[(Math.random() * table.length) | 0];
       // swarmers arrive as a pack of 2-3 for the price of one slot
       const pack = type === 'swarmer' ? 2 + ((Math.random() * 2) | 0) : 1;
       for (let k = 0; k < pack; k++) {
