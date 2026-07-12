@@ -893,10 +893,16 @@ const UI = (() => {
     c.fillRect(0, 0, W, H);
     c.textAlign = 'center';
     c.font = 'bold 40px monospace'; c.fillStyle = '#dde3ee';
-    c.fillText('PAUSED', W / 2, H / 2 - 20);
+    c.fillText('PAUSED', W / 2, H / 2 - 40);
     c.font = '14px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('P / Esc to resume · C sheet · M mute', W / 2, H / 2 + 16);
+    c.fillText('P / Esc to resume · C sheet · M mute', W / 2, H / 2 - 8);
+    // quit-to-title button (abandons the run; essence already banked is kept)
+    const r = { x: W / 2 - 110, y: H / 2 + 24, w: 220, h: 42, action: 'menu' };
+    c.strokeStyle = '#7fd4ff'; c.lineWidth = 2; c.strokeRect(r.x, r.y, r.w, r.h);
+    c.font = 'bold 16px monospace'; c.fillStyle = '#7fd4ff';
+    c.fillText('MAIN MENU', W / 2, r.y + 27);
     c.restore();
+    return [r];
   }
 
   // --- CO-OP LOBBY -----------------------------------------------------------
@@ -1113,15 +1119,19 @@ const UI = (() => {
       c.fillText(`★ HIGH SCORE #${g.newScoreRank} ★`, W / 2, 240 + lines.length * 26 + 8);
     }
 
-    const r = { x: W / 2 - 110, y: 420, w: 220, h: 44, action: 'again' };
-    c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
-    c.strokeRect(r.x, r.y, r.w, r.h);
+    const bw = 200, bh = 44, gap = 20, by = 420;
+    const r1 = { x: W / 2 - bw - gap / 2, y: by, w: bw, h: bh, action: 'again' };
+    const r2 = { x: W / 2 + gap / 2, y: by, w: bw, h: bh, action: 'menu' };
+    c.lineWidth = 2;
+    c.strokeStyle = '#ffd24c'; c.strokeRect(r1.x, r1.y, r1.w, r1.h);
     c.font = 'bold 17px monospace'; c.fillStyle = '#ffd24c';
-    c.fillText('NEW RUN', W / 2, r.y + 28);
+    c.fillText('NEW RUN', r1.x + r1.w / 2, r1.y + 28);
+    c.strokeStyle = '#7fd4ff'; c.strokeRect(r2.x, r2.y, r2.w, r2.h);
+    c.fillStyle = '#7fd4ff'; c.fillText('MAIN MENU', r2.x + r2.w / 2, r2.y + 28);
     c.font = '12px monospace'; c.fillStyle = '#667';
-    c.fillText('(Enter) · Esc for the hub to spend essence', W / 2, r.y + 62);
+    c.fillText('(Enter) new run · (Esc) main menu to spend essence', W / 2, by + 62);
     c.restore();
-    return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
+    return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
   return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawPause, drawCharSheet, drawEnd, drawInitials };

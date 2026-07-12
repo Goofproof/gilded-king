@@ -1244,6 +1244,11 @@
       case 'pause':
         g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
+        else if (input.mouse.clicked) {
+          for (const r of g.uiRects) {
+            if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h && r.action === 'menu') quitToTitle();
+          }
+        }
         break;
       case 'charsheet':
         g.overlayT += dt;
@@ -2134,6 +2139,17 @@
     }
   }
 
+  // abandon the current run and return to the title/hub; drops any co-op connection
+  function quitToTitle() {
+    if (g.coop) {
+      g.coop = false;
+      if (typeof Net !== 'undefined') Net.disconnect();
+      g.remotePlayers.clear();
+    }
+    g.state = 'title';
+    Sfx.play('ui');
+  }
+
   function updateEnd() {
     // leaving a co-op run drops the connection cleanly
     if ((input.pressed('Enter') || input.pressed('Escape')) && g.coop) {
@@ -2147,6 +2163,7 @@
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'again') { newRun(); return; }
+          if (r.action === 'menu') { quitToTitle(); return; }
         }
       }
     }
@@ -2377,7 +2394,7 @@
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
     if (g.state === 'levelwait') drawLevelWait(c);
-    if (g.state === 'pause') UI.drawPause(c, g);
+    if (g.state === 'pause') g.uiRects = UI.drawPause(c, g);
     if (g.state === 'charsheet') UI.drawCharSheet(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
