@@ -1067,112 +1067,156 @@ const UI = (() => {
   const STAT_COL = {
     hp: '#7fd4ff', dmg: '#e05555', spd: '#7fe0ff', roll: '#b8f0ff',
     crit: '#ff5a7a', coin: '#ffd24c', regen: '#6ee7a0', atkspd: '#ffe08a',
+    magic: '#b06bff',
   };
+  // #46 one-line note on how each stat reaches into another school (the "web" bridges)
+  const STAT_BRIDGE = {
+    dmg: 'Cursorial Hunter also grants move speed  (-> FLOW)',
+    crit: 'crit heal & bleed keep you alive  (-> VIGOR)',
+    atkspd: 'also speeds bow draws & staff casts  (-> ranged/FLOW)',
+    hp: 'thorns & retaliation turn defense into damage  (-> MIGHT)',
+    regen: 'Tardigrade & Lamprey also cut damage / boost low-HP',
+    roll: 'shares i-frames & roll-nova with FLEET',
+    spd: 'the pickup magnet pulls coins to you  (-> FLOW economy)',
+    coin: 'Midas turns hoarded coins into raw damage  (-> MIGHT)',
+    magic: 'every spell scales with the Magic stat  (FLOW arcane)',
+  };
+  const CS_SCHOOLS = [
+    ['MIGHT', ['dmg', 'crit', 'atkspd']],
+    ['VIGOR', ['hp', 'regen', 'roll']],
+    ['FLOW',  ['spd', 'coin', 'magic']],
+  ];
+  // per-stat live derived value shown on its row
+  function statValueStr(p, k) {
+    const pct = v => (v >= 0 ? '+' : '') + Math.round(v * 100) + '%';
+    switch (k) {
+      case 'hp':     return Math.round(p.maxHp) + ' hp';
+      case 'dmg':    return pct(p.stats.dmgMul * (1 + p.mod('dmg')) - 1);
+      case 'atkspd': return pct(p.stats.atkSpeedMul + p.mod('atkSpd') - 1);
+      case 'spd':    return pct(p.stats.speedMul + p.mod('spd') - 1);
+      case 'crit':   return Math.round((0.05 + p.stats.crit + p.mod('critCh')) * 100) + '% crit';
+      case 'coin':   return pct(p.stats.coinMul + p.mod('coin') - 1);
+      case 'regen':  return (p.stats.regen + p.mod('regenFlat')).toFixed(1) + '/s';
+      case 'roll':   return pct(p.stats.rollCdMul * (1 - p.mod('rollCd')) - 1) + ' cd';
+      case 'magic':  return 'lv ' + (p.magicLevel ? p.magicLevel() : (p.stats.magic || 0));
+    }
+    return '';
+  }
 
   // CHARACTER SHEET (C): live stats on the left, evolutions taken on the right
   function drawCharSheet(c, g) {
     const p = g.player, e = overlayEase(g);
     c.save();
     c.globalAlpha = e;
-    c.fillStyle = 'rgba(5,5,12,0.9)';
+    c.fillStyle = 'rgba(5,5,12,0.92)';
     c.fillRect(0, 0, W, H);
-    const px = 60, py = 40, pw = W - 120, ph = H - 80;
+    const px = 40, py = 26, pw = W - 80, ph = H - 52;
     c.strokeStyle = '#b88aff'; c.lineWidth = 2;
     c.strokeRect(px, py, pw, ph);
     c.textAlign = 'center';
-    c.font = 'bold 22px monospace'; c.fillStyle = '#dde3ee';
-    c.fillText('CHARACTER', W / 2, py + 30);
+    c.font = 'bold 20px monospace'; c.fillStyle = '#dde3ee';
+    c.fillText('CHARACTER', W / 2, py + 26);
+    // school legend under the title
+    c.font = 'bold 11px monospace';
+    const legends = [['MIGHT', Evolutions.SCHOOL_COLOR.MIGHT], ['VIGOR', Evolutions.SCHOOL_COLOR.VIGOR], ['FLOW', Evolutions.SCHOOL_COLOR.FLOW]];
+    let lgx = W / 2 - 150;
+    for (const [nm, col] of legends) { c.fillStyle = col; c.textAlign = 'left'; c.fillText('■ ' + nm, lgx, py + 44); lgx += 100; }
 
-    // ---- left column: derived stats ----
-    const pct = v => (v >= 0 ? '+' : '') + Math.round(v * 100) + '%';
-    const crit = 0.05 + p.stats.crit + p.mod('critCh'); // 0.05 = base crit
-    const critDmg = 1.7 + p.mod('critDmg');
-    const rollMul = p.stats.rollCdMul * (1 - p.mod('rollCd'));
-    const stats = [
-      ['Max Health',     Math.round(p.maxHp)],
-      ['Damage',         pct(p.stats.dmgMul * (1 + p.mod('dmg')) - 1)],
-      ['Attack Speed',   pct(p.stats.atkSpeedMul + p.mod('atkSpd') - 1)],
-      ['Move Speed',     pct(p.stats.speedMul + p.mod('spd') - 1)],
-      ['Crit Chance',    Math.round(crit * 100) + '%'],
-      ['Crit Damage',    '×' + critDmg.toFixed(2)],
-      ['Roll Cooldown',  pct(rollMul - 1)],
-      ['Damage Reduce',  Math.round(Math.min(0.6, p.mod('reduce')) * 100) + '%'],
-      ['Coin Bonus',     pct(p.stats.coinMul + p.mod('coin') - 1)],
-      ['Regen',          (p.stats.regen + p.mod('regenFlat')).toFixed(1) + '/s'],
-      ['Magic',          (p.magicLevel ? p.magicLevel() : (p.stats.magic || 0))],
-    ];
-    if (p.mod('thorns')) stats.push(['Thorns', p.mod('thorns')]);
-    let ly = py + 66;
-    c.textAlign = 'left';
-    c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
-    c.fillText('STATS', px + 30, ly); ly += 24;
-    c.font = '13px monospace';
-    for (const [label, val] of stats) {
-      c.fillStyle = '#8fa3bf'; c.textAlign = 'left';
-      c.fillText(label, px + 30, ly);
-      c.fillStyle = '#e8edf6'; c.textAlign = 'right';
-      c.fillText(String(val), px + pw / 2 - 40, ly);
-      ly += 21;
-    }
-    // active pet + Q ability under the stats
-    ly += 8;
-    if (p.pet) { c.textAlign = 'left'; c.fillStyle = p.pet.color; c.font = 'bold 12px monospace';
-      c.fillText(`PET  ${p.pet.name} · ${p.pet.desc}`, px + 30, ly); ly += 22; }
-    if (p.ability) { c.textAlign = 'left'; c.fillStyle = p.ability.color; c.font = 'bold 12px monospace';
-      c.fillText(`Q  ${p.ability.name}`, px + 30, ly); ly += 22; }
-
-    // ---- right column: how close each stat is to its next evolution ----
-    // evolutions fire at the 3rd / 6th / 9th / 12th pick of a stat (tiers I-IV)
-    const rx = px + pw / 2 + 10;
-    let ry = py + 66;
+    // which stat is drilled into (default: your most-stacked stat, else dmg)
+    if (!g.charDetail || !Evolutions.STAT_NAMES[g.charDetail]) g.charDetail = (p.dominantStat && p.dominantStat()) || 'dmg';
     const THRESH = [3, 6, 9, 12];
-    c.textAlign = 'left';
-    c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
-    c.fillText('NEXT EVOLUTION', rx, ry); ry += 22;
-    c.font = '11px monospace';
-    for (const k of Object.keys(Evolutions.STAT_NAMES)) {
-      const n = (p.upgradeStacks && p.upgradeStacks[k]) || 0;
-      const next = THRESH.find(t => t > n); // undefined once fully evolved (>=12)
-      const col = STAT_COL[k] || '#8fa3bf';
-      c.textAlign = 'left'; c.fillStyle = col;
-      c.fillText(Evolutions.STAT_NAMES[k], rx, ry);
-      // segment bar: progress within the current 3-pick tier toward the next evolution
-      const barX = rx + 118, barW = 130, barH = 7, barY = ry - 8;
-      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(barX, barY, barW, barH);
-      const seg = next ? (n - (next - 3)) / 3 : 1;
-      c.fillStyle = next ? col : '#ffd24c';
-      c.fillRect(barX, barY, barW * Math.max(0, Math.min(1, seg)), barH);
-      c.textAlign = 'right'; c.fillStyle = '#cdd4e2';
-      c.fillText(next ? `${n}/${next}` : `${n} MAX`, rx + pw / 2 - 40, ry);
-      ry += 16;
-    }
+    const rects = [];
 
-    // ---- evolutions already taken ----
-    ry += 12;
-    c.textAlign = 'left';
-    c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
-    c.fillText(`EVOLUTIONS TAKEN (${p.evoTaken.length})`, rx, ry); ry += 20;
-    if (!p.evoTaken.length) {
-      c.font = 'italic 11px monospace'; c.fillStyle = '#667';
-      c.fillText('stack a stat to 3 / 6 / 9 / 12 to evolve', rx, ry);
+    // ===== LEFT: the web, stats grouped by school (each row is a button) =====
+    const colX = px + 22, colW = 372;
+    let ly = py + 70;
+    for (const [school, keys] of CS_SCHOOLS) {
+      c.textAlign = 'left'; c.font = 'bold 12px monospace';
+      c.fillStyle = Evolutions.SCHOOL_COLOR[school];
+      c.fillText(school, colX, ly); ly += 20;
+      for (const k of keys) {
+        const n = (p.upgradeStacks && p.upgradeStacks[k]) || 0;
+        const next = THRESH.find(t => t > n);
+        const col = STAT_COL[k] || '#8fa3bf';
+        const sel = g.charDetail === k;
+        const rowX = colX, rowY = ly - 13, rowW = colW, rowH = 26;
+        if (sel) { c.fillStyle = 'rgba(176,107,255,0.16)'; c.fillRect(rowX - 6, rowY, rowW + 12, rowH); }
+        c.textAlign = 'left'; c.font = 'bold 12px monospace'; c.fillStyle = col;
+        c.fillText(Evolutions.STAT_NAMES[k], rowX + 4, ly);
+        c.font = '11px monospace'; c.fillStyle = '#9fb0c8';
+        c.fillText(statValueStr(p, k), rowX + 96, ly);
+        // tier progress bar toward the next evolution
+        const barX = rowX + 210, barW = 96, barH = 6, barY = ly - 8;
+        c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(barX, barY, barW, barH);
+        const seg = next ? (n - (next - 3)) / 3 : 1;
+        c.fillStyle = next ? col : '#ffd24c';
+        c.fillRect(barX, barY, barW * Math.max(0, Math.min(1, seg)), barH);
+        c.textAlign = 'right'; c.fillStyle = '#cdd4e2'; c.font = '10px monospace';
+        c.fillText(next ? `${n}/${next}` : `${n} MAX`, rowX + rowW, ly);
+        rects.push({ x: rowX - 6, y: rowY, w: rowW + 12, h: rowH, stat: k });
+        ly += 27;
+      }
+      ly += 8;
+    }
+    // pet + Q/R abilities beneath the web
+    ly += 2;
+    if (p.pet) { c.textAlign = 'left'; c.fillStyle = p.pet.color; c.font = 'bold 11px monospace';
+      c.fillText(`PET  ${p.pet.name}`, colX, ly); ly += 18; }
+    if (p.ability) { c.textAlign = 'left'; c.fillStyle = p.ability.color; c.font = 'bold 11px monospace';
+      c.fillText(`Q  ${p.ability.name}`, colX, ly); ly += 18; }
+    if (p.abilityR) { c.textAlign = 'left'; c.fillStyle = p.abilityR.color; c.font = 'bold 11px monospace';
+      c.fillText(`R  ${p.abilityR.name}`, colX, ly); ly += 18; }
+
+    // divider
+    const dx = px + 410;
+    c.strokeStyle = 'rgba(176,107,255,0.3)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(dx, py + 60); c.lineTo(dx, py + ph - 20); c.stroke();
+
+    // ===== RIGHT: drill-down on the selected stat's evolution tree =====
+    const k = g.charDetail, tree = Evolutions.TABLE[k], school = Evolutions.STAT_SCHOOL[k];
+    const rx = dx + 26; let ry = py + 74;
+    const scol = Evolutions.SCHOOL_COLOR[school] || '#b88aff';
+    const taken = new Set((p.evoTaken || []).filter(ev => ev.key === k).map(ev => ev.name));
+    const stacks = (p.upgradeStacks && p.upgradeStacks[k]) || 0;
+    c.textAlign = 'left'; c.font = 'bold 15px monospace'; c.fillStyle = STAT_COL[k] || '#dde3ee';
+    c.fillText(Evolutions.STAT_NAMES[k], rx, ry);
+    c.font = 'bold 10px monospace'; c.fillStyle = scol;
+    c.fillText(school + ' SCHOOL', rx + 150, ry);
+    ry += 18;
+    c.font = 'italic 10px monospace'; c.fillStyle = '#8090a8';
+    c.fillText(STAT_BRIDGE[k] || '', rx, ry); ry += 20;
+
+    if (!tree) {
+      c.font = '12px monospace'; c.fillStyle = '#667';
+      c.fillText('This stat has no evolution tree yet.', rx, ry);
     } else {
-      c.font = '12px monospace';
-      for (const ev of p.evoTaken) {
-        if (ry > py + ph - 26) break;
-        const col = STAT_COL[ev.key] || '#b88aff';
-        c.textAlign = 'left'; c.fillStyle = col; c.fillText(ev.tier || '', rx, ry);
-        c.fillStyle = '#e8edf6'; c.fillText(ev.name, rx + 28, ry);
-        c.fillStyle = '#5a6478'; c.font = '10px monospace';
-        c.fillText((Evolutions.STAT_NAMES[ev.key] || ''), rx + 28, ry + 12);
-        c.font = '12px monospace';
-        ry += 28;
+      for (const t of THRESH) {
+        const opts = tree[t] || [];
+        const reached = stacks >= t;
+        c.textAlign = 'left'; c.font = 'bold 11px monospace';
+        c.fillStyle = reached ? scol : '#5a6478';
+        c.fillText('TIER ' + (Evolutions.TIER_LABEL[t] || t) + '  (' + t + ' stacks)', rx, ry);
+        ry += 15;
+        for (const o of opts) {
+          const got = taken.has(o.name);
+          c.font = got ? 'bold 11px monospace' : '11px monospace';
+          c.fillStyle = got ? '#ffd24c' : (reached ? '#c8d0de' : '#606a7e');
+          c.textAlign = 'left';
+          c.fillText((got ? '◆ ' : (reached ? '◇ ' : '· ')) + o.name, rx + 6, ry);
+          c.font = '9px monospace'; c.fillStyle = got ? '#b8892f' : '#6a7488';
+          const d = o.desc.length > 60 ? o.desc.slice(0, 58) + '…' : o.desc;
+          c.fillText(d, rx + 20, ry + 11);
+          ry += 24;
+        }
+        ry += 4;
       }
     }
 
     c.textAlign = 'center';
-    c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('C / Esc to resume', W / 2, py + ph - 12);
+    c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('click a stat to inspect its evolution paths  ·  C / Esc to resume', W / 2, py + ph - 8);
     c.restore();
+    return rects;
   }
 
   function drawEnd(c, g, won) {

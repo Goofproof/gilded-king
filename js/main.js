@@ -1285,6 +1285,14 @@
         break;
       case 'charsheet':
         g.overlayT += dt;
+        // #46 click a stat row to drill into its evolution tree
+        if (input.mouse.clicked && g.uiRects) {
+          for (const r of g.uiRects) {
+            if (r.stat && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+              g.charDetail = r.stat; Sfx.play('ui'); break;
+            }
+          }
+        }
         if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) g.state = 'play';
         break;
       case 'transition': updateTransition(dt); break;
@@ -2548,7 +2556,7 @@
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
     if (g.state === 'levelwait') drawLevelWait(c);
     if (g.state === 'pause') g.uiRects = UI.drawPause(c, g);
-    if (g.state === 'charsheet') UI.drawCharSheet(c, g);
+    if (g.state === 'charsheet') g.uiRects = UI.drawCharSheet(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
     if (g.state === 'initials') g.uiRects = UI.drawInitials(c, g);
