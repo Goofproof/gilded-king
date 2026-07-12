@@ -88,11 +88,19 @@ const Monsters = (() => {
   }
   function distToPlayer(m, g) { return Math.hypot(g.player.x - m.x, g.player.y - m.y); }
 
-  function tryContactHit(m, g, mult = 1) {
+  // PR-1: nearest party member to m (host: both players in-room; guest/solo: just you).
+  // g.partyTargets() returns [{x,y,r,ref,isRemote,id}] and is always defined by main.js.
+  function nearestTarget(m, g) {
+    const ts = g.partyTargets ? g.partyTargets() : null;
+    if (!ts || !ts.length) return g.player;
+    let best = ts[0], bd = 1e9;
+    for (const t of ts) { const d = Math.hypot(t.x - m.x, t.y - m.y); if (d < bd) { bd = d; best = t; } }
+    return best;
+  }
+  function tryContactHit(m, g, p, mult = 1) {
     if (m.contactCd > 0) return;
-    const p = g.player;
     if (Math.hypot(p.x - m.x, p.y - m.y) < m.r + p.r + 2) {
-      p.damage(m.dmg * mult, m.x, m.y, g, m); // src ref lets thorns bite back
+      g.hurtTarget(p, m.dmg * mult, m.x, m.y, m); // PR-2: local player OR a remote peer
       m.contactCd = 0.8;
     }
   }
@@ -141,7 +149,7 @@ const Monsters = (() => {
     // stagger (from heavy weapon) freezes behavior briefly
     if (m.stagger > 0) { m.stagger -= dt; clampToField(m); return; }
 
-    const p = g.player, dist = distToPlayer(m, g);
+    const p = nearestTarget(m, g), dist = Math.hypot(p.x - m.x, p.y - m.y); // PR-1: chase the closest player
 
     switch (m.type) {
       case 'chaser':
@@ -151,14 +159,14 @@ const Monsters = (() => {
         if (m.state === 'idle') {
           moveToward(m, p.x, p.y, dt, m.speed);
           if (dist < 95 && m.t > 0.4) { m.state = 'windup'; m.t = 0; m.lungeAngle = Math.atan2(p.y - m.y, p.x - m.x); }
-          tryContactHit(m, g);
+          tryContactHit(m, g, p);
         } else if (m.state === 'windup') {
           m.telegraph = 0.32 - m.t;
           if (m.t >= 0.32) { m.state = 'lunge'; m.t = 0; Sfx.play('swing'); }
         } else if (m.state === 'lunge') {
           m.x += Math.cos(m.lungeAngle) * m.speed * 3.4 * dt;
           m.y += Math.sin(m.lungeAngle) * m.speed * 3.4 * dt;
-          tryContactHit(m, g, 1.2);
+          tryContactHit(m, g, p, 1.2);
           if (m.t >= 0.28) { m.state = 'idle'; m.t = 0; }
         }
         break;
@@ -167,7 +175,7 @@ const Monsters = (() => {
         // jittery fast chase, threatens through numbers
         const jx = Math.sin(m.t * 9 + m.x) * 40;
         moveToward(m, p.x + jx, p.y + Math.cos(m.t * 7) * 30, dt, m.speed);
-        tryContactHit(m, g);
+        tryContactHit(m, g, p);
         break;
       }
       case 'archer': {
@@ -191,7 +199,7 @@ const Monsters = (() => {
         if (m.state === 'idle') {
           moveToward(m, p.x, p.y, dt, m.speed);
           if (dist < 105 && m.t > 0.8) { m.state = 'windup'; m.t = 0; }
-          tryContactHit(m, g, 0.6);
+          tryContactHit(m, g, p, 0.6);
         } else if (m.state === 'windup') {
           m.telegraph = 0.75 - m.t; // long readable windup; heavy weapon stagger cancels it
           if (m.t >= 0.75) {
@@ -227,7 +235,7 @@ const Monsters = (() => {
           m.shieldUp = true;
           moveToward(m, p.x, p.y, dt, m.speed);
           if (dist < 110 && m.t > 1.2) { m.state = 'windup'; m.t = 0; }
-          tryContactHit(m, g, 0.7);
+          tryContactHit(m, g, p, 0.7);
         } else if (m.state === 'windup') {
           m.telegraph = 0.45 - m.t;
           m.facing = Math.atan2(p.y - m.y, p.x - m.x);
@@ -235,7 +243,7 @@ const Monsters = (() => {
         } else if (m.state === 'bash') {
           m.x += Math.cos(m.lungeAngle) * m.speed * 4 * dt;
           m.y += Math.sin(m.lungeAngle) * m.speed * 4 * dt;
-          tryContactHit(m, g, 1.3);
+          tryContactHit(m, g, p, 1.3);
           if (m.t > 0.3) { m.state = 'recover'; m.t = 0; } // shield stays down: punish window
         } else if (m.state === 'recover') {
           if (m.t > 0.9) { m.state = 'idle'; m.t = 0; }
@@ -277,14 +285,14 @@ const Monsters = (() => {
           moveToward(m, p.x, p.y, dt, m.speed);
           m.hop = Math.abs(Math.sin(m.t * 8)) * 8;
           if (dist < 100 && m.t > 0.5) { m.state = 'windup'; m.t = 0; m.lungeAngle = Math.atan2(p.y - m.y, p.x - m.x); }
-          tryContactHit(m, g);
+          tryContactHit(m, g, p);
         } else if (m.state === 'windup') {
           m.telegraph = 0.35 - m.t;
           if (m.t >= 0.35) { m.state = 'lunge'; m.t = 0; Sfx.play('mimic'); }
         } else if (m.state === 'lunge') {
           m.x += Math.cos(m.lungeAngle) * m.speed * 3.8 * dt;
           m.y += Math.sin(m.lungeAngle) * m.speed * 3.8 * dt;
-          tryContactHit(m, g, 1.4);
+          tryContactHit(m, g, p, 1.4);
           if (m.t >= 0.3) { m.state = 'idle'; m.t = 0; }
         }
         break;

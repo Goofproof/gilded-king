@@ -1255,6 +1255,8 @@
     Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list); });
     // co-op: the guest levels off the host's shared kills
     Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
+    // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id)
+    Net.on('phit', m => { if (m.to === Net.id && g.player && !g.player.dead) g.player.damage(m.dmg, m.sx, m.sy, g); });
     // co-op: play a peer's attack visual so you can SEE them fighting
     Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)
@@ -1384,6 +1386,29 @@
   function isCoopGuest() { return g.coop && typeof Net !== 'undefined' && !Net.isHost; }
   function coopPlayers() { return (g.coop && typeof Net !== 'undefined') ? Math.max(2, Net.playerCount) : 1; }
 
+  // PR-1: everyone the monsters may target. Always the local player; on the host,
+  // also every remote peer sharing this room (so enemies chase BOTH players).
+  function partyTargets() {
+    const P = g.player;
+    const list = [{ x: P.x, y: P.y, r: P.r, ref: P, isRemote: false, id: 'me' }];
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost && g.room) {
+      for (const [id, rp] of g.remotePlayers) {
+        if (g.time - (rp.last || 0) > 3 || rp.dead) continue;
+        if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+        list.push({ x: rp.x, y: rp.y, r: 13, ref: rp, isRemote: true, id });
+      }
+    }
+    return list;
+  }
+  // PR-2: deal damage to a party target - the local player directly, a remote peer
+  // over the wire ({t:'phit'} that the peer self-filters on Net.id).
+  function hurtTarget(target, dmg, sx, sy, src) {
+    if (!target || !target.isRemote) { if (g.player && !g.player.dead) g.player.damage(dmg, sx, sy, g, src); return; }
+    if (typeof Net !== 'undefined') Net.send({ t: 'phit', to: target.id, dmg: Math.round(dmg), sx: Math.round(sx || 0), sy: Math.round(sy || 0) });
+  }
+  g.partyTargets = partyTargets;
+  g.hurtTarget = hurtTarget;
+
   // M5: scale a freshly-spawned monster set up for the party (Sam: at least 2x).
   // HP scales with head-count; damage a little; and extra bodies join the fight.
   function coopScaleMonsters(mons) {
@@ -1401,10 +1426,14 @@
     g.mobSendT = 0.066;
     const list = [];
     for (const m of g.monsters) {
-      if (!m.netId || m.dead) continue;
+      if (m.dead) continue;
+      if (!m.netId && !m.proxy) m.netId = ++g.netMobId; // PR-3: stamp runtime spawns (summoner adds, woken mimics, boss babies)
+      if (!m.netId) continue;
       list.push({ i: m.netId, ty: m.type, x: Math.round(m.x), y: Math.round(m.y), f: +(m.facing || 0).toFixed(2),
                   hp: Math.round(m.hp), mh: Math.round(m.maxHp), r: Math.round(m.r),
-                  dm: m.dmg || 8, s: m.spawnT > 0 ? 1 : 0, el: m.elite ? 1 : 0 });
+                  dm: m.dmg || 8, s: m.spawnT > 0 ? 1 : 0, el: m.elite ? 1 : 0,
+                  // PR-4: state fields so the real per-type draw animates telegraphs/windups/fuse on the guest
+                  st: m.state, tg: +(m.telegraph || 0).toFixed(2), lg: m.lungeAngle !== undefined ? +m.lungeAngle.toFixed(2) : undefined, fu: m.fuse });
     }
     Net.send({ t: 'mobs', list });
   }
@@ -1417,8 +1446,13 @@
       let m = g.monsters.find(x => x.netId === s.i);
       if (!m) { m = makeMobProxy(s); g.monsters.push(m); }
       m.tx = s.x; m.ty = s.y; if (m.x === undefined) { m.x = s.x; m.y = s.y; }
-      m.facing = s.f; m.hp = s.hp; m.maxHp = s.mh; m.r = s.r; m.color = s.c; m.dm = s.dm;
+      m.facing = s.f; m.hp = s.hp; m.maxHp = s.mh; m.r = s.r; m.dm = s.dm;
       m.spawnT = s.s ? 0.1 : 0;
+      // PR-4: mirror the AI-state fields the per-type draw reads for telegraphs/windups/fuse
+      if (s.st !== undefined) m.state = s.st;
+      m.telegraph = s.tg || 0;
+      if (s.lg !== undefined) m.lungeAngle = s.lg;
+      if (s.fu !== undefined) m.fuse = s.fu;
     }
     for (let i = g.monsters.length - 1; i >= 0; i--) {
       const m = g.monsters[i];
@@ -1491,9 +1525,8 @@
     for (const m of g.monsters) {
       if (!m.proxy) continue;
       if (m.tx !== undefined) { m.x += (m.tx - m.x) * k; m.y += (m.ty - m.y) * k; }
-      if (!m.dead && m.spawnT <= 0 && Math.hypot(p.x - m.x, p.y - m.y) < m.r + p.r + 2) {
-        p.damage(m.dm || 8, m.x, m.y, g, m); // player.damage has its own i-frames; src=m routes thorns to host
-      }
+      // P1-A: guest no longer self-damages from contact - the HOST's AI now targets
+      // the guest and deals damage authoritatively via {t:'phit'} (no double-count).
     }
   }
 
