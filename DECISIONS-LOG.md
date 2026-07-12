@@ -6,6 +6,21 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #49 magic increment 2 - shipped 2 of 3 parts, utility deferred (2026-07-12)
+- #49a wand DPS balance + Magic scaling: shipped (see the RESOLVED note under the
+  magic-audit section below).
+- #49b ELEMENTAL STAFFS: shipped. A staff's charged burst now takes on its enchant
+  element instead of always being fire - Frost = ice nova (chill), Venom = poison
+  bloom, Chain = storm burst, plain = fireball. Color, on-hit status, AND the AOE
+  blast all carry the element (the blast used to only spread fire). Verified in-sim:
+  a frost staff chills both its direct target and a bystander caught in the blast.
+- #49c UTILITY WAND SPELLS (teleport / time-freeze): DEFERRED to Sam. These aren't
+  damage - they're active abilities, and auto-firing a blink/freeze on the wand's
+  normal attack would be chaos. They need a control decision (dedicated cast key?
+  a "utility wand" weapon subtype vs the existing Q/R ability slots? cooldowns?).
+  Building that blind risks stepping on the ability system. Wrote a proposal for
+  Sam in DESIGN-PROPOSALS.md rather than guess the scheme.
+
 ## #48 enemy unit tactics - role mapping (2026-07-12)
 Sam's spec named "thorns mobs / chargers / small purples." Mapped to the actual
 enemy roster (no "thorns" type exists; closest role match):

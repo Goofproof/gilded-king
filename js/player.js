@@ -695,7 +695,14 @@ const PlayerDef = (() => {
         }
       };
       if (w.magic === 'fireball') {
-        mkProj(a, w.dmg, { r: 8, color: '#ff8a3d', life: 2.0, blast: 64, flame: 1 + (Weapons.has(w, 'flame') ? 1 : 0), hitSfx: 'hitHeavy', spell: 'fireball' });
+        // #49 elemental staff: the charged burst takes on the staff's enchant element.
+        // Frost -> a chilling nova, Venom -> a poison bloom, Chain -> a storm burst;
+        // a plain staff stays a fireball (and always burns a little).
+        let col = '#ff8a3d', elem = 'fire', extra = { flame: 2 };
+        if (Weapons.has(w, 'frost'))      { col = '#7fe0ff'; elem = 'ice';    extra = { chill: true }; }
+        else if (Weapons.has(w, 'venom')) { col = '#8ef06e'; elem = 'poison'; extra = { venom: true }; }
+        else if (Weapons.has(w, 'chain')) { col = '#ffe27a'; elem = 'storm';  extra = { chain: true }; }
+        mkProj(a, w.dmg, Object.assign({ r: 8, color: col, life: 2.0, blast: 64, hitSfx: 'hitHeavy', spell: 'fireball', elem }, extra));
         Fx.shake(3, 0.12); Sfx.play('heavy');
       } else { // wand bolt (Multishot -> a 3-bolt fan)
         const n = Weapons.has(w, 'multishot') ? 3 : 1;

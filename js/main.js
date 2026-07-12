@@ -2302,12 +2302,17 @@
       if (dead) {
         // #16 staff fireball: bursts on impact for AOE + burn to nearby monsters
         if (pr.blast && pr.from === 'player') {
+          // #49 the burst carries the staff's element to everyone caught in it
+          const ec = pr.elem === 'ice' ? ['#7fe0ff', '#bfefff', '#4aa8d8']
+                   : pr.elem === 'poison' ? ['#8ef06e', '#bfffa0', '#3aa83a']
+                   : pr.elem === 'storm' ? ['#ffe27a', '#fff6c0', '#e0b020']
+                   : ['#ff8833', '#ffcc44', '#ff4422'];
           Fx.shake(5, 0.2); Sfx.play('explode');
-          Fx.burst(pr.x, pr.y, ['#ff8833', '#ffcc44', '#ff4422'], 22, { speed: 230, life: 0.5, glow: true });
+          Fx.burst(pr.x, pr.y, ec, 22, { speed: 230, life: 0.5, glow: true });
           const P = g.player;
           for (const m of g.monsters) {
             if (m.dead || m.airborne || m === pr._primary) continue; // the direct target already ate the full hit
-            if (Math.hypot(pr.x - m.x, pr.y - m.y) < pr.blast + m.r) m.takeHit(pr.dmg * 0.8, { sx: pr.x, sy: pr.y, knock: 110, flame: pr.flame, crit: pr.crit, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+            if (Math.hypot(pr.x - m.x, pr.y - m.y) < pr.blast + m.r) m.takeHit(pr.dmg * 0.8, { sx: pr.x, sy: pr.y, knock: 110, flame: pr.flame, chill: pr.chill, venom: pr.venom, chain: pr.chain, crit: pr.crit, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
           }
         }
         Fx.burst(pr.x, pr.y, pr.color, 4, { speed: 70, life: 0.25 });
