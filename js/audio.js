@@ -87,6 +87,14 @@ const Sfx = (() => {
     explode:  () => { noise(0.4, 0.5, 'lowpass', 2000, 60); tone('square', 90, 30, 0.01, 0.35, 0.3); },
     mimic:    () => { tone('sawtooth', 500, 90, 0.02, 0.35, 0.35); noise(0.3, 0.25, 'bandpass', 400, 1800); },
     roar:     () => { tone('sawtooth', 140, 50, 0.05, 0.7, 0.45); noise(0.7, 0.3, 'lowpass', 900, 100); tone('sawtooth', 95, 40, 0.05, 0.8, 0.3, 0.1); },
+    // death touch (Executioner instakill proc): an ominous low toll + a bright
+    // metallic ring on top, so a "free kill" reads instantly as something special
+    deathtouch: () => {
+      tone('sine', 180, 55, 0.005, 0.5, 0.4);                 // deep, sinking toll
+      tone('triangle', 1320, 880, 0.004, 0.35, 0.22, 0.02);   // bright bell overtone
+      tone('sine', 660, 440, 0.004, 0.3, 0.18, 0.02);         // ringing fifth
+      noise(0.14, 0.3, 'highpass', 3000, 6000, 0.01);         // a cold shiver of steel
+    },
     stairs:   () => { [300, 240, 190, 150].forEach((f, i) => tone('triangle', f, f * 0.9, 0.01, 0.18, 0.2, i * 0.11)); },
     ui:       () => { tone('sine', 700, 900, 0.005, 0.06, 0.12); },
     upgrade:  () => { [523, 659, 784].forEach((f, i) => tone('sine', f, f, 0.01, 0.2, 0.18, i * 0.07)); },

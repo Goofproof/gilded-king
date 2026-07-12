@@ -412,6 +412,7 @@ const Monsters = (() => {
       m.hp = 0;
       Fx.text(m.x, m.y - m.r - 18, 'EXECUTED', '#ffd24c', 14);
       Fx.burst(m.x, m.y, '#ffd24c', 12, { speed: 150, life: 0.5, glow: true });
+      Sfx.play('deathtouch'); // the death-touch proc gets its own ominous cue
     }
     if (!opts.silent) {
       Fx.text(m.x + (Math.random() * 16 - 8), m.y - m.r - 6, Math.round(dmg), opts.crit ? '#ffd24c' : '#ffffff', opts.crit ? 16 : 12);

@@ -2667,21 +2667,18 @@
   function drawChest(c, ch) {
     c.save();
     c.translate(ch.x, ch.y);
-    // THE MIMIC TELL (subtle, learnable - per the design doc):
-    //  1. a tiny idle "breathing" bob normal chests don't have
-    //  2. a faint warm shimmer that pulses every ~3s
-    // Attentive players can spot both; new players get surprised once.
-    let bob = 0;
+    // THE MIMIC TELL: mimics sit flush and look identical to a real chest (no float,
+    // no color tint - Sam: the floating gave them away). The ONLY tell is a rare,
+    // brief warm shimmer that flashes for a heartbeat every few seconds - an
+    // attentive player can learn it, but it is not a reliable at-a-glance identifier.
     if (ch.mimic) {
-      bob = Math.sin(g.time * 2.2 + ch.wobble) * 1.2;
       const shimmer = Math.max(0, Math.sin(g.time * 1.9 + ch.wobble));
-      if (shimmer > 0.93) {
-        c.strokeStyle = `rgba(255,180,90,${(shimmer - 0.93) * 6})`;
+      if (shimmer > 0.985) {
+        c.strokeStyle = `rgba(255,180,90,${(shimmer - 0.985) * 26})`;
         c.lineWidth = 2;
-        c.strokeRect(-19, -17 + bob, 38, 30);
+        c.strokeRect(-19, -17, 38, 30);
       }
     }
-    c.translate(0, bob);
     // shadow
     c.fillStyle = 'rgba(0,0,0,0.35)';
     c.beginPath(); c.ellipse(0, 13, 20, 6, 0, 0, Math.PI * 2); c.fill();
@@ -2689,7 +2686,7 @@
     c.fillStyle = '#7a5230';
     c.fillRect(-17, -4, 34, 16);
     // lid
-    c.fillStyle = ch.mimic ? '#83592f' : '#8d6238'; // mimic lid is a hair warmer-toned
+    c.fillStyle = '#8d6238'; // identical to a real chest - no tint tell
     c.fillRect(-17, -16, 34, 12);
     // gold trim + lock
     c.fillStyle = '#d4af37';

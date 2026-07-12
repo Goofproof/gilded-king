@@ -8,9 +8,18 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.6';
+  const VERSION = 'v2.7';
 
   const NOTES = [
+    {
+      v: 'v2.7', title: 'Co-op, Fixed Up', date: '2026-07-12',
+      items: [
+        'LOOT for everyone: weapon and armor drops now reach player 2 and 3 as their own copies to grab and equip.',
+        'You can SEE each other fight: a teammate\'s weapon swing now shows its full arc, not just sparks.',
+        'SHARED level-ups: when the party levels, everyone waits on the results screen until all of you have chosen.',
+        'Frenzy (attack-speed) evolutions now read clearly and their stack caps are honest.',
+      ],
+    },
     {
       v: 'v2.6', title: 'R Ability + Ultimate', date: '2026-07-12',
       items: [
