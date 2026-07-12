@@ -256,16 +256,37 @@ const Sfx = (() => {
         tone('sawtooth', 185, 70, 0.04, 1.1, 0.04, 0.65);
         noise(0.6, 0.04, 'lowpass', 500, 200, 0.3);
       });
-      // MUSIC: a grim descending dirge in low A
+      // MUSIC: a grim dirge in low A that no longer just loops one bar. It rotates
+      // through several bass phrases and lays a sparse, wandering melody on top from
+      // a dark (A phrygian) scale, so the Descent theme keeps evolving (#33).
+      const BASS = [
+        [110.00, 103.83, 98.00, 92.50],   // original descending
+        [110.00, 116.54, 98.00, 87.31],   // dip to a low E
+        [98.00, 92.50, 103.83, 110.00],   // climb back to the tonic
+        [116.54, 110.00, 98.00, 87.31],   // heavier fall
+        [110.00, 98.00, 92.50, 98.00],    // rock between A and F#
+      ];
+      const MEL = [220.00, 233.08, 261.63, 293.66, 329.63, 349.23, 392.00]; // A phrygian, up an octave
       phraseLoop(() => {
-        const line = [110.0, 103.83, 98.0, 92.5];
-        const noteLen = 1.4;
+        amb.infPhrase = ((amb.infPhrase || 0) + 1) % BASS.length;
+        const line = BASS[amb.infPhrase];
+        const noteLen = 1.35;
+        let lastMel = -9;
         line.forEach((f, i) => {
           tone('sawtooth', f, f * 0.98, 0.06, noteLen * 0.9, 0.03, i * noteLen);
           tone('triangle', f * 1.5, f * 1.5, 0.08, noteLen * 0.4, 0.012, i * noteLen + 0.2); // ghost fifth
+          // sparse wandering melody: a note stepwise-ish from the scale, not every beat
+          if (Math.random() < 0.55) {
+            let idx = lastMel < 0 ? (Math.random() * MEL.length) | 0 : Math.max(0, Math.min(MEL.length - 1, lastMel + ((Math.random() * 3) | 0) - 1));
+            lastMel = idx;
+            const mf = MEL[idx];
+            tone('sine', mf, mf, 0.04, noteLen * 0.55, 0.018, i * noteLen + 0.5 + Math.random() * 0.35);
+          }
         });
         return line.length * noteLen;
       });
+      // a slow bell that tolls from the deep every so often, for gravitas
+      every(11, 22, () => { tone('sine', 55, 55, 0.02, 3.2, 0.05); tone('sine', 110, 108, 0.02, 2.4, 0.02, 0.05); });
     }
   }
 
