@@ -485,6 +485,33 @@ const UI = (() => {
 
   // --- title / hub -----------------------------------------------------------------
   // returns clickable rects for main.js hit-testing
+  // #39: a small distinguishing feature per pet type, drawn around a circle of
+  // radius r at (cx,cy). Shared by the stable chips and the in-game pet sprite.
+  function drawPetFeature(c, type, cx, cy, r, color) {
+    c.save();
+    c.fillStyle = color; c.strokeStyle = color; c.lineWidth = Math.max(1, r * 0.12);
+    if (type === 'imp') { // a single curved horn
+      c.beginPath();
+      c.moveTo(cx - r * 0.45, cy - r * 0.7);
+      c.quadraticCurveTo(cx - r * 0.1, cy - r * 1.5, cx + r * 0.15, cy - r * 0.75);
+      c.closePath(); c.fill();
+    } else if (type === 'sprite') { // fairy wings either side
+      c.globalAlpha = 0.85;
+      c.beginPath(); c.ellipse(cx - r * 1.0, cy - r * 0.1, r * 0.5, r * 0.32, -0.6, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(cx + r * 1.0, cy - r * 0.1, r * 0.5, r * 0.32, 0.6, 0, Math.PI * 2); c.fill();
+    } else if (type === 'wisp') { // a soft glowing aura
+      c.globalAlpha = 0.30; c.beginPath(); c.arc(cx, cy, r * 1.35, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = 0.15; c.beginPath(); c.arc(cx, cy, r * 1.6, 0, Math.PI * 2); c.stroke();
+    } else if (type === 'mole') { // a dark snout
+      c.fillStyle = '#0e1016';
+      c.beginPath(); c.ellipse(cx, cy + r * 0.45, r * 0.32, r * 0.22, 0, 0, Math.PI * 2); c.fill();
+    } else if (type === 'owl') { // two ear tufts
+      c.beginPath(); c.moveTo(cx - r * 0.65, cy - r * 0.55); c.lineTo(cx - r * 0.85, cy - r * 1.25); c.lineTo(cx - r * 0.25, cy - r * 0.7); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(cx + r * 0.65, cy - r * 0.55); c.lineTo(cx + r * 0.85, cy - r * 1.25); c.lineTo(cx + r * 0.25, cy - r * 0.7); c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+
   function drawTitle(c, g) {
     const meta = g.meta;
     c.save();
@@ -529,9 +556,6 @@ const UI = (() => {
     c.fillText('PLAY ONLINE', coopR.x + coopR.w / 2, coopR.y + 24);
     c.font = '10px monospace'; c.fillStyle = '#5f8ba0';
     c.fillText('co-op with friends', coopR.x + coopR.w / 2, coopR.y + 38);
-    c.font = '12px monospace';
-    c.fillStyle = '#667';
-    c.fillText('(Enter = solo)', W / 2, startR.y + 62);
 
     const rects = [startR, coopR];
 
@@ -588,30 +612,32 @@ const UI = (() => {
       c.textAlign = 'center';
       c.font = 'bold 12px monospace';
       c.fillStyle = '#8fd0a0';
-      c.fillText(`STABLE  ·  ${unlocked.length}/${roster.length}`, W / 2, 26);
-      const chip = 28, cgap = 10;
+      c.fillText(`STABLE  ·  ${unlocked.length}/${roster.length}`, W / 2, 24);
+      const chip = 28, cgap = 16, r = chip / 2, cyp = 50;
       const rowW = roster.length * chip + (roster.length - 1) * cgap;
       let px = (W - rowW) / 2;
       for (const pet of roster) {
         const has = unlocked.includes(pet.type);
         const sel = has && meta.selectedPet === pet.type;
-        const cxp = px + chip / 2, cyp = 46;
-        c.beginPath(); c.arc(cxp, cyp, chip / 2, 0, Math.PI * 2);
+        const cxp = px + r;
+        // its distinguishing feature (horn/wings/glow/...) sits behind the body
+        if (has) drawPetFeature(c, pet.type, cxp, cyp, r, pet.color);
+        c.beginPath(); c.arc(cxp, cyp, r, 0, Math.PI * 2);
         c.fillStyle = has ? pet.color : '#20242f'; c.fill();
         if (has) { c.fillStyle = '#0e1016'; c.beginPath(); c.arc(cxp - 3, cyp - 2, 2, 0, Math.PI * 2); c.arc(cxp + 3, cyp - 2, 2, 0, Math.PI * 2); c.fill(); }
         else { c.fillStyle = '#3a3f4d'; c.font = 'bold 14px monospace'; c.fillText('?', cxp, cyp + 5); }
         c.lineWidth = sel ? 3 : 1.5;
         c.strokeStyle = sel ? '#ffd24c' : has ? '#5a6478' : '#2c3040';
-        c.beginPath(); c.arc(cxp, cyp, chip / 2, 0, Math.PI * 2); c.stroke();
-        if (has) rects.push({ x: px, y: cyp - chip / 2, w: chip, h: chip, action: 'selectPet', key: pet.type });
+        c.beginPath(); c.arc(cxp, cyp, r, 0, Math.PI * 2); c.stroke();
+        if (has) rects.push({ x: px - 4, y: cyp - r - 6, w: chip + 8, h: chip + 12, action: 'selectPet', key: pet.type });
         px += chip + cgap;
       }
-      // name + passive of the chosen pet
+      // name + passive of the chosen pet, dropped clear of the pet circles (#40)
       const chosen = roster.find(pp => pp.type === meta.selectedPet && unlocked.includes(pp.type));
       c.font = '11px monospace';
       c.fillStyle = chosen ? chosen.color : '#667';
       c.fillText(chosen ? `${chosen.name} · ${chosen.desc}  (click to unselect)`
-                        : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 64);
+                        : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 82);
     }
     // tagline stays anchored at the very bottom
     c.font = 'italic 12px monospace';
