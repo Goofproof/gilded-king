@@ -24,15 +24,17 @@ const Monsters = (() => {
     // loot goblin: never attacks, flees for a door, spills gold when hit and drops a
     // fat purse if you catch it. Escapes (and takes the loot) if it reaches a door.
     goblin:   { hp: 46, dmg: 0,  speed: 188, r: 13, xp: 8,  coins: [18, 30] },
+    // #27 heat-seeker: slow drifter that lobs a homing orb you must juke
+    seeker:   { hp: 30, dmg: 12, speed: 58,  r: 13, xp: 9,  coins: [2, 5] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'swarmer'],
     2: ['chaser', 'swarmer', 'archer', 'bomber'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker'],
   };
   const COUNT = t => Math.min(8, 2 + t + ((Math.random() * 3) | 0)); // monsters per combat room
 
@@ -259,6 +261,23 @@ const Monsters = (() => {
         }
         break;
       }
+      case 'seeker': {
+        // keeps mid-range and lobs a slow HOMING orb every ~2.4s - keep moving to shake it
+        if (dist < 150) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+        else if (dist > 340) moveToward(m, p.x, p.y, dt, m.speed);
+        else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'idle' && m.t > 2.4) { m.state = 'charge'; m.t = 0; }
+        if (m.state === 'charge') {
+          m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+          m.telegraph = 0.7 - m.t;
+          if (m.t >= 0.7) {
+            m.state = 'idle'; m.t = 0;
+            fireProjectile(g, m, m.facing, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
+            Sfx.play('bowfire');
+          }
+        }
+        break;
+      }
       case 'shielded': {
         // shield blocks frontal damage; bash leaves it open - flank or bait
         if (m.state === 'idle') {
@@ -340,7 +359,7 @@ const Monsters = (() => {
   function fireProjectile(g, m, angle, speed, dmg, color, r, opts = {}) {
     const x = m.x + Math.cos(angle) * (m.r + 6), y = m.y + Math.sin(angle) * (m.r + 6);
     const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
-    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', color, life: 3, glow: opts.glow || false, hitSet: null });
+    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6 });
     // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
     // and updateProjectiles already resolves from:'enemy' damage vs the local player)
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
@@ -567,6 +586,7 @@ const Monsters = (() => {
       case 'summoner': drawSummoner(c, m, flash, ex, ey); break;
       case 'mimic': case 'mimicbaby': drawMimicMonster(c, m, flash, ex, ey); break;
       case 'goblin': drawGoblin(c, m, flash, ex, ey); break;
+      case 'seeker': drawSeeker(c, m, flash, ex, ey); break;
     }
 
     // elite aura: a pulsing ring + faint glow in the affix color
@@ -644,6 +664,23 @@ const Monsters = (() => {
     c.beginPath(); c.moveTo(-m.r * 0.55, -m.r * 0.1); c.lineTo(-m.r * 1.5, -m.r * 0.55); c.lineTo(-m.r * 0.45, -m.r * 0.55); c.fill();
     c.beginPath(); c.moveTo(m.r * 0.55, -m.r * 0.1); c.lineTo(m.r * 1.5, -m.r * 0.55); c.lineTo(m.r * 0.45, -m.r * 0.55); c.fill();
     eyes(c, ex, ey, 4.5, 2.4, '#ffd24c');
+  }
+  function drawSeeker(c, m, flash, ex, ey) {
+    // a floating single-eye orb ringed with slowly-spinning fins; glows while charging
+    const t = Date.now() / 400;
+    c.save();
+    c.fillStyle = flash ? '#fff' : '#7a3d1a';
+    for (let i = 0; i < 3; i++) {
+      const a = t + i * (Math.PI * 2 / 3);
+      c.beginPath(); c.ellipse(Math.cos(a) * m.r * 1.05, Math.sin(a) * m.r * 1.05, 3.5, 1.6, a, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+    body(c, m, flash ? '#fff' : '#c46a2c', flash);
+    // big single tracking eye
+    c.fillStyle = '#1a0f08'; c.beginPath(); c.arc(0, 0, m.r * 0.62, 0, Math.PI * 2); c.fill();
+    c.fillStyle = m.state === 'charge' ? '#fff6c0' : '#ff8a3d';
+    c.beginPath(); c.arc(ex * 1.4, ey * 1.4, m.r * 0.34, 0, Math.PI * 2); c.fill();
+    if (m.state === 'charge') { c.strokeStyle = 'rgba(255,180,80,0.8)'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, m.r + 4 + Math.sin(Date.now() / 60) * 2, 0, Math.PI * 2); c.stroke(); }
   }
   function drawArcher(c, m, flash, ex, ey) {
     body(c, m, '#4a7c42', flash);

@@ -2224,8 +2224,20 @@
     const p = g.player;
     for (let i = g.projectiles.length - 1; i >= 0; i--) {
       const pr = g.projectiles[i];
+      // #27 heat-seeker: curve toward the player at a capped turn rate for a short
+      // window, then fly straight (so a good dodge still shakes it)
+      if (pr.homing > 0 && pr.from === 'enemy' && !p.dead) {
+        pr.homing -= dt;
+        const cur = Math.atan2(pr.vy, pr.vx);
+        const want = Math.atan2(p.y - pr.y, p.x - pr.x);
+        let d = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        const a = cur + Math.max(-pr.turnRate * dt, Math.min(pr.turnRate * dt, d));
+        const sp = Math.hypot(pr.vx, pr.vy);
+        pr.vx = Math.cos(a) * sp; pr.vy = Math.sin(a) * sp;
+      }
       pr.x += pr.vx * dt; pr.y += pr.vy * dt;
       pr.life -= dt;
+      if (pr.homing !== undefined) Fx.burst(pr.x, pr.y, [pr.color, '#fff'], 1, { speed: 12, life: 0.25, glow: true, size: 2 });
       // enchant trail on player arrows (fire streaks behind a Flame arrow, etc.)
       if (pr.trail && Math.random() < 0.85) {
         Fx.burst(pr.x, pr.y, pr.trail, 1, { speed: 18, life: 0.22, glow: pr.glowTrail, size: 2.2 });
