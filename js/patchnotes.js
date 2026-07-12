@@ -8,9 +8,18 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.4';
+  const VERSION = 'v2.5';
 
   const NOTES = [
+    {
+      v: 'v2.5', title: 'CO-OP is here (beta)', date: '2026-07-11',
+      items: [
+        'PLAY ONLINE: host a game, share the 4-letter code, and raid the dungeon together.',
+        'You explore the SAME dungeon and move as a party - walk through a door and everyone comes along.',
+        'Fight the same monsters together; enemies are tougher the more of you there are.',
+        'Beta: enemies focus the host, loot drops to the host, and the boss fight is rough in co-op - polish is coming.',
+      ],
+    },
     {
       v: 'v2.4', title: 'Hands-Free Combat', date: '2026-07-11',
       items: [
