@@ -11,8 +11,8 @@
 //   localStorage.setItem('drl_mp_url', 'https://gilded-king-mp.<you>.workers.dev')
 // ============================================================================
 const Net = (() => {
-  // filled in after `npx wrangler deploy` prints the workers.dev URL
-  const DEPLOYED_URL = 'https://gilded-king-mp.PLACEHOLDER.workers.dev';
+  // deployed Cloudflare Worker (from `npx wrangler deploy`, 2026-07-11)
+  const DEPLOYED_URL = 'https://gilded-king-mp.sam-221.workers.dev';
 
   function relayBase() {
     try { const o = localStorage.getItem('drl_mp_url'); if (o) return o; } catch { }

@@ -15,4 +15,6 @@ class_name = "Room"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["Room"]
+# free plan requires SQLite-backed Durable Objects (we don't use storage; the
+# relay is in-memory, but the class must be declared this way). [code 10097]
+new_sqlite_classes = ["Room"]
