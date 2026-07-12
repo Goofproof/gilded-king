@@ -931,8 +931,17 @@ const UI = (() => {
       c.font = '14px monospace'; c.fillStyle = '#e07070';
       c.fillText('networking not loaded', W / 2, 200);
     } else if (lb.mode === 'menu' || !lb.mode) {
-      btn(W / 2 - 150, 180, 300, 54, 'HOST A GAME', 'lobby-host', '127,212,255');
-      btn(W / 2 - 150, 250, 300, 54, 'JOIN A GAME', 'lobby-join', '110,231,160');
+      // #29: editable character name (type to edit; shown over you in-game)
+      c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText('YOUR NAME  (type to edit)', W / 2, 162);
+      const nx = W / 2 - 150, ny = 172, nw = 300, nh = 42;
+      c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(nx, ny, nw, nh);
+      const nm = (g.playerName || '');
+      c.font = 'bold 20px monospace'; c.fillStyle = nm ? '#e8edf6' : '#667';
+      const cur = (Math.floor(Date.now() / 450) % 2) ? '_' : '';
+      c.fillText((nm || 'ANON') + (nm ? cur : ''), W / 2, ny + 28);
+      btn(W / 2 - 150, 236, 300, 52, 'HOST A GAME', 'lobby-host', '127,212,255');
+      btn(W / 2 - 150, 300, 300, 52, 'JOIN A GAME', 'lobby-join', '110,231,160');
     } else if (lb.mode === 'host') {
       c.font = '13px monospace'; c.fillStyle = '#8fa3bf';
       c.fillText('share this code with your friends', W / 2, 180);

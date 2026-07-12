@@ -156,6 +156,7 @@
     essenceCheckpoint: 0,    // essence already banked to meta this run (quit-safe descent)
     bossIntroName: 'THE MIMIC KING', bossIntroSub: 'the dungeon was bait all along',
     autoAttack: (() => { try { return localStorage.getItem('drl_auto') === '1'; } catch { return false; } })(),
+    playerName: (() => { try { return (localStorage.getItem('drl_name') || '').slice(0, 12); } catch { return ''; } })(),
     evoQueue: [], evoChoices: null, ultChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, scores: loadScores(),
@@ -1352,7 +1353,7 @@
       if (!rp) { rp = { x: m.x, y: m.y }; g.remotePlayers.set(m.from, rp); }
       rp.tx = m.x; rp.ty = m.y;
       if (rp.x === undefined) { rp.x = m.x; rp.y = m.y; }
-      rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = m.from;
+      rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.last = g.time;
     });
@@ -1459,6 +1460,7 @@
     g.state = 'lobby';
     Sfx.play('ui');
   }
+  function saveName() { try { localStorage.setItem('drl_name', g.playerName || ''); } catch { } }
 
   function closeLobby() {
     if (typeof Net !== 'undefined') Net.disconnect();
@@ -1492,6 +1494,16 @@
   function updateLobby() {
     const lb = g.lobby;
     if (input.pressed('Escape')) { closeLobby(); return; }
+    // #29: type your character name on the menu screen (persists in localStorage)
+    if (lb.mode === 'menu' || !lb.mode) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      for (const ch of chars) {
+        const code = (ch >= '0' && ch <= '9') ? 'Digit' + ch : 'Key' + ch;
+        if (input.pressed(code) && (g.playerName || '').length < 12) { g.playerName = (g.playerName || '') + ch; saveName(); Sfx.play('ui'); }
+      }
+      if (input.pressed('Space') && (g.playerName || '').length < 12) { g.playerName += ' '; saveName(); }
+      if (input.pressed('Backspace') && (g.playerName || '').length) { g.playerName = g.playerName.slice(0, -1); saveName(); }
+    }
     // code entry while joining
     if (lb.mode === 'join' && !Net.connected) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1528,6 +1540,7 @@
       t: 'p', x: Math.round(p.x), y: Math.round(p.y), f: +p.facing.toFixed(2),
       r: [g.room.gx, g.room.gy], hp: Math.round(p.hp), mh: Math.round(p.maxHp),
       wc: p.weapon ? p.weapon.color : '#9ee7ff', dd: p.downed ? 1 : 0,
+      nm: g.playerName || '',
     });
   }
 
