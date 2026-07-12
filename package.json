@@ -1,0 +1,13 @@
+{
+  "name": "gilded-king",
+  "version": "2.5.0",
+  "private": true,
+  "description": "Dungeon of the Gilded King - a vanilla-JS canvas roguelike (no build step for the game itself; this package.json only wires the dev test harness).",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}
