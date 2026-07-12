@@ -1221,12 +1221,6 @@
 
     const p = g.player;
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
-    if (!p.dead && input.pressed('KeyF')) {
-      g.autoAttack = !g.autoAttack;
-      try { localStorage.setItem('drl_auto', g.autoAttack ? '1' : '0'); } catch { }
-      Sfx.play('ui');
-      Fx.text(p.x, p.y - 30, g.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', '#ffd24c', 13);
-    }
     p.update(dt, g, input);
     tryRoomExit();
     if (g.state !== 'play') return; // transition may have started
