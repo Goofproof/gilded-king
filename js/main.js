@@ -179,6 +179,7 @@
     pendingCoopRoom: null, // deferred room-follow while gated
     transition: null,     // {dir, next, t}
     uiRects: [],
+    backtrackRooms: 0,    // #34: hop-distance to nearest unexplored room (speed boost)
     essenceEarned: 0,
     gateMsg: 0,           // "sealed" toast timer
     shopMsg: null,        // {text, t}
@@ -273,11 +274,37 @@
     enterRoom(g.dungeon.start, null);
   }
 
+  // #34: BFS over the door graph for the hop-distance from the current room to the
+  // nearest UNEXPLORED (unvisited) room. Backtracking far across cleared/explored
+  // rooms toward the next objective earns an extra traversal speed boost (player.js).
+  function computeBacktrackDist() {
+    g.backtrackRooms = 0;
+    if (!g.dungeon || !g.room || !g.room.visited) return; // in an unexplored room = 0
+    const seen = new Set([g.room]);
+    let frontier = [g.room], d = 0;
+    while (frontier.length) {
+      d++;
+      const next = [];
+      for (const r of frontier) {
+        for (const dir in r.doors) {
+          const n = r.doors[dir];
+          if (seen.has(n)) continue;
+          seen.add(n);
+          if (!n.visited) { g.backtrackRooms = d; return; } // nearest unexplored room
+          next.push(n);
+        }
+      }
+      frontier = next;
+    }
+    // everything reachable is explored -> leave backtrackRooms at 0 (no extra boost)
+  }
+
   function enterRoom(room, fromDir) {
     // drops are persistent: whatever was left on this room's floor is still there
     if (g.room) g.room.savedPickups = g.pickups;
     g.room = room;
     room.visited = true;
+    computeBacktrackDist(); // #34: how far are we from the nearest unexplored room?
     g.monsters = [];
     g.projectiles = [];
     g.pickups = room.savedPickups || [];

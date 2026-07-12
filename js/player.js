@@ -426,7 +426,10 @@ const PlayerDef = (() => {
         // cleared rooms grant a traversal boost so backtracking to doors is snappy
         const mom = this.momentumT > 0 ? 1.25 : 1;
         const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
-        const traversal = g.monsters.some(m => !m.dead) ? 1 : 1.28;
+        // cleared-room traversal boost; and a STRONGER one when backtracking far (>3
+        // rooms) from the nearest unexplored room, so long treks back are snappy (#34)
+        const clear = !g.monsters.some(m => !m.dead);
+        const traversal = !clear ? 1 : ((g.backtrackRooms || 0) > 3 ? 1.7 : 1.28);
         const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
