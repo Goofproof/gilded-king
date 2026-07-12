@@ -91,6 +91,7 @@
     if (!Array.isArray(m.mythics)) m.mythics = []; // ids of mythic items ever claimed (laurels)
     if (!Array.isArray(m.petsUnlocked)) m.petsUnlocked = []; // pet types banked to the stable
     if (typeof m.selectedPet !== 'string') m.selectedPet = ''; // stable pet chosen for the next run
+    if (typeof m.selectedClass !== 'string') m.selectedClass = ''; // #30 class chosen for the next run
     return m;
   }
   function saveMeta() {
@@ -1333,6 +1334,10 @@
           if (r.action === 'mythics') { g.showMythics = true; Sfx.play('ui'); }
           if (r.action === 'selectPet') { // toggle the stable pet chosen for the next run
             g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
+            saveMeta(); Sfx.play('ui');
+          }
+          if (r.action === 'selectClass') { // #30 pick the class for the next run
+            g.meta.selectedClass = r.key;
             saveMeta(); Sfx.play('ui');
           }
         }

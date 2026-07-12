@@ -4,6 +4,23 @@
 const PlayerDef = (() => {
   const PF = Dungeon.PF;
 
+  // #30 BASE CLASSES: each is a starting kit + a stat bias + one signature perk.
+  // Chosen on the title screen (meta.selectedClass). '' = the classic Adventurer,
+  // so returning players lose nothing. The perk (fx) folds into evo -> mod().
+  const CLASSES = [
+    { id: '',        name: 'Adventurer', color: '#cdd4e2', icon: '?', arch: 'light',
+      desc: 'A balanced start. No bias, no perk - pure potential.' },
+    { id: 'warrior', name: 'Warrior',    color: '#e0894a', icon: '⚔', arch: 'heavy',
+      desc: 'Starts with a heavy weapon. +20 max HP and takes 8% less damage.', hp: 20, fx: { reduce: 0.08 } },
+    { id: 'ranger',  name: 'Ranger',     color: '#6ee7a0', icon: '»', arch: 'bow',
+      desc: 'Starts with a bow. +12% move speed and +5% crit chance.', fx: { spd: 0.12, critCh: 0.05 } },
+    { id: 'mage',    name: 'Mage',       color: '#b06bff', icon: '✷', arch: 'wand',
+      desc: 'Starts with a wand. Magic 3 and +15% spell power.', magic: 3, fx: { spellPower: 0.15 } },
+    { id: 'rogue',   name: 'Rogue',      color: '#ffd24c', icon: '✦', arch: 'light',
+      desc: 'Starts with a dagger. +10% crit and rolls recharge 12% faster.', fx: { critCh: 0.10, rollCd: 0.12 } },
+  ];
+  const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
+
   // visual evolution (Sam, 2026-07-11): the champion's look escalates with the
   // stat you've invested in most. accent = aura/crest colour; cloak/body are the
   // recoloured robes that take over at stage 2+. Stage = number of evolutions
@@ -81,12 +98,19 @@ const PlayerDef = (() => {
         magic: 1,   // #16 Magic stat: gates wielding wands/staffs (base 1 = basic magic)
       };
 
+      // #30 class: starting kit + stat bias + one signature perk
+      const cls = classById(meta?.selectedClass);
+      this.class = cls;
+      if (cls.magic) this.stats.magic = cls.magic;
+      if (cls.hp) { this.maxHp += cls.hp; this.hp = this.maxHp; }
+      if (cls.fx) this.applyEvolution(cls.fx); // the perk folds into evo -> mod()
+
       // two FREE weapon slots - any mix (two swords is a fine build).
-      // Tab / wheel / right-click to swap.
-      // always start with exactly a Common light melee (Uncommon with the Armory unlock)
+      // Tab / wheel / right-click to swap. Your class sets the starting weapon;
+      // a Common (Uncommon with the Armory unlock) of that archetype.
       const startRarity = meta?.ranks?.armory ? 1 : 0;
       this.weapons = {
-        a: Weapons.rollWeapon(1, { archetype: 'light', exactRarity: startRarity }),
+        a: Weapons.rollWeapon(1, { archetype: cls.arch || 'light', exactRarity: startRarity }),
         b: null,
       };
       this.slot = 'a';
@@ -1072,5 +1096,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T };
+  return { Player, T, CLASSES, classById };
 })();

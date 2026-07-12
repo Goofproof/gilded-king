@@ -575,6 +575,40 @@ const UI = (() => {
 
     const rects = [startR, coopR];
 
+    // --- #30 CLASS picker: pick your starting kit for the next run (centered) ---
+    const classes = (typeof PlayerDef !== 'undefined' && PlayerDef.CLASSES) || [];
+    if (classes.length) {
+      // centered in the free band between the essence panel (left) and scores (right)
+      const bandC = (262 + (W - 168)) / 2;
+      c.textAlign = 'center';
+      c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText('CHOOSE YOUR CLASS', bandC, 288);
+      const cw = 98, chh = 44, cgap = 8;
+      const totalW = classes.length * cw + (classes.length - 1) * cgap;
+      let cx = bandC - totalW / 2;
+      const sel = meta.selectedClass || '';
+      for (const cl of classes) {
+        const on = cl.id === sel;
+        const r = { x: cx, y: 300, w: cw, h: chh, action: 'selectClass', key: cl.id };
+        c.fillStyle = on ? 'rgba(255,210,76,0.10)' : 'rgba(255,255,255,0.02)';
+        c.fillRect(r.x, r.y, r.w, r.h);
+        c.lineWidth = on ? 2.5 : 1; c.strokeStyle = on ? '#ffd24c' : '#3a4050';
+        c.strokeRect(r.x, r.y, r.w, r.h);
+        c.textAlign = 'left';
+        c.font = 'bold 18px monospace'; c.fillStyle = cl.color;
+        c.fillText(cl.icon, r.x + 10, r.y + 28);
+        c.font = 'bold 11px monospace'; c.fillStyle = on ? '#ffe9a8' : '#c8d0de';
+        c.fillText(cl.name, r.x + 32, r.y + 27);
+        rects.push(r);
+        cx += cw + cgap;
+      }
+      // the selected class's kit/perk line, under the chips
+      const chosen = classes.find(cl => cl.id === sel) || classes[0];
+      c.textAlign = 'center';
+      c.font = '11px monospace'; c.fillStyle = chosen.color;
+      c.fillText(chosen.desc, bandC, 364);
+    }
+
     // --- ESSENCE upgrades: a compact character-sheet panel down the LEFT edge ---
     c.textAlign = 'left';
     c.font = 'bold 15px monospace'; c.fillStyle = '#b88aff';

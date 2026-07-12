@@ -8,9 +8,18 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.9';
+  const VERSION = 'v2.10';
 
   const NOTES = [
+    {
+      v: 'v2.10', title: 'Choose Your Class', date: '2026-07-12',
+      items: [
+        'CLASSES: pick who you are before a run - Warrior, Ranger, Mage, Rogue, or the classic Adventurer.',
+        'Each class sets your STARTING WEAPON and a signature perk: the Warrior opens with a heavy weapon, the Ranger a bow, the Mage a wand, the Rogue a dagger.',
+        'Warrior: +20 HP and 8% less damage taken. Ranger: +12% speed, +5% crit. Mage: Magic 3 and +15% spell power. Rogue: +10% crit and faster rolls.',
+        'Pick your class right on the home screen - it sticks until you change it.',
+      ],
+    },
     {
       v: 'v2.9', title: 'The Arcane School', date: '2026-07-12',
       items: [
