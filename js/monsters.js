@@ -30,15 +30,17 @@ const Monsters = (() => {
     miner:    { hp: 44, dmg: 15, speed: 74,  r: 14, xp: 10, coins: [2, 5] },
     // #27 pulser: slow bruiser that erupts rings of bullets like the Mimic King
     pulser:   { hp: 58, dmg: 10, speed: 44,  r: 15, xp: 13, coins: [3, 6] },
+    // #27 worm: a slithering segmented body - the whole trail bites on contact
+    worm:     { hp: 58, dmg: 11, speed: 108, r: 12, xp: 11, coins: [2, 5] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'swarmer'],
-    2: ['chaser', 'swarmer', 'archer', 'bomber'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser'],
+    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm'],
   };
   const COUNT = t => Math.min(8, 2 + t + ((Math.random() * 3) | 0)); // monsters per combat room
 
@@ -279,6 +281,23 @@ const Monsters = (() => {
             fireProjectile(g, m, m.facing, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
             Sfx.play('bowfire');
           }
+        }
+        break;
+      }
+      case 'worm': {
+        // slithers toward the player with a sine weave; its BODY is a trail of the
+        // head's recent path, and the whole thing bites on contact
+        moveToward(m, p.x, p.y, dt, m.speed);
+        const perp = m.facing + Math.PI / 2, wob = Math.sin(m.t * 7) * 34;
+        m.x += Math.cos(perp) * wob * dt; m.y += Math.sin(perp) * wob * dt;
+        clampToField(m);
+        if (!m.trail) m.trail = [];
+        m.trailT = (m.trailT || 0) + dt;
+        if (m.trailT > 0.03) { m.trailT = 0; m.trail.unshift({ x: m.x, y: m.y }); if (m.trail.length > 40) m.trail.pop(); }
+        if (m.contactCd <= 0) {
+          const pts = [{ x: m.x, y: m.y }];
+          for (let i = 8; i < m.trail.length; i += 8) pts.push(m.trail[i]);
+          for (const s of pts) if (Math.hypot(p.x - s.x, p.y - s.y) < m.r + p.r + 2) { g.hurtTarget(p, m.dmg, s.x, s.y, m); m.contactCd = 0.7; break; }
         }
         break;
       }
@@ -624,6 +643,7 @@ const Monsters = (() => {
       case 'seeker': drawSeeker(c, m, flash, ex, ey); break;
       case 'miner': drawMiner(c, m, flash, ex, ey); break;
       case 'pulser': drawPulser(c, m, flash, ex, ey); break;
+      case 'worm': drawWorm(c, m, flash, ex, ey); break;
     }
 
     // elite aura: a pulsing ring + faint glow in the affix color
@@ -718,6 +738,24 @@ const Monsters = (() => {
     c.fillStyle = m.state === 'charge' ? '#fff6c0' : '#ff8a3d';
     c.beginPath(); c.arc(ex * 1.4, ey * 1.4, m.r * 0.34, 0, Math.PI * 2); c.fill();
     if (m.state === 'charge') { c.strokeStyle = 'rgba(255,180,80,0.8)'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, m.r + 4 + Math.sin(Date.now() / 60) * 2, 0, Math.PI * 2); c.stroke(); }
+  }
+  function drawWorm(c, m, flash, ex, ey) {
+    // c is translated to the head (m.x, m.y); trail points are world coords, so draw
+    // them at their offset from the head. Tail-first so the head sits on top.
+    const trail = m.trail || [];
+    for (let i = Math.min(trail.length - 1, 34); i >= 1; i -= 3) {
+      const s = trail[i], k = 1 - i / 38;
+      c.fillStyle = flash ? '#fff' : ((i >> 2) & 1 ? '#2f7a45' : '#3f9e5a');
+      c.beginPath(); c.arc(s.x - m.x, s.y - m.y, m.r * (0.45 + k * 0.55), 0, Math.PI * 2); c.fill();
+    }
+    body(c, m, flash ? '#fff' : '#5fd07a', flash);
+    // mandibles at the front
+    c.strokeStyle = flash ? '#fff' : '#245c33'; c.lineWidth = 2;
+    c.save(); c.rotate(m.facing);
+    c.beginPath(); c.moveTo(m.r * 0.7, -m.r * 0.5); c.lineTo(m.r * 1.3, -m.r * 0.7); c.stroke();
+    c.beginPath(); c.moveTo(m.r * 0.7, m.r * 0.5); c.lineTo(m.r * 1.3, m.r * 0.7); c.stroke();
+    c.restore();
+    eyes(c, ex, ey, 3.4, 1.9, '#fff');
   }
   function drawPulser(c, m, flash, ex, ey) {
     // a throbbing violet core wrapped in concentric rings; swells while charging
