@@ -225,18 +225,18 @@ const Evolutions = (() => {
       ],
       6: [
         { name: 'Neural Overclock', desc: '+30% attack speed', fx: { atkSpd: 0.30 } },
-        { name: 'Battle Trance', desc: 'Frenzy stacks to 16', fx: { frenzyMax: 16 } },
+        { name: 'Battle Trance', desc: 'Frenzy: hits build +2% attack speed (3s), stacking to 16', fx: { frenzyMax: 16 } },
         { name: 'Flam Rudiment', desc: 'The drummer\'s double-hit: 40% chance light swings strike twice', fx: { echo: 0.40 } },
       ],
       9: [
         { name: 'Hummingbird Heart', desc: '1,200 beats a minute: +40% attack speed', fx: { atkSpd: 0.40 } },
-        { name: 'Tarantism', desc: 'The dancing plague takes you: frenzy stacks to 24', fx: { frenzyMax: 24 } },
+        { name: 'Tarantism', desc: 'The dancing plague: hits build +2% attack speed (3s), stacking to 24', fx: { frenzyMax: 24 } },
         { name: 'Paradiddle Doctrine', desc: '50% chance light swings strike twice', fx: { echo: 0.50 } },
       ],
       12: [
         { name: 'Time Dilation', desc: '+60% attack speed', fx: { atkSpd: 0.60 } },
         { name: 'Thousand-Armed Kannon', desc: '70% of light swings strike twice', fx: { echo: 0.70 } },
-        { name: 'St. Vitus\' Dance', desc: 'Frenzy stacks to 40', fx: { frenzyMax: 40 } },
+        { name: 'St. Vitus\' Dance', desc: 'Frenzy: hits build +2% attack speed (3s), stacking to 40', fx: { frenzyMax: 40 } },
       ],
     },
   };

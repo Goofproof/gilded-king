@@ -157,6 +157,10 @@ const PlayerDef = (() => {
           this.hp += gain;
         } else if (k === 'midasPer') {
           this.evo.midasPer = Math.min(this.evo.midasPer || 1e9, v);
+        } else if (k === 'frenzyMax') {
+          // frenzy cap is a ceiling, not additive: a higher-tier pick RAISES it to
+          // its value (so "frenzy stacks to 16" reads true), never sums to a surprise
+          this.evo.frenzyMax = Math.max(this.evo.frenzyMax || 0, v);
         } else {
           this.evo[k] = (this.evo[k] || 0) + v;
         }
