@@ -674,8 +674,11 @@ const PlayerDef = (() => {
     fireSpell(g) {
       const w = this.weapon, a = this.facing;
       const fx = Weapons.fxPalette(w);
+      // #49 Magic scaling: spells hit harder the more Magic you have (+8%/point over 1),
+      // so investing the stat is the payoff for a magic build (and Attunement earns its slot)
+      const magScale = 1 + Math.max(0, this.magicLevel() - 1) * 0.08;
       const mkProj = (ang, base, extra) => {
-        const { dmg, crit } = this.computeDmg(base, null, g);
+        const { dmg, crit } = this.computeDmg(base * magScale, null, g);
         const sp = w.projSpeed;
         const pr = {
           x: this.x + Math.cos(ang) * 16, y: this.y + Math.sin(ang) * 16,

@@ -59,7 +59,9 @@ const Weapons = (() => {
     bow:   { dmg: 14, cooldown: 0.45, windup: 0.0,  range: 0,  arc: 0, projSpeed: 540,
              names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'] },
     // #16 MAGIC: wand = fast single-target bolts; staff = slow charged fireball (AOE + burn)
-    wand:  { dmg: 12, cooldown: 0.30, windup: 0.0,  range: 0,  arc: 0, projSpeed: 470, magic: 'bolt',
+    // #49 balance: base wand DPS (11/0.46 ~= 24) sits near a bow's; the Magic stat
+    // scales it up from there (fireSpell), so a wand is only strong if you invest.
+    wand:  { dmg: 11, cooldown: 0.46, windup: 0.0,  range: 0,  arc: 0, projSpeed: 470, magic: 'bolt',
              names: ['Wand', 'Scepter', 'Rod', 'Willow Wand'] },
     staff: { dmg: 34, cooldown: 1.05, windup: 0.5,  range: 0,  arc: 0, projSpeed: 300, magic: 'fireball',
              names: ['Staff', 'Stave', 'Runewood Staff', 'Emberstaff'] },

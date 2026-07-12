@@ -41,8 +41,14 @@ Fixed the real bugs:
 - EVO_PAL now has a 'magic' violet so a magic-heavy build keeps its evolution visuals.
 DEFERRED (balance/cosmetic, need Sam's playtest, logged not fixed blindly):
 - Wand sustained DPS reads ~3x bow and Multishot compounds it - needs a balance pass.
+  RESOLVED (#49, 2026-07-12): wand base cut 12/0.30 -> 11/0.46 (base DPS 40 -> 24,
+  now ~1.76x a bow instead of ~3x), and Magic now SCALES spell damage (+8%/point
+  over 1) so the old power is only reached by investing the stat. This is a
+  measured first-pass nerf, not a gutting - easy to push further after Sam plays.
 - Co-op mirrors magic shots as a plain arrow visual (cosmetic; damage is correct).
-- Attunement is a dead level-up pick with no magic weapon equipped (chicken/egg).
+- Attunement dead level-up pick with no magic weapon equipped - PARTLY addressed:
+  Magic now boosts spell damage, so once you DO hold a wand/staff the stat pays off
+  (still worthless with no magic weapon; a true fix is context-gating the offer).
 
 ## HOLDING the remaining big/ambiguous items (2026-07-12)
 After clearing everything cleanly buildable, I stopped prod-changing work on the
