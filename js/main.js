@@ -456,6 +456,10 @@
       vx: Math.cos(a) * 90, vy: Math.sin(a) * 90 - 40,
       t: 0, value: kind === 'coin' ? 1 : 1,
     });
+    // P1-D: currency/buff drops are INSTANCED - the host mirrors each to the guest,
+    // who spawns its OWN copy into its OWN wallet (both players progress economically).
+    // Guard on Net.isHost so the guest's own spawns don't echo back.
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'pk', k: kind, x: Math.round(x), y: Math.round(y) });
   }
 
   function checkRoomCleared() {
@@ -467,6 +471,9 @@
       vacuumPickups(); // room-clear reward: every dropped coin flies to you
       Sfx.play('unlock');
       Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
+      // P1-D: guests never run onKill/checkRoomCleared - tell them the room cleared so
+      // their coins vacuum and their doors unseal
+      if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy });
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
         // this floor has a boss only on floor 3 (the King) and on Circle Warden
         // floors in the Descent; every other floor ends in a stairs portal.
@@ -1257,6 +1264,22 @@
     Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
     // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id)
     Net.on('phit', m => { if (m.to === Net.id && g.player && !g.player.dead) g.player.damage(m.dmg, m.sx, m.sy, g); });
+    // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
+    // hit by / dodge (updateProjectiles resolves the damage vs the local player)
+    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, hitSet: null }); });
+    // P1-B: AoE blast visual (damage already arrived via phit); guest plays the boom
+    Net.on('boom', m => { if (isCoopGuest()) { Fx.shake(9, 0.3); Sfx.play('explode'); Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 28, { speed: 260, life: 0.6, glow: true }); } });
+    // P1-D: currency drop mirrored from the host -> guest's own instance (own wallet)
+    Net.on('pk', m => { if (isCoopGuest()) spawnPickup(m.k, m.x, m.y); });
+    // P1-D: room cleared on the host -> guest vacuums its coins + unseals its doors
+    Net.on('roomclear', m => {
+      if (!isCoopGuest() || !g.dungeon) return;
+      const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
+      if (room) room.cleared = true;
+      if (g.room && g.room.gx === m.gx && g.room.gy === m.gy) {
+        vacuumPickups(); Sfx.play('unlock'); Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
+      }
+    });
     // co-op: play a peer's attack visual so you can SEE them fighting
     Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)

@@ -308,11 +308,14 @@ const Monsters = (() => {
   }
 
   function fireProjectile(g, m, angle, speed, dmg, color, r, opts = {}) {
-    g.projectiles.push({
-      x: m.x + Math.cos(angle) * (m.r + 6), y: m.y + Math.sin(angle) * (m.r + 6),
-      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      r, dmg, from: 'enemy', color, life: 3, glow: opts.glow || false, hitSet: null,
-    });
+    const x = m.x + Math.cos(angle) * (m.r + 6), y = m.y + Math.sin(angle) * (m.r + 6);
+    const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
+    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', color, life: 3, glow: opts.glow || false, hitSet: null });
+    // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
+    // and updateProjectiles already resolves from:'enemy' damage vs the local player)
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
+      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0 });
+    }
   }
 
   function explode(m, g) {
@@ -320,8 +323,9 @@ const Monsters = (() => {
     m.dead = true; m.exploded = true;
     Fx.shake(9, 0.3); Fx.hitstop(0.04); Sfx.play('explode');
     Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888888'], 30, { speed: 260, life: 0.6, glow: true });
-    const p = g.player;
-    if (Math.hypot(p.x - m.x, p.y - m.y) < R + p.r) p.damage(m.dmg, m.x, m.y, g);
+    // P1-A/B: every party member in range takes it; broadcast the blast so guests SEE it
+    for (const t of g.partyTargets()) if (Math.hypot(t.x - m.x, t.y - m.y) < R + t.r) g.hurtTarget(t, m.dmg, m.x, m.y, m);
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(m.x), y: Math.round(m.y), r: R });
     // friendly fire: rewards kiting the bomber into the pack
     for (const o of g.monsters) {
       if (o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) {
@@ -437,8 +441,8 @@ const Monsters = (() => {
     const R = m.elite.blast;
     Fx.shake(7, 0.25); Sfx.play('explode');
     Fx.burst(m.x, m.y, ['#ff4444', '#ffcc44', '#ff2200'], 26, { speed: 250, life: 0.6, glow: true });
-    const p = g.player;
-    if (Math.hypot(p.x - m.x, p.y - m.y) < R + p.r) p.damage(Math.round(m.dmg * 1.2), m.x, m.y, g);
+    for (const t of g.partyTargets()) if (Math.hypot(t.x - m.x, t.y - m.y) < R + t.r) g.hurtTarget(t, Math.round(m.dmg * 1.2), m.x, m.y, m);
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(m.x), y: Math.round(m.y), r: R });
     for (const o of g.monsters) {
       if (o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) applyDamage(o, m.dmg, g, {});
     }
