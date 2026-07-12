@@ -168,6 +168,15 @@
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
     netReady: false,             // Net handlers wired once
     posSendT: 0,                 // position-broadcast throttle
+    // #32 co-op synchronized level-up gate. MONOTONIC busy/done COUNTERS (not
+    // level-tags or playerCount, both of which soft-lock; not a reset Set, which
+    // wipes an already-arrived signal): each peer sends {lvlbusy} when a pick cycle
+    // opens and {lvldone} when it closes. peerBusy[id]/peerDone[id] only ever grow;
+    // a peer is "still picking" while its busy count exceeds its done count. You
+    // resume once no peer is still picking. Order-independent, so it can't wipe a
+    // co-leveler's signal. leveling = local cycle active; levelWaitT = failsafe timer.
+    leveling: false, peerBusy: {}, peerDone: {}, levelWaitT: 0,
+    pendingCoopRoom: null, // deferred room-follow while gated
     transition: null,     // {dir, next, t}
     uiRects: [],
     essenceEarned: 0,
@@ -222,6 +231,8 @@
     g.levelChoices = [];
     g.evoQueue = [];
     g.evoChoices = null;
+    g.leveling = false; g.peerBusy = {}; g.peerDone = {}; // #32 gate reset
+    g.levelWaitT = 0; g.pendingCoopRoom = null;
     g.winTimer = -1;
     g.deathTimer = -1;
     g.runEnded = false;
@@ -1202,6 +1213,7 @@
       case 'levelup': g.overlayT += dt; updateLevelUp(); break;
       case 'evolution': g.overlayT += dt; updateEvolution(); break;
       case 'ultpick': g.overlayT += dt; updateUltPick(); break;
+      case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
       case 'pause':
         g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
@@ -1298,15 +1310,21 @@
     });
     Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
     // P1-C: downed / revive / party-wipe game-over
-    Net.on('downed', m => { const rp = g.remotePlayers.get(m.id); if (rp) rp.downed = true; });
+    Net.on('downed', m => { const rp = g.remotePlayers.get(m.id); if (rp) rp.downed = true; dropFromLevelGate(m.id); });
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
     Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list); });
     // co-op: the guest levels off the host's shared kills
     Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
-    // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id)
-    Net.on('phit', m => { if (m.to === Net.id && g.player && !g.player.dead) g.player.damage(m.dmg, m.sx, m.sy, g); });
+    // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id).
+    // A player mid-pick (level-up / evolution / ultimate / gate) is frozen and can't
+    // dodge, so it's shielded from damage until it resumes - no dying on the menu.
+    Net.on('phit', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'levelwait') return;
+      g.player.damage(m.dmg, m.sx, m.sy, g);
+    });
     // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
     // hit by / dodge (updateProjectiles resolves the damage vs the local player)
     Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, hitSet: null }); });
@@ -1334,6 +1352,14 @@
     });
     // co-op: play a peer's attack visual so you can SEE them fighting
     Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
+    // #32 gate: a teammate opened a pick cycle (busy) / closed one (done). Monotonic
+    // counters, so ordering and duplicate-free delivery keep busy/done exactly paired.
+    Net.on('lvlbusy', m => { if (g.coop) g.peerBusy[m.from] = (g.peerBusy[m.from] || 0) + 1; });
+    Net.on('lvldone', m => {
+      if (!g.coop) return;
+      g.peerDone[m.from] = (g.peerDone[m.from] || 0) + 1;
+      if (g.state === 'levelwait' && g.levelWaitT > 0.35 && partyLevelReady()) releaseLevelGate();
+    });
     // P1-E: the guest builds the REAL King via Boss.make (crown/jaw art), sets g.boss
     // for the health bar, and copies the per-tick fields each snapshot
     Net.on('boss', m => {
@@ -1371,9 +1397,10 @@
     });
     // tethered party: a peer moved through a door - everyone follows to that room
     Net.on('room', m => { if (g.coop && g.dungeon) coopEnterRoom(m.gx, m.gy, m.dir, false); });
-    // host advanced the floor - regenerate the shared floor and follow
-    Net.on('floor', m => { if (g.coop) { g.floorNum = m.floor; g.coopSeed = m.seed; startFloor(); g.state = 'play'; } });
-    Net.on('peer-leave', m => g.remotePlayers.delete(m.id));
+    // host advanced the floor - regenerate the shared floor and follow (a floor change
+    // trumps any pending level-up gate: clear it so nothing is left stranded)
+    Net.on('floor', m => { if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; startFloor(); g.state = 'play'; } });
+    Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
     Net.onLifecycle('close', () => { if (g.lobby && g.lobby.mode === 'join') g.lobby.status = 'disconnected'; });
     Net.onLifecycle('error', () => { if (g.lobby) g.lobby.status = 'connection failed'; });
   }
@@ -1404,6 +1431,12 @@
   function coopEnterRoom(gx, gy, dir, initiator) {
     const room = g.dungeon.rooms.find(r => r.gx === gx && r.gy === gy);
     if (!room || room === g.room) return;
+    // #32: don't yank a player out of a level-up/evolution/ultimate/gate overlay
+    // (that would discard their in-progress pick). Defer the follow until they resume.
+    if (!initiator && (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'levelwait')) {
+      g.pendingCoopRoom = { gx, gy, dir };
+      return;
+    }
     enterRoom(room, dir);
     if (initiator) Net.send({ t: 'room', gx, gy, dir });
   }
@@ -1499,6 +1532,25 @@
     }
   }
 
+  // #32: the "waiting for your party" banner while the gate holds you
+  function drawLevelWait(c) {
+    c.save();
+    c.fillStyle = 'rgba(5,8,16,0.55)';
+    c.fillRect(0, H / 2 - 54, W, 108);
+    c.textAlign = 'center';
+    c.font = 'bold 22px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText('LEVEL UP COMPLETE', W / 2, H / 2 - 14);
+    let picking = 0;
+    for (const id in g.peerBusy) if ((g.peerBusy[id] || 0) > (g.peerDone[id] || 0)) picking++;
+    c.font = '14px monospace'; c.fillStyle = '#cdd4e2';
+    c.fillText(picking > 0 ? `waiting for ${picking} teammate${picking > 1 ? 's' : ''} to choose` : 'syncing with your party', W / 2, H / 2 + 14);
+    // three dots pulsing so it never looks frozen
+    const dots = 1 + (Math.floor(Date.now() / 400) % 3);
+    c.fillStyle = '#7fd4ff';
+    c.fillText('.'.repeat(dots), W / 2, H / 2 + 38);
+    c.restore();
+  }
+
   // a networked teammate's melee swing: the arc-sweep sweep (no windup phase, we
   // receive it at release), mirrors the local player's drawWeapon release visual
   function drawPeerSwing(c, rp) {
@@ -1555,6 +1607,9 @@
     Fx.text(p.x, p.y - 40, 'DOWNED - hold on!', '#7fd4ff', 15);
     Sfx.play('hurt');
     if (typeof Net !== 'undefined') Net.send({ t: 'downed', id: Net.id });
+    // #32: if we're downed with a level cycle still open, forfeit it so a waiting
+    // teammate isn't stranded on the gate (our picks resume when we're revived)
+    if (g.leveling) { g.leveling = false; if (typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'lvldone' }); }
   }
   function reviveLocal() {
     const p = g.player;
@@ -1754,6 +1809,14 @@
     }
     if (Fx.tickHitstop(dt)) { g.preserveInput = true; return; } // hit-stop: world freezes, but buffered presses survive it
 
+    // #32: a room-follow that arrived while we were gated/picking now applies (party
+    // stays together - we catch up to wherever the mover led once we're back in play)
+    if (g.pendingCoopRoom && g.dungeon) {
+      const pr = g.pendingCoopRoom; g.pendingCoopRoom = null;
+      coopEnterRoom(pr.gx, pr.gy, pr.dir, false);
+      if (g.state !== 'play') return;
+    }
+
     const p = g.player;
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
     p.update(dt, g, input);
@@ -1806,6 +1869,7 @@
       const evo = g.evoQueue.shift();
       const options = Evolutions.optionsFor(evo.key, evo.stacks);
       if (options) { // guard: an invalid queue entry (dbg typo) must never soft-lock
+        beginLevelCycle();
         g.evoChoices = { key: evo.key, stacks: evo.stacks, options };
         g.hoverChoice = -1;
         g.state = 'evolution';
@@ -1818,6 +1882,7 @@
     // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
     // skipped once the boss is down (victory is seconds away) or the player is dead.
     if (g.levelUpQueue > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+      beginLevelCycle();
       g.levelUpQueue--;
       g.levelChoices = pickUpgrades();
       g.levelRerolled = false; // one reroll per level-up
@@ -1825,7 +1890,62 @@
       g.state = 'levelup';
       g.overlayT = 0;
       p.drawT = -1; // a held bow draw must not survive the overlay and fire on resume
+      return;
     }
+    // #32 co-op: once the whole pick sequence is drained, don't slip back into play
+    // alone - hold at the gate until every teammate has also finished choosing
+    if (g.coop && g.leveling && g.evoQueue.length === 0 && g.levelUpQueue === 0 &&
+        !p.dead && g.winTimer <= 0) {
+      finishLevelCycle();
+    }
+  }
+
+  // --- #32 co-op synchronized level-up gate ---------------------------------
+  // A "cycle" spans from the first level-up/evolution/ultimate overlay of a shared
+  // level to the last pick. Because XP is shared, both players enter a cycle at the
+  // same moment; one may just have an extra evolution/ultimate to resolve.
+  function beginLevelCycle() {
+    if (g.leveling) return;
+    g.leveling = true;
+    if (typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'lvlbusy' });
+  }
+  // a peer is "still picking" while its busy count outruns its done count. You may
+  // resume only when NO peer is still picking. Counters are monotonic, so this is
+  // immune to message ordering and to divergent per-player levels.
+  function anyPeerPicking() {
+    for (const id in g.peerBusy) if ((g.peerBusy[id] || 0) > (g.peerDone[id] || 0)) return true;
+    return false;
+  }
+  function partyLevelReady() {
+    if (typeof Net === 'undefined' || !Net.connected) return true;
+    return !anyPeerPicking();
+  }
+  function releaseLevelGate() {
+    g.leveling = false;
+    if (g.state === 'levelwait') g.state = 'play';
+  }
+  function finishLevelCycle() {
+    g.leveling = false;
+    if (typeof Net === 'undefined' || !Net.connected) { g.state = 'play'; return; }
+    Net.send({ t: 'lvldone' }); // exactly one done per busy - WebSocket/TCP is reliable+ordered
+    // always hold in levelwait: updateLevelWait's 0.35s grace lets a co-leveler's
+    // lvlbusy arrive and be counted before we can resume (never resume-before-wait)
+    g.state = 'levelwait'; g.overlayT = 0; g.levelWaitT = 0;
+  }
+  // a teammate is downed / has left: it can't finish its pick, so settle its counter
+  // (done := busy) so it no longer reads as "picking" and can't strand the party
+  function dropFromLevelGate(id) {
+    g.peerDone[id] = (g.peerBusy[id] || 0);
+    if (g.state === 'levelwait' && partyLevelReady() && g.levelWaitT > 0.35) releaseLevelGate();
+  }
+  // held at the gate: keep presence alive, release when nobody is still picking
+  // (after a short grace so a co-leveler's busy can land) OR when a failsafe timeout
+  // elapses so a disconnect/edge case can never permanently soft-lock a run
+  function updateLevelWait(dt) {
+    g.levelWaitT += dt;
+    broadcastSelf(dt); interpRemotes(dt);
+    if (isCoopGuest()) updateGuestMobs(dt);
+    if ((g.levelWaitT > 0.35 && partyLevelReady()) || g.levelWaitT > 12) releaseLevelGate();
   }
 
   function pickUpgrades() {
@@ -2229,6 +2349,7 @@
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
+    if (g.state === 'levelwait') drawLevelWait(c);
     if (g.state === 'pause') UI.drawPause(c, g);
     if (g.state === 'charsheet') UI.drawCharSheet(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
