@@ -159,6 +159,12 @@
     evoQueue: [], evoChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, scores: loadScores(),
+    // --- co-op (multiplayer) ---
+    coop: false,                 // true during a networked run
+    lobby: null,                 // {mode,entry,status} while on the lobby screen
+    remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
+    netReady: false,             // Net handlers wired once
+    posSendT: 0,                 // position-broadcast throttle
     transition: null,     // {dir, next, t}
     uiRects: [],
     essenceEarned: 0,
@@ -201,7 +207,9 @@
   }
 
   // ============================ RUN LIFECYCLE ============================
-  function newRun() {
+  function newRun(coop = false) {
+    g.coop = coop;
+    if (!coop) g.remotePlayers.clear();
     g.floorNum = 1;
     g.player = new PlayerDef.Player(g.meta);
     g.player.coinsTotal = 0;
@@ -1126,6 +1134,7 @@
 
     switch (g.state) {
       case 'title': updateTitle(); break;
+      case 'lobby': updateLobby(); break;
       case 'play': updatePlay(dt); break;
       case 'levelup': g.overlayT += dt; updateLevelUp(); break;
       case 'evolution': g.overlayT += dt; updateEvolution(); break;
@@ -1162,6 +1171,7 @@
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'start') { newRun(); return; }
+          if (r.action === 'coop') { openLobby(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
@@ -1205,6 +1215,123 @@
     Sfx.play('upgrade');
   }
 
+  // ============================ CO-OP (multiplayer) ============================
+  // Milestone 2: lobby + real-time player presence. Each client runs its own
+  // game; positions are broadcast through the relay and remote players are drawn
+  // when they share your room (everyone spawns in the start room, so you meet
+  // there immediately). Shared dungeon + enemies land in M3/M4.
+  function setupNet() {
+    if (g.netReady || typeof Net === 'undefined') return;
+    g.netReady = true;
+    Net.on('p', m => {
+      let rp = g.remotePlayers.get(m.from);
+      if (!rp) { rp = { x: m.x, y: m.y }; g.remotePlayers.set(m.from, rp); }
+      rp.tx = m.x; rp.ty = m.y;
+      if (rp.x === undefined) { rp.x = m.x; rp.y = m.y; }
+      rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = m.from;
+      rp.last = g.time;
+    });
+    Net.on('start', () => { if (!Net.isHost) startCoop(); });
+    Net.on('peer-leave', m => g.remotePlayers.delete(m.id));
+    Net.onLifecycle('close', () => { if (g.lobby && g.lobby.mode === 'join') g.lobby.status = 'disconnected'; });
+    Net.onLifecycle('error', () => { if (g.lobby) g.lobby.status = 'connection failed'; });
+  }
+
+  function openLobby() {
+    setupNet();
+    g.lobby = { mode: 'menu', entry: '', status: '' };
+    g.state = 'lobby';
+    Sfx.play('ui');
+  }
+
+  function closeLobby() {
+    if (typeof Net !== 'undefined') Net.disconnect();
+    g.remotePlayers.clear();
+    g.lobby = null;
+    g.state = 'title';
+    Sfx.play('ui');
+  }
+
+  function startCoop() {
+    g.remotePlayers.clear();
+    g.lobby = null;
+    newRun(true);
+  }
+
+  function updateLobby() {
+    const lb = g.lobby;
+    if (input.pressed('Escape')) { closeLobby(); return; }
+    // code entry while joining
+    if (lb.mode === 'join' && !Net.connected) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      for (const ch of chars) {
+        const code = (ch >= '0' && ch <= '9') ? 'Digit' + ch : 'Key' + ch;
+        if (input.pressed(code) && lb.entry.length < 4) { lb.entry += ch; Sfx.play('ui'); }
+      }
+      if (input.pressed('Backspace') && lb.entry.length) lb.entry = lb.entry.slice(0, -1);
+      if (input.pressed('Enter') && lb.entry.length === 4) { Net.join(lb.entry); lb.status = 'connecting...'; }
+    }
+    if (input.mouse.clicked) {
+      for (const r of g.uiRects) {
+        if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+          if (r.action === 'lobby-host') { Net.host(); lb.mode = 'host'; Sfx.play('ui'); }
+          if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
+          if (r.action === 'lobby-start') { Net.send({ t: 'start' }); startCoop(); return; }
+          if (r.action === 'lobby-back') { closeLobby(); return; }
+        }
+      }
+    }
+  }
+
+  // broadcast our player state to the room (throttled ~15 Hz)
+  function broadcastSelf(dt) {
+    if (!g.coop || typeof Net === 'undefined' || !Net.connected) return;
+    g.posSendT -= dt;
+    if (g.posSendT > 0) return;
+    g.posSendT = 0.066;
+    const p = g.player;
+    Net.send({
+      t: 'p', x: Math.round(p.x), y: Math.round(p.y), f: +p.facing.toFixed(2),
+      r: [g.room.gx, g.room.gy], hp: Math.round(p.hp), mh: Math.round(p.maxHp),
+      wc: p.weapon ? p.weapon.color : '#9ee7ff',
+    });
+  }
+
+  // smooth remote players toward their last reported position
+  function interpRemotes(dt) {
+    const k = Math.min(1, dt * 12);
+    for (const rp of g.remotePlayers.values()) {
+      if (rp.tx !== undefined) { rp.x += (rp.tx - rp.x) * k; rp.y += (rp.ty - rp.y) * k; }
+    }
+  }
+
+  // draw the other players who share your current room
+  function drawRemotePlayers(c) {
+    for (const [id, rp] of g.remotePlayers) {
+      if (g.time - (rp.last || 0) > 3) continue;                       // gone quiet
+      if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue; // elsewhere
+      c.save();
+      c.translate(rp.x, rp.y);
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#2c3e60'; c.beginPath(); c.arc(0, 2, 13, 0, Math.PI * 2); c.fill();
+      c.fillStyle = rp.wc || '#4a6fa5'; c.beginPath(); c.arc(0, -2, 11, 0, Math.PI * 2); c.fill();
+      c.save(); c.rotate(rp.facing || 0);
+      c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
+      c.fillStyle = '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
+      c.restore();
+      c.restore();
+      c.textAlign = 'center';
+      c.fillStyle = '#7fd4ff'; c.font = 'bold 10px monospace';
+      c.fillText(rp.name || id, rp.x, rp.y - 22);
+      if (rp.maxHp) {
+        const bw = 26, kk = Math.max(0, (rp.hp || 0) / rp.maxHp);
+        c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(rp.x - bw / 2 - 1, rp.y - 19, bw + 2, 4);
+        c.fillStyle = '#7ee0a0'; c.fillRect(rp.x - bw / 2, rp.y - 18, bw * kk, 2);
+      }
+    }
+  }
+
   function updatePlay(dt) {
     if (input.pressed('KeyP') || input.pressed('Escape')) {
       g.state = 'pause'; g.overlayT = 0;
@@ -1243,6 +1370,9 @@
     updateMercs(dt);
     updateProjectiles(dt);
     updatePickups(dt);
+
+    // co-op: broadcast our position + smooth the other players
+    if (g.coop) { broadcastSelf(dt); interpRemotes(dt); }
 
     if (g.winTimer > 0) {
       g.winTimer -= dt;
@@ -1413,6 +1543,12 @@
   }
 
   function updateEnd() {
+    // leaving a co-op run drops the connection cleanly
+    if ((input.pressed('Enter') || input.pressed('Escape')) && g.coop) {
+      g.coop = false;
+      if (typeof Net !== 'undefined') Net.disconnect();
+      g.remotePlayers.clear();
+    }
     if (input.pressed('Enter')) { newRun(); return; }        // Enter matches the NEW RUN button it captions
     if (input.pressed('Escape')) { g.state = 'title'; return; } // Esc visits the hub to spend essence
     if (input.mouse.clicked) {
@@ -1527,6 +1663,10 @@
       g.uiRects = UI.drawTitle(c, g);
       return;
     }
+    if (g.state === 'lobby') {
+      g.uiRects = UI.drawLobby(c, g);
+      return;
+    }
 
     const shake = Fx.getShake();
     c.save();
@@ -1541,6 +1681,7 @@
     // actors
     for (const m of g.monsters) if (!m.dead) m.draw(c, g);
     for (const merc of g.mercs) if (!merc.dead) drawMerc(c, merc);
+    if (g.coop) drawRemotePlayers(c);
     g.player.draw(c, g);
 
     // projectiles on top
@@ -2312,6 +2453,11 @@
     press(code) { input.keys.add(code); input.just.add(code); },
     release(code) { input.keys.delete(code); },
     mouse(x, y, down) { input.mouse.x = x; input.mouse.y = y; if (down !== undefined) { input.mouse.down = down; if (down) input.mouse.clicked = true; } },
+    // co-op test hooks (drive the real lobby/net paths)
+    mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
+    mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
+    mpStart() { Net.send({ t: 'start' }); startCoop(); },
+    mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
   };
 
   // mark the current version's patch notes as seen so they don't auto-pop again

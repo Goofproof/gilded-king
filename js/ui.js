@@ -452,21 +452,32 @@ const UI = (() => {
     c.fillStyle = '#8fa3bf';
     c.fillText('WASD move · mouse aims · click/J attack · SPACE roll · E interact · Q ability · Tab swap · C stats · F auto · M mute', W / 2, 205);
 
-    // start button
-    const startR = { x: W / 2 - 130, y: 232, w: 260, h: 46, action: 'start' };
+    // solo + co-op buttons, side by side
+    const startR = { x: W / 2 - 212, y: 232, w: 200, h: 46, action: 'start' };
+    const coopR  = { x: W / 2 + 12,  y: 232, w: 200, h: 46, action: 'coop' };
     const pulse = Math.sin(Date.now() / 300) * 0.12 + 0.88;
     c.fillStyle = `rgba(212,175,55,${0.15 * pulse})`;
     c.fillRect(startR.x, startR.y, startR.w, startR.h);
     c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
     c.strokeRect(startR.x, startR.y, startR.w, startR.h);
-    c.font = 'bold 20px monospace';
+    c.font = 'bold 18px monospace';
     c.fillStyle = '#ffd24c';
-    c.fillText('ENTER THE DUNGEON', W / 2, startR.y + 30);
+    c.fillText('ENTER DUNGEON', startR.x + startR.w / 2, startR.y + 29);
+    // co-op button (cyan)
+    c.fillStyle = `rgba(127,212,255,${0.12 * pulse})`;
+    c.fillRect(coopR.x, coopR.y, coopR.w, coopR.h);
+    c.strokeStyle = '#7fd4ff'; c.lineWidth = 2;
+    c.strokeRect(coopR.x, coopR.y, coopR.w, coopR.h);
+    c.font = 'bold 18px monospace';
+    c.fillStyle = '#7fd4ff';
+    c.fillText('PLAY ONLINE', coopR.x + coopR.w / 2, coopR.y + 24);
+    c.font = '10px monospace'; c.fillStyle = '#5f8ba0';
+    c.fillText('co-op with friends', coopR.x + coopR.w / 2, coopR.y + 38);
     c.font = '12px monospace';
     c.fillStyle = '#667';
-    c.fillText('(or press Enter)', W / 2, startR.y + 62);
+    c.fillText('(Enter = solo)', W / 2, startR.y + 62);
 
-    const rects = [startR];
+    const rects = [startR, coopR];
 
     // hub: meta upgrades
     c.font = 'bold 14px monospace';
@@ -826,6 +837,70 @@ const UI = (() => {
     c.restore();
   }
 
+  // --- CO-OP LOBBY -----------------------------------------------------------
+  // g.lobby = { mode:'menu'|'host'|'join', entry:'<typed code>', status:'<msg>' }
+  function drawLobby(c, g) {
+    const lb = g.lobby || {};
+    const online = typeof Net !== 'undefined';
+    c.save();
+    c.fillStyle = '#0d0d16'; c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    c.font = 'bold 30px monospace'; c.fillStyle = '#7fd4ff';
+    c.fillText('PLAY ONLINE', W / 2, 92);
+    c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('co-op dungeon runs with friends', W / 2, 116);
+    const rects = [];
+    const btn = (x, y, w, h, label, action, col, on = true) => {
+      c.fillStyle = on ? `rgba(${col},0.14)` : 'rgba(120,120,130,0.06)';
+      c.fillRect(x, y, w, h);
+      c.strokeStyle = on ? `rgb(${col})` : '#3a3f4d'; c.lineWidth = 2; c.strokeRect(x, y, w, h);
+      c.font = 'bold 16px monospace'; c.fillStyle = on ? `rgb(${col})` : '#555';
+      c.fillText(label, x + w / 2, y + h / 2 + 6);
+      if (on) rects.push({ x, y, w, h, action });
+    };
+
+    if (!online) {
+      c.font = '14px monospace'; c.fillStyle = '#e07070';
+      c.fillText('networking not loaded', W / 2, 200);
+    } else if (lb.mode === 'menu' || !lb.mode) {
+      btn(W / 2 - 150, 180, 300, 54, 'HOST A GAME', 'lobby-host', '127,212,255');
+      btn(W / 2 - 150, 250, 300, 54, 'JOIN A GAME', 'lobby-join', '110,231,160');
+    } else if (lb.mode === 'host') {
+      c.font = '13px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText('share this code with your friends', W / 2, 180);
+      c.font = 'bold 54px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(Net.code || '····', W / 2, 240);
+      c.font = '13px monospace'; c.fillStyle = '#cdd4e2';
+      c.fillText(`players in lobby: ${Net.playerCount}`, W / 2, 290);
+      btn(W / 2 - 130, 320, 260, 50, 'START GAME', 'lobby-start', '127,212,255');
+    } else if (lb.mode === 'join') {
+      c.font = '13px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText('type your friend\'s 4-letter code', W / 2, 180);
+      // 4 code boxes
+      const bw = 46, gap = 12, total = 4 * bw + 3 * gap, sx = (W - total) / 2;
+      for (let i = 0; i < 4; i++) {
+        const x = sx + i * (bw + gap);
+        c.strokeStyle = i === (lb.entry || '').length ? '#7fd4ff' : '#5a6478';
+        c.lineWidth = 2; c.strokeRect(x, 200, bw, 56);
+        c.font = 'bold 32px monospace'; c.fillStyle = '#e8edf6';
+        c.fillText((lb.entry || '')[i] || '', x + bw / 2, 240);
+      }
+      if (Net.connected) {
+        c.font = '14px monospace'; c.fillStyle = '#6ee7a0';
+        c.fillText(`connected · ${Net.playerCount} in lobby`, W / 2, 300);
+        c.fillStyle = '#8fa3bf'; c.font = '13px monospace';
+        c.fillText('waiting for the host to start...', W / 2, 324);
+      } else {
+        c.font = '12px monospace'; c.fillStyle = lb.status ? '#e0b070' : '#667';
+        c.fillText(lb.status || 'type the code, then press Enter', W / 2, 300);
+      }
+    }
+    // BACK always available
+    btn(14, H - 44, 110, 30, '‹ BACK', 'lobby-back', '143,163,191');
+    c.restore();
+    return rects;
+  }
+
   // stat colour per evolution path (matches the champion's visual-evolution palette)
   const STAT_COL = {
     hp: '#7fd4ff', dmg: '#e05555', spd: '#7fe0ff', roll: '#b8f0ff',
@@ -962,5 +1037,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawCharSheet, drawEnd, drawInitials };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawPause, drawCharSheet, drawEnd, drawInitials };
 })();
