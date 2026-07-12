@@ -26,12 +26,23 @@ const Boss = (() => {
     r: 34,
   };
 
-  function make() {
+  // the King's original gold-and-brown palette; the Descent recolors him via opts
+  const KING_PAL = { body: '#6b4726', lidLo: '#59391c', lid: '#7d5530', trim: '#d4af37', crown: '#ffd24c', jewel: [255, 80, 120] };
+
+  // opts.descent = { anger, pal, name, hpMul, dmgMul } for the recurring Circle
+  // Warden; omit opts entirely for the floor-3 Gilded King (unchanged).
+  function make(opts) {
+    const d = opts && opts.descent;
+    const pal = d ? d.pal : KING_PAL;
+    const hpMul = d ? d.hpMul : 1;
+    const dmgMul = d ? d.dmgMul : 1;
+    const hp = Math.round(STATS.hp * hpMul);
     const b = {
-      type: 'boss', name: 'THE MIMIC KING',
+      type: 'boss', name: d ? d.name : 'THE MIMIC KING',
       x: PF.x + PF.w / 2, y: PF.y + PF.h * 0.35,
-      r: STATS.r, hp: STATS.hp, maxHp: STATS.hp,
-      dmg: STATS.contactDmg, xp: 120, coins: [30, 45],
+      r: STATS.r, hp, maxHp: hp,
+      dmg: Math.round(STATS.contactDmg * dmgMul), xp: 120, coins: [30, 45],
+      pal, anger: d ? d.anger : 0, dmgMul, isDescentBoss: !!d,
       facing: 0, state: 'idle', t: 0, telegraph: 0,
       contactCd: 0, burn: null, stagger: 0, flash: 0, kvx: 0, kvy: 0,
       dead: false, spawnT: 0, isBoss: true,
@@ -78,7 +89,7 @@ const Boss = (() => {
         b.jaw = 4 + Math.sin(b.t * 5) * 2;
         moveToward(b, p.x, p.y, dt, STATS.speed * sm);
         if (b.contactCd <= 0 && dist < b.r + p.r + 2) {
-          p.damage(STATS.contactDmg, b.x, b.y, g, b); // src: thorns bite kings too
+          p.damage(Math.round(STATS.contactDmg * b.dmgMul), b.x, b.y, g, b); // src: thorns bite kings too
           b.contactCd = 0.9;
         }
         const wait = phase(b) === 3 ? 1.1 : 1.8;
@@ -114,7 +125,7 @@ const Boss = (() => {
         b.jaw = 16;
         Fx.burst(b.x, b.y, '#d4af37', 2, { speed: 60, life: 0.3 });
         if (b.contactCd <= 0 && dist < b.r + p.r + 4) {
-          p.damage(STATS.lungeDmg, b.x, b.y, g, b);
+          p.damage(Math.round(STATS.lungeDmg * b.dmgMul), b.x, b.y, g, b);
           b.contactCd = 0.9;
         }
         if (b.t >= 0.42) { b.state = 'idle'; b.t = 0; }
@@ -137,7 +148,7 @@ const Boss = (() => {
             g.projectiles.push({
               x: b.x + Math.cos(a) * (b.r + 4), y: b.y + Math.sin(a) * (b.r + 4),
               vx: Math.cos(a) * 240, vy: Math.sin(a) * 240,
-              r: 6, dmg: STATS.coinDmg, from: 'enemy', color: '#ffd24c', life: 3, glow: true, spin: true,
+              r: 6, dmg: Math.round(STATS.coinDmg * b.dmgMul), from: 'enemy', color: b.pal.crown, life: 3, glow: true, spin: true,
             });
           }
           Sfx.play('coin'); Sfx.play('bowfire');
@@ -174,7 +185,7 @@ const Boss = (() => {
             const baby = Monsters.make('mimicbaby', b.x + Math.cos(a) * 70, b.y + Math.sin(a) * 70, 2);
             g.monsters.push(baby);
           }
-          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(STATS.slamDmg, b.x, b.y, g, b);
+          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(Math.round(STATS.slamDmg * b.dmgMul), b.x, b.y, g, b);
         }
         break;
       }
@@ -186,7 +197,7 @@ const Boss = (() => {
           if (rr < 0) { allDone = false; continue; }
           if (rr < 260) allDone = false;
           const pd = Math.hypot(p.x - b.x, p.y - b.y);
-          if (Math.abs(pd - rr) < 12 && rr > 20) p.damage(10, b.x, b.y, g); // player.damage has i-frames built in
+          if (Math.abs(pd - rr) < 12 && rr > 20) p.damage(Math.round(10 * b.dmgMul), b.x, b.y, g); // player.damage has i-frames built in
         }
         if (allDone || b.t > 1.4) { b.state = 'idle'; b.t = 0; b.rings = null; }
         break;
@@ -254,20 +265,20 @@ const Boss = (() => {
     const s = b.r / 17; // chest sprite scale factor (mimic sprite at ~2x)
     const flash = b.flash > 0;
 
-    // body
-    c.fillStyle = flash ? '#fff' : '#6b4726';
+    // body (recolored per Descent palette; the King keeps his gold-and-brown)
+    c.fillStyle = flash ? '#fff' : b.pal.body;
     c.fillRect(-17 * s, -6 * s, 34 * s, 15 * s);
-    c.fillStyle = flash ? '#eee' : '#59391c';
+    c.fillStyle = flash ? '#eee' : b.pal.lidLo;
     c.fillRect(-17 * s, 6 * s, 34 * s, 3 * s);
     // lid (jaw)
     c.save();
     c.translate(0, -6 * s); c.rotate(-b.jaw * 0.045);
-    c.fillStyle = flash ? '#eee' : '#7d5530';
+    c.fillStyle = flash ? '#eee' : b.pal.lid;
     c.fillRect(-17 * s, -11 * s, 34 * s, 11 * s);
-    c.fillStyle = '#d4af37';
+    c.fillStyle = b.pal.trim;
     c.fillRect(-17 * s, -3.5 * s, 34 * s, 3 * s);
     // CROWN - the royal tell
-    c.fillStyle = '#ffd24c';
+    c.fillStyle = b.pal.crown;
     c.beginPath();
     c.moveTo(-10 * s, -11 * s);
     c.lineTo(-10 * s, -17 * s); c.lineTo(-6 * s, -13 * s);
@@ -277,7 +288,8 @@ const Boss = (() => {
     c.closePath(); c.fill();
     // crown jewel glint
     const gl = Math.sin(b.crownGlint * 3) * 0.5 + 0.5;
-    c.fillStyle = `rgba(255,80,120,${0.5 + gl * 0.5})`;
+    const jw = b.pal.jewel;
+    c.fillStyle = `rgba(${jw[0]},${jw[1]},${jw[2]},${0.5 + gl * 0.5})`;
     c.beginPath(); c.arc(0, -14 * s, 2 * s, 0, Math.PI * 2); c.fill();
     c.restore();
 
@@ -291,21 +303,38 @@ const Boss = (() => {
     // tongue
     c.fillStyle = '#c0392b';
     c.beginPath(); c.ellipse(0, 3 * s, 8 * s, 4 * s, 0, 0, Math.PI); c.fill();
-    // gold spilling out
-    c.fillStyle = '#ffd24c';
+    // treasure spilling out (his hoard, tinted to his palette)
+    c.fillStyle = b.pal.trim;
     for (let i = 0; i < 5; i++) {
       const a = i * 1.3 + b.crownGlint;
       c.beginPath(); c.arc(Math.sin(a) * 12 * s, 8 * s, 2 * s, 0, Math.PI * 2); c.fill();
     }
-    // eyes tracking the player
+    // eyes tracking the player - they burn redder the angrier he is
     const p = g.player;
     const ea = Math.atan2(p.y - b.y, p.x - b.x);
-    c.fillStyle = '#ffd24c';
+    const rage = Math.min(1, b.anger * 0.3); // 0 for the King, rising each Descent meeting
+    c.fillStyle = rage > 0 ? `rgb(255,${Math.round(210 - 190 * rage)},${Math.round(76 - 66 * rage)})` : b.pal.crown;
     c.beginPath(); c.arc(-8 * s + Math.cos(ea) * 2, -14 * s + Math.sin(ea) * 2, 3 * s, 0, Math.PI * 2); c.fill();
     c.beginPath(); c.arc(8 * s + Math.cos(ea) * 2, -14 * s + Math.sin(ea) * 2, 3 * s, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#7a1f14';
     c.beginPath(); c.arc(-8 * s + Math.cos(ea) * 3.4, -14 * s + Math.sin(ea) * 3.4, 1.4 * s, 0, Math.PI * 2); c.fill();
     c.beginPath(); c.arc(8 * s + Math.cos(ea) * 3.4, -14 * s + Math.sin(ea) * 3.4, 1.4 * s, 0, Math.PI * 2); c.fill();
+    // ANGRY EYEBROWS - drawn only in the Descent, steeper the angrier he gets
+    if (b.anger > 0) {
+      c.strokeStyle = '#7a1f14';
+      c.lineWidth = 2.2 * s;
+      c.lineCap = 'round';
+      const drop = (1.5 + rage * 3) * s; // inner ends dive toward the nose
+      c.beginPath();
+      c.moveTo(-12 * s, (-18 - rage * 1.5) * s); c.lineTo(-4 * s, -16 * s + drop);
+      c.moveTo(12 * s, (-18 - rage * 1.5) * s);  c.lineTo(4 * s, -16 * s + drop);
+      c.stroke();
+      // seething embers rise off the crown
+      if (Math.random() < 0.25 + rage * 0.4) {
+        Fx.burst(b.x + (Math.random() * 20 - 10), b.y - b.r - 6, ['#ff5a2c', '#ffcc44', b.pal.crown], 1,
+          { speed: 20, life: 0.5, glow: true, vy: -40, size: 2 });
+      }
+    }
 
     // telegraph glow
     if (b.telegraph) {

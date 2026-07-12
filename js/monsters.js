@@ -36,7 +36,9 @@ const Monsters = (() => {
   function tierFor(floor, dist) { return Math.max(1, Math.min(5, floor + Math.floor(dist / 3))); }
 
   // ============================================================================
-  function make(type, x, y, tier = 1) {
+  // mods (Descent): { hpMul, dmgMul, speedMul, elite } - endless-floor scaling and
+  // an optional elite affix. null on the base 3 floors, so those are untouched.
+  function make(type, x, y, tier = 1, mods = null) {
     const b = BASE[type];
     const hpMul = 1 + 0.30 * (tier - 1), dmgMul = 1 + 0.15 * (tier - 1);
     const m = {
@@ -53,6 +55,22 @@ const Monsters = (() => {
       draw(c, g) { draw(this, c, g); },
       takeHit(dmg, opts, g) { takeHit(this, dmg, opts, g); },
     };
+    // --- Descent scaling + elite affix ------------------------------------------
+    if (mods) {
+      if (mods.hpMul)    { m.hp = Math.max(1, Math.round(m.hp * mods.hpMul)); m.maxHp = m.hp; }
+      if (mods.dmgMul)   m.dmg = Math.round(m.dmg * mods.dmgMul);
+      if (mods.speedMul) m.speed = m.speed * mods.speedMul;
+      if (mods.elite) {
+        const af = mods.elite;
+        m.elite = af;
+        m.r = Math.round(m.r * (af.rMul || 1));
+        m.hp = Math.max(1, Math.round(m.hp * af.hpMul)); m.maxHp = m.hp;
+        m.dmg = Math.round(m.dmg * af.dmgMul);
+        m.speed = m.speed * af.speedMul;
+        m.xp = Math.round(m.xp * 2.2);
+        m.coins = [m.coins[0] + 2, m.coins[1] + 4]; // new array: never mutates BASE
+      }
+    }
     return m;
   }
 
@@ -354,7 +372,21 @@ const Monsters = (() => {
         return;
       }
       m.dead = true;
+      if (m.elite && m.elite.blast) eliteBlast(m, g);
       g.onKill(m);
+    }
+  }
+
+  // a Volatile elite bursts on death: hurts the player and nearby monsters.
+  // deliberately NOT routed through explode() (that would re-trigger onKill).
+  function eliteBlast(m, g) {
+    const R = m.elite.blast;
+    Fx.shake(7, 0.25); Sfx.play('explode');
+    Fx.burst(m.x, m.y, ['#ff4444', '#ffcc44', '#ff2200'], 26, { speed: 250, life: 0.6, glow: true });
+    const p = g.player;
+    if (Math.hypot(p.x - m.x, p.y - m.y) < R + p.r) p.damage(Math.round(m.dmg * 1.2), m.x, m.y, g);
+    for (const o of g.monsters) {
+      if (o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) applyDamage(o, m.dmg, g, {});
     }
   }
 
@@ -362,7 +394,12 @@ const Monsters = (() => {
   function spawnForRoom(room, floor, g) {
     const tier = tierFor(floor, room.dist);
     const table = SPAWN_TABLE[tier];
-    const n = COUNT(tier);
+    // Descent floors keep the tier-5 roster but scale raw stats + body count and
+    // sprinkle in elites; the base 3 floors pass no mods and are unchanged.
+    const descent = typeof Descent !== 'undefined' && Descent.isDescent(floor);
+    const th = descent ? Descent.threat(floor) : null;
+    let n = COUNT(tier);
+    if (th) n = Math.min(14, Math.round(n * th.count));
     const out = [];
     const p = g.player;
     for (let i = 0; i < n; i++) {
@@ -376,7 +413,12 @@ const Monsters = (() => {
           y = PF.y + 60 + Math.random() * (PF.h - 120);
           tries++;
         } while (Math.hypot(x - p.x, y - p.y) < 160 && tries < 30);
-        out.push(make(type, x, y, tier));
+        let mods = null;
+        if (th) {
+          mods = { hpMul: th.hp, dmgMul: th.dmg, speedMul: th.speed };
+          if (Math.random() < Descent.eliteChance(floor)) mods.elite = Descent.rollAffix();
+        }
+        out.push(make(type, x, y, tier, mods));
       }
     }
     return out;
@@ -414,6 +456,17 @@ const Monsters = (() => {
       case 'bomber': drawBomber(c, m, flash, ex, ey); break;
       case 'summoner': drawSummoner(c, m, flash, ex, ey); break;
       case 'mimic': case 'mimicbaby': drawMimicMonster(c, m, flash, ex, ey); break;
+    }
+
+    // elite aura: a pulsing ring + faint glow in the affix color
+    if (m.elite) {
+      c.save();
+      c.strokeStyle = m.elite.color;
+      c.shadowColor = m.elite.color; c.shadowBlur = 8;
+      c.globalAlpha = 0.45 + Math.sin(Date.now() / 200 + m.x) * 0.25;
+      c.lineWidth = 2.5;
+      c.beginPath(); c.arc(0, 0, m.r + 5, 0, Math.PI * 2); c.stroke();
+      c.restore();
     }
 
     // burn flames

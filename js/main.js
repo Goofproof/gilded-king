@@ -26,20 +26,58 @@
   // --- persistent meta (survives death via localStorage) ---------------------------
   // --- arcade leaderboard (per-device, localStorage) -----------------------------
   // score = essence collected in a single run (banked total, incl. victory bonus)
+  // seed leaderboard: 50 "past raiders" so the board is never empty. Merged in
+  // ONCE (guarded by drl_scores_seeded), then it updates like any real score.
+  const SEED_SCORES = [
+    { initials: 'DUC', score: 412, floor: 11, won: true }, { initials: 'SAM', score: 388, floor: 9, won: true },
+    { initials: 'REX', score: 356, floor: 8, won: true },  { initials: 'AVA', score: 331, floor: 7, won: true },
+    { initials: 'KAI', score: 318, floor: 8, won: true },  { initials: 'ZOE', score: 297, floor: 6, won: true },
+    { initials: 'MAX', score: 284, floor: 6, won: true },  { initials: 'JAX', score: 271, floor: 5, won: true },
+    { initials: 'LEO', score: 259, floor: 5, won: true },  { initials: 'MIA', score: 246, floor: 4, won: true },
+    { initials: 'FOX', score: 233, floor: 3, won: true },  { initials: 'ACE', score: 221, floor: 3, won: true },
+    { initials: 'IVY', score: 208, floor: 3, won: true },  { initials: 'NYX', score: 196, floor: 3, won: false },
+    { initials: 'BEN', score: 187, floor: 3, won: true },  { initials: 'RAY', score: 178, floor: 3, won: false },
+    { initials: 'PIP', score: 169, floor: 3, won: false }, { initials: 'GUS', score: 161, floor: 3, won: false },
+    { initials: 'TAS', score: 153, floor: 2, won: false }, { initials: 'ELF', score: 146, floor: 3, won: false },
+    { initials: 'ORB', score: 138, floor: 2, won: false }, { initials: 'VEX', score: 131, floor: 2, won: false },
+    { initials: 'DOT', score: 124, floor: 2, won: false }, { initials: 'HAL', score: 118, floor: 2, won: false },
+    { initials: 'CJR', score: 111, floor: 2, won: false }, { initials: 'MOE', score: 105, floor: 2, won: false },
+    { initials: 'SLY', score: 99, floor: 2, won: false },  { initials: 'BOB', score: 93, floor: 2, won: false },
+    { initials: 'ZED', score: 88, floor: 2, won: false },  { initials: 'ANA', score: 82, floor: 2, won: false },
+    { initials: 'TIM', score: 77, floor: 1, won: false },  { initials: 'JOY', score: 72, floor: 2, won: false },
+    { initials: 'RON', score: 68, floor: 1, won: false },  { initials: 'KIT', score: 63, floor: 1, won: false },
+    { initials: 'DAN', score: 59, floor: 1, won: false },  { initials: 'EVE', score: 55, floor: 1, won: false },
+    { initials: 'LOU', score: 51, floor: 1, won: false },  { initials: 'PAM', score: 47, floor: 1, won: false },
+    { initials: 'WIN', score: 43, floor: 1, won: false },  { initials: 'GIL', score: 40, floor: 1, won: false },
+    { initials: 'JET', score: 36, floor: 1, won: false },  { initials: 'AMY', score: 33, floor: 1, won: false },
+    { initials: 'NED', score: 30, floor: 1, won: false },  { initials: 'SUE', score: 27, floor: 1, won: false },
+    { initials: 'TED', score: 24, floor: 1, won: false },  { initials: 'BEA', score: 21, floor: 1, won: false },
+    { initials: 'OWL', score: 18, floor: 1, won: false },  { initials: 'DEE', score: 15, floor: 1, won: false },
+    { initials: 'ROB', score: 12, floor: 1, won: false },  { initials: 'ABE', score: 9, floor: 1, won: false },
+  ];
+  const SCORE_CAP = 50;
+  const validScore = e => e && typeof e.score === 'number' && isFinite(e.score);
   function loadScores() {
-    try {
-      const s = JSON.parse(localStorage.getItem('drl_scores'));
-      if (Array.isArray(s)) return s.filter(e => e && typeof e.score === 'number').slice(0, 10);
-    } catch { }
-    return [];
+    let stored = [];
+    try { const s = JSON.parse(localStorage.getItem('drl_scores')); if (Array.isArray(s)) stored = s.filter(validScore); } catch { }
+    let seeded = false;
+    try { seeded = localStorage.getItem('drl_scores_seeded') === '1'; } catch { }
+    if (!seeded) {
+      stored = [...stored, ...SEED_SCORES].sort((a, b) => b.score - a.score).slice(0, SCORE_CAP);
+      try { localStorage.setItem('drl_scores', JSON.stringify(stored)); localStorage.setItem('drl_scores_seeded', '1'); } catch { }
+    } else {
+      stored = stored.slice(0, SCORE_CAP);
+    }
+    return stored;
   }
   function saveScores(scores) {
-    try { localStorage.setItem('drl_scores', JSON.stringify(scores.slice(0, 10))); } catch { }
+    try { localStorage.setItem('drl_scores', JSON.stringify(scores.slice(0, SCORE_CAP))); } catch { }
   }
   function scoreQualifies(score) {
     if (score <= 0) return false;
     const s = loadScores();
-    return s.length < 10 || score > s[s.length - 1].score;
+    // must crack the TOP 10 to earn an initials entry
+    return s.length < 10 || score > s[9].score;
   }
 
   function loadMeta() {
@@ -49,6 +87,9 @@
     if (typeof m !== 'object' || m === null) m = {};
     if (typeof m.essence !== 'number' || !isFinite(m.essence)) m.essence = 0;
     if (typeof m.ranks !== 'object' || m.ranks === null) m.ranks = {};
+    if (!Array.isArray(m.mythics)) m.mythics = []; // ids of mythic items ever claimed (laurels)
+    if (!Array.isArray(m.petsUnlocked)) m.petsUnlocked = []; // pet types banked to the stable
+    if (typeof m.selectedPet !== 'string') m.selectedPet = ''; // stable pet chosen for the next run
     return m;
   }
   function saveMeta() {
@@ -59,7 +100,7 @@
   // --- input ------------------------------------------------------------------------
   const input = {
     keys: new Set(), just: new Set(),
-    mouse: { x: W / 2, y: H / 2, down: false, clicked: false },
+    mouse: { x: W / 2, y: H / 2, down: false, clicked: false, moved: false },
     key(code) { return this.keys.has(code); },
     pressed(code) { return this.just.has(code); },
   };
@@ -74,6 +115,7 @@
     const r = canvas.getBoundingClientRect();
     input.mouse.x = (e.clientX - r.left) * (W / r.width);
     input.mouse.y = (e.clientY - r.top) * (H / r.height);
+    input.mouse.moved = true; // so a parked mouse doesn't override keyboard menu nav
   }
   // listen on window, not canvas: clicks that land on the letterbox bars
   // still count as attacks (nobody should whiff for clicking 5px off-screen)
@@ -103,12 +145,20 @@
     floorNum: 1,
     dungeon: null, room: null,
     player: null,
-    monsters: [], projectiles: [], pickups: [],
+    monsters: [], projectiles: [], pickups: [], mercs: [],
     boss: null, bossIntroT: 0, winTimer: -1, portal: null,
+    // --- Descent (endless mode) ---
+    kingSlain: false,        // slew the floor-3 Gilded King (scoreboard crown)
+    circleBossSeen: 0,       // recurring-boss counter (drives recolor + anger)
+    descentPortal: null,     // {room,x,y,t,toad} - one-way plunge to the next floor
+    pendingDescent: null,    // set on boss death; opens the portal after the celebration
+    toadMsg: null,           // {text,t} - "THE PRINCESS IS IN ANOTHER CASTLE!"
+    essenceCheckpoint: 0,    // essence already banked to meta this run (quit-safe descent)
+    bossIntroName: 'THE MIMIC KING', bossIntroSub: 'the dungeon was bait all along',
     autoAttack: (() => { try { return localStorage.getItem('drl_auto') === '1'; } catch { return false; } })(),
     evoQueue: [], evoChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
-    initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, scores: loadScores(),
+    initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, scores: loadScores(),
     transition: null,     // {dir, next, t}
     uiRects: [],
     essenceEarned: 0,
@@ -120,7 +170,35 @@
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
+    recordMythic(item) { recordMythic(item); },
   };
+
+  // claiming a mythic (Descent boss drop or the mythic shop) earns a permanent
+  // laurel on the title screen and a loud in-run accolade.
+  function recordMythic(item) {
+    if (!item || !item.mythic) return;
+    if (!Array.isArray(g.meta.mythics)) g.meta.mythics = [];
+    const first = !g.meta.mythics.includes(item.mythicId);
+    if (first) { g.meta.mythics.push(item.mythicId); saveMeta(); }
+    Sfx.play('levelup');
+    Fx.text(g.player.x, g.player.y - 46, (first ? 'MYTHIC CLAIMED: ' : 'MYTHIC: ') + item.name, item.color, 15);
+    Fx.burst(g.player.x, g.player.y, [item.color, '#fff', '#ffd24c'], 30, { speed: 220, life: 0.9, glow: true });
+  }
+
+  // bank a pet type to the home-screen stable (permanent across runs)
+  function recordPetUnlock(type) {
+    if (!type) return false;
+    if (!Array.isArray(g.meta.petsUnlocked)) g.meta.petsUnlocked = [];
+    const first = !g.meta.petsUnlocked.includes(type);
+    if (first) { g.meta.petsUnlocked.push(type); saveMeta(); }
+    return first;
+  }
+  // the full pet definition for a stable type (from the Descent pet roster)
+  function petDefByType(type) {
+    const pets = (typeof Descent !== 'undefined' && Descent.PETS) || [];
+    const def = pets.find(p => p.type === type);
+    return def ? { ...def } : null;
+  }
 
   // ============================ RUN LIFECYCLE ============================
   function newRun() {
@@ -140,6 +218,19 @@
     g.transition = null;
     g.gateMsg = 0;
     g.shopMsg = null;
+    // reset Descent state
+    g.mercs = [];
+    g.kingSlain = false;
+    g.circleBossSeen = 0;
+    g.descentPortal = null;
+    g.pendingDescent = null;
+    g.toadMsg = null;
+    g.essenceCheckpoint = 0;
+    // a pet chosen from the home-screen stable starts the run at your side
+    if (g.meta.selectedPet && (g.meta.petsUnlocked || []).includes(g.meta.selectedPet)) {
+      const def = petDefByType(g.meta.selectedPet);
+      if (def) g.player.adoptPet(def);
+    }
     startFloor();
     g.state = 'play';
     Sfx.play('door');
@@ -182,10 +273,20 @@
       p.x = PF.x + PF.w / 2; p.y = PF.y + PF.h / 2;
     }
 
+    // hired mercenaries travel with you: drop them in beside the player
+    for (const merc of g.mercs) { merc.x = p.x - 30 + Math.random() * 60; merc.y = p.y + 34; }
+
     if (room.type === 'boss' && !room.cleared) {
       g.state = 'bossintro';
       g.bossIntroT = 0;
       p.drawT = -1; // don't let a held draw fire mid-intro
+      // pick which King you face: the gold Gilded King on floor 3, or a recolored,
+      // angrier Circle Warden in the Descent. Config is rolled ONCE here (it
+      // advances the anger counter) and consumed when the boss actually spawns.
+      g.pendingBossCfg = (typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum))
+        ? Descent.bossConfig(g) : null;
+      g.bossIntroName = g.pendingBossCfg ? g.pendingBossCfg.name : 'THE MIMIC KING';
+      g.bossIntroSub = g.pendingBossCfg ? g.pendingBossCfg.subtitle : 'the dungeon was bait all along';
       Sfx.play('roar');
       return;
     }
@@ -194,7 +295,9 @@
       g.monsters = Monsters.spawnForRoom(room, g.floorNum, g);
       Sfx.play('door'); // doors slam
     }
-    if (room.type === 'shop' && !room.shopStock) rollShopStock(room);
+    if ((room.type === 'shop' || room.type === 'mythicshop') && !room.shopStock) {
+      if (room.type === 'mythicshop') rollMythicShopStock(room); else rollShopStock(room);
+    }
     if (room.type === 'treasure' && !room.spawned) {
       room.spawned = true;
       g.player.addXp(10, g); // treasure rooms grant bonus XP on discovery
@@ -220,6 +323,22 @@
       if (it.kind === 'potion') it.price = POTION_PRICE;
       if (it.kind === 'reroll') it.price = REROLL_BASE;
     }
+  }
+
+  // the secret mythic shop: three hand-built uniques, no potions, no rerolls
+  function rollMythicShopStock(room) {
+    const tier = Monsters.tierFor(g.floorNum, room.dist);
+    const owned = g.meta.mythics || [];
+    const w1 = Weapons.rollMythic('weapon', { exclude: owned, tier });
+    const w2 = Weapons.rollMythic('weapon', { exclude: [...owned, w1.mythicId], tier });
+    const a1 = Weapons.rollMythic('armor', { exclude: owned, tier });
+    const items = [
+      { kind: 'weapon', weapon: w1, x: PF.x + 230, y: PF.y + 210 },
+      { kind: 'weapon', weapon: w2, x: PF.x + 460, y: PF.y + 210 },
+      { kind: 'armor',  armor: a1,  x: PF.x + 660, y: PF.y + 210 },
+    ];
+    for (const it of items) it.price = (it.weapon || it.armor).price;
+    room.shopStock = { items, rerolls: 0, mythic: true };
   }
 
   // ============================ KILLS / LOOT ============================
@@ -263,6 +382,12 @@
       spawnPickup(['buffShield', 'buffRage', 'buffHaste'][(Math.random() * 3) | 0], m.x, m.y);
     }
 
+    // Descent elites pay out: extra essence, and often a temporary power
+    if (m.elite) {
+      for (let i = 0; i < 2; i++) spawnPickup('essence', m.x, m.y);
+      if (Math.random() < 0.5) spawnPickup(['buffShield', 'buffRage', 'buffHaste'][(Math.random() * 3) | 0], m.x, m.y);
+    }
+
     // weapon drops
     const tier = Monsters.tierFor(g.floorNum, g.room.dist);
     if (m.type === 'mimic') {
@@ -271,13 +396,29 @@
       g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y, t: 0 });
       p.addXp(15, g);
     } else if (m.isBoss) {
-      // THE MIMIC KING: guaranteed legendary + royal armor + coin fountain + essence
+      // THE KING (and every Circle Warden): guaranteed legendary + royal armor +
+      // coin fountain + essence. In the Descent he pays out more the deeper you are.
       const wp = Weapons.rollWeapon(tier, { minRarity: 4 });
       g.pickups.push({ kind: 'weapon', weapon: wp, x: m.x, y: m.y - 20, t: 0 });
       g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { minRarity: 3 }), x: m.x + 40, y: m.y, t: 0 });
       for (let i = 0; i < 36; i++) spawnPickup('coin', m.x, m.y);
-      for (let i = 0; i < 12; i++) spawnPickup('essence', m.x, m.y);
-      g.winTimer = 2.6; // savor it, then victory screen
+      const ne = m.isDescentBoss ? Descent.bossEssence(g.floorNum) : 12;
+      for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
+      // Circle Wardens are the only creatures that guard mythics
+      if (m.isDescentBoss && Math.random() < Descent.MYTHIC_DROP_CHANCE) {
+        const item = Weapons.rollMythic(undefined, { exclude: g.meta.mythics, tier });
+        if (item.isArmor) g.pickups.push({ kind: 'armorItem', armor: item, x: m.x - 40, y: m.y, t: 0 });
+        else g.pickups.push({ kind: 'weapon', weapon: item, x: m.x, y: m.y + 24, t: 0 });
+        Fx.text(m.x, m.y - 50, 'A MYTHIC STIRS IN THE ASH...', item.color, 15);
+      }
+      if (!m.isDescentBoss) { g.kingSlain = true; p.essenceRun += 20; } // King's victory bonus
+      g.winTimer = 2.6;                             // savor the kill; doors stay locked
+      // every boss opens the plunge with a Toad line: the King's is verbatim, each
+      // deeper Warden's is one notch more twisted (index = how many you've felled)
+      g.pendingDescent = { toadIdx: m.isDescentBoss ? g.circleBossSeen : 0 };
+    } else if (m.elite && Math.random() < 0.3) {
+      // elites drop gear far more often than trash mobs
+      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 }), x: m.x, y: m.y, t: 0 });
     } else if (Math.random() < 0.045 * (1 + 0.5 * looting)) {
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier), x: m.x, y: m.y, t: 0 });
     } else if (Math.random() < 0.035 * (1 + 0.5 * looting)) {
@@ -306,7 +447,11 @@
       Sfx.play('unlock');
       Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
-        if (g.floorNum >= 3) {
+        // this floor has a boss only on floor 3 (the King) and on Circle Warden
+        // floors in the Descent; every other floor ends in a stairs portal.
+        const hasBoss = g.floorNum === 3 ||
+          (typeof Descent !== 'undefined' && Descent.isBossFloor(g.floorNum));
+        if (hasBoss) {
           Fx.text(W / 2, H / 2 - 30, 'THE BOSS DOOR OPENS...', '#ffd24c', 15);
         } else {
           openPortal(); // floor done: a portal to the stairs room opens right here
@@ -335,13 +480,31 @@
     Sfx.play('levelup');
   }
 
+  // the one-way plunge that opens where a boss just fell. Entering it (E) drops
+  // you to the next floor of the Descent - there is no going back up.
+  function openDescentPortal(opts) {
+    if (g.descentPortal) return;
+    g.descentPortal = { room: g.room, x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, t: 0 };
+    g.toadMsg = { text: Descent.toadLine(opts.toadIdx || 0), t: 5 };
+    Fx.burst(g.descentPortal.x, g.descentPortal.y, ['#ff5a2c', '#ffcc44', '#ff2200', '#1a0a06'], 36, { speed: 210, life: 1.0, glow: true });
+    Fx.shake(6, 0.4);
+    Sfx.play('roar');
+  }
+
+  // essence is never spent, so it only rises - bank the delta as you descend so
+  // quitting mid-run can't wipe the winnings (death banks the remainder).
+  function bankEssenceCheckpoint() {
+    const delta = g.player.essenceRun - g.essenceCheckpoint;
+    if (delta > 0) { g.meta.essence += delta; g.essenceCheckpoint = g.player.essenceRun; saveMeta(); }
+  }
+
   function onPlayerDeath() {
     if (g.runEnded) return; // never bank twice (death/victory race)
     g.runEnded = true;
     // bank essence: what you carried + 10% of unspent coins
     const fromCoins = Math.floor(g.player.coins * 0.10);
-    g.essenceEarned = g.player.essenceRun + fromCoins;
-    g.meta.essence += g.essenceEarned;
+    g.essenceEarned = g.player.essenceRun + fromCoins;               // total, for the end screen
+    g.meta.essence += (g.player.essenceRun - g.essenceCheckpoint) + fromCoins; // only the un-banked part
     saveMeta();
     g.levelUpQueue = 0; // no level-up cards over a corpse
     Fx.shake(10, 0.5);
@@ -378,9 +541,9 @@
     if (!skip) {
       const name = g.initials.letters.map(c => String.fromCharCode(c)).join('');
       const scores = loadScores();
-      scores.push({ initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' });
+      scores.push({ initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain });
       scores.sort((a, b) => b.score - a.score);
-      g.scores = scores.slice(0, 10);
+      g.scores = scores.slice(0, SCORE_CAP);
       saveScores(g.scores);
       g.newScoreRank = g.scores.findIndex(s => s.score === g.essenceEarned && s.initials === name) + 1;
       Sfx.play('upgrade');
@@ -501,13 +664,16 @@
       if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
       if (pk.kind === 'armorItem') consider(pk.x, pk.y, { kind: 'armorPickup', pk });
     }
-    if (g.room.type === 'shop' && g.room.shopStock) {
+    if ((g.room.type === 'shop' || g.room.type === 'mythicshop') && g.room.shopStock) {
       for (const it of g.room.shopStock.items) if (!it.sold) consider(it.x, it.y, { kind: 'shopItem', it });
     }
     if (g.room.stairs && g.room.stairs.open !== undefined) {
       if (Dungeon.uncleared(g.dungeon) === 0) consider(g.room.stairs.x, g.room.stairs.y, { kind: 'stairs' });
     }
     if (g.portal && g.portal.room === g.room) consider(g.portal.x, g.portal.y, { kind: 'portal' });
+    if (g.descentPortal && g.descentPortal.room === g.room) consider(g.descentPortal.x, g.descentPortal.y, { kind: 'descentPortal' });
+    if (g.room.merc && !g.room.merc.hired && g.mercs.length < 2) consider(g.room.merc.x, g.room.merc.y, { kind: 'merc' });
+    if (g.room.pet && !g.room.pet.activated) consider(g.room.pet.x, g.room.pet.y, { kind: 'pet' });
     return best;
   }
 
@@ -600,12 +766,105 @@
         p.y += 90; // land beside the stairwell, not inside it
       }
     }
+
+    if (t.kind === 'pet') {
+      const pet = g.room.pet;
+      pet.activated = true;
+      recordPetUnlock(pet.type); // banked to the stable forever, either way
+      if (!p.pet) {
+        p.adoptPet(petDefByType(pet.type) || { ...pet });
+        Sfx.play('levelup');
+        Fx.text(p.x, p.y - 30, `${pet.name} joins you · ${pet.desc}`, pet.color, 14);
+        Fx.burst(p.x, p.y, [pet.color, '#fff'], 22, { speed: 180, life: 0.7, glow: true });
+      } else {
+        // already have a companion - the new one goes home to the stable
+        Sfx.play('pickup');
+        Fx.text(p.x, p.y - 30, `${pet.name} sent to your stable`, pet.color, 13);
+        Fx.burst(p.x, p.y, [pet.color, '#fff'], 16, { speed: 120, life: 0.6, glow: true });
+      }
+    }
+
+    if (t.kind === 'merc') {
+      const npc = g.room.merc;
+      if (g.mercs.length >= 2) { g.shopMsg = { text: 'You already lead two mercenaries', t: 1.4 }; Sfx.play('error'); return; }
+      if (p.coins < npc.cost) { g.shopMsg = { text: `Need ${npc.cost} coins to hire`, t: 1.4 }; Sfx.play('error'); return; }
+      p.coins -= npc.cost;
+      npc.hired = true;
+      g.mercs.push(makeMercFollower(npc, g.floorNum));
+      Sfx.play('buy');
+      Fx.text(p.x, p.y - 30, (npc.cls === 'blade' ? 'Blade' : 'Archer') + ' hired!', '#7ee0a0', 14);
+    }
+
+    if (t.kind === 'descentPortal') {
+      // plunge straight to the next circle - no stairs room, the fall IS the descent
+      Sfx.play('stairs');
+      Fx.burst(p.x, p.y, ['#ff5a2c', '#ffcc44', '#ff2200'], 24, { speed: 200, life: 0.5, glow: true });
+      g.descentPortal = null;
+      g.toadMsg = null;
+      bankEssenceCheckpoint();
+      g.floorNum++;
+      p.heal(25); // a breath before the next circle
+      startFloor();
+    }
+  }
+
+  // ============================ Q ABILITY ============================
+  // The power forged from the player's first two evolutions (see abilities.js).
+  function useAbility() {
+    const p = g.player, a = p.ability;
+    if (!a || a.cd > 0 || p.dead || p.rollT >= 0) return;
+    const dmgMul = a.dmgMul || 1;
+    Sfx.play('heavy');
+
+    if (a.kind === 'nova' || a.kind === 'strike') {
+      let dmg = (a.dmg || 60) * dmgMul;
+      if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
+      const R = a.radius || 150;
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 34, { speed: 340, life: 0.5, glow: true });
+      Fx.shake(6, 0.22);
+      for (const m of g.monsters) {
+        if (m.dead || m.airborne || m.spawnT > 0) continue;
+        if (Math.hypot(m.x - p.x, m.y - p.y) > R + m.r) continue;
+        m.takeHit(dmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+      }
+    } else if (a.kind === 'dash') {
+      const ang = p.facing, dist = a.dist || 260;
+      const tx = Math.max(PF.x + p.r, Math.min(PF.x + PF.w - p.r, p.x + Math.cos(ang) * dist));
+      const ty = Math.max(PF.y + p.r, Math.min(PF.y + PF.h - p.r, p.y + Math.sin(ang) * dist));
+      const steps = 12, hit = new Set();
+      for (let i = 0; i <= steps; i++) {
+        const px = p.x + (tx - p.x) * i / steps, py = p.y + (ty - p.y) * i / steps;
+        Fx.burst(px, py, [a.color, '#fff'], 2, { speed: 40, life: 0.3, glow: true });
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne || m.spawnT > 0 || hit.has(m)) continue;
+          if (Math.hypot(m.x - px, m.y - py) < m.r + p.r + 8) {
+            m.takeHit((a.dmg || 55) * dmgMul, { sx: px, sy: py, knock: 150, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitLight' }, g);
+            hit.add(m);
+          }
+        }
+      }
+      p.x = tx; p.y = ty;
+      p.iframes = Math.max(p.iframes, (a.iframe || 0.4) + (a.iframeAfter || 0));
+      if (a.refundRoll) p.rollCd = 0;
+      Fx.shake(4, 0.15);
+    } else if (a.kind === 'buff') {
+      if (a.heal) p.heal(p.maxHp * a.heal);
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 26, { speed: 170, life: 0.7, glow: true });
+    }
+
+    // universal post-cast modifiers (folded on by the 2nd evolution)
+    if (a.castShield) p.buffs.shield = 1;
+    if (a.healOnCast) p.heal(p.maxHp * a.healOnCast);
+    if (a.rageAfter) p.buffs.rageT = Math.max(p.buffs.rageT, a.rageAfter);
+    if (a.hasteAfter) p.buffs.hasteT = Math.max(p.buffs.hasteT, a.hasteAfter);
+    Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
+    a.cd = a.cdMax;
   }
 
   // --- SHARD SALVAGE (Sam's idea: floor loot shouldn't be waste) ------------------
   // X breaks a nearby dropped weapon/armor into shards; U spends shards to hone
   // your equipped weapon (+8% damage per hone, 5 hones max per weapon).
-  const SHARD_VALUE = [1, 2, 4, 7, 12]; // by rarity index
+  const SHARD_VALUE = [1, 2, 4, 7, 12, 20]; // by rarity index (last = mythic)
   const HONE_MAX = 5;
   const honeCost = w => 5 + (w.upLvl || 0) * 4;
 
@@ -663,6 +922,172 @@
     }
   }
 
+  // --- MERCENARIES (hire up to 2; they fight alongside you) -----------------------
+  // MORTAL (Sam, 2026-07-11 - model A): mercs now carry HP and take INCIDENTAL
+  // damage - enemy arrows that fly through them, and enemy bodies they stand in.
+  // Enemies still chase the player, so difficulty barely moves; a merc just dies
+  // if you let a fight crowd around it. They travel with you until death.
+  const MERC_STATS = {
+    blade: { hp: 90, dmg: 16, speed: 175, atkRate: 0.6, range: 46,  color: '#5fa8e0' },
+    bow:   { hp: 65, dmg: 12, speed: 160, atkRate: 0.9, range: 300, color: '#7ee0a0' },
+  };
+  function makeMercFollower(npc, floor) {
+    const s = MERC_STATS[npc.cls];
+    const maxHp = Math.round(s.hp * (1 + 0.15 * Math.max(0, floor - 1))); // tankier deeper
+    return {
+      cls: npc.cls, x: g.player.x - 30, y: g.player.y + 30,
+      hp: maxHp, maxHp,
+      dmg: Math.round(s.dmg * (1 + 0.12 * Math.max(0, floor - 1))), // scales with depth
+      speed: s.speed, atkRate: s.atkRate, range: s.range, color: s.color,
+      facing: 0, atkCd: 0, swingT: 0, hurtCd: 0, flash: 0,
+      side: g.mercs.length === 0 ? -1 : 1, dead: false,
+    };
+  }
+  // a merc soaks a hit; returns true if it just died
+  function damageMerc(merc, dmg) {
+    if (merc.dead || merc.hurtCd > 0) return false;
+    merc.hp -= dmg; merc.hurtCd = 0.4; merc.flash = 0.12;
+    Fx.burst(merc.x, merc.y, [merc.color, '#fff'], 5, { speed: 90, life: 0.3 });
+    if (merc.hp <= 0) {
+      merc.dead = true;
+      Sfx.play('hitHeavy');
+      Fx.text(merc.x, merc.y - 20, (merc.cls === 'blade' ? 'Blade' : 'Archer') + ' has fallen', '#e07070', 13);
+      Fx.burst(merc.x, merc.y, [merc.color, '#e07070', '#fff'], 20, { speed: 160, life: 0.6, glow: true });
+      return true;
+    }
+    Sfx.play('hitLight');
+    return false;
+  }
+  function mercMove(merc, tx, ty, dt, sp) {
+    const dx = tx - merc.x, dy = ty - merc.y, d = Math.hypot(dx, dy) || 1;
+    merc.x += (dx / d) * sp * dt; merc.y += (dy / d) * sp * dt;
+  }
+  function updateMercs(dt) {
+    const p = g.player;
+    for (const merc of g.mercs) {
+      if (merc.dead) continue;
+      if (merc.swingT > 0) merc.swingT -= dt;
+      if (merc.atkCd > 0) merc.atkCd -= dt;
+      if (merc.hurtCd > 0) merc.hurtCd -= dt;
+      if (merc.flash > 0) merc.flash -= dt;
+      // INCIDENTAL contact damage: an enemy body standing on the merc bloodies it
+      if (merc.hurtCd <= 0) {
+        for (const m of g.monsters) {
+          if (m.dead || m.spawnT > 0 || m.airborne) continue;
+          if (Math.hypot(m.x - merc.x, m.y - merc.y) < m.r + 12) { damageMerc(merc, m.dmg); break; }
+        }
+      }
+      let target = null, td = 1e9;
+      for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0 || m.airborne) continue;
+        const d = Math.hypot(m.x - merc.x, m.y - merc.y);
+        if (d < td) { td = d; target = m; }
+      }
+      if (target && td < 320) {
+        merc.facing = Math.atan2(target.y - merc.y, target.x - merc.x);
+        if (merc.cls === 'blade') {
+          if (td > merc.range - 8) mercMove(merc, target.x, target.y, dt, merc.speed);
+          if (td <= merc.range && merc.atkCd <= 0) {
+            target.takeHit(merc.dmg, { sx: merc.x, sy: merc.y, knock: 90, fromPlayer: true, hitSfx: 'hitLight' }, g);
+            merc.atkCd = merc.atkRate; merc.swingT = 0.16; Sfx.play('swing');
+          }
+        } else {
+          if (td < 140) mercMove(merc, merc.x * 2 - target.x, merc.y * 2 - target.y, dt, merc.speed * 0.85);
+          else if (td > 240) mercMove(merc, target.x, target.y, dt, merc.speed);
+          if (merc.atkCd <= 0) {
+            const a = merc.facing;
+            g.projectiles.push({
+              x: merc.x + Math.cos(a) * 14, y: merc.y + Math.sin(a) * 14,
+              vx: Math.cos(a) * 520, vy: Math.sin(a) * 520,
+              r: 4, dmg: merc.dmg, from: 'player', color: '#cfe8b0', life: 1.4,
+              arrow: true, hitSet: new Set(), crit: false,
+            });
+            merc.atkCd = merc.atkRate; merc.swingT = 0.12; Sfx.play('bowfire');
+          }
+        }
+      } else {
+        const fx = p.x + merc.side * 42, fy = p.y + 34;
+        if (Math.hypot(fx - merc.x, fy - merc.y) > 30) mercMove(merc, fx, fy, dt, merc.speed);
+      }
+      merc.x = Math.max(PF.x + 10, Math.min(PF.x + PF.w - 10, merc.x));
+      merc.y = Math.max(PF.y + 10, Math.min(PF.y + PF.h - 10, merc.y));
+    }
+    // clear the fallen so they stop rendering and free their slot
+    for (let i = g.mercs.length - 1; i >= 0; i--) if (g.mercs[i].dead) g.mercs.splice(i, 1);
+  }
+  function drawMerc(c, merc) {
+    c.save();
+    c.translate(merc.x, merc.y);
+    c.fillStyle = 'rgba(0,0,0,0.3)';
+    c.beginPath(); c.ellipse(0, 11, 10, 3.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = merc.flash > 0 ? '#ffb0b0' : merc.color;
+    c.beginPath(); c.arc(0, 0, 11, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8f0ff';
+    c.beginPath(); c.arc(0, -3, 7, 0, Math.PI * 2); c.fill();
+    c.save(); c.rotate(merc.facing);
+    if (merc.cls === 'blade') {
+      c.strokeStyle = '#dfe8f0'; c.lineWidth = 3;
+      const reach = merc.swingT > 0 ? 22 : 14;
+      c.beginPath(); c.moveTo(8, 0); c.lineTo(8 + reach, 0); c.stroke();
+    } else {
+      c.strokeStyle = '#8a6b3a'; c.lineWidth = 2.5;
+      c.beginPath(); c.arc(12, 0, 8, -Math.PI / 2.2, Math.PI / 2.2); c.stroke();
+    }
+    c.restore();
+    c.fillStyle = merc.color; // friendly chevron
+    c.beginPath(); c.moveTo(0, -18); c.lineTo(-4, -14); c.lineTo(4, -14); c.closePath(); c.fill();
+    // HP bar over the head (mercs are mortal now)
+    if (merc.maxHp) {
+      const bw = 24, k = Math.max(0, merc.hp / merc.maxHp);
+      c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(-bw / 2 - 1, -27, bw + 2, 4);
+      c.fillStyle = k > 0.35 ? '#7ee0a0' : '#e07070'; c.fillRect(-bw / 2, -26, bw * k, 2);
+    }
+    c.restore();
+  }
+  function drawMercNPC(c, npc) {
+    const s = MERC_STATS[npc.cls];
+    const bob = Math.sin(g.time * 2) * 2;
+    c.save();
+    c.translate(npc.x, npc.y + bob);
+    c.fillStyle = 'rgba(0,0,0,0.3)';
+    c.beginPath(); c.ellipse(0, 12 - bob, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = s.color;
+    c.beginPath(); c.arc(0, 0, 12, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8f0ff';
+    c.beginPath(); c.arc(0, -3, 7.5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#223';
+    c.beginPath(); c.arc(-2.5, -3, 1.4, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(2.5, -3, 1.4, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.font = 'bold 11px monospace'; c.textAlign = 'center';
+    c.fillStyle = s.color;
+    c.fillText((npc.cls === 'blade' ? 'BLADE' : 'ARCHER') + ' FOR HIRE', npc.x, npc.y - 26);
+  }
+
+  // a dormant pet standing in a room: a soft glowing critter with a little Zzz
+  // idle sway, waiting for E to wake it.
+  function drawPetNPC(c, pet) {
+    const bob = Math.sin(g.time * 2 + (pet.bob || 0)) * 2.5;
+    c.save();
+    c.translate(pet.x, pet.y + bob);
+    c.fillStyle = 'rgba(0,0,0,0.3)';
+    c.beginPath(); c.ellipse(0, 11 - bob, 9, 3, 0, 0, Math.PI * 2); c.fill();
+    c.shadowColor = pet.color; c.shadowBlur = 12;
+    c.fillStyle = pet.color;
+    c.beginPath(); c.arc(0, 0, 8, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(-2.6, -1, 2, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(2.6, -1, 2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#111';
+    c.beginPath(); c.arc(-2.6, -1, 1, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(2.6, -1, 1, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.font = 'bold 11px monospace'; c.textAlign = 'center';
+    c.fillStyle = pet.color;
+    c.fillText(pet.name.toUpperCase(), pet.x, pet.y - 22);
+  }
+
   // ============================ UPDATE ============================
   let last = 0;
   function tick(dt) {
@@ -670,7 +1095,7 @@
     update(dt);
     draw();
     if (g.preserveInput) g.preserveInput = false; // hit-stop frame: keep buffered input
-    else { input.just.clear(); input.mouse.clicked = false; }
+    else { input.just.clear(); input.mouse.clicked = false; input.mouse.moved = false; }
   }
   function frame(ts) {
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016);
@@ -690,6 +1115,7 @@
       // the end-of-tick input clear was skipped: drop stale buffered presses
       input.just.clear();
       input.mouse.clicked = false;
+      input.mouse.moved = false;
     }
     requestAnimationFrame(frame);
   }
@@ -707,6 +1133,10 @@
         g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
         break;
+      case 'charsheet':
+        g.overlayT += dt;
+        if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) g.state = 'play';
+        break;
       case 'transition': updateTransition(dt); break;
       case 'bossintro': updateBossIntro(dt); break;
       case 'dead': case 'win': g.overlayT += dt; updateEnd(); break;
@@ -717,6 +1147,11 @@
 
   function updateTitle() {
     if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
+    if (g.showPatch) {
+      // patch-notes overlay: any click or Esc closes it (and marks this version seen)
+      if (input.mouse.clicked || input.pressed('Escape')) { g.showPatch = false; markVersionSeen(); }
+      return;
+    }
     if (g.showScores) {
       // scoreboard overlay: any click or Esc closes it
       if (input.mouse.clicked || input.pressed('Escape')) g.showScores = false;
@@ -730,6 +1165,11 @@
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
+          if (r.action === 'patchnotes') { g.showPatch = true; Sfx.play('ui'); }
+          if (r.action === 'selectPet') { // toggle the stable pet chosen for the next run
+            g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
+            saveMeta(); Sfx.play('ui');
+          }
         }
       }
     }
@@ -771,6 +1211,12 @@
       g.player.drawT = -1; // a held bow draw must not survive pause and fire on resume
       return;
     }
+    if (input.pressed('KeyC')) { // character sheet: stats + evolutions (pauses the action)
+      g.state = 'charsheet'; g.overlayT = 0;
+      g.player.drawT = -1;
+      Sfx.play('ui');
+      return;
+    }
     if (Fx.tickHitstop(dt)) { g.preserveInput = true; return; } // hit-stop: world freezes, but buffered presses survive it
 
     const p = g.player;
@@ -788,17 +1234,24 @@
     if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
       checkMimicProximity();
       if (input.pressed('KeyE')) interact();
+      if (input.pressed('KeyQ')) useAbility();
       if (input.pressed('KeyX')) salvageNearest();
       if (input.pressed('KeyU')) honeWeapon();
     }
 
     for (const m of g.monsters) if (!m.dead) m.update(dt, g);
+    updateMercs(dt);
     updateProjectiles(dt);
     updatePickups(dt);
 
     if (g.winTimer > 0) {
       g.winTimer -= dt;
-      if (g.winTimer <= 0) { onVictory(); return; }
+      if (g.winTimer <= 0) {
+        // a boss just died: instead of ending the run, open the plunge to the
+        // next circle of the Descent. The run now ends only when you die.
+        if (g.pendingDescent) { openDescentPortal(g.pendingDescent); g.pendingDescent = null; }
+        else { onVictory(); return; } // legacy safety net (shouldn't trigger)
+      }
     }
     if (g.deathTimer > 0) {
       g.deathTimer -= dt;
@@ -807,6 +1260,7 @@
     if (g.gateMsg > 0) g.gateMsg -= dt;
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
     if (g.floorBanner && g.floorBanner.t > 0) g.floorBanner.t -= dt;
+    if (g.toadMsg && g.toadMsg.t > 0) g.toadMsg.t -= dt;
 
     // evolution menus take priority over further level-ups (the pick that
     // triggered the evolution should resolve before the next level-up card)
@@ -867,40 +1321,57 @@
   }
 
   function applyEvolutionChoice(opt) {
-    g.player.applyEvolution(opt.fx);
+    const p = g.player;
+    p.applyEvolution(opt.fx);
+    p.evoTaken.push({ key: g.evoChoices.key, name: opt.name, tier: Evolutions.TIER_LABEL[g.evoChoices.stacks] });
+    p.recordEvoPick(g.evoChoices.key); // first two picks forge the Q ability
     Sfx.play('levelup');
-    Fx.text(g.player.x, g.player.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
-    Fx.burst(g.player.x, g.player.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
+    Fx.text(p.x, p.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
+    Fx.burst(p.x, p.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
+    // the moment the 2nd evolution lands, the Q ability is born
+    if (p.evoHistory.length === 2 && p.ability) {
+      Fx.text(p.x, p.y - 58, `Q: ${p.ability.name.toUpperCase()}`, p.ability.color, 15);
+      Sfx.play('roar');
+    }
     g.evoChoices = null;
     g.state = 'play';
   }
 
   function updateEvolution() {
-    g.hoverChoice = -1;
+    const opts = g.evoChoices.options, n = opts.length;
+    if (g.hoverChoice < 0) g.hoverChoice = 0;
+    if (input.pressed('KeyA') || input.pressed('ArrowLeft'))  { g.hoverChoice = (g.hoverChoice + n - 1) % n; Sfx.play('ui'); }
+    if (input.pressed('KeyD') || input.pressed('ArrowRight')) { g.hoverChoice = (g.hoverChoice + 1) % n; Sfx.play('ui'); }
     for (const r of g.uiRects) {
-      if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
-        g.hoverChoice = r.idx;
-        if (input.mouse.clicked) { applyEvolutionChoice(g.evoChoices.options[r.idx]); return; }
-      }
+      const over = input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h;
+      if (!over) continue;
+      if (input.mouse.moved) g.hoverChoice = r.idx;
+      if (input.mouse.clicked) { applyEvolutionChoice(opts[r.idx]); return; }
     }
-    if (input.pressed('Digit1') && g.evoChoices.options[0]) { applyEvolutionChoice(g.evoChoices.options[0]); return; }
-    if (input.pressed('Digit2') && g.evoChoices.options[1]) { applyEvolutionChoice(g.evoChoices.options[1]); return; }
-    if (input.pressed('Digit3') && g.evoChoices.options[2]) { applyEvolutionChoice(g.evoChoices.options[2]); return; }
+    if ((input.pressed('Space') || input.pressed('Enter')) && opts[g.hoverChoice]) { applyEvolutionChoice(opts[g.hoverChoice]); return; }
+    if (input.pressed('Digit1') && opts[0]) { applyEvolutionChoice(opts[0]); return; }
+    if (input.pressed('Digit2') && opts[1]) { applyEvolutionChoice(opts[1]); return; }
+    if (input.pressed('Digit3') && opts[2]) { applyEvolutionChoice(opts[2]); return; }
   }
 
   function updateLevelUp() {
-    // hover tracking
-    g.hoverChoice = -1;
+    const n = g.levelChoices.length;
+    // keyboard nav (Deep Rock Survivor style): A/D or arrows move, Space/Enter picks
+    if (g.hoverChoice < 0) g.hoverChoice = 0;
+    if (input.pressed('KeyA') || input.pressed('ArrowLeft'))  { g.hoverChoice = (g.hoverChoice + n - 1) % n; Sfx.play('ui'); }
+    if (input.pressed('KeyD') || input.pressed('ArrowRight')) { g.hoverChoice = (g.hoverChoice + 1) % n; Sfx.play('ui'); }
+    // mouse: only steals the selection when it actually moves (parked mouse won't fight the keys)
     for (const r of g.uiRects) {
-      if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
-        if (r.reroll) {
-          if (input.mouse.clicked && !g.levelRerolled) { rerollLevelChoices(); return; }
-          continue;
-        }
-        g.hoverChoice = r.idx;
-        if (input.mouse.clicked) { applyUpgrade(g.levelChoices[r.idx]); return; }
+      const over = input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h;
+      if (!over) continue;
+      if (r.reroll) {
+        if (input.mouse.clicked && !g.levelRerolled) { rerollLevelChoices(); return; }
+        continue;
       }
+      if (input.mouse.moved) g.hoverChoice = r.idx;
+      if (input.mouse.clicked) { applyUpgrade(g.levelChoices[r.idx]); return; }
     }
+    if ((input.pressed('Space') || input.pressed('Enter')) && g.levelChoices[g.hoverChoice]) { applyUpgrade(g.levelChoices[g.hoverChoice]); return; }
     if (input.pressed('Digit1') && g.levelChoices[0]) { applyUpgrade(g.levelChoices[0]); return; }
     if (input.pressed('Digit2') && g.levelChoices[1]) { applyUpgrade(g.levelChoices[1]); return; }
     if (input.pressed('Digit3') && g.levelChoices[2]) { applyUpgrade(g.levelChoices[2]); return; }
@@ -932,7 +1403,9 @@
     g.bossIntroT += dt;
     if (g.bossIntroT >= 2.1) {
       g.room.spawned = true;
-      g.boss = Boss.make();
+      // consume the config rolled at room entry (recolored/angrier in the Descent)
+      g.boss = Boss.make(g.pendingBossCfg ? { descent: g.pendingBossCfg } : undefined);
+      g.pendingBossCfg = null;
       g.monsters = [g.boss];
       g.state = 'play';
       Fx.shake(8, 0.4);
@@ -973,6 +1446,11 @@
         if (Math.hypot(pr.x - p.x, pr.y - p.y) < p.r + pr.r) {
           p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g);
           dead = true;
+        } else { // INCIDENTAL: an enemy arrow can catch a mercenary in its flight path
+          for (const merc of g.mercs) {
+            if (merc.dead) continue;
+            if (Math.hypot(pr.x - merc.x, pr.y - merc.y) < 12 + pr.r) { damageMerc(merc, pr.dmg); dead = true; break; }
+          }
         }
       } else if (!dead && pr.from === 'player') {
         for (const m of g.monsters) {
@@ -1062,6 +1540,7 @@
 
     // actors
     for (const m of g.monsters) if (!m.dead) m.draw(c, g);
+    for (const merc of g.mercs) if (!merc.dead) drawMerc(c, merc);
     g.player.draw(c, g);
 
     // projectiles on top
@@ -1103,6 +1582,7 @@
 
     UI.drawHUD(c, g);
     UI.drawMinimap(c, g);
+    if (g.state === 'play') drawEquippedHover(c); // hover equipped slots -> stat card
     if (g.room.type === 'boss') UI.drawBossBar(c, g);
 
     // floor-entry banner: FLOOR 2 · THE SUNKEN SWAMP
@@ -1115,6 +1595,23 @@
       c.fillText(g.floorBanner.text, W / 2 + 2, 92);
       c.fillStyle = '#e8d5a0';
       c.fillText(g.floorBanner.text, W / 2, 90);
+      c.restore();
+    }
+
+    // Toad's line when the King falls and the Descent opens
+    if (g.toadMsg && g.toadMsg.t > 0 && g.state === 'play') {
+      const a = Math.min(1, g.toadMsg.t) * Math.min(1, (5 - g.toadMsg.t) * 2);
+      c.save();
+      c.globalAlpha = a;
+      c.textAlign = 'center';
+      c.font = 'bold 26px monospace';
+      c.fillStyle = '#1a0a04';
+      c.fillText(g.toadMsg.text, W / 2 + 2, H / 2 - 58);
+      c.fillStyle = '#ff8a3d';
+      c.fillText(g.toadMsg.text, W / 2, H / 2 - 60);
+      c.font = '14px monospace';
+      c.fillStyle = '#ffcc88';
+      c.fillText('the Descent yawns open below', W / 2, H / 2 - 34);
       c.restore();
     }
 
@@ -1145,6 +1642,7 @@
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'pause') UI.drawPause(c, g);
+    if (g.state === 'charsheet') UI.drawCharSheet(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
     if (g.state === 'initials') g.uiRects = UI.drawInitials(c, g);
@@ -1159,9 +1657,18 @@
   function drawRoom(c, room) {
     const pal = Dungeon.paletteFor(room, g.floorNum);
     const theme = Dungeon.themeFor(g.floorNum);
+    const descent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
     // outer wall fill
     c.fillStyle = pal.wall;
     c.fillRect(0, 0, W, H);
+    // Dante's Inferno backdrop: lava glow rising from the bottom of the frame
+    if (descent) {
+      const grad = c.createLinearGradient(0, H, 0, H * 0.35);
+      grad.addColorStop(0, 'rgba(150,26,0,0.55)');
+      grad.addColorStop(1, 'rgba(150,26,0,0)');
+      c.fillStyle = grad;
+      c.fillRect(0, 0, W, H);
+    }
     // floor
     c.fillStyle = pal.floor;
     c.fillRect(PF.x, PF.y, PF.w, PF.h);
@@ -1196,6 +1703,17 @@
       Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h,
         'rgba(212,175,55,0.45)', 1, { speed: 6, life: 2.4, grav: 6, size: 1.6, drag: 0.999 }); // gold motes
     }
+    if (theme.ambient === 'inferno') {
+      // embers stream up from the coals; the odd lava pop spits out of the floor
+      if (Math.random() < 0.5) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 40,
+        ['#ff6a2c', '#ffcc44', '#ff2200'], 1, { speed: 8, life: 1.6, grav: -34, glow: true, size: 2, drag: 0.999 });
+      if (Math.random() < 0.05) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h,
+        '#ff3300', 1, { speed: 45, life: 0.5, glow: true, size: 2 });
+    }
+
+    // molten rounded corners: mask the square corners so the arena reads oblong
+    // and cornerless (collision stays rectangular underneath - a deliberate call)
+    if (descent) drawMoltenCorners(c, pal);
 
     // wall inner edge highlight
     c.strokeStyle = pal.accent + '44';
@@ -1302,6 +1820,19 @@
         c.beginPath(); c.arc(o.x - o.r * 0.2, o.y - o.r * 0.25, o.r * 0.5, 0, Math.PI * 2); c.fill();
         c.fillStyle = '#c5bfd2';
         c.beginPath(); c.arc(o.x - o.r * 0.28, o.y - o.r * 0.33, o.r * 0.22, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'brimstone') {
+        // jagged coal boulder with molten cracks glowing through
+        c.fillStyle = '#2a1008';
+        c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#120704';
+        c.beginPath(); c.arc(o.x - o.r * 0.2, o.y - o.r * 0.22, o.r * 0.72, 0, Math.PI * 2); c.fill();
+        c.save();
+        c.strokeStyle = '#ff5a2c'; c.shadowColor = '#ff3300'; c.shadowBlur = 8; c.lineWidth = 2;
+        c.beginPath();
+        c.moveTo(o.x - o.r * 0.6, o.y - o.r * 0.2); c.lineTo(o.x - o.r * 0.1, o.y + o.r * 0.15);
+        c.lineTo(o.x + o.r * 0.3, o.y - o.r * 0.25); c.lineTo(o.x + o.r * 0.6, o.y + o.r * 0.1);
+        c.stroke();
+        c.restore();
       } else {
         // plain rock (special rooms keep the classic look)
         c.fillStyle = pal.detail;
@@ -1322,7 +1853,12 @@
     if (room.stairs) drawStairs(c, room);
 
     // shop furnishing
-    if (room.type === 'shop' && room.shopStock) drawShop(c, room);
+    if ((room.type === 'shop' || room.type === 'mythicshop') && room.shopStock) drawShop(c, room);
+
+    // hireable mercenary standing in the room
+    if (room.merc && !room.merc.hired) drawMercNPC(c, room.merc);
+    // dormant pet waiting to be activated
+    if (room.pet && !room.pet.activated) drawPetNPC(c, room.pet);
 
     // floor-clear portal: a swirling ring of the stairs' teal + essence purple
     if (g.portal && g.portal.room === room) {
@@ -1349,6 +1885,31 @@
       c.fillText('E - TO THE STAIRS', pt.x, pt.y + 48);
     }
 
+    // descent portal: a molten tear in the world where a boss just fell
+    if (g.descentPortal && g.descentPortal.room === room) {
+      const pt = g.descentPortal;
+      c.save();
+      c.translate(pt.x, pt.y);
+      const spin = g.time * 2.6;
+      for (let i = 0; i < 3; i++) {
+        c.strokeStyle = i === 1 ? 'rgba(255,90,44,0.85)' : 'rgba(255,204,68,0.8)';
+        c.lineWidth = 5 - i;
+        c.beginPath();
+        c.ellipse(0, 0, 28 + i * 8 + Math.sin(spin * 2 + i) * 3, 15 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.3, Math.PI * 2 - 0.3);
+        c.stroke();
+      }
+      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 34);
+      grad.addColorStop(0, 'rgba(255,90,44,0.7)');
+      grad.addColorStop(1, 'rgba(120,20,0,0)');
+      c.fillStyle = grad;
+      c.beginPath(); c.arc(0, 0, 34, 0, Math.PI * 2); c.fill();
+      if (Math.random() < 0.4) Fx.burst(pt.x + (Math.random() * 44 - 22), pt.y + (Math.random() * 26 - 13), Math.random() < 0.5 ? '#ff5a2c' : '#ffcc44', 1, { speed: 40, life: 0.6, glow: true });
+      c.restore();
+      c.font = 'bold 12px monospace'; c.textAlign = 'center';
+      c.fillStyle = '#ff8a3d';
+      c.fillText('E - DESCEND INTO THE INFERNO', pt.x, pt.y + 50);
+    }
+
     // start-room hint
     if (room.type === 'start' && g.floorNum === 1) {
       c.font = '13px monospace'; c.textAlign = 'center';
@@ -1359,6 +1920,35 @@
     // treasure room sparkle ambience
     if (room.type === 'treasure' && Math.random() < 0.1) {
       Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h, '#d4af37', 1, { speed: 15, life: 0.8, glow: true });
+    }
+  }
+
+  // masks the four square corners of the playfield with wall-colored notches and
+  // a glowing lava rim, so a descent room reads as an oblong pit of fire. Purely
+  // cosmetic - the collision rectangle underneath is unchanged.
+  function drawMoltenCorners(c, pal) {
+    const R = 74;
+    const L = PF.x, T = PF.y, Rt = PF.x + PF.w, B = PF.y + PF.h;
+    const corners = [
+      { corner: [L, T],  cx: L + R,  cy: T + R,  edge: [L + R, T],  a0: -Math.PI / 2, a1: Math.PI,        ccw: true  },
+      { corner: [Rt, T], cx: Rt - R, cy: T + R,  edge: [Rt - R, T], a0: -Math.PI / 2, a1: 0,              ccw: false },
+      { corner: [Rt, B], cx: Rt - R, cy: B - R,  edge: [Rt, B - R], a0: 0,           a1: Math.PI / 2,     ccw: false },
+      { corner: [L, B],  cx: L + R,  cy: B - R,  edge: [L + R, B],  a0: Math.PI / 2, a1: Math.PI,         ccw: false },
+    ];
+    for (const cn of corners) {
+      // fill the corner notch with wall colour
+      c.fillStyle = pal.wall;
+      c.beginPath();
+      c.moveTo(cn.corner[0], cn.corner[1]);
+      c.lineTo(cn.edge[0], cn.edge[1]);
+      c.arc(cn.cx, cn.cy, R, cn.a0, cn.a1, cn.ccw);
+      c.closePath();
+      c.fill();
+      // molten rim along the rounded edge
+      c.save();
+      c.strokeStyle = '#ff6a2c'; c.shadowColor = '#ff3300'; c.shadowBlur = 10; c.lineWidth = 3;
+      c.beginPath(); c.arc(cn.cx, cn.cy, R, cn.a0, cn.a1, cn.ccw); c.stroke();
+      c.restore();
     }
   }
 
@@ -1442,20 +2032,22 @@
   }
 
   function drawShop(c, room) {
-    // shopkeeper: a chill hooded merchant behind the counter
+    // shopkeeper: a chill hooded merchant behind the counter (mythic shop = a
+    // stranger robed in magenta who deals only in legends)
+    const myth = room.type === 'mythicshop';
     const kx = PF.x + PF.w / 2, ky = PF.y + 62;
     c.save();
     c.translate(kx, ky);
-    c.fillStyle = '#3d2f4a';
+    c.fillStyle = myth ? '#5a1e52' : '#3d2f4a';
     c.beginPath(); c.moveTo(0, -22); c.lineTo(18, 12); c.lineTo(-18, 12); c.closePath(); c.fill();
-    c.fillStyle = '#241c2e';
+    c.fillStyle = myth ? '#2a0e28' : '#241c2e';
     c.beginPath(); c.arc(0, -12, 9, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#ffd24c';
+    c.fillStyle = myth ? '#ff2fb0' : '#ffd24c';
     c.beginPath(); c.arc(-3, -13, 1.8, 0, Math.PI * 2); c.fill();
     c.beginPath(); c.arc(3, -13, 1.8, 0, Math.PI * 2); c.fill();
     c.font = '11px monospace'; c.textAlign = 'center';
-    c.fillStyle = 'rgba(255,210,76,0.7)';
-    c.fillText('"browse, friend - no refunds"', 0, 34);
+    c.fillStyle = myth ? 'rgba(255,47,176,0.85)' : 'rgba(255,210,76,0.7)';
+    c.fillText(myth ? '"only the worthy leave with these"' : '"browse, friend - no refunds"', 0, 34);
     c.restore();
 
     for (const it of room.shopStock.items) {
@@ -1492,6 +2084,10 @@
       if (it.kind === 'reroll') {
         c.font = '10px monospace'; c.fillStyle = '#7fd4ff';
         c.fillText('reroll stock', it.x, it.y + 44);
+      }
+      if (it.kind === 'potion') {
+        c.font = '10px monospace'; c.fillStyle = '#e0888a';
+        c.fillText(`heal ${POTION_HEAL} HP`, it.x, it.y + 44);
       }
     }
   }
@@ -1596,10 +2192,12 @@
     if (!t) return;
     let x, y, label = 'E';
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
-    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12][t.pk.weapon.rarIdx]}◈`; }
-    if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12][t.pk.armor.rarIdx]}◈`; }
+    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12,20][t.pk.weapon.rarIdx]}◈`; }
+    if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
-    if (t.kind === 'stairs' || t.kind === 'portal') return; // these draw their own prompt
+    if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
+    if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }
+    if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal') return; // these draw their own prompt
     c.save();
     c.font = 'bold 12px monospace'; c.textAlign = 'center';
     c.fillStyle = 'rgba(0,0,0,0.6)';
@@ -1614,34 +2212,60 @@
     if (t.kind === 'armorPickup') w = t.pk.armor;
     if (t.kind === 'shopItem' && t.it.kind === 'weapon') w = t.it.weapon;
     if (t.kind === 'shopItem' && t.it.kind === 'armor') w = t.it.armor;
-    if (w) {
-      const subtitle = w.isArmor
-        ? `Armor · ${Math.round(w.defense * 100)}% protection`
-        : `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`;
-      const lines = [
-        { text: `${w.rarityName} ${w.name}`, color: w.color, bold: true },
-        { text: subtitle, color: '#c8d2e0' },
-        ...w.enchants.map(e => ({
-          text: `${e.name}${e.level ? ' ' + ['', 'I', 'II', 'III'][e.level] : ''} - ${e.desc}`,
-          color: e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a',
-        })),
-      ];
-      const cw = 250, lh = 16, chh = lines.length * lh + 14;
-      let cx = Math.min(W - cw - 8, Math.max(8, x - cw / 2));
-      let cy = y - chh - 22;
-      if (cy < 8) cy = y + 30;
-      c.fillStyle = 'rgba(8,8,16,0.9)';
-      c.fillRect(cx, cy, cw, chh);
-      c.strokeStyle = w.color; c.lineWidth = 1.5;
-      c.strokeRect(cx, cy, cw, chh);
-      c.textAlign = 'left';
-      lines.forEach((l, i) => {
-        c.font = (l.bold ? 'bold 12px' : '11px') + ' monospace';
-        c.fillStyle = l.color;
-        c.fillText(l.text, cx + 10, cy + 18 + i * lh);
-      });
-    }
+    if (w) drawGearCard(c, w, x, y);
     c.restore();
+  }
+
+  // a hovering stat card for a weapon or armor item, anchored above (anchorX, anchorY)
+  function drawGearCard(c, w, anchorX, anchorY) {
+    const subtitle = w.isArmor
+      ? `Armor · ${Math.round(w.defense * 100)}% protection`
+      : `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`;
+    const lines = [
+      { text: `${w.rarityName} ${w.name}`, color: w.color, bold: true },
+      { text: subtitle, color: '#c8d2e0' },
+      ...w.enchants.map(e => ({
+        text: `${e.name}${e.level ? ' ' + ['', 'I', 'II', 'III'][e.level] : ''} - ${e.desc}`,
+        color: e.tier === 3 ? '#ffd24c' : e.tier === 2 ? '#b88aff' : '#7fc79a',
+      })),
+      ...(w.flavor ? [{ text: `"${w.flavor}"`, color: '#9a8f7a', italic: true }] : []),
+    ];
+    const cw = 250, lh = 16, chh = lines.length * lh + 14;
+    let cx = Math.min(W - cw - 8, Math.max(8, anchorX - cw / 2));
+    let cy = anchorY - chh - 22;
+    if (cy < 8) cy = anchorY + 30;
+    c.save();
+    c.fillStyle = 'rgba(8,8,16,0.92)';
+    c.fillRect(cx, cy, cw, chh);
+    c.strokeStyle = w.color; c.lineWidth = 1.5;
+    c.strokeRect(cx, cy, cw, chh);
+    c.textAlign = 'left';
+    lines.forEach((l, i) => {
+      c.font = (l.bold ? 'bold 12px' : l.italic ? 'italic 11px' : '11px') + ' monospace';
+      c.fillStyle = l.color;
+      c.fillText(l.text, cx + 10, cy + 18 + i * lh);
+    });
+    c.restore();
+  }
+
+  // hovering the equipped weapon/armor slots (bottom-left HUD) shows their stat card.
+  // Slot geometry mirrors ui.js drawHUD: three 42x42 slots at y = H-106.
+  function drawEquippedHover(c) {
+    const p = g.player; if (!p) return;
+    const sy = H - 106, sh = 42;
+    const slots = [
+      { x: 14,  item: p.weapons.a },
+      { x: 62,  item: p.weapons.b },
+      { x: 110, item: p.armor },
+    ];
+    const mx = input.mouse.x, my = input.mouse.y;
+    for (const s of slots) {
+      if (!s.item) continue;
+      if (mx >= s.x && mx <= s.x + sh && my >= sy && my <= sy + sh) {
+        drawGearCard(c, s.item, s.x + sh / 2, sy - 4);
+        break;
+      }
+    }
   }
 
   // ============================ DEBUG API (for automated testing) ============================
@@ -1690,7 +2314,21 @@
     mouse(x, y, down) { input.mouse.x = x; input.mouse.y = y; if (down !== undefined) { input.mouse.down = down; if (down) input.mouse.clicked = true; } },
   };
 
+  // mark the current version's patch notes as seen so they don't auto-pop again
+  function markVersionSeen() {
+    if (typeof PatchNotes === 'undefined') return;
+    try { localStorage.setItem('drl_seen_ver', PatchNotes.VERSION); } catch { }
+  }
+  // AUTO patch notes: pop the changelog once when a new version is first loaded
+  function maybeShowPatchNotes() {
+    if (typeof PatchNotes === 'undefined') return;
+    let seen = null;
+    try { seen = localStorage.getItem('drl_seen_ver'); } catch { }
+    if (seen !== PatchNotes.VERSION) g.showPatch = true; // seen-marker written on close
+  }
+
   // boot
   console.log('[dungeon] loaded - Dungeon of the Gilded King');
+  maybeShowPatchNotes();
   requestAnimationFrame(frame);
 })();

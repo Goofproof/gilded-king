@@ -29,6 +29,7 @@ then open http://localhost:8471/
 | X | salvage a dropped weapon/armor into shards |
 | U | spend shards to hone your weapon (+8% dmg, 5x max) |
 | R | reroll level-up choices (once per level-up) |
+| A/D · SPACE | on a level-up/evolution: move the selection and pick it (mouse and 1/2/3 still work) |
 | P / Esc | pause |
 | M | mute |
 
@@ -52,6 +53,28 @@ of them are watching you back.
 Essence (purple diamonds) survives death - spend it on the title screen for
 permanent boosts.
 
+### The Descent (endless mode)
+Slay the Gilded King and the run doesn't end - a portal to **The Descent** opens
+("THE PRINCESS IS IN ANOTHER CASTLE!") and you plunge into an endless fall through
+the circles of hell. It only gets harder: monster stats climb every floor, **elites**
+appear (giant / swift / volatile, marked by a glowing ring), and a recurring boss -
+the King, recolored and angrier each time - guards every third floor (a "Circle
+Warden"). Each Warden you fell shows a Toad line that gets more twisted the deeper
+you go. The run ends when you die; how deep you got is the score.
+
+Deeper rewards:
+- **Mythics** - 20 named unique weapons and 10 unique armors, a rarity above
+  legendary. They NEVER drop by chance: only a Circle Warden drops one, or the
+  **secret mythic shop** that opens every 5th floor sells them. Claim one and you
+  earn a **laurel** on the title screen (X of 30 collected, saved forever).
+- **Pets** - a Warden may drop a little companion that follows you and grants a
+  passive buff (damage, speed, regen, coins, or crit). One at a time.
+- **Mercenaries** - a blade or archer sometimes waits at a floor's gate. Hire up
+  to two (they cost coins) and they fight alongside you the rest of the run.
+
+The title-screen leaderboard shows the **top 5 raiders** at all times; beat the
+top 10 and you enter your initials, arcade-style.
+
 ## For the designer: where the tuning knobs live
 
 Every table was built to be retuned. Change numbers, refresh the browser, play.
@@ -68,6 +91,10 @@ Every table was built to be retuned. Change numbers, refresh the browser, play.
 | Player speed, roll cooldown, i-frames | `js/player.js` | `T` |
 | Level-up upgrade pool | `js/main.js` | `UPGRADE_POOL` |
 | Meta (hub) upgrades and costs | `js/ui.js` | `META_UPGRADES` |
+| The Descent: scaling, elites, boss cadence, circle names, Toad lines, pets, drop rates | `js/descent.js` | top of file |
+| Mythic weapons + armor (the 30 uniques) | `js/weapons.js` | `MYTHIC_WEAPONS` / `MYTHIC_ARMOR` |
+| Mercenary stats (blade / archer) | `js/main.js` | `MERC_STATS` |
+| Seed leaderboard (the 50 starting scores) | `js/main.js` | `SEED_SCORES` |
 | Sound effects (all synthesized) | `js/audio.js` | `table` |
 
 ### Debug console

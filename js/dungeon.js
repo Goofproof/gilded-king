@@ -8,7 +8,7 @@ const Dungeon = (() => {
   // room count per floor: BASE + floor*PER_FLOOR + random(0..RAND) -> 12..20 range
   const BASE_ROOMS = 10, PER_FLOOR = 2, RAND_ROOMS = 3;
   const TREASURE_ROOMS = [1, 2];            // min,max treasure rooms per floor
-  const MIMIC_CHANCE = 0.22;                // chance a treasure chest is a mimic
+  const MIMIC_CHANCE = 0.35;                // chance a treasure chest is a mimic (each chest rolls independently; placement is symmetric so position is never a tell)
   const OBSTACLES_PER_COMBAT = [0, 3];      // rocks per combat room
 
   // playfield geometry (the arena inside one room, in screen pixels)
@@ -29,10 +29,11 @@ const Dungeon = (() => {
 
   // special-room palettes: readable at a glance, per the design doc
   const PALETTES = {
-    treasure: { floor: '#332d22', wall: '#211c12', accent: '#d4af37', detail: '#453b28' },
-    shop:     { floor: '#33281f', wall: '#221812', accent: '#e8a04c', detail: '#46392c' },
-    boss:     { floor: '#221820', wall: '#120c12', accent: '#a03050', detail: '#301f2c' },
-    stairs:   { floor: '#232a2c', wall: '#141a1c', accent: '#4cc9a8', detail: '#2c3a3c' },
+    treasure:   { floor: '#332d22', wall: '#211c12', accent: '#d4af37', detail: '#453b28' },
+    shop:       { floor: '#33281f', wall: '#221812', accent: '#e8a04c', detail: '#46392c' },
+    boss:       { floor: '#221820', wall: '#120c12', accent: '#a03050', detail: '#301f2c' },
+    stairs:     { floor: '#232a2c', wall: '#141a1c', accent: '#4cc9a8', detail: '#2c3a3c' },
+    mythicshop: { floor: '#2a1230', wall: '#160a1a', accent: '#ff2fb0', detail: '#3a1a44' },
   };
 
   const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
@@ -113,9 +114,14 @@ const Dungeon = (() => {
       return room;
     }
 
-    // farthest special: boss on the last floor, stairs down otherwise
-    claim(floorNum >= 3 ? 'boss' : 'stairs');
+    // farthest special: a boss guards floor 3 (the Gilded King) and every Circle
+    // Warden floor in the Descent; every other floor ends in stairs down.
+    const bossFloor = floorNum === 3 ||
+      (typeof Descent !== 'undefined' && Descent.isBossFloor(floorNum));
+    claim(bossFloor ? 'boss' : 'stairs');
     claim('shop');
+    // a secret mythic-only shop opens every 5th floor of the Descent
+    if (typeof Descent !== 'undefined' && Descent.isMythicFloor(floorNum)) claim('mythicshop');
     const nTreasure = TREASURE_ROOMS[0] + ((Math.random() * (TREASURE_ROOMS[1] - TREASURE_ROOMS[0] + 1)) | 0);
     for (let i = 0; i < nTreasure; i++) claim('treasure');
 
@@ -151,6 +157,36 @@ const Dungeon = (() => {
       }
     }
 
+    // ROOM OCCUPANTS (Sam, 2026-07-11): pets and hireable mercenaries no longer
+    // drop from mobs - each has a small chance to already be standing in a room
+    // when you enter it. Activate with E. Rolled once, at floor-gen, so it stays
+    // put if you leave and return. At most one occupant per room.
+    // pet:  5% in a treasure room, 2% in a normal combat room.
+    // merc: 10% in a treasure room, 5% in a normal combat room (floor 2+).
+    const havePets = typeof Descent !== 'undefined' && Descent.rollPet;
+    for (const r of list) {
+      const isTreasure = r.type === 'treasure';
+      const isNormal = r.type === 'combat';
+      if (!isTreasure && !isNormal) continue;
+      const petChance = isTreasure ? 0.05 : 0.02;
+      const mercChance = isTreasure ? 0.10 : 0.05;
+      // offset from centre so the occupant never blocks the door you walk in through
+      const ox = PF.x + PF.w / 2 + (Math.random() < 0.5 ? -110 : 110);
+      const oy = PF.y + PF.h / 2 - 40;
+      if (havePets && Math.random() < petChance) {
+        const pet = Descent.rollPet();
+        pet.activated = false; pet.x = ox; pet.y = oy; pet.bob = Math.random() * 6;
+        r.pet = pet;
+      } else if (floorNum >= 2 && Math.random() < mercChance) {
+        r.merc = {
+          hired: false,
+          cls: Math.random() < 0.5 ? 'blade' : 'bow',
+          cost: 40 + floorNum * 8,
+          x: ox, y: oy,
+        };
+      }
+    }
+
     return { grid, start, rooms: list, floor: floorNum };
   }
 
@@ -161,10 +197,14 @@ const Dungeon = (() => {
 
   function paletteFor(room, floorNum) {
     if (PALETTES[room.type]) return PALETTES[room.type];
-    return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1];
+    return themeFor(floorNum);
   }
 
-  function themeFor(floorNum) { return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1]; }
+  function themeFor(floorNum) {
+    // the Descent (floor 4+) supplies its own hell theme per circle
+    if (typeof Descent !== 'undefined' && Descent.isDescent(floorNum)) return Descent.themeFor(floorNum);
+    return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1];
+  }
 
   return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE };
 })();

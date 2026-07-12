@@ -97,11 +97,19 @@ const UI = (() => {
       c.fillText(b.label, hbX, by);
       by += 17;
     }
+    // active pet companion + its passive
+    if (p.pet) {
+      c.fillStyle = p.pet.color;
+      c.font = 'bold 12px monospace';
+      c.fillText(`❤ ${p.pet.name} · ${p.pet.desc}`, hbX, by);
+      by += 17;
+    }
 
-    // floor tag
+    // floor tag - "/3" through the Keep, then depth into the Descent
+    const inDescent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
     c.font = 'bold 13px monospace';
-    c.fillStyle = '#8fa3bf';
-    c.fillText(`FLOOR ${g.floorNum}/3`, hbX, H - 16);
+    c.fillStyle = inDescent ? '#ff8a3d' : '#8fa3bf';
+    c.fillText(inDescent ? `DESCENT · FLOOR ${g.floorNum}` : `FLOOR ${g.floorNum}/3`, hbX, H - 16);
 
     // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
@@ -111,11 +119,51 @@ const UI = (() => {
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
     if (g.autoAttack) {
+      // sits in the clear gap BELOW the weapon/armor slot row (slots end at H-64,
+      // the floor tag is at H-16) so it never floats over the armor slot
       c.font = 'bold 11px monospace';
       c.fillStyle = '#ffd24c';
-      c.fillText('AUTO [F]', 112, H - 78);
+      c.textAlign = 'left';
+      c.fillText('AUTO [F]', 14, H - 46);
     }
 
+    // Q ability badge (bottom-centre) - the power forged from the first two evolutions
+    if (p.ability) drawAbility(c, p.ability);
+
+    c.restore();
+  }
+
+  // the Q ability badge: a square key-cap with a cooldown sweep + the ability name
+  function drawAbility(c, a) {
+    const s = 46, x = W / 2 - s / 2, y = H - s - 12;
+    const ready = a.cd <= 0;
+    const k = a.cdMax > 0 ? Math.max(0, a.cd / a.cdMax) : 0;
+    c.save();
+    c.fillStyle = 'rgba(0,0,0,0.6)';
+    c.fillRect(x, y, s, s);
+    // cooldown fill drains from the top
+    if (!ready) { c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x, y, s, s * k); }
+    c.strokeStyle = ready ? a.color : '#4a4f5d';
+    c.lineWidth = ready ? 2.5 : 1.5;
+    c.strokeRect(x, y, s, s);
+    // Q letter
+    c.textAlign = 'center';
+    c.font = 'bold 20px monospace';
+    c.fillStyle = ready ? a.color : '#7a8194';
+    c.fillText('Q', x + s / 2, y + s / 2 + 2);
+    if (ready) { // gentle ready-glow pulse
+      c.globalAlpha = 0.35 + Math.sin(Date.now() / 300) * 0.2;
+      c.strokeStyle = a.color; c.lineWidth = 2;
+      c.strokeRect(x - 2, y - 2, s + 4, s + 4);
+      c.globalAlpha = 1;
+    } else {
+      c.font = 'bold 12px monospace'; c.fillStyle = '#cdd4e2';
+      c.fillText(Math.ceil(a.cd) + 's', x + s / 2, y + s - 6);
+    }
+    // ability name above the cap
+    c.font = 'bold 11px monospace';
+    c.fillStyle = a.color;
+    c.fillText(a.name, W / 2, y - 6);
     c.restore();
   }
 
@@ -235,7 +283,7 @@ const UI = (() => {
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
   function drawMinimap(c, g) {
-    const cell = 27, gap = 6, pad = 10;
+    const gap = 6, pad = 10;
     const rooms = g.dungeon.rooms.filter(r => r.visited);
     if (!rooms.length) return;
     // bounds of the VISITED map only - fog of war: unvisited rooms don't exist here
@@ -244,7 +292,11 @@ const UI = (() => {
       minX = Math.min(minX, r.gx); maxX = Math.max(maxX, r.gx);
       minY = Math.min(minY, r.gy); maxY = Math.max(maxY, r.gy);
     }
-    const mw = (maxX - minX + 1) * (cell + gap);
+    // adaptive cell: shrink as the explored map grows so the minimap footprint
+    // stays capped (~220x150px) instead of ballooning on a big floor
+    const cols = maxX - minX + 1, rows = maxY - minY + 1;
+    const cell = Math.max(9, Math.min(27, Math.floor(220 / cols) - gap, Math.floor(150 / rows) - gap));
+    const mw = cols * (cell + gap);
     const ox = W - pad - mw, oy = pad + 4;
 
     c.save();
@@ -274,7 +326,7 @@ const UI = (() => {
     // rooms
     for (const r of rooms) {
       const x = px(r), y = py(r);
-      const colors = { start: '#8899bb', combat: '#4a5468', treasure: '#c9a227', shop: '#d98e3d', boss: '#b03050', stairs: '#3dbf9d' };
+      const colors = { start: '#8899bb', combat: '#4a5468', treasure: '#c9a227', shop: '#d98e3d', boss: '#b03050', stairs: '#3dbf9d', mythicshop: '#ff2fb0' };
       c.fillStyle = colors[r.type] || '#4a5468';
       c.fillRect(x, y, cell, cell);
       if (!r.cleared && (r.type === 'combat' || r.type === 'boss')) {
@@ -282,13 +334,14 @@ const UI = (() => {
         c.fillRect(x, y, cell, cell);
       }
       // room-type glyphs, readable at the bigger cell size
-      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!' }[r.type];
+      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!', mythicshop: '✦' }[r.type];
       if (glyph) {
-        c.font = 'bold 17px monospace'; c.textAlign = 'center';
+        const gs = Math.max(11, Math.round(cell * 0.66)); // glyph scales with the (now adaptive) cell
+        c.font = `bold ${gs}px monospace`; c.textAlign = 'center';
         c.fillStyle = 'rgba(0,0,0,0.65)';
-        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + 6.5);
+        c.fillText(glyph, x + cell / 2 + 0.5, y + cell / 2 + gs * 0.36 + 0.5);
         c.fillStyle = 'rgba(255,255,255,0.85)';
-        c.fillText(glyph, x + cell / 2, y + cell / 2 + 6);
+        c.fillText(glyph, x + cell / 2, y + cell / 2 + gs * 0.36);
       }
       if (r === g.room) {
         c.strokeStyle = '#ffffff'; c.lineWidth = 2;
@@ -327,15 +380,48 @@ const UI = (() => {
     if (t > 0.4) {
       const a = Math.min(1, (t - 0.4) / 0.3);
       c.globalAlpha = a;
+      const name = g.bossIntroName || 'THE MIMIC KING';
+      const sub = g.bossIntroSub || 'the dungeon was bait all along';
       c.font = 'bold 44px monospace'; c.textAlign = 'center';
       c.fillStyle = '#1a0a10';
-      c.fillText('THE MIMIC KING', W / 2 + 3, H / 2 - 37);
+      c.fillText(name, W / 2 + 3, H / 2 - 37);
       c.fillStyle = '#ffd24c';
-      c.fillText('THE MIMIC KING', W / 2, H / 2 - 40);
+      c.fillText(name, W / 2, H / 2 - 40);
       c.font = '15px monospace';
       c.fillStyle = '#c88';
-      c.fillText('the dungeon was bait all along', W / 2, H / 2 - 8);
+      c.fillText(sub, W / 2, H / 2 - 8);
     }
+    c.restore();
+  }
+
+  // a laurel wreath badge: the mythic-collection accolade on the title screen
+  function drawLaurel(c, cx, cy, count, total) {
+    const earned = count > 0;
+    const col = earned ? '#e8c66a' : '#4f4a3a';
+    c.save();
+    c.translate(cx, cy);
+    // two arcs of leaves forming the open wreath (open at the top)
+    for (const R of [32, 25]) {
+      for (let k = 0; k <= 10; k++) {
+        const a = Math.PI * (0.86 - 0.72 * (k / 10)); // lower arc: upper-left -> bottom -> upper-right
+        const x = Math.cos(a) * R, y = Math.sin(a) * R;
+        c.save(); c.translate(x, y); c.rotate(a + Math.PI / 2);
+        c.fillStyle = col;
+        c.beginPath(); c.ellipse(0, 0, R > 28 ? 6 : 4.5, 2.3, 0, 0, Math.PI * 2); c.fill();
+        c.restore();
+      }
+    }
+    // little tie at the bottom
+    c.fillStyle = col;
+    c.beginPath(); c.arc(0, 33, 2.4, 0, Math.PI * 2); c.fill();
+    // count in the middle
+    c.textAlign = 'center';
+    c.font = 'bold 16px monospace';
+    c.fillStyle = earned ? '#ffd24c' : '#6a6350';
+    c.fillText(`${count}/${total}`, 0, 2);
+    c.font = 'bold 8px monospace';
+    c.fillStyle = earned ? '#c9a227' : '#5a5340';
+    c.fillText('MYTHICS', 0, 15);
     c.restore();
   }
 
@@ -364,7 +450,7 @@ const UI = (() => {
 
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('WASD move · mouse aims · click or J attacks · SPACE rolls · E interact · Tab swap · F auto-attack · M mute', W / 2, 205);
+    c.fillText('WASD move · mouse aims · click/J attack · SPACE roll · E interact · Q ability · Tab swap · C stats · F auto · M mute', W / 2, 205);
 
     // start button
     const startR = { x: W / 2 - 130, y: 232, w: 260, h: 46, action: 'start' };
@@ -422,9 +508,45 @@ const UI = (() => {
       cx += cardW + gap;
     }
 
-    c.font = 'italic 12px monospace';
-    c.fillStyle = '#8a7340';
-    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
+    // --- STABLE: pets you've befriended; pick one to start the next run with ---
+    const roster = (typeof Descent !== 'undefined' && Descent.PETS) || [];
+    if (roster.length) {
+      const unlocked = meta.petsUnlocked || [];
+      c.textAlign = 'center';
+      c.font = 'bold 12px monospace';
+      c.fillStyle = '#8fd0a0';
+      c.fillText(`STABLE  ·  ${unlocked.length}/${roster.length}`, W / 2, 492);
+      const chip = 30, cgap = 12;
+      const rowW = roster.length * chip + (roster.length - 1) * cgap;
+      let px = (W - rowW) / 2;
+      for (const pet of roster) {
+        const has = unlocked.includes(pet.type);
+        const sel = has && meta.selectedPet === pet.type;
+        const cxp = px + chip / 2, cyp = 510;
+        c.beginPath(); c.arc(cxp, cyp, chip / 2, 0, Math.PI * 2);
+        c.fillStyle = has ? pet.color : '#20242f'; c.fill();
+        if (has) { c.fillStyle = '#0e1016'; c.beginPath(); c.arc(cxp - 3, cyp - 2, 2, 0, Math.PI * 2); c.arc(cxp + 3, cyp - 2, 2, 0, Math.PI * 2); c.fill(); }
+        else { c.fillStyle = '#3a3f4d'; c.font = 'bold 14px monospace'; c.fillText('?', cxp, cyp + 5); }
+        c.lineWidth = sel ? 3 : 1.5;
+        c.strokeStyle = sel ? '#ffd24c' : has ? '#5a6478' : '#2c3040';
+        c.beginPath(); c.arc(cxp, cyp, chip / 2, 0, Math.PI * 2); c.stroke();
+        if (has) rects.push({ x: px, y: cyp - chip / 2, w: chip, h: chip, action: 'selectPet', key: pet.type });
+        px += chip + cgap;
+      }
+      // name + passive of the chosen pet
+      const chosen = roster.find(pp => pp.type === meta.selectedPet && unlocked.includes(pp.type));
+      c.font = '11px monospace';
+      c.fillStyle = chosen ? chosen.color : '#667';
+      c.fillText(chosen ? `${chosen.name} · ${chosen.desc}  (click to unselect)`
+                        : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 532);
+    } else {
+      c.font = 'italic 12px monospace';
+      c.fillStyle = '#8a7340';
+      c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
+    }
+
+    // mythic-collection laurel (top-right accolade)
+    drawLaurel(c, W - 72, 62, (meta.mythics || []).length, Weapons.MYTHIC_TOTAL);
 
     // high-scores button (top-left)
     const scoresR = { x: 14, y: 14, w: 150, h: 30, action: 'scores' };
@@ -434,6 +556,28 @@ const UI = (() => {
     c.fillStyle = '#ffd24c';
     c.fillText('★ HIGH SCORES', scoresR.x + scoresR.w / 2, scoresR.y + 19);
     rects.push(scoresR);
+
+    // patch-notes button (top-right, under the mythic laurel)
+    if (typeof PatchNotes !== 'undefined') {
+      const pnR = { x: W - 164, y: 108, w: 150, h: 28, action: 'patchnotes' };
+      c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
+      c.strokeRect(pnR.x, pnR.y, pnR.w, pnR.h);
+      c.font = 'bold 12px monospace';
+      c.fillStyle = '#8fd0ff';
+      c.fillText(`◆ PATCH NOTES ${PatchNotes.VERSION}`, pnR.x + pnR.w / 2, pnR.y + 18);
+      rects.push(pnR);
+    }
+
+    // always-visible TOP 5 under the button (the full board is behind the button)
+    c.textAlign = 'left';
+    c.font = 'bold 11px monospace'; c.fillStyle = '#c9a227';
+    c.fillText('TOP RAIDERS', 16, 62);
+    (g.scores || []).slice(0, 5).forEach((s, i) => {
+      c.font = '11px monospace';
+      c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
+      c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, 16, 80 + i * 16);
+    });
+    c.textAlign = 'center';
 
     // share button (bottom-right): copies the game's public link
     const shareR = { x: W - 150, y: H - 46, w: 136, h: 30, action: 'share' };
@@ -455,9 +599,47 @@ const UI = (() => {
 
     // scoreboard overlay
     if (g.showScores) drawScoreboard(c, g);
+    // patch-notes overlay
+    if (g.showPatch) drawPatchNotes(c, g);
 
     c.restore();
     return rects;
+  }
+
+  // the changelog overlay: newest version first, scroll not needed (kept short)
+  function drawPatchNotes(c, g) {
+    const notes = (typeof PatchNotes !== 'undefined' && PatchNotes.NOTES) || [];
+    const pw = 600, ph = 476, px = (W - pw) / 2, py = 36;
+    c.fillStyle = 'rgba(5,5,12,0.93)';
+    c.fillRect(0, 0, W, H);
+    c.strokeStyle = '#8fd0ff'; c.lineWidth = 2;
+    c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 20px monospace'; c.fillStyle = '#8fd0ff';
+    c.fillText('PATCH NOTES', W / 2, py + 30);
+    c.textAlign = 'left';
+    let y = py + 62;
+    for (const rel of notes) {
+      if (y > py + ph - 24) break;
+      c.font = 'bold 14px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`${rel.v} - ${rel.title}`, px + 20, y);
+      c.font = '11px monospace'; c.fillStyle = '#7a8194';
+      c.textAlign = 'right'; c.fillText(rel.date, px + pw - 20, y); c.textAlign = 'left';
+      y += 20;
+      for (const it of rel.items) {
+        if (y > py + ph - 20) break;
+        c.fillStyle = '#8fd0ff'; c.font = '11px monospace';
+        c.fillText('•', px + 24, y);
+        c.fillStyle = '#cdd4e2';
+        // wrapText returns the LAST line's baseline (== y when it fits on one line);
+        // add a full line height so single- and multi-line items both clear properly
+        y = wrapText(c, it, px + 36, y, pw - 60, 15) + 16;
+      }
+      y += 12;
+    }
+    c.textAlign = 'center';
+    c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('click anywhere or press Esc to close', W / 2, py + ph - 8);
   }
 
   function drawScoreboard(c, g) {
@@ -558,6 +740,7 @@ const UI = (() => {
       else line = test;
     }
     if (line) c.fillText(line, x, yy);
+    return yy; // final baseline (callers that don't need it can ignore)
   }
 
   // eased overlay entrance (the spec asks for eased UI transitions)
@@ -581,7 +764,7 @@ const UI = (() => {
     c.fillText(`LEVEL ${g.player.level}!`, W / 2, 130);
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('choose an upgrade (click or press 1/2/3)', W / 2, 158);
+    c.fillText('A/D move · SPACE pick · (or click / 1-2-3)', W / 2, 158);
 
     const n = g.levelChoices.length;
     const cardW = 210, cardH = 150, gap = 24;
@@ -639,7 +822,93 @@ const UI = (() => {
     c.font = 'bold 40px monospace'; c.fillStyle = '#dde3ee';
     c.fillText('PAUSED', W / 2, H / 2 - 20);
     c.font = '14px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('P / Esc to resume · M to mute', W / 2, H / 2 + 16);
+    c.fillText('P / Esc to resume · C sheet · M mute', W / 2, H / 2 + 16);
+    c.restore();
+  }
+
+  // stat colour per evolution path (matches the champion's visual-evolution palette)
+  const STAT_COL = {
+    hp: '#7fd4ff', dmg: '#e05555', spd: '#7fe0ff', roll: '#b8f0ff',
+    crit: '#ff5a7a', coin: '#ffd24c', regen: '#6ee7a0', atkspd: '#ffe08a',
+  };
+
+  // CHARACTER SHEET (C): live stats on the left, evolutions taken on the right
+  function drawCharSheet(c, g) {
+    const p = g.player, e = overlayEase(g);
+    c.save();
+    c.globalAlpha = e;
+    c.fillStyle = 'rgba(5,5,12,0.9)';
+    c.fillRect(0, 0, W, H);
+    const px = 60, py = 40, pw = W - 120, ph = H - 80;
+    c.strokeStyle = '#b88aff'; c.lineWidth = 2;
+    c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 22px monospace'; c.fillStyle = '#dde3ee';
+    c.fillText('CHARACTER', W / 2, py + 30);
+
+    // ---- left column: derived stats ----
+    const pct = v => (v >= 0 ? '+' : '') + Math.round(v * 100) + '%';
+    const crit = 0.05 + p.stats.crit + p.mod('critCh'); // 0.05 = base crit
+    const critDmg = 1.7 + p.mod('critDmg');
+    const rollMul = p.stats.rollCdMul * (1 - p.mod('rollCd'));
+    const stats = [
+      ['Max Health',     Math.round(p.maxHp)],
+      ['Damage',         pct(p.stats.dmgMul * (1 + p.mod('dmg')) - 1)],
+      ['Attack Speed',   pct(p.stats.atkSpeedMul + p.mod('atkSpd') - 1)],
+      ['Move Speed',     pct(p.stats.speedMul + p.mod('spd') - 1)],
+      ['Crit Chance',    Math.round(crit * 100) + '%'],
+      ['Crit Damage',    '×' + critDmg.toFixed(2)],
+      ['Roll Cooldown',  pct(rollMul - 1)],
+      ['Damage Reduce',  Math.round(Math.min(0.6, p.mod('reduce')) * 100) + '%'],
+      ['Coin Bonus',     pct(p.stats.coinMul + p.mod('coin') - 1)],
+      ['Regen',          (p.stats.regen + p.mod('regenFlat')).toFixed(1) + '/s'],
+    ];
+    if (p.mod('thorns')) stats.push(['Thorns', p.mod('thorns')]);
+    let ly = py + 66;
+    c.textAlign = 'left';
+    c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
+    c.fillText('STATS', px + 30, ly); ly += 24;
+    c.font = '13px monospace';
+    for (const [label, val] of stats) {
+      c.fillStyle = '#8fa3bf'; c.textAlign = 'left';
+      c.fillText(label, px + 30, ly);
+      c.fillStyle = '#e8edf6'; c.textAlign = 'right';
+      c.fillText(String(val), px + pw / 2 - 40, ly);
+      ly += 21;
+    }
+    // active pet + Q ability under the stats
+    ly += 8;
+    if (p.pet) { c.textAlign = 'left'; c.fillStyle = p.pet.color; c.font = 'bold 12px monospace';
+      c.fillText(`PET  ${p.pet.name} · ${p.pet.desc}`, px + 30, ly); ly += 22; }
+    if (p.ability) { c.textAlign = 'left'; c.fillStyle = p.ability.color; c.font = 'bold 12px monospace';
+      c.fillText(`Q  ${p.ability.name}`, px + 30, ly); ly += 22; }
+
+    // ---- right column: evolutions taken ----
+    const rx = px + pw / 2 + 10;
+    let ry = py + 66;
+    c.textAlign = 'left';
+    c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
+    c.fillText(`EVOLUTIONS (${p.evoTaken.length})`, rx, ry); ry += 24;
+    if (!p.evoTaken.length) {
+      c.font = 'italic 12px monospace'; c.fillStyle = '#667';
+      c.fillText('stack a stat to III/VI/IX/XII to evolve', rx, ry);
+    } else {
+      c.font = '12px monospace';
+      for (const ev of p.evoTaken) {
+        if (ry > py + ph - 30) break;
+        const col = STAT_COL[ev.key] || '#b88aff';
+        c.fillStyle = col; c.fillText(ev.tier || '', rx, ry);
+        c.fillStyle = '#e8edf6'; c.fillText(ev.name, rx + 28, ry);
+        c.fillStyle = '#5a6478'; c.font = '10px monospace';
+        c.fillText((Evolutions.STAT_NAMES[ev.key] || ''), rx + 28, ry + 12);
+        c.font = '12px monospace';
+        ry += 30;
+      }
+    }
+
+    c.textAlign = 'center';
+    c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('C / Esc to resume', W / 2, py + ph - 12);
     c.restore();
   }
 
@@ -660,10 +929,15 @@ const UI = (() => {
       c.font = '15px monospace'; c.fillStyle = '#c9a227';
       c.fillText('The Mimic King is slain. The gold was real after all.', W / 2, 185);
     }
+    const endDescent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
+    if (!won && g.kingSlain) {
+      c.font = '15px monospace'; c.fillStyle = '#ff8a3d';
+      c.fillText('You slew the King and braved the Descent. Legend.', W / 2, 185);
+    }
     c.font = '15px monospace';
     c.fillStyle = '#9fb0c8';
     const lines = [
-      `Floor reached      ${g.floorNum} / 3`,
+      endDescent ? `Depth reached      Descent floor ${g.floorNum}` : `Floor reached      ${g.floorNum} / 3`,
       `Rooms cleared      ${p.roomsCleared}`,
       `Monsters slain     ${p.kills}`,
       `Level reached      ${p.level}`,
@@ -688,5 +962,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawEnd, drawInitials };
+  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawCharSheet, drawEnd, drawInitials };
 })();

@@ -13,6 +13,9 @@ const Weapons = (() => {
     { key: 'rare',      name: 'Rare',      color: '#38bdf8', weight: 15, slots: [1, 2], maxTier: 1, price: 60  },
     { key: 'epic',      name: 'Epic',      color: '#a78bfa', weight: 6,  slots: [2, 3], maxTier: 2, price: 110 },
     { key: 'legendary', name: 'Legendary', color: '#fbbf24', weight: 1,  slots: [3, 3], maxTier: 3, price: 200 },
+    // MYTHIC (index 5): weight 0 so it NEVER rolls by chance - only hand-built
+    // uniques from the tables below, dropped by Descent bosses or the mythic shop.
+    { key: 'mythic',    name: 'Mythic',    color: '#ff2fb0', weight: 0,  slots: [3, 3], maxTier: 3, price: 400 },
   ];
   // enchant tier roll weights within a slot: minor 55 / major 35 / signature 10
   const TIER_WEIGHTS = [ { tier: 1, w: 55 }, { tier: 2, w: 35 }, { tier: 3, w: 10 } ];
@@ -66,7 +69,8 @@ const Weapons = (() => {
   function rollRarity(opts = {}) {
     if (opts.exactRarity !== undefined) return RARITY[opts.exactRarity]; // pinned roll (e.g. starting weapon)
     const minIdx = opts.minRarity || 0;
-    const pool = RARITY.filter((r, i) => i >= minIdx);
+    // weight-0 rarities (Mythic) are excluded from chance rolls entirely
+    const pool = RARITY.filter((r, i) => i >= minIdx && r.weight > 0);
     let pick = weightedPick(pool, 'weight');
     // luck (from Looting / mimic rewards): reroll once, keep the better result
     if (opts.luck && Math.random() < opts.luck) {
@@ -214,6 +218,94 @@ const Weapons = (() => {
     return a;
   }
 
+  // --- MYTHICS ----------------------------------------------------------------
+  // Hand-built unique items (rarity index 5). They NEVER roll from chance - a
+  // Descent boss drops one, or the secret mythic shop sells them. Each has its own
+  // colour, signature enchant set (real keys, so the mechanics actually fire), and
+  // a flavour line. Collecting one earns a laurel on the title screen.
+  const MYTHIC_WEAPONS = [
+    { id: 'ragnarok',    name: 'Ragnarok',         archetype: 'heavy', color: '#ff5a2c', dmg: 62, enchants: ['fireaspect', 'executioner', 'knockback'], flavor: 'The end of all things, forged as an axe.' },
+    { id: 'worldbreaker',name: 'Worldbreaker',     archetype: 'heavy', color: '#ffb03a', dmg: 66, enchants: ['sharpness', 'knockback', 'sweeping'],      flavor: 'One swing moved a mountain. It never moved back.' },
+    { id: 'dawnhammer',  name: 'Dawnhammer',       archetype: 'heavy', color: '#fff2a0', dmg: 58, enchants: ['executioner', 'fireaspect', 'looting'],    flavor: 'It rang once at sunrise and the dark fled.' },
+    { id: 'gravetide',   name: 'Grave Tide',       archetype: 'heavy', color: '#4cc9a8', dmg: 60, enchants: ['vampiric', 'sweeping', 'knockback'],       flavor: 'Every soul it takes, it gives back to you.' },
+    { id: 'obsidian',    name: 'Obsidian Verdict', archetype: 'heavy', color: '#b06bff', dmg: 64, enchants: ['executioner', 'sharpness', 'fireaspect'],  flavor: 'Judge, jury, and the last thing you hear.' },
+    { id: 'doombringer', name: 'Doombringer',      archetype: 'heavy', color: '#e63fff', dmg: 68, enchants: ['executioner', 'fireaspect', 'sharpness'],  flavor: 'It hums the name of everyone it will meet.' },
+    { id: 'soulrender',  name: 'Soulrender',       archetype: 'heavy', color: '#8b1a1a', dmg: 64, enchants: ['vampiric', 'executioner', 'sweeping'],     flavor: 'It does not cut flesh. It cuts the thread.' },
+    { id: 'whisperfang', name: 'Whisperfang',      archetype: 'light', color: '#7fd4ff', dmg: 26, enchants: ['vampiric', 'momentum', 'sharpness'],       flavor: 'You never hear the blade that drinks you.' },
+    { id: 'zephyr',      name: 'Zephyr',           archetype: 'light', color: '#9be8d8', dmg: 24, enchants: ['sweeping', 'momentum', 'knockback'],        flavor: 'Faster than the wind that carries the ash.' },
+    { id: 'heartseeker', name: 'Heartseeker',      archetype: 'light', color: '#ff5edb', dmg: 28, enchants: ['executioner', 'vampiric', 'sharpness'],    flavor: 'It knows exactly where you keep your life.' },
+    { id: 'emberdance',  name: 'Emberdance',       archetype: 'light', color: '#ff6a2c', dmg: 27, enchants: ['fireaspect', 'momentum', 'sharpness'],      flavor: 'Two blades, one flame, no survivors.' },
+    { id: 'kingsbane',   name: 'Kingsbane',        archetype: 'light', color: '#ffd24c', dmg: 30, enchants: ['executioner', 'sharpness', 'looting'],     flavor: 'Forged from a crown that was never earned.' },
+    { id: 'serpentkiss', name: "Serpent's Kiss",   archetype: 'light', color: '#4ade80', dmg: 25, enchants: ['fireaspect', 'vampiric', 'momentum'],      flavor: 'A venom that learned to love its host.' },
+    { id: 'frostbite',   name: 'Frostbite',        archetype: 'light', color: '#aee7ff', dmg: 26, enchants: ['knockback', 'sharpness', 'momentum'],       flavor: 'Cold enough to still a beating heart mid-swing.' },
+    { id: 'stormcaller', name: 'Stormcaller',      archetype: 'bow',   color: '#7fd4ff', dmg: 34, enchants: ['multishot', 'power', 'punch'],              flavor: 'It does not miss. It simply chooses.' },
+    { id: 'sunpiercer',  name: 'Sunpiercer',       archetype: 'bow',   color: '#fff2a0', dmg: 36, enchants: ['flame', 'piercing', 'power'],               flavor: 'One arrow, and the horizon caught fire.' },
+    { id: 'widowloom',   name: "Widow's Loom",     archetype: 'bow',   color: '#b06bff', dmg: 33, enchants: ['multishot', 'flame', 'looting'],            flavor: 'She weaves arrows from the last breath of the fallen.' },
+    { id: 'deadeye',     name: 'Deadeye',          archetype: 'bow',   color: '#ff5a2c', dmg: 38, enchants: ['piercing', 'power', 'punch'],               flavor: 'It has never blinked. Not once.' },
+    { id: 'ghostwind',   name: 'Ghostwind',        archetype: 'bow',   color: '#9be8d8', dmg: 35, enchants: ['infinity', 'multishot', 'power'],           flavor: 'The quiver is empty. The arrows keep coming.' },
+    { id: 'hellfire',    name: 'Hellfire',         archetype: 'bow',   color: '#ff3a1a', dmg: 37, enchants: ['flame', 'piercing', 'multishot'],           flavor: 'Loosed from the seventh circle, aimed at the eighth.' },
+  ];
+  const MYTHIC_ARMOR = [
+    { id: 'aegisfallen', name: 'Aegis of the Fallen',   color: '#ffd24c', defense: 0.16, enchants: ['juggernaut', 'bulwark'],               flavor: 'The last king who wore it never fell.' },
+    { id: 'phoenixmant', name: 'Phoenix Mantle',        color: '#ff6a2c', defense: 0.14, enchants: ['phoenix', 'recovery'],                 flavor: 'Burn it down. It comes back warmer.' },
+    { id: 'bulwarketrn', name: 'Bulwark Eternal',       color: '#7fd4ff', defense: 0.18, enchants: ['juggernaut', 'protection'],            flavor: 'A wall that learned to walk.' },
+    { id: 'shroudecho',  name: 'Shroud of Echoes',      color: '#b06bff', defense: 0.14, enchants: ['thornmail', 'swiftness'],              flavor: 'Strike it, and hear your own blow return.' },
+    { id: 'vestkings',   name: 'Vestment of Kings',     color: '#fff2a0', defense: 0.15, enchants: ['bulwark', 'fortune', 'protection'],    flavor: 'Woven with thread spun from crowns.' },
+    { id: 'serpentscale',name: 'Serpentscale',          color: '#4ade80', defense: 0.14, enchants: ['thornmail', 'recovery'],               flavor: 'It bites the hand that strikes it.' },
+    { id: 'windwoven',   name: 'Windwoven Cloak',       color: '#9be8d8', defense: 0.12, enchants: ['swiftness', 'acrobatics', 'recovery'], flavor: 'Lighter than a held breath.' },
+    { id: 'heartmount',  name: 'Heart of the Mountain', color: '#c0846a', defense: 0.19, enchants: ['juggernaut', 'thornmail'],             flavor: 'Stone that remembers being a heart.' },
+    { id: 'gravewarden', name: 'Grave Warden',          color: '#8b1a1a', defense: 0.15, enchants: ['phoenix', 'thornmail'],                flavor: 'It has buried a hundred wearers and outlived them all.' },
+    { id: 'radiantbast', name: 'Radiant Bastion',       color: '#e63fff', defense: 0.16, enchants: ['bulwark', 'juggernaut', 'recovery'],   flavor: 'Light given the shape of a shield.' },
+  ];
+  const MYTHIC_TOTAL = MYTHIC_WEAPONS.length + MYTHIC_ARMOR.length;
+
+  function mythicEnchants(keys, table) {
+    return keys.map(k => {
+      const d = table.find(e => e.key === k) || { key: k, name: k, tier: 3, desc: '' };
+      return { key: d.key, name: d.name, tier: d.tier, desc: d.desc, level: d.leveled ? 3 : 0 };
+    });
+  }
+
+  function buildMythicWeapon(e, tier = 6) {
+    const arch = ARCHETYPES[e.archetype];
+    const w = {
+      archetype: e.archetype, rarity: 'mythic', rarityName: 'Mythic', color: e.color, rarIdx: 5,
+      name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
+      dmg: e.dmg, cooldown: arch.cooldown, windup: arch.windup,
+      range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0, stagger: arch.stagger || 0,
+      enchants: mythicEnchants(e.enchants, ENCHANTS),
+      price: 400 + tier * 5,
+    };
+    applyEnchantStats(w);
+    if (e.archetype !== 'bow') { w.range *= 1.25; w.arc = Math.min(Math.PI * 1.9, w.arc * 1.2); }
+    return w;
+  }
+
+  function buildMythicArmor(e, tier = 6) {
+    const a = {
+      isArmor: true, rarity: 'mythic', rarityName: 'Mythic', color: e.color, rarIdx: 5,
+      name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
+      defense: e.defense, enchants: mythicEnchants(e.enchants, ARMOR_ENCHANTS),
+      price: 400 + tier * 5,
+    };
+    a.price += a.enchants.reduce((s, en) => s + en.tier * 8 + (en.level || 0) * 4, 0);
+    return a;
+  }
+
+  // roll a random mythic. kind: 'weapon' | 'armor' | undefined (weighted 70/30).
+  // opts.exclude = array of mythicIds already owned (avoided if any remain).
+  function rollMythic(kind, opts = {}) {
+    const k = kind || (Math.random() < 0.7 ? 'weapon' : 'armor');
+    const table = k === 'armor' ? MYTHIC_ARMOR : MYTHIC_WEAPONS;
+    let pool = table;
+    if (opts.exclude && opts.exclude.length) {
+      const fresh = table.filter(e => !opts.exclude.includes(e.id));
+      if (fresh.length) pool = fresh; // only avoid dupes while new ones remain
+    }
+    const e = pool[(Math.random() * pool.length) | 0];
+    return k === 'armor' ? buildMythicArmor(e, opts.tier || 6) : buildMythicWeapon(e, opts.tier || 6);
+  }
+
   // particle palette for swing/arrow effects, driven by the weapon's enchants -
   // this is what makes a Fire Aspect maul FEEL like a fire maul
   function fxPalette(w) {
@@ -235,5 +327,6 @@ const Weapons = (() => {
     return w.name + (w.upLvl ? ` +${w.upLvl}` : '') + (en ? ` [${en}]` : '');
   }
 
-  return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette };
+  return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette,
+           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL };
 })();

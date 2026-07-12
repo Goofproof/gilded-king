@@ -4,6 +4,21 @@
 const PlayerDef = (() => {
   const PF = Dungeon.PF;
 
+  // visual evolution (Sam, 2026-07-11): the champion's look escalates with the
+  // stat you've invested in most. accent = aura/crest colour; cloak/body are the
+  // recoloured robes that take over at stage 2+. Stage = number of evolutions
+  // taken (capped at 4).
+  const EVO_PAL = {
+    hp:     { accent: '#7fd4ff', cloak: '#243f5a', body: '#3f7fb0' }, // steel - the bulwark
+    dmg:    { accent: '#e05555', cloak: '#5a2530', body: '#a04a4f' }, // crimson - the brute
+    spd:    { accent: '#7fe0ff', cloak: '#1f4a52', body: '#4ab0b8' }, // cyan - the courier
+    roll:   { accent: '#b8f0ff', cloak: '#2a4a58', body: '#5aa0b0' }, // ice - the acrobat
+    crit:   { accent: '#ff5a7a', cloak: '#4a1f30', body: '#b0405f' }, // rose - the assassin
+    coin:   { accent: '#ffd24c', cloak: '#5a4a1a', body: '#c9a227' }, // gold - the magnate
+    regen:  { accent: '#6ee7a0', cloak: '#1f4a34', body: '#4aa870' }, // green - the everliving
+    atkspd: { accent: '#ffe08a', cloak: '#5a4a24', body: '#c9a84a' }, // amber - the frenzied
+  };
+
   // --- PLAYER TUNING ----------------------------------------------------------
   const T = {
     speed: 205,
@@ -34,6 +49,10 @@ const PlayerDef = (() => {
       // evolution system: stacks per upgrade key + accumulated fx primitives
       this.upgradeStacks = {};
       this.evo = {};              // summed fx (see evolutions.js legend)
+      this.evoHistory = [];       // stat keys of evolutions in pick order
+      this.evoTaken = [];         // {key,name,tier} of every evolution taken (character sheet)
+      this.evoCount = 0;          // total evolutions taken (drives the visual stage)
+      this.ability = null;        // the Q ability, forged when the 2nd evolution lands
       this.lifelineUsed = 0;
       this.frenzy = { s: 0, t: 0 };
 
@@ -41,6 +60,10 @@ const PlayerDef = (() => {
       this.armor = null;          // armor item (weapons.js rollArmor)
       this.armorMods = {};        // derived from the equipped armor
       this.phoenixUsed = false;
+
+      // pet (Descent reward): one at a time, a passive buff folded into mod()
+      this.pet = null;
+      this.petMods = {};
 
       // stat multipliers - passive upgrades stack into these
       this.stats = {
@@ -86,7 +109,33 @@ const PlayerDef = (() => {
     xpToNext() { return 18 + (this.level - 1) * 14; } // leveling curve
 
     // --- evolution / armor helpers ------------------------------------------
-    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0); }
+    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0) + (this.petMods[key] || 0); }
+
+    // adopt a pet (replaces any current one - only one companion at a time)
+    adoptPet(pet) {
+      pet.x = this.x - 24; pet.y = this.y - 18; pet.bob = 0;
+      this.pet = pet;
+      this.petMods = { [pet.key]: pet.val };
+    }
+
+    // record which stat an evolution belonged to; the first two intermingle
+    // into the Q ability (see abilities.js). Called after applyEvolution.
+    recordEvoPick(statKey) {
+      this.evoHistory.push(statKey);
+      this.evoCount++;
+      if (this.evoHistory.length === 2 && !this.ability && typeof Abilities !== 'undefined') {
+        this.ability = Abilities.build(this.evoHistory[0], this.evoHistory[1]);
+      }
+    }
+
+    // the stat you've invested in most - drives the visual evolution's colour
+    dominantStat() {
+      let best = null, bestN = 0;
+      for (const k in this.upgradeStacks) {
+        if (this.upgradeStacks[k] > bestN) { bestN = this.upgradeStacks[k]; best = k; }
+      }
+      return best;
+    }
 
     applyEvolution(fx) {
       for (const k of Object.keys(fx)) {
@@ -134,6 +183,7 @@ const PlayerDef = (() => {
       if (old) g.dropArmorPickup(old, this.x, this.y + 30);
       Sfx.play('pickup');
       Fx.text(this.x, this.y - 26, Weapons.displayName(a), a.color, 12);
+      if (a.mythic && g.recordMythic) g.recordMythic(a);
     }
 
     // one damage formula for every player attack: melee and arrows both route here
@@ -197,6 +247,7 @@ const PlayerDef = (() => {
       if (old) g.dropWeaponPickup(old, this.x, this.y + 30);
       Sfx.play('pickup');
       Fx.text(this.x, this.y - 26, Weapons.displayName(w), w.color, 12);
+      if (w.mythic && g.recordMythic) g.recordMythic(w);
     }
 
     damage(dmg, sx, sy, g, src) {
@@ -295,6 +346,7 @@ const PlayerDef = (() => {
       if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
       if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
+      if (this.ability && this.ability.cd > 0) this.ability.cd -= dt;
       const totalRegen = stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
@@ -397,7 +449,10 @@ const PlayerDef = (() => {
         const wantDraw = (attackHeld || autoTarget) && this.rollT < 0;
         if (wantDraw) {
           if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
-          if (this.drawT >= 0) this.drawT += dt;
+          // attack speed charges the DRAW too, not just the between-shots cooldown -
+          // otherwise atkspd barely helped bows (the fixed 0.8s draw dominated)
+          const asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
+          if (this.drawT >= 0) this.drawT += dt * asf;
           if (!attackHeld && autoTarget && this.drawT >= 0.55) {
             this.fireBow(g); // auto release at ~70% power; hold the button for full draws
             this.drawT = -1;
@@ -418,6 +473,14 @@ const PlayerDef = (() => {
           this.applyMelee(g);
         }
         if (this.swing.t >= this.swing.dur) this.swing = null;
+      }
+
+      // pet trails just behind and to the side, bobbing
+      if (this.pet) {
+        const tx = this.x - 26, ty = this.y - 16, k = Math.min(1, dt * 6);
+        this.pet.x += (tx - this.pet.x) * k;
+        this.pet.y += (ty - this.pet.y) * k;
+        this.pet.bob += dt;
       }
     }
 
@@ -520,8 +583,14 @@ const PlayerDef = (() => {
     // --- rendering -----------------------------------------------------------------
     draw(c, g) {
       if (this.dead) return;
+      if (this.pet) this.drawPet(c);
       c.save();
       c.translate(this.x, this.y);
+
+      // visual evolution state (drives aura, robe recolour, crest, embers)
+      const evoStage = Math.min(4, this.evoCount || 0);
+      const dom = evoStage > 0 ? this.dominantStat() : null;
+      const pal = dom ? EVO_PAL[dom] : null;
 
       // roll cooldown indicator: small radial arc under the player
       if (this.rollCd > 0) {
@@ -546,9 +615,23 @@ const PlayerDef = (() => {
       if (this.buffs.hasteT > 0 && this.moving && Math.random() < 0.4) {
         Fx.burst(this.x, this.y + this.r * 0.5, '#ffe08a', 1, { speed: 20, life: 0.3 });
       }
+      // fully-evolved champions trail embers in their dominant colour
+      if (evoStage >= 4 && pal && Math.random() < 0.28) {
+        Fx.burst(this.x + (Math.random() * 20 - 10), this.y - this.r * 0.4, [pal.accent, '#fff'], 1, { speed: 24, life: 0.45, vy: -34, glow: true });
+      }
 
       // i-frame flicker
       if (this.iframes > 0 && this.rollT < 0 && Math.sin(Date.now() / 30) > 0) c.globalAlpha = 0.45;
+
+      // evolution aura: a soft halo that swells with each stage
+      if (pal && evoStage >= 1) {
+        c.save();
+        const rad = this.r + 4 + evoStage * 2.5 + Math.sin(Date.now() / 300) * 1.5;
+        c.globalAlpha *= 0.10 + evoStage * 0.05;
+        c.fillStyle = pal.accent;
+        c.beginPath(); c.arc(0, 0, rad, 0, Math.PI * 2); c.fill();
+        c.restore();
+      }
 
       // squash & stretch + spin through the roll
       if (this.rollT >= 0) {
@@ -557,29 +640,75 @@ const PlayerDef = (() => {
         c.scale(1 + 0.25 * Math.sin(k * Math.PI), 1 - 0.3 * Math.sin(k * Math.PI));
       }
 
+      // the champion grows more imposing as it evolves (visual only; hitbox r unchanged)
+      const vs = 1 + 0.05 * Math.max(0, evoStage - 1);
+      if (vs !== 1) c.scale(vs, vs);
+
       // shadow
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 0.9, this.r * 0.35, 0, 0, Math.PI * 2); c.fill();
 
-      // cloak
-      c.fillStyle = this.flash > 0 ? '#ff8080' : '#2c3e60';
+      // cloak - recoloured to the dominant path from stage 2 on
+      const cloakCol = this.flash > 0 ? '#ff8080' : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60');
+      const bodyCol  = this.flash > 0 ? '#ffb0b0' : (evoStage >= 2 && pal ? pal.body : '#4a6fa5');
+      c.fillStyle = cloakCol;
       c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
       // body
-      c.fillStyle = this.flash > 0 ? '#ffb0b0' : '#4a6fa5';
+      c.fillStyle = bodyCol;
       c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
       // visor facing aim
       c.save();
       c.rotate(this.rollT >= 0 ? 0 : this.facing);
       c.fillStyle = '#0e1420';
       c.fillRect(this.r * 0.15, -4, this.r * 0.75, 8);
-      c.fillStyle = '#9ee7ff';
+      c.fillStyle = evoStage >= 2 && pal ? pal.accent : '#9ee7ff';
       c.fillRect(this.r * 0.3, -2.5, this.r * 0.5, 5);
       c.restore();
+
+      // stage 3+: a crest of spikes rises from the crown, in the dominant colour
+      if (evoStage >= 3 && pal) {
+        c.fillStyle = pal.accent;
+        const spikes = evoStage >= 4 ? 5 : 3, spread = this.r * 0.9;
+        for (let i = 0; i < spikes; i++) {
+          const sx = -spread / 2 + (spread / (spikes - 1)) * i;
+          const h = this.r * (evoStage >= 4 ? 0.85 : 0.6) - Math.abs(sx) * 0.35;
+          c.beginPath();
+          c.moveTo(sx - 2.2, -this.r * 0.7); c.lineTo(sx, -this.r * 0.7 - h); c.lineTo(sx + 2.2, -this.r * 0.7);
+          c.closePath(); c.fill();
+        }
+      }
 
       c.restore();
 
       // weapon rendering (outside the roll transform)
       if (this.rollT < 0) this.drawWeapon(c);
+    }
+
+    drawPet(c) {
+      const p = this.pet;
+      const by = Math.sin(p.bob * 4) * 2.5;
+      c.save();
+      c.translate(p.x, p.y + by);
+      c.fillStyle = 'rgba(0,0,0,0.3)';
+      c.beginPath(); c.ellipse(0, 9 - by, 7, 2.5, 0, 0, Math.PI * 2); c.fill();
+      c.shadowColor = p.color; c.shadowBlur = 8;
+      c.fillStyle = p.color;
+      c.beginPath(); c.arc(0, 0, 6, 0, Math.PI * 2); c.fill();
+      c.shadowBlur = 0;
+      if (p.type === 'owl' || p.type === 'sprite') { // little wings
+        c.beginPath(); c.ellipse(-7, 0, 3, 5, 0.5, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.ellipse(7, 0, 3, 5, -0.5, 0, Math.PI * 2); c.fill();
+      } else if (p.type === 'imp') {           // horns
+        c.beginPath(); c.moveTo(-3, -5); c.lineTo(-5, -9); c.lineTo(-1, -6); c.fill();
+        c.beginPath(); c.moveTo(3, -5); c.lineTo(5, -9); c.lineTo(1, -6); c.fill();
+      }
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(-2, -1, 1.6, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(2, -1, 1.6, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#111';
+      c.beginPath(); c.arc(-2, -1, 0.8, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(2, -1, 0.8, 0, Math.PI * 2); c.fill();
+      c.restore();
     }
 
     drawWeapon(c) {

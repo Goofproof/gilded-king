@@ -237,6 +237,27 @@ const Sfx = (() => {
         }
         return t;
       });
+    } else if (theme === 'inferno') {
+      drone('sawtooth', 40, 0.03, 150);   // subterranean magma rumble
+      drone('sawtooth', 40.7, 0.02, 150); // detuned, uneasy
+      noiseBed(95, 0.05);                  // the roar of the great fire
+      every(1.6, 4.5, () => noise(0.4, 0.03, 'bandpass', 2000 + Math.random() * 900, 1300)); // fire crackle
+      // APEX PREDATOR: the wails of the damned, somewhere far below
+      every(24, 50, () => {
+        tone('sawtooth', 230, 90, 0.05, 1.3, 0.05);
+        tone('sawtooth', 185, 70, 0.04, 1.1, 0.04, 0.65);
+        noise(0.6, 0.04, 'lowpass', 500, 200, 0.3);
+      });
+      // MUSIC: a grim descending dirge in low A
+      phraseLoop(() => {
+        const line = [110.0, 103.83, 98.0, 92.5];
+        const noteLen = 1.4;
+        line.forEach((f, i) => {
+          tone('sawtooth', f, f * 0.98, 0.06, noteLen * 0.9, 0.03, i * noteLen);
+          tone('triangle', f * 1.5, f * 1.5, 0.08, noteLen * 0.4, 0.012, i * noteLen + 0.2); // ghost fifth
+        });
+        return line.length * noteLen;
+      });
     }
   }
 
