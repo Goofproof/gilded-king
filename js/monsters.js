@@ -40,7 +40,9 @@ const Monsters = (() => {
   // an optional elite affix. null on the base 3 floors, so those are untouched.
   function make(type, x, y, tier = 1, mods = null) {
     const b = BASE[type];
-    const hpMul = 1 + 0.30 * (tier - 1), dmgMul = 1 + 0.15 * (tier - 1);
+    // #28: deeper tiers hit noticeably harder (dmg +24%/tier, was +15%) so late
+    // floors and the Descent stay dangerous instead of trivial once you're geared
+    const hpMul = 1 + 0.34 * (tier - 1), dmgMul = 1 + 0.24 * (tier - 1);
     const m = {
       type, x, y, r: b.r,
       hp: Math.round(b.hp * hpMul), maxHp: Math.round(b.hp * hpMul),

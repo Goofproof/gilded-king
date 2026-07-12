@@ -1733,8 +1733,17 @@
   function coopScaleMonsters(mons) {
     if (!g.coop) return;
     const n = coopPlayers();
-    const hpMul = n, dmgMul = 1 + 0.25 * (n - 1);
-    for (const m of mons) { m.hp = Math.round(m.hp * hpMul); m.maxHp = Math.round(m.maxHp * hpMul); if (m.dmg) m.dmg = Math.round(m.dmg * dmgMul); }
+    // #28: a full party was near-unkillable. Enemies now HIT much harder per extra
+    // player (+55% each, was +25%) and hit a touch faster, on top of the hp bump, so
+    // co-op is a real threat instead of a health-sponge cakewalk.
+    const hpMul = 1 + 0.9 * (n - 1);        // 2p ~1.9x, 3p ~2.8x
+    const dmgMul = 1 + 0.55 * (n - 1);      // 2p 1.55x, 3p 2.1x
+    const spdMul = 1 + 0.06 * (n - 1);
+    for (const m of mons) {
+      m.hp = Math.round(m.hp * hpMul); m.maxHp = Math.round(m.maxHp * hpMul);
+      if (m.dmg) m.dmg = Math.round(m.dmg * dmgMul);
+      if (m.speed) m.speed = m.speed * spdMul;
+    }
   }
 
   // host: broadcast a compact snapshot of every monster (~15 Hz)
