@@ -6,6 +6,24 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #16 magic audit (reeled in per Sam) + fixes (2026-07-12)
+Ran a 5-dimension review workflow on the magic integration; Sam flagged it was
+spawning too many agents (a prior "workflow_agent_overrun" is on THE LIST), so I
+STOPPED it after the hunt phase and verified the findings myself (no verify swarm).
+Fixed the real bugs:
+- #47 dagger/swarmer: melee now targets the NEAREST in-reach enemy and faces it
+  (cursor-aim is for ranged only); zero-windup weapons no longer swing early and
+  whiff. Verified: dagger hits an adjacent swarmer even with the cursor aimed away.
+- Staff fireball no longer double-hits its direct target (blast skips the primary).
+- Unwieldable magic pickup no longer strands you: pickup stays on the wieldable slot.
+- Wand/staff now labelled "Wand/Staff · magic (Magic N)" and get their own HUD /
+  dropped-gear glyph (rod + orb), not "Light melee"/sword.
+- EVO_PAL now has a 'magic' violet so a magic-heavy build keeps its evolution visuals.
+DEFERRED (balance/cosmetic, need Sam's playtest, logged not fixed blindly):
+- Wand sustained DPS reads ~3x bow and Multishot compounds it - needs a balance pass.
+- Co-op mirrors magic shots as a plain arrow visual (cosmetic; damage is correct).
+- Attunement is a dead level-up pick with no magic weapon equipped (chicken/egg).
+
 ## HOLDING the remaining big/ambiguous items (2026-07-12)
 After clearing everything cleanly buildable, I stopped prod-changing work on the
 last items rather than build them blind. Reasoning per item (for Sam to steer):

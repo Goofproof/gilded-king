@@ -198,6 +198,12 @@ const UI = (() => {
         c.rotate(-Math.PI / 4);
         c.fillRect(-3, -16, 6, 22);       // fat blade
         c.fillRect(-8, 6, 16, 4);         // crossguard
+      } else if (w.archetype === 'wand' || w.archetype === 'staff') {
+        // a rod with a glowing orb tip (staff = thicker)
+        c.rotate(-Math.PI / 4);
+        c.lineWidth = w.archetype === 'staff' ? 3 : 2;
+        c.beginPath(); c.moveTo(0, 11); c.lineTo(0, -7); c.stroke();
+        c.beginPath(); c.arc(0, -10, w.archetype === 'staff' ? 4 : 3, 0, Math.PI * 2); c.fill();
       } else {
         c.rotate(-Math.PI / 4);
         c.fillRect(-1.5, -15, 3, 20);

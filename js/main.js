@@ -2288,7 +2288,7 @@
             }, g);
             if (landed) P.onHitLanded(pr.crit, g);
             if (pr.pierce && pr.hitSet.size < pr.pierce) { pr.hitSet.add(m); pr.dmg *= 0.8; }
-            else { dead = true; break; }
+            else { dead = true; pr._primary = m; break; } // remember the struck target so the blast doesn't double-hit it
           }
         }
       }
@@ -2299,7 +2299,7 @@
           Fx.burst(pr.x, pr.y, ['#ff8833', '#ffcc44', '#ff4422'], 22, { speed: 230, life: 0.5, glow: true });
           const P = g.player;
           for (const m of g.monsters) {
-            if (m.dead || m.airborne) continue;
+            if (m.dead || m.airborne || m === pr._primary) continue; // the direct target already ate the full hit
             if (Math.hypot(pr.x - m.x, pr.y - m.y) < pr.blast + m.r) m.takeHit(pr.dmg * 0.8, { sx: pr.x, sy: pr.y, knock: 110, flame: pr.flame, crit: pr.crit, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
           }
         }
@@ -2992,6 +2992,11 @@
       c.moveTo(-2 + Math.cos(-Math.PI / 2.3) * 11, Math.sin(-Math.PI / 2.3) * 11);
       c.lineTo(-2 + Math.cos(Math.PI / 2.3) * 11, Math.sin(Math.PI / 2.3) * 11);
       c.stroke();
+    } else if (w.archetype === 'wand' || w.archetype === 'staff') {
+      c.rotate(-Math.PI / 4);
+      c.lineWidth = w.archetype === 'staff' ? 3 : 2;
+      c.beginPath(); c.moveTo(0, 11); c.lineTo(0, -8); c.stroke();
+      c.beginPath(); c.arc(0, -11, w.archetype === 'staff' ? 4.5 : 3.5, 0, Math.PI * 2); c.fill();
     } else {
       c.rotate(-Math.PI / 4);
       const fat = w.archetype === 'heavy';
@@ -3104,9 +3109,10 @@
 
   // a hovering stat card for a weapon or armor item, anchored above (anchorX, anchorY)
   function drawGearCard(c, w, anchorX, anchorY) {
+    const ARCH_LABEL = { bow: 'Bow', heavy: 'Heavy melee', light: 'Light melee', wand: 'Wand · magic', staff: 'Staff · magic' };
     const subtitle = w.isArmor
       ? `Armor · ${Math.round(w.defense * 100)}% protection`
-      : `${w.archetype === 'bow' ? 'Bow' : w.archetype === 'heavy' ? 'Heavy melee' : 'Light melee'} · ${w.dmg} dmg`;
+      : `${ARCH_LABEL[w.archetype] || 'Weapon'}${w.magicReq ? ` (Magic ${w.magicReq})` : ''} · ${w.dmg} dmg`;
     const lines = [
       { text: `${w.rarityName} ${w.name}`, color: w.color, bold: true },
       { text: subtitle, color: '#c8d2e0' },

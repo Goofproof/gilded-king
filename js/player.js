@@ -17,6 +17,7 @@ const PlayerDef = (() => {
     coin:   { accent: '#ffd24c', cloak: '#5a4a1a', body: '#c9a227' }, // gold - the magnate
     regen:  { accent: '#6ee7a0', cloak: '#1f4a34', body: '#4aa870' }, // green - the everliving
     atkspd: { accent: '#ffe08a', cloak: '#5a4a24', body: '#c9a84a' }, // amber - the frenzied
+    magic:  { accent: '#b06bff', cloak: '#3a2456', body: '#7b48b8' }, // violet - the arcanist
   };
 
   // --- PLAYER TUNING ----------------------------------------------------------
@@ -267,6 +268,12 @@ const PlayerDef = (() => {
       Sfx.play('pickup');
       Fx.text(this.x, this.y - 26, Weapons.displayName(w), w.color, 12);
       if (w.mythic && g.recordMythic) g.recordMythic(w);
+      // #16: don't strand the player holding a magic weapon they can't wield when the
+      // other slot has a usable one - keep the pickup but stay on the wieldable slot
+      if (!this.canWield(this.weapons[this.slot])) {
+        const other = this.slot === 'a' ? 'b' : 'a';
+        if (this.weapons[other] && this.canWield(this.weapons[other])) this.slot = other;
+      }
     }
 
     damage(dmg, sx, sy, g, src) {
@@ -389,7 +396,11 @@ const PlayerDef = (() => {
       let autoDist = 1e9;
       if (autoTarget) {
         autoDist = Math.hypot(autoTarget.x - this.x, autoTarget.y - this.y);
-        this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
+        // #47: melee faces the NEAREST enemy (it hits what's adjacent); ranged (bow/
+        // wand/staff) faces the cursor pick so you can aim distant targets (#17)
+        const wa = this.weapon.archetype;
+        const face = (wa === 'heavy' || wa === 'light') ? (nearTarget || autoTarget) : autoTarget;
+        this.facing = Math.atan2(face.y - this.y, face.x - this.x);
       }
 
       // --- movement ---------------------------------------------------------
@@ -479,8 +490,14 @@ const PlayerDef = (() => {
       // pre-swing (Sam): start the swing just before the target reaches range so
       // the hit lands as it arrives - lead by the distance it closes during windup
       // (applyMelee re-checks range at release, so an early swing that whiffs is fine)
-      const lead = w.windup * ((autoTarget && autoTarget.speed) || 0) + 10;
-      const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8 + lead;
+      // #47: MELEE hits what's adjacent, so swing at the NEAREST enemy in reach, not a
+      // far cursor-picked one (cursor-aim is for ranged). Pre-swing lead only helps when
+      // there's a windup for the target to close during; a zero-windup dagger with a flat
+      // +10 lead just swung-and-whiffed on fast swarmers (burning its cooldown).
+      const meleeTarget = nearTarget || autoTarget;
+      const meleeDist = meleeTarget ? Math.hypot(meleeTarget.x - this.x, meleeTarget.y - this.y) : 1e9;
+      const lead = w.windup > 0 ? w.windup * ((meleeTarget && meleeTarget.speed) || 0) + 8 : 3;
+      const autoMelee = meleeTarget && meleeDist <= w.range + meleeTarget.r + lead;
       if (w.archetype === 'bow') {
         const wantDraw = autoTarget && this.rollT < 0;
         if (wantDraw) {
@@ -518,7 +535,11 @@ const PlayerDef = (() => {
           }
         }
       } else {
-        if (autoMelee && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
+        // face the nearest in-reach enemy for the swing (so the arc lands on it)
+        if (autoMelee && this.attackCd <= 0 && this.rollT < 0) {
+          this.facing = Math.atan2(meleeTarget.y - this.y, meleeTarget.x - this.x);
+          this.startSwing(g);
+        }
       }
 
       // ongoing swing (heavy applies damage at end of windup)
