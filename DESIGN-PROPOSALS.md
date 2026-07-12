@@ -111,6 +111,11 @@ is undesigned. Building a page for an undefined system is premature.
 **Recommendation.** Decide the RESET-and-REWARD rule first (one sentence: "prestige
 resets X to grant permanent Y"). Once that exists the page is a small build. I can
 draft 2-3 candidate rules if you want a starting point.
+> SHIPPED (2026-07-12): Sam's rule - "spend/reset your WHOLE essence account (essence
+> + all upgrade ranks) to gain +1 prestige level; the only reward is COSMETIC." Built
+> as a home-screen button (two-click confirm, cost 500*(level+1)) and a royal cape on
+> the champion that grows richer each prestige level. Purely cosmetic, no gameplay
+> power. (My earlier "Crowns from winning + gameplay perks" idea was the wrong model.)
 
 ---
 
