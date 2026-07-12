@@ -238,6 +238,7 @@
     g.evoChoices = null;
     g.leveling = false; g.peerBusy = {}; g.peerDone = {}; // #32 gate reset
     g.levelWaitT = 0; g.pendingCoopRoom = null;
+    g.rerollCount = 0; g.rerollDenyT = 0; // #20 paid-reroll counter
     g.winTimer = -1;
     g.deathTimer = -1;
     g.runEnded = false;
@@ -1269,7 +1270,7 @@
       case 'title': updateTitle(); break;
       case 'lobby': updateLobby(); break;
       case 'play': updatePlay(dt); break;
-      case 'levelup': g.overlayT += dt; updateLevelUp(); break;
+      case 'levelup': g.overlayT += dt; updateLevelUp(dt); break;
       case 'evolution': g.overlayT += dt; updateEvolution(); break;
       case 'ultpick': g.overlayT += dt; updateUltPick(); break;
       case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
@@ -2139,7 +2140,8 @@
     if (input.pressed('Digit3') && opts[2]) { applyEvolutionChoice(opts[2]); return; }
   }
 
-  function updateLevelUp() {
+  function updateLevelUp(dt) {
+    if (g.rerollDenyT > 0) g.rerollDenyT -= (dt || 0);
     const n = g.levelChoices.length;
     // keyboard nav (Deep Rock Survivor style): A/D or arrows move, Space/Enter picks
     if (g.hoverChoice < 0) g.hoverChoice = 0;
@@ -2150,7 +2152,7 @@
       const over = input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h;
       if (!over) continue;
       if (r.reroll) {
-        if (input.mouse.clicked && !g.levelRerolled) { rerollLevelChoices(); return; }
+        if (input.mouse.clicked) { rerollLevelChoices(); return; }
         continue;
       }
       if (input.mouse.moved) g.hoverChoice = r.idx;
@@ -2160,12 +2162,17 @@
     if (input.pressed('Digit1') && g.levelChoices[0]) { applyUpgrade(g.levelChoices[0]); return; }
     if (input.pressed('Digit2') && g.levelChoices[1]) { applyUpgrade(g.levelChoices[1]); return; }
     if (input.pressed('Digit3') && g.levelChoices[2]) { applyUpgrade(g.levelChoices[2]); return; }
-    // once-per-level-up reroll (R or the button)
-    if (input.pressed('KeyR') && !g.levelRerolled) rerollLevelChoices();
+    // continuous paid reroll (R or the button): 10g, then +1g each time this run
+    if (input.pressed('KeyR')) rerollLevelChoices();
   }
 
+  function rerollCost() { return 10 + (g.rerollCount || 0); }
+
   function rerollLevelChoices() {
-    g.levelRerolled = true;
+    const p = g.player, cost = rerollCost();
+    if (!p || p.coins < cost) { Sfx.play('error'); g.rerollDenyT = 0.6; return; }
+    p.coins -= cost;
+    g.rerollCount = (g.rerollCount || 0) + 1;
     g.levelChoices = pickUpgrades();
     g.hoverChoice = -1;
     Sfx.play('ui');

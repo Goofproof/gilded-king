@@ -951,19 +951,19 @@ const UI = (() => {
       c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 10);
       rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i }); // hitbox tracks the drift
     }
-    // once-per-level-up reroll
-    if (!g.levelRerolled) {
-      const rr = { x: W / 2 - 110, y: 385, w: 220, h: 34, reroll: true };
-      c.strokeStyle = '#7fd4ff'; c.lineWidth = 1.5;
+    // continuous paid reroll (10g, then +1g each time this run)
+    {
+      const cost = 10 + (g.rerollCount || 0);
+      const afford = g.player && g.player.coins >= cost;
+      const deny = (g.rerollDenyT || 0) > 0;
+      const rr = { x: W / 2 - 120, y: 385, w: 240, h: 34, reroll: true };
+      const col = deny ? '#ff6b6b' : (afford ? '#7fd4ff' : '#556');
+      c.strokeStyle = col; c.lineWidth = 1.5;
       c.strokeRect(rr.x, rr.y, rr.w, rr.h);
       c.font = 'bold 13px monospace';
-      c.fillStyle = '#7fd4ff';
-      c.fillText('↻ REROLL CHOICES (R)', W / 2, rr.y + 22);
+      c.fillStyle = col;
+      c.fillText(`↻ REROLL (R) · ${cost}g`, W / 2, rr.y + 22);
       rects.push({ ...rr, y: rr.y + dy });
-    } else {
-      c.font = '11px monospace';
-      c.fillStyle = '#556';
-      c.fillText('reroll spent', W / 2, 405);
     }
     c.restore();
     return rects;

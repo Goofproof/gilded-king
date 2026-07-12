@@ -70,8 +70,20 @@ last items rather than build them blind. Reasoning per item (for Sam to steer):
   auto-detonate so un-tripped mines don't linger. Mines don't block room-clear (they
   aren't monsters); the miner does.
 
-## #20 reroll + honing - deferred, not guessed (2026-07-12)
-- Ambiguous (which reroll, what wording). Did NOT implement blind. Left pending for Sam.
+## #20 reroll -> continuous PAID (2026-07-12)
+- Interpreted "shop reroll: continuous, 10g then +1g each" as the LEVEL-UP reroll
+  (the only reroll in-game). Was once-per-level-up and free (gated by g.levelRerolled).
+  Now: unlimited, costs 10 gold on the first reroll of a RUN, then +1g each
+  subsequent reroll (10, 11, 12...). Counter g.rerollCount is run-persistent (resets
+  in newRun), so cost climbs across the whole run, not per level-up. Can't afford ->
+  error sound + a brief red flash on the button, no reroll, no charge. Button now
+  reads "REROLL (R) Ng" and greys out when you can't afford it.
+  Verified in-browser: 100g -> 90 (10g) -> 79 (11g), choices reroll each time;
+  at 5g with cost 13 the reroll is denied (coins/counter/choices unchanged, flash on).
+- Honing "phrasing": left as-is. The existing copy ("U hone 5", "This weapon is
+  fully honed", "Need X shards to hone (have Y)") already reads clearly; churning
+  clear text blind wasn't worth a regression. If Sam meant a specific rewording,
+  quick to change once he says which string.
 
 ## #13 HUD corners - deferred (2026-07-12)
 - Vague (which element overlaps). Left pending for Sam rather than guess.
