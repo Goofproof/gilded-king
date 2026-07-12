@@ -8,9 +8,19 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.7';
+  const VERSION = 'v2.8';
 
   const NOTES = [
+    {
+      v: 'v2.8', title: 'Magic, Tactics & Reroll', date: '2026-07-12',
+      items: [
+        'REROLL your level-up: don\'t like the three choices? Reroll them for gold - 10 the first time, a little more each reroll.',
+        'Enemies fight like a UNIT now: shield-bearers plant themselves in front of their archers, chargers swing wide to flank you, and the little swarmers guard the ranged pack until you close in.',
+        'MAGIC rebalanced: wands hit a bit less on their own, but the Magic stat now powers up every spell you cast, so a real magic build finally pays off.',
+        'ELEMENTAL STAFFS: a frost staff chills, a venom staff poisons, a storm staff chains - the burst takes on your staff\'s element instead of always being fire.',
+        'Co-op: you can finally SEE a teammate\'s spells fly as glowing bolts and fireballs, not plain arrows.',
+      ],
+    },
     {
       v: 'v2.7', title: 'Co-op, Fixed Up', date: '2026-07-12',
       items: [
