@@ -8,9 +8,15 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.2';
+  const VERSION = 'v2.3';
 
   const NOTES = [
+    {
+      v: 'v2.3', title: 'Know Your Power', date: '2026-07-11',
+      items: [
+        'Hover the Q ability badge (bottom-centre) to see exactly what your power does.',
+      ],
+    },
     {
       v: 'v2.2', title: 'Elements & Endless', date: '2026-07-11',
       items: [
