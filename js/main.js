@@ -1372,12 +1372,6 @@
 
     const p = g.player;
     if (!p.dead && input.pressed('Tab')) p.swapWeapon();
-    if (!p.dead && input.pressed('KeyF')) {
-      g.autoAttack = !g.autoAttack;
-      try { localStorage.setItem('drl_auto', g.autoAttack ? '1' : '0'); } catch { }
-      Sfx.play('ui');
-      Fx.text(p.x, p.y - 30, g.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', '#ffd24c', 13);
-    }
     p.update(dt, g, input);
     tryRoomExit();
     if (g.state !== 'play') return; // transition may have started
@@ -2432,6 +2426,48 @@
         break;
       }
     }
+    // Q ability badge tooltip (bottom-centre): what does this power do?
+    const a = p.ability;
+    if (a) {
+      const qs = 46, qx = W / 2 - qs / 2, qy = H - qs - 12;
+      if (mx >= qx && mx <= qx + qs && my >= qy && my <= qy + qs) drawAbilityCard(c, a, W / 2, qy - 6);
+    }
+  }
+
+  // hovering the Q badge explains the ability forged from your first two evolutions
+  function drawAbilityCard(c, a, anchorX, anchorY) {
+    const lines = [
+      { text: a.name, color: a.color, bold: true },
+      { text: `Q ability · ${a.cdMax}s cooldown`, color: '#8fa3bf' },
+      ...(a.desc ? wrapToLines(c, a.desc, 250) : []).map(t => ({ text: t, color: '#cdd4e2' })),
+      { text: 'forged from your first two evolutions', color: '#9a8f7a', italic: true },
+    ];
+    const cw = 268, lh = 16, chh = lines.length * lh + 14;
+    let cx = Math.min(W - cw - 8, Math.max(8, anchorX - cw / 2));
+    let cy = anchorY - chh;
+    if (cy < 8) cy = anchorY + 30;
+    c.save();
+    c.fillStyle = 'rgba(8,8,16,0.94)'; c.fillRect(cx, cy, cw, chh);
+    c.strokeStyle = a.color; c.lineWidth = 1.5; c.strokeRect(cx, cy, cw, chh);
+    c.textAlign = 'left';
+    lines.forEach((l, i) => {
+      c.font = (l.bold ? 'bold 12px' : l.italic ? 'italic 11px' : '11px') + ' monospace';
+      c.fillStyle = l.color;
+      c.fillText(l.text, cx + 10, cy + 18 + i * lh);
+    });
+    c.restore();
+  }
+
+  // wrap a string into <=width lines (monospace), for tooltip bodies
+  function wrapToLines(c, text, maxW) {
+    c.font = '11px monospace';
+    const words = text.split(' '), out = []; let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (c.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t;
+    }
+    if (line) out.push(line);
+    return out;
   }
 
   // ============================ DEBUG API (for automated testing) ============================

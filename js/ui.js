@@ -129,14 +129,6 @@ const UI = (() => {
     c.font = '10px monospace';
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
-    if (g.autoAttack) {
-      // sits in the clear gap BELOW the weapon/armor slot row (slots end at H-64,
-      // the floor tag is at H-16) so it never floats over the armor slot
-      c.font = 'bold 11px monospace';
-      c.fillStyle = '#ffd24c';
-      c.textAlign = 'left';
-      c.fillText('AUTO [F]', 14, H - 46);
-    }
 
     // Q ability badge (bottom-centre) - the power forged from the first two evolutions
     if (p.ability) drawAbility(c, p.ability);
@@ -455,24 +447,22 @@ const UI = (() => {
 
     c.textAlign = 'center';
     // deliberately NOT the boss's real name - the reveal belongs to the boss intro
-    c.font = 'bold 46px monospace';
+    c.font = 'bold 44px monospace';
     c.fillStyle = '#241a08';
-    c.fillText('DUNGEON OF THE', W / 2 + 3, 103);
+    c.fillText('DUNGEON OF THE', W / 2 + 3, 121);
     c.fillStyle = '#ffd24c';
-    c.fillText('DUNGEON OF THE', W / 2, 100);
-    c.font = 'bold 64px monospace';
+    c.fillText('DUNGEON OF THE', W / 2, 118);
+    c.font = 'bold 60px monospace';
     c.fillStyle = '#241a08';
-    c.fillText('GILDED KING', W / 2 + 4, 168);
+    c.fillText('GILDED KING', W / 2 + 4, 180);
     c.fillStyle = '#e8b52f';
-    c.fillText('GILDED KING', W / 2, 164);
+    c.fillText('GILDED KING', W / 2, 176);
 
-    c.font = '14px monospace';
-    c.fillStyle = '#8fa3bf';
-    c.fillText('WASD move · mouse aims · click/J attack · SPACE roll · E interact · Q ability · Tab swap · C stats · F auto · M mute', W / 2, 205);
+    // (controls legend removed to de-crowd the home screen; keys show in-run and on pause)
 
     // solo + co-op buttons, side by side
-    const startR = { x: W / 2 - 212, y: 232, w: 200, h: 46, action: 'start' };
-    const coopR  = { x: W / 2 + 12,  y: 232, w: 200, h: 46, action: 'coop' };
+    const startR = { x: W / 2 - 212, y: 216, w: 200, h: 46, action: 'start' };
+    const coopR  = { x: W / 2 + 12,  y: 216, w: 200, h: 46, action: 'coop' };
     const pulse = Math.sin(Date.now() / 300) * 0.12 + 0.88;
     c.fillStyle = `rgba(212,175,55,${0.15 * pulse})`;
     c.fillRect(startR.x, startR.y, startR.w, startR.h);
@@ -500,10 +490,10 @@ const UI = (() => {
     // hub: meta upgrades
     c.font = 'bold 14px monospace';
     c.fillStyle = '#b88aff';
-    c.fillText(`◆ ESSENCE: ${meta.essence}`, W / 2, 330);
+    c.fillText(`◆ ESSENCE: ${meta.essence}`, W / 2, 312);
     c.font = '11px monospace';
     c.fillStyle = '#667';
-    c.fillText('essence survives death - spend it on permanent boosts', W / 2, 348);
+    c.fillText('essence survives death - spend it on permanent boosts', W / 2, 330);
 
     const cardW = 168, cardH = 108, gap = 12;
     const totalW = META_UPGRADES.length * cardW + (META_UPGRADES.length - 1) * gap;
@@ -514,7 +504,7 @@ const UI = (() => {
       const maxed = cost === null;                    // only capped upgrades ever max
       const afford = cost !== null && meta.essence >= cost;
       const past = rank >= u.maxRank;                 // into the endless tiers
-      const r = { x: cx, y: 366, w: cardW, h: cardH, action: 'upgrade', key: u.key };
+      const r = { x: cx, y: 346, w: cardW, h: cardH, action: 'upgrade', key: u.key };
       c.fillStyle = maxed ? 'rgba(184,138,255,0.10)' : 'rgba(255,255,255,0.04)';
       c.fillRect(r.x, r.y, r.w, r.h);
       c.strokeStyle = maxed ? '#b88aff' : afford ? '#8fa3bf' : '#3a3f4d';
@@ -522,23 +512,23 @@ const UI = (() => {
       c.strokeRect(r.x, r.y, r.w, r.h);
       c.font = 'bold 13px monospace';
       c.fillStyle = maxed ? '#b88aff' : '#dde3ee';
-      c.fillText(u.name, cx + cardW / 2, 388);
+      c.fillText(u.name, cx + cardW / 2, 368);
       c.font = '11px monospace';
       c.fillStyle = '#8fa3bf';
-      wrapText(c, u.desc, cx + cardW / 2, 406, cardW - 16, 13);
+      wrapText(c, u.desc, cx + cardW / 2, 386, cardW - 16, 13);
       // rank display: pips up to maxRank, then a "Lv N" once you're past it (endless)
       if (past && u.endless) {
         c.font = 'bold 12px monospace'; c.fillStyle = '#b88aff';
-        c.fillText(`Lv ${rank}`, cx + cardW / 2, 442);
+        c.fillText(`Lv ${rank}`, cx + cardW / 2, 422);
       } else {
         for (let i = 0; i < u.maxRank; i++) {
           c.fillStyle = i < rank ? '#b88aff' : '#2c3040';
-          c.beginPath(); c.arc(cx + cardW / 2 - (u.maxRank - 1) * 7 + i * 14, 438, 4, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(cx + cardW / 2 - (u.maxRank - 1) * 7 + i * 14, 418, 4, 0, Math.PI * 2); c.fill();
         }
       }
       c.font = 'bold 12px monospace';
       c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#555';
-      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, cx + cardW / 2, 462);
+      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, cx + cardW / 2, 442);
       rects.push(r);
       cx += cardW + gap;
     }
@@ -550,14 +540,14 @@ const UI = (() => {
       c.textAlign = 'center';
       c.font = 'bold 12px monospace';
       c.fillStyle = '#8fd0a0';
-      c.fillText(`STABLE  ·  ${unlocked.length}/${roster.length}`, W / 2, 492);
-      const chip = 30, cgap = 12;
+      c.fillText(`STABLE  ·  ${unlocked.length}/${roster.length}`, W / 2, 26);
+      const chip = 28, cgap = 10;
       const rowW = roster.length * chip + (roster.length - 1) * cgap;
       let px = (W - rowW) / 2;
       for (const pet of roster) {
         const has = unlocked.includes(pet.type);
         const sel = has && meta.selectedPet === pet.type;
-        const cxp = px + chip / 2, cyp = 510;
+        const cxp = px + chip / 2, cyp = 46;
         c.beginPath(); c.arc(cxp, cyp, chip / 2, 0, Math.PI * 2);
         c.fillStyle = has ? pet.color : '#20242f'; c.fill();
         if (has) { c.fillStyle = '#0e1016'; c.beginPath(); c.arc(cxp - 3, cyp - 2, 2, 0, Math.PI * 2); c.arc(cxp + 3, cyp - 2, 2, 0, Math.PI * 2); c.fill(); }
@@ -573,12 +563,12 @@ const UI = (() => {
       c.font = '11px monospace';
       c.fillStyle = chosen ? chosen.color : '#667';
       c.fillText(chosen ? `${chosen.name} · ${chosen.desc}  (click to unselect)`
-                        : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 532);
-    } else {
-      c.font = 'italic 12px monospace';
-      c.fillStyle = '#8a7340';
-      c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
+                        : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 64);
     }
+    // tagline stays anchored at the very bottom
+    c.font = 'italic 12px monospace';
+    c.fillStyle = '#8a7340';
+    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
 
     // mythic-collection laurel (top-right accolade)
     drawLaurel(c, W - 72, 62, (meta.mythics || []).length, Weapons.MYTHIC_TOTAL);

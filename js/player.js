@@ -350,17 +350,16 @@ const PlayerDef = (() => {
       const totalRegen = stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
-      // aim at the mouse - unless auto-attack (F) has a target, then aim locks on
+      // auto-attack is always on now (Sam): aim locks onto the nearest enemy, else
+      // faces the mouse. There is no manual attack - you fight by positioning.
       this.facing = Math.atan2(input.mouse.y - this.y, input.mouse.x - this.x);
       let autoTarget = null, autoDist = 1e9;
-      if (g.autoAttack) {
-        for (const m of g.monsters) {
-          if (m.dead || m.spawnT > 0 || m.airborne) continue;
-          const d = Math.hypot(m.x - this.x, m.y - this.y);
-          if (d < autoDist) { autoDist = d; autoTarget = m; }
-        }
-        if (autoTarget) this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
+      for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0 || m.airborne) continue;
+        const d = Math.hypot(m.x - this.x, m.y - this.y);
+        if (d < autoDist) { autoDist = d; autoTarget = m; }
       }
+      if (autoTarget) this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
 
       // --- movement ---------------------------------------------------------
       let mx = 0, my = 0;
@@ -448,17 +447,16 @@ const PlayerDef = (() => {
       // (applyMelee re-checks range at release, so an early swing that whiffs is fine)
       const lead = w.windup * ((autoTarget && autoTarget.speed) || 0) + 10;
       const autoMelee = autoTarget && autoDist <= w.range + autoTarget.r + 8 + lead;
-      const attackHeld = input.mouse.down || input.key('KeyJ'); // J = keyboard attack (aim stays on mouse)
       if (w.archetype === 'bow') {
-        const wantDraw = (attackHeld || autoTarget) && this.rollT < 0;
+        const wantDraw = autoTarget && this.rollT < 0;
         if (wantDraw) {
           if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
           // attack speed charges the DRAW too, not just the between-shots cooldown -
           // otherwise atkspd barely helped bows (the fixed 0.8s draw dominated)
           const asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
           if (this.drawT >= 0) this.drawT += dt * asf;
-          if (!attackHeld && autoTarget && this.drawT >= 0.55) {
-            this.fireBow(g); // auto release at ~70% power; hold the button for full draws
+          if (this.drawT >= 0.72) { // auto-release near full draw
+            this.fireBow(g);
             this.drawT = -1;
           }
         } else if (this.drawT >= 0) {
@@ -466,7 +464,7 @@ const PlayerDef = (() => {
           this.drawT = -1;
         }
       } else {
-        if ((attackHeld || autoMelee) && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
+        if (autoMelee && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
       }
 
       // ongoing swing (heavy applies damage at end of windup)

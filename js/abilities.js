@@ -61,8 +61,32 @@ const Abilities = (() => {
     else { const mod = MODS[statB]; if (mod) { mod.apply(a); tag = mod.tag; } }
     a.cdMax = Math.round(a.cdMax * 10) / 10;
     a.name = `${tag} ${act.verb}`.trim();
+    a.desc = describe(a);
     return a;
   }
 
-  return { build, ACTIONS, MODS };
+  // a short, plain-English summary of what pressing Q does (for the HUD tooltip)
+  function describe(a) {
+    const bits = [];
+    const dmg = Math.round((a.dmg || 0) * (a.dmgMul || 1));
+    if (a.kind === 'nova' || a.kind === 'strike') {
+      bits.push(`Blast nearby enemies for ${dmg}${a.critAll ? ' (crits)' : ''}`);
+      if (a.knock) bits.push('knockback');
+      if (a.coinScale) bits.push('scales with coins');
+    } else if (a.kind === 'dash') {
+      bits.push(`Dash forward through enemies for ${dmg}, with i-frames`);
+      if (a.refundRoll) bits.push('refunds your roll');
+    } else if (a.kind === 'buff') {
+      if (a.heal) bits.push(`Heal ${Math.round(a.heal * 100)}% max HP`);
+      if (a.rageAfter) bits.push('rage (+damage)');
+      if (a.hasteAfter) bits.push('haste (+speed)');
+    }
+    if (a.castShield) bits.push('grants a shield');
+    if (a.healOnCast) bits.push(`heals ${Math.round(a.healOnCast * 100)}%`);
+    if (a.hasteAfter && a.kind !== 'buff') bits.push('then haste');
+    if (a.rageAfter && a.kind !== 'buff') bits.push('then rage');
+    return bits.join(' · ');
+  }
+
+  return { build, describe, ACTIONS, MODS };
 })();
