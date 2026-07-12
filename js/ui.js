@@ -1020,26 +1020,51 @@ const UI = (() => {
     if (p.ability) { c.textAlign = 'left'; c.fillStyle = p.ability.color; c.font = 'bold 12px monospace';
       c.fillText(`Q  ${p.ability.name}`, px + 30, ly); ly += 22; }
 
-    // ---- right column: evolutions taken ----
+    // ---- right column: how close each stat is to its next evolution ----
+    // evolutions fire at the 3rd / 6th / 9th / 12th pick of a stat (tiers I-IV)
     const rx = px + pw / 2 + 10;
     let ry = py + 66;
+    const THRESH = [3, 6, 9, 12];
     c.textAlign = 'left';
     c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
-    c.fillText(`EVOLUTIONS (${p.evoTaken.length})`, rx, ry); ry += 24;
+    c.fillText('NEXT EVOLUTION', rx, ry); ry += 22;
+    c.font = '11px monospace';
+    for (const k of Object.keys(Evolutions.STAT_NAMES)) {
+      const n = (p.upgradeStacks && p.upgradeStacks[k]) || 0;
+      const next = THRESH.find(t => t > n); // undefined once fully evolved (>=12)
+      const col = STAT_COL[k] || '#8fa3bf';
+      c.textAlign = 'left'; c.fillStyle = col;
+      c.fillText(Evolutions.STAT_NAMES[k], rx, ry);
+      // segment bar: progress within the current 3-pick tier toward the next evolution
+      const barX = rx + 118, barW = 130, barH = 7, barY = ry - 8;
+      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(barX, barY, barW, barH);
+      const seg = next ? (n - (next - 3)) / 3 : 1;
+      c.fillStyle = next ? col : '#ffd24c';
+      c.fillRect(barX, barY, barW * Math.max(0, Math.min(1, seg)), barH);
+      c.textAlign = 'right'; c.fillStyle = '#cdd4e2';
+      c.fillText(next ? `${n}/${next}` : `${n} MAX`, rx + pw / 2 - 40, ry);
+      ry += 16;
+    }
+
+    // ---- evolutions already taken ----
+    ry += 12;
+    c.textAlign = 'left';
+    c.font = 'bold 13px monospace'; c.fillStyle = '#b88aff';
+    c.fillText(`EVOLUTIONS TAKEN (${p.evoTaken.length})`, rx, ry); ry += 20;
     if (!p.evoTaken.length) {
-      c.font = 'italic 12px monospace'; c.fillStyle = '#667';
-      c.fillText('stack a stat to III/VI/IX/XII to evolve', rx, ry);
+      c.font = 'italic 11px monospace'; c.fillStyle = '#667';
+      c.fillText('stack a stat to 3 / 6 / 9 / 12 to evolve', rx, ry);
     } else {
       c.font = '12px monospace';
       for (const ev of p.evoTaken) {
-        if (ry > py + ph - 30) break;
+        if (ry > py + ph - 26) break;
         const col = STAT_COL[ev.key] || '#b88aff';
-        c.fillStyle = col; c.fillText(ev.tier || '', rx, ry);
+        c.textAlign = 'left'; c.fillStyle = col; c.fillText(ev.tier || '', rx, ry);
         c.fillStyle = '#e8edf6'; c.fillText(ev.name, rx + 28, ry);
         c.fillStyle = '#5a6478'; c.font = '10px monospace';
         c.fillText((Evolutions.STAT_NAMES[ev.key] || ''), rx + 28, ry + 12);
         c.font = '12px monospace';
-        ry += 30;
+        ry += 28;
       }
     }
 
