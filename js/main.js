@@ -438,7 +438,10 @@
       g.winTimer = 2.6;                             // savor the kill; doors stay locked
       // every boss opens the plunge with a Toad line: the King's is verbatim, each
       // deeper Warden's is one notch more twisted (index = how many you've felled)
-      g.pendingDescent = { toadIdx: m.isDescentBoss ? g.circleBossSeen : 0 };
+      const toadIdx = m.isDescentBoss ? g.circleBossSeen : 0;
+      g.pendingDescent = { toadIdx };
+      // P1-E: tell guests the boss fell so they clear it + share the victory
+      if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 }), x: m.x, y: m.y, t: 0 });
@@ -1294,6 +1297,34 @@
     });
     // co-op: play a peer's attack visual so you can SEE them fighting
     Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
+    // P1-E: the guest builds the REAL King via Boss.make (crown/jaw art), sets g.boss
+    // for the health bar, and copies the per-tick fields each snapshot
+    Net.on('boss', m => {
+      if (!isCoopGuest()) return;
+      let b = g.boss;
+      if (!b || !b.proxy || b.netId !== m.i) {
+        if (b && b.proxy) { const i = g.monsters.indexOf(b); if (i >= 0) g.monsters.splice(i, 1); }
+        const opts = m.db ? { descent: { name: m.name, pal: m.pal, anger: m.an, hpMul: 1, dmgMul: 1 } } : undefined;
+        b = Boss.make(opts);
+        b.proxy = true; b.netId = m.i; b.dm = m.dm;
+        b.update = function () { this.t += 1 / 60; if (this.flash > 0) this.flash -= 1 / 60; };
+        b.takeHit = function (dmg, o) { return forwardHit(this, dmg, o); };
+        g.boss = b;
+        if (!g.monsters.includes(b)) g.monsters.push(b);
+      }
+      b.x = m.x; b.y = m.y; b.facing = m.f; b.hp = m.hp; b.maxHp = m.mh; b.dm = m.dm;
+      b.state = m.st; b.telegraph = m.tg || 0; b.jaw = m.jaw; b.hop = m.hop; b.shadowX = m.sx; b.shadowY = m.sy; b.dead = false;
+    });
+    // P1-E: boss victory - clear it, play the death + Toad line; floor advance follows {t:'floor'}
+    Net.on('bossDead', m => {
+      if (!isCoopGuest()) return;
+      if (g.boss) { const i = g.monsters.indexOf(g.boss); if (i >= 0) g.monsters.splice(i, 1); g.boss = null; }
+      Fx.shake(10, 0.5); Sfx.play('roar');
+      Fx.burst(m.x, m.y, ['#ffd24c', '#fff', '#ff6655'], 40, { speed: 260, life: 0.9, glow: true });
+      if (m.king) g.kingSlain = true;
+      g.winTimer = 2.6;
+      if (typeof Descent !== 'undefined' && m.toad !== undefined) g.toadMsg = { text: Descent.toadLine(m.toad), t: 4 };
+    });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)
     Net.on('hit', m => {
       if (g.coop && Net.isHost) {
@@ -1531,7 +1562,7 @@
     g.mobSendT = 0.066;
     const list = [];
     for (const m of g.monsters) {
-      if (m.dead) continue;
+      if (m.dead || m.isBoss) continue; // the boss syncs via its own {t:'boss'} (extra draw fields)
       if (!m.netId && !m.proxy) m.netId = ++g.netMobId; // PR-3: stamp runtime spawns (summoner adds, woken mimics, boss babies)
       if (!m.netId) continue;
       list.push({ i: m.netId, ty: m.type, x: Math.round(m.x), y: Math.round(m.y), f: +(m.facing || 0).toFixed(2),
@@ -1541,6 +1572,14 @@
                   st: m.state, tg: +(m.telegraph || 0).toFixed(2), lg: m.lungeAngle !== undefined ? +m.lungeAngle.toFixed(2) : undefined, fu: m.fuse });
     }
     Net.send({ t: 'mobs', list });
+    // P1-E: the boss rides its own message (crown/jaw/hop/shadow draw fields)
+    const b = g.boss;
+    if (b && !b.dead && b.netId) {
+      Net.send({ t: 'boss', i: b.netId, name: b.name, pal: b.pal, an: b.anger || 0, db: b.isDescentBoss ? 1 : 0, dm: b.dmg || 16,
+        x: Math.round(b.x), y: Math.round(b.y), f: +(b.facing || 0).toFixed(2), hp: Math.round(b.hp), mh: Math.round(b.maxHp),
+        st: b.state, tg: +(b.telegraph || 0).toFixed(2), jaw: Math.round(b.jaw || 0), hop: Math.round(b.hop || 0),
+        sx: Math.round(b.shadowX || 0), sy: Math.round(b.shadowY || 0) });
+    }
   }
 
   // guest: reconcile local proxies against the host's snapshot
@@ -1561,7 +1600,8 @@
     }
     for (let i = g.monsters.length - 1; i >= 0; i--) {
       const m = g.monsters[i];
-      if (m.proxy && !seen.has(m.netId)) { m.dead = true; g.monsters.splice(i, 1); }
+      // the boss lives in {t:'boss'}, not {t:'mobs'} - don't cull it here
+      if (m.proxy && !m.isBoss && !seen.has(m.netId)) { m.dead = true; g.monsters.splice(i, 1); }
     }
   }
 
