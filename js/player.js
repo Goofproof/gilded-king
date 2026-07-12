@@ -695,6 +695,10 @@ const PlayerDef = (() => {
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 0.9, this.r * 0.35, 0, 0, Math.PI * 2); c.fill();
 
+      // #22: evolution BODY PARTS grow from the paths you take - wings sit BEHIND
+      // the body, so draw them before the cloak
+      this.drawEvoParts(c, 'back');
+
       // cloak - recoloured to the dominant path from stage 2 on
       const cloakCol = this.flash > 0 ? '#ff8080' : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60');
       const bodyCol  = this.flash > 0 ? '#ffb0b0' : (evoStage >= 2 && pal ? pal.body : '#4a6fa5');
@@ -712,23 +716,97 @@ const PlayerDef = (() => {
       c.fillRect(this.r * 0.3, -2.5, this.r * 0.5, 5);
       c.restore();
 
-      // stage 3+: a crest of spikes rises from the crown, in the dominant colour
-      if (evoStage >= 3 && pal) {
-        c.fillStyle = pal.accent;
-        const spikes = evoStage >= 4 ? 5 : 3, spread = this.r * 0.9;
-        for (let i = 0; i < spikes; i++) {
-          const sx = -spread / 2 + (spread / (spikes - 1)) * i;
-          const h = this.r * (evoStage >= 4 ? 0.85 : 0.6) - Math.abs(sx) * 0.35;
-          c.beginPath();
-          c.moveTo(sx - 2.2, -this.r * 0.7); c.lineTo(sx, -this.r * 0.7 - h); c.lineTo(sx + 2.2, -this.r * 0.7);
-          c.closePath(); c.fill();
-        }
-      }
+      // #22: front body parts (horns / claws / pauldrons / crown / halo) grown
+      // from your evolution paths, drawn over the body
+      this.drawEvoParts(c, 'front');
 
       c.restore();
 
       // weapon rendering (outside the roll transform)
       if (this.rollT < 0) this.drawWeapon(c);
+    }
+
+    // #22: physical evolution features. Each stat you've evolved (>=3 stacks, i.e.
+    // at least a tier-I evolution) grows its own body part, sized up with tier - so a
+    // Might build sprouts horns, a Swift build gets wings, an assassin grows claws.
+    drawEvoParts(c, layer) {
+      const r = this.r;
+      for (const k in this.upgradeStacks) {
+        const stacks = this.upgradeStacks[k];
+        if (stacks < 3) continue;
+        const tier = Math.min(4, Math.floor(stacks / 3));   // 1..4
+        const g = 0.55 + tier * 0.11;                        // grow with tier
+        const col = (EVO_PAL[k] || {}).accent || '#fff';
+        if (layer === 'back' && k === 'spd') {               // SWIFT -> wings
+          c.save(); c.globalAlpha = 0.9;
+          for (const s of [-1, 1]) {
+            c.save(); c.scale(s, 1); c.fillStyle = col;
+            c.beginPath();
+            c.moveTo(r * 0.35, -r * 0.4);
+            c.quadraticCurveTo(r * (1.5 + g), -r * (0.9 + g * 0.5), r * (1.7 + g), r * 0.25);
+            c.quadraticCurveTo(r * 1.0, r * 0.05, r * 0.45, r * 0.35);
+            c.closePath(); c.fill();
+            c.strokeStyle = 'rgba(255,255,255,0.25)'; c.lineWidth = 1;
+            c.beginPath(); c.moveTo(r * 0.5, -r * 0.2); c.lineTo(r * (1.5 + g), r * 0.0); c.stroke();
+            c.restore();
+          }
+          c.restore();
+        } else if (layer === 'back' && k === 'roll') {       // ACROBAT -> a trailing cape/tail
+          c.save(); c.fillStyle = col; c.globalAlpha = 0.7;
+          c.beginPath();
+          c.moveTo(-r * 0.4, -r * 0.2); c.lineTo(-r * (1.2 + g), r * (0.8 + g));
+          c.lineTo(-r * 0.2, r * 0.9); c.closePath(); c.fill();
+          c.restore();
+        } else if (layer === 'front' && k === 'dmg') {       // MIGHT -> horns
+          c.save(); c.fillStyle = col;
+          for (const s of [-1, 1]) {
+            c.save(); c.scale(s, 1);
+            c.beginPath();
+            c.moveTo(r * 0.3, -r * 0.78);
+            c.quadraticCurveTo(r * (0.8 + g * 0.4), -r * (1.4 + g * 0.4), r * (1.05 + g * 0.3), -r * 0.65);
+            c.quadraticCurveTo(r * 0.75, -r * 1.05, r * 0.45, -r * 0.78);
+            c.closePath(); c.fill();
+            c.restore();
+          }
+          c.restore();
+        } else if (layer === 'front' && k === 'crit') {      // ASSASSIN -> claws
+          c.save(); c.strokeStyle = col; c.lineWidth = 1.8; c.lineCap = 'round';
+          for (const s of [-1, 1]) {
+            c.save(); c.scale(s, 1);
+            for (let i = 0; i < 3; i++) {
+              const yy = r * 0.15 + i * 3.2;
+              c.beginPath(); c.moveTo(r * 0.8, yy); c.lineTo(r * (1.25 + g * 0.3), yy - 2 + i); c.stroke();
+            }
+            c.restore();
+          }
+          c.restore();
+        } else if (layer === 'front' && k === 'hp') {        // BULWARK -> shoulder plates
+          c.save(); c.fillStyle = col;
+          for (const s of [-1, 1]) {
+            c.beginPath(); c.ellipse(s * r * 0.85, -r * 0.1, r * (0.35 + g * 0.1), r * 0.5, s * 0.4, 0, Math.PI * 2); c.fill();
+          }
+          c.restore();
+        } else if (layer === 'front' && k === 'coin') {      // MAGNATE -> a gold crown
+          c.save(); c.fillStyle = col;
+          const cw = r * 1.1, cy = -r * 0.95;
+          c.beginPath(); c.moveTo(-cw / 2, cy);
+          for (let i = 0; i <= 4; i++) { const x = -cw / 2 + (cw / 4) * i; c.lineTo(x, cy - (i % 2 ? r * 0.5 : r * 0.15)); c.lineTo(x + cw / 8, cy); }
+          c.lineTo(cw / 2, cy + r * 0.18); c.lineTo(-cw / 2, cy + r * 0.18); c.closePath(); c.fill();
+          c.restore();
+        } else if (layer === 'front' && k === 'regen') {     // EVERLIVING -> a leafy halo
+          c.save(); c.strokeStyle = col; c.lineWidth = 1.4; c.globalAlpha = 0.8;
+          c.beginPath(); c.arc(0, -r * 0.2, r * (1.15 + g * 0.2), Math.PI * 1.15, Math.PI * 1.85); c.stroke();
+          c.fillStyle = col;
+          for (let i = 0; i < 3; i++) { const a = Math.PI * (1.25 + i * 0.25); const rr = r * (1.15 + g * 0.2); c.beginPath(); c.ellipse(Math.cos(a) * rr, -r * 0.2 + Math.sin(a) * rr, 2.4, 1.4, a, 0, Math.PI * 2); c.fill(); }
+          c.restore();
+        } else if (layer === 'front' && k === 'atkspd') {    // FRENZIED -> back blades
+          c.save(); c.fillStyle = col; c.globalAlpha = 0.9;
+          for (const s of [-1, 1]) {
+            c.beginPath(); c.moveTo(s * r * 0.5, -r * 0.5); c.lineTo(s * r * (1.1 + g * 0.3), -r * (1.0 + g * 0.3)); c.lineTo(s * r * 0.75, -r * 0.35); c.closePath(); c.fill();
+          }
+          c.restore();
+        }
+      }
     }
 
     // co-op downed pose: a greyed, slumped body under a pulsing revive ring
