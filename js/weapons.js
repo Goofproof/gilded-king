@@ -43,6 +43,10 @@ const Weapons = (() => {
     { key: 'looting',   name: 'Looting',       pool: 'any',   tier: 1, desc: 'More coins and better drops' },
     { key: 'vampiric',  name: 'Vampiric',      pool: 'any',   tier: 2, desc: 'Kills restore a little health' },   // ORIGINAL
     { key: 'momentum',  name: 'Momentum',      pool: 'any',   tier: 1, desc: 'Brief speed burst after a kill' },  // ORIGINAL
+    // elemental (Sam 2026-07-11) - each a distinct on-hit effect
+    { key: 'frost',     name: 'Frost',         pool: 'any',   tier: 2, desc: 'Chills enemies: slows them, deep chill freezes' },
+    { key: 'chain',     name: 'Chain Lightning',pool: 'any',  tier: 2, desc: 'Strikes arc to nearby enemies' },
+    { key: 'venom',     name: 'Venom',         pool: 'any',   tier: 2, desc: 'Poison: heavy damage over time' },
   ];
 
   // --- ARCHETYPE BASE STATS ---------------------------------------------------

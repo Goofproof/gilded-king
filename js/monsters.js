@@ -76,6 +76,7 @@ const Monsters = (() => {
 
   // --- shared movement helpers -------------------------------------------------
   function moveToward(m, tx, ty, dt, sp) {
+    if (m.chillT > 0) sp *= (m.chillMul || 1);   // Frost slow
     const dx = tx - m.x, dy = ty - m.y, d = Math.hypot(dx, dy) || 1;
     m.x += (dx / d) * sp * dt;
     m.y += (dy / d) * sp * dt;
@@ -116,6 +117,18 @@ const Monsters = (() => {
         Fx.burst(m.x, m.y - m.r, ['#ff9944', '#ffcc44'], 3, { speed: 40, life: 0.4, glow: true });
       }
       if (m.burn.t <= 0) m.burn = null;
+    }
+    // Frost chill timer (slow applied in moveToward)
+    if (m.chillT > 0) m.chillT -= dt;
+    // Venom poison damage over time (longer + stronger than burn, green)
+    if (m.poison) {
+      m.poison.t -= dt; m.poison.tick -= dt;
+      if (m.poison.tick <= 0) {
+        m.poison.tick = 0.5;
+        applyDamage(m, m.poison.dps * 0.5, g, { silent: true, poison: true });
+        Fx.burst(m.x, m.y - m.r, ['#6ee76e', '#3aa83a'], 3, { speed: 40, life: 0.4, glow: true });
+      }
+      if (m.poison.t <= 0) m.poison = null;
     }
     if (m.dead) return;
 
@@ -331,6 +344,16 @@ const Monsters = (() => {
       m.kvy += Math.sin(ka) * opts.knock * kmul;
     }
     if (opts.flame) m.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
+    // Frost: slow the target; deep chill can briefly freeze it (reuses stagger)
+    if (opts.chill) {
+      m.chillT = 2.2; m.chillMul = Math.max(0.3, 1 - 0.45 * opts.chill);
+      if (Math.random() < 0.2 * opts.chill && !m.isBoss) {
+        m.stagger = Math.max(m.stagger || 0, 0.7);
+        Fx.text(m.x, m.y - m.r - 8, 'FROZEN', '#aee7ff', 11);
+      }
+    }
+    // Venom: heavy DOT
+    if (opts.venom) m.poison = { t: 4.5, dps: 4 + opts.venom * 3, tick: 0.5 };
     if (opts.stagger) {
       m.stagger = Math.max(m.stagger, opts.stagger);
       // heavy hits INTERRUPT telegraphed attacks, not just delay them
@@ -341,7 +364,30 @@ const Monsters = (() => {
       }
     }
     applyDamage(m, dmg, g, opts);
+    // Chain Lightning: the strike arcs to nearby OTHER monsters (no re-chain)
+    if (opts.chain && !opts.chainArc) chainArc(m, dmg, g, opts.chain);
     return true; // hit landed
+  }
+
+  // arc lightning from m to up to 2 nearby monsters for reduced damage
+  function chainArc(m, dmg, g, power) {
+    let arcs = 0;
+    for (const o of g.monsters) {
+      if (o === m || o.dead || o.spawnT > 0) continue;
+      if (Math.hypot(o.x - m.x, o.y - m.y) > 155) continue;
+      lightningFx(m, o);
+      applyDamage(o, dmg * 0.45, g, { hitSfx: 'hitArrow', chainArc: true });
+      if (++arcs >= 2) break;
+    }
+    if (arcs) Sfx.play('bowfire');
+  }
+  function lightningFx(a, b) {
+    const steps = 6;
+    for (let i = 0; i <= steps; i++) {
+      const x = a.x + (b.x - a.x) * i / steps + (Math.random() * 12 - 6);
+      const y = a.y + (b.y - a.y) * i / steps + (Math.random() * 12 - 6);
+      Fx.burst(x, y, ['#bfe8ff', '#7fd4ff', '#fff'], 1, { speed: 18, life: 0.2, glow: true, size: 2.6 });
+    }
   }
 
   function applyDamage(m, dmg, g, opts) {

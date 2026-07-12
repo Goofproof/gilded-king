@@ -9,13 +9,24 @@ const UI = (() => {
 
   // --- META-PROGRESSION UPGRADES (hub screen; persisted in localStorage) --------
   // Kept deliberately modest so runs live or die on in-run choices.
+  // Vitality/Might/Greed are ENDLESS (Sam: essence should never be "maxed out") -
+  // past their listed tiers each rank costs more (geometric) and keeps scaling,
+  // since the effects are per-rank in the Player constructor. Acrobat/Armory stay
+  // capped (their effects can't scale forever).
   const META_UPGRADES = [
-    { key: 'vitality', name: 'Vitality',  desc: '+10 starting health',       maxRank: 3, costs: [25, 50, 90] },
-    { key: 'might',    name: 'Might',     desc: '+5% damage',                maxRank: 3, costs: [25, 50, 90] },
+    { key: 'vitality', name: 'Vitality',  desc: '+10 starting health',       maxRank: 3, costs: [25, 50, 90], endless: true },
+    { key: 'might',    name: 'Might',     desc: '+5% damage',                maxRank: 3, costs: [25, 50, 90], endless: true },
     { key: 'acrobat',  name: 'Acrobat',   desc: '-8% roll cooldown',         maxRank: 2, costs: [30, 60] },
-    { key: 'greed',    name: 'Greed',     desc: '+10% coins from kills',     maxRank: 2, costs: [30, 60] },
+    { key: 'greed',    name: 'Greed',     desc: '+10% coins from kills',     maxRank: 3, costs: [30, 60, 100], endless: true },
     { key: 'armory',   name: 'Armory',    desc: 'Start with an Uncommon weapon', maxRank: 1, costs: [80] },
   ];
+
+  // essence cost of the NEXT rank; null once a capped upgrade is maxed
+  function metaCost(u, rank) {
+    if (rank < u.costs.length) return u.costs[rank];
+    if (!u.endless) return null;
+    return Math.round(u.costs[u.costs.length - 1] * Math.pow(1.4, rank - u.costs.length + 1));
+  }
 
   // --- HUD -------------------------------------------------------------------
   function drawHUD(c, g) {
@@ -293,13 +304,20 @@ const UI = (() => {
       minY = Math.min(minY, r.gy); maxY = Math.max(maxY, r.gy);
     }
     // adaptive cell: shrink as the explored map grows so the minimap footprint
-    // stays capped (~220x150px) instead of ballooning on a big floor
+    // stays capped (~150x105px) instead of ballooning on a big floor (Sam wanted
+    // it smaller). Leaves a row above for the level name.
     const cols = maxX - minX + 1, rows = maxY - minY + 1;
-    const cell = Math.max(9, Math.min(27, Math.floor(220 / cols) - gap, Math.floor(150 / rows) - gap));
+    const cell = Math.max(8, Math.min(18, Math.floor(150 / cols) - gap, Math.floor(105 / rows) - gap));
     const mw = cols * (cell + gap);
-    const ox = W - pad - mw, oy = pad + 4;
+    const ox = W - pad - mw, oy = pad + 22;
 
     c.save();
+    // level name above the minimap, right-aligned to its edge
+    const theme = Dungeon.themeFor(g.floorNum);
+    c.textAlign = 'right';
+    c.font = 'bold 11px monospace';
+    c.fillStyle = '#c9a86a';
+    c.fillText(`FL.${g.floorNum} · ${theme.name}`, W - pad, oy - 11);
     c.globalAlpha = 0.92;
     // backdrop
     c.fillStyle = 'rgba(8,8,14,0.65)';
@@ -481,9 +499,10 @@ const UI = (() => {
     let cx = (W - totalW) / 2;
     for (const u of META_UPGRADES) {
       const rank = meta.ranks[u.key] || 0;
-      const maxed = rank >= u.maxRank;
-      const cost = maxed ? null : u.costs[rank];
+      const cost = metaCost(u, rank);
+      const maxed = cost === null;                    // only capped upgrades ever max
       const afford = cost !== null && meta.essence >= cost;
+      const past = rank >= u.maxRank;                 // into the endless tiers
       const r = { x: cx, y: 366, w: cardW, h: cardH, action: 'upgrade', key: u.key };
       c.fillStyle = maxed ? 'rgba(184,138,255,0.10)' : 'rgba(255,255,255,0.04)';
       c.fillRect(r.x, r.y, r.w, r.h);
@@ -496,10 +515,15 @@ const UI = (() => {
       c.font = '11px monospace';
       c.fillStyle = '#8fa3bf';
       wrapText(c, u.desc, cx + cardW / 2, 406, cardW - 16, 13);
-      // rank pips
-      for (let i = 0; i < u.maxRank; i++) {
-        c.fillStyle = i < rank ? '#b88aff' : '#2c3040';
-        c.beginPath(); c.arc(cx + cardW / 2 - (u.maxRank - 1) * 7 + i * 14, 438, 4, 0, Math.PI * 2); c.fill();
+      // rank display: pips up to maxRank, then a "Lv N" once you're past it (endless)
+      if (past && u.endless) {
+        c.font = 'bold 12px monospace'; c.fillStyle = '#b88aff';
+        c.fillText(`Lv ${rank}`, cx + cardW / 2, 442);
+      } else {
+        for (let i = 0; i < u.maxRank; i++) {
+          c.fillStyle = i < rank ? '#b88aff' : '#2c3040';
+          c.beginPath(); c.arc(cx + cardW / 2 - (u.maxRank - 1) * 7 + i * 14, 438, 4, 0, Math.PI * 2); c.fill();
+        }
       }
       c.font = 'bold 12px monospace';
       c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#555';
@@ -962,5 +986,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawCharSheet, drawEnd, drawInitials };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLevelUp, drawEvolution, drawPause, drawCharSheet, drawEnd, drawInitials };
 })();

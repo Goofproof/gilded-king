@@ -8,9 +8,20 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.1';
+  const VERSION = 'v2.2';
 
   const NOTES = [
+    {
+      v: 'v2.2', title: 'Elements & Endless', date: '2026-07-11',
+      items: [
+        'ELEMENTAL weapons: Frost chills and can freeze, Chain Lightning arcs to nearby foes, Venom poisons over time.',
+        'Hub upgrades are ENDLESS now - Vitality/Might/Greed keep leveling, so essence is never wasted.',
+        'Smarter AUTO-ATTACK: it pre-swings so the hit lands right as an enemy reaches you.',
+        'Minimap is smaller and now shows the floor name above it.',
+        'CHARACTER SHEET: press C to see your live stats and every evolution you\'ve taken.',
+        'Hover your equipped weapon or armor to read its full stats.',
+      ],
+    },
     {
       v: 'v2.1', title: 'Companions & Powers', date: '2026-07-11',
       items: [
