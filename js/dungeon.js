@@ -41,6 +41,19 @@ const Dungeon = (() => {
 
   function key(x, y) { return x + ',' + y; }
 
+  // seedable PRNG (co-op: host + joiners generate the SAME floor from one seed).
+  // rnd() is Math.random by default; generateFloor swaps in a seeded stream when
+  // given a seed, so the room grid, doors, types, obstacles and chests all match.
+  let rnd = Math.random;
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
   function makeRoom(gx, gy) {
     return {
       gx, gy, type: 'combat',
@@ -52,8 +65,12 @@ const Dungeon = (() => {
   }
 
   // --- generation --------------------------------------------------------------
-  function generateFloor(floorNum) {
-    const target = BASE_ROOMS + PER_FLOOR * floorNum + ((Math.random() * (RAND_ROOMS + 1)) | 0);
+  // seed (optional): when provided, the floor is fully deterministic so every
+  // player in a co-op lobby builds the identical map. rnd resets to Math.random
+  // after, so solo play stays random.
+  function generateFloor(floorNum, seed) {
+    rnd = (seed === undefined || seed === null) ? Math.random : mulberry32((seed * 2654435761 + floorNum * 40503) | 0);
+    const target = BASE_ROOMS + PER_FLOOR * floorNum + ((rnd() * (RAND_ROOMS + 1)) | 0);
     const grid = new Map();
     const start = makeRoom(0, 0);
     start.type = 'start';
@@ -64,9 +81,9 @@ const Dungeon = (() => {
     // reject placements that would touch >1 existing room (keeps a corridor feel)
     let guard = 0;
     while (list.length < target && guard++ < 2000) {
-      const from = list[(Math.random() * list.length) | 0];
+      const from = list[(rnd() * list.length) | 0];
       const dirKeys = Object.keys(DIRS);
-      const d = dirKeys[(Math.random() * 4) | 0];
+      const d = dirKeys[(rnd() * 4) | 0];
       const nx = from.gx + DIRS[d][0], ny = from.gy + DIRS[d][1];
       if (grid.has(key(nx, ny))) continue;
       let touching = 0;
@@ -122,33 +139,33 @@ const Dungeon = (() => {
     claim('shop');
     // a secret mythic-only shop opens every 5th floor of the Descent
     if (typeof Descent !== 'undefined' && Descent.isMythicFloor(floorNum)) claim('mythicshop');
-    const nTreasure = TREASURE_ROOMS[0] + ((Math.random() * (TREASURE_ROOMS[1] - TREASURE_ROOMS[0] + 1)) | 0);
+    const nTreasure = TREASURE_ROOMS[0] + ((rnd() * (TREASURE_ROOMS[1] - TREASURE_ROOMS[0] + 1)) | 0);
     for (let i = 0; i < nTreasure; i++) claim('treasure');
 
     // populate room furniture (not monsters - those spawn on first entry)
     for (const r of list) {
       if (r.type === 'combat' || r.type === 'boss') {
         const n = OBSTACLES_PER_COMBAT[0] +
-          ((Math.random() * (OBSTACLES_PER_COMBAT[1] - OBSTACLES_PER_COMBAT[0] + 1)) | 0);
+          ((rnd() * (OBSTACLES_PER_COMBAT[1] - OBSTACLES_PER_COMBAT[0] + 1)) | 0);
         for (let i = 0; i < (r.type === 'boss' ? 0 : n); i++) {
           // keep rocks away from door lanes and the center spawn area
-          const ox = PF.x + 90 + Math.random() * (PF.w - 180);
-          const oy = PF.y + 90 + Math.random() * (PF.h - 180);
+          const ox = PF.x + 90 + rnd() * (PF.w - 180);
+          const oy = PF.y + 90 + rnd() * (PF.h - 180);
           if (Math.abs(ox - (PF.x + PF.w / 2)) < 120 && Math.abs(oy - (PF.y + PF.h / 2)) < 120) continue;
-          r.obstacles.push({ x: ox, y: oy, r: 16 + Math.random() * 12 });
+          r.obstacles.push({ x: ox, y: oy, r: 16 + rnd() * 12 });
         }
       }
       if (r.type === 'treasure') {
         // each chest rolls its mimic chance INDEPENDENTLY - twins can both bite.
         // symmetric placement so position never reads as a tell.
-        const nChests = Math.random() < 0.35 ? 2 : 1;
+        const nChests = rnd() < 0.35 ? 2 : 1;
         for (let i = 0; i < nChests; i++) {
           r.chests.push({
             x: PF.x + PF.w / 2 + (nChests === 1 ? 0 : (i === 0 ? -90 : 90)),
             y: PF.y + PF.h / 2,
             opened: false,
-            mimic: Math.random() < MIMIC_CHANCE,
-            wobble: Math.random() * Math.PI * 2, // phase for the mimic's subtle idle tell
+            mimic: rnd() < MIMIC_CHANCE,
+            wobble: rnd() * Math.PI * 2, // phase for the mimic's subtle idle tell
           });
         }
       }
@@ -171,16 +188,16 @@ const Dungeon = (() => {
       const petChance = isTreasure ? 0.05 : 0.02;
       const mercChance = isTreasure ? 0.10 : 0.05;
       // offset from centre so the occupant never blocks the door you walk in through
-      const ox = PF.x + PF.w / 2 + (Math.random() < 0.5 ? -110 : 110);
+      const ox = PF.x + PF.w / 2 + (rnd() < 0.5 ? -110 : 110);
       const oy = PF.y + PF.h / 2 - 40;
-      if (havePets && Math.random() < petChance) {
+      if (havePets && rnd() < petChance) {
         const pet = Descent.rollPet();
-        pet.activated = false; pet.x = ox; pet.y = oy; pet.bob = Math.random() * 6;
+        pet.activated = false; pet.x = ox; pet.y = oy; pet.bob = rnd() * 6;
         r.pet = pet;
-      } else if (floorNum >= 2 && Math.random() < mercChance) {
+      } else if (floorNum >= 2 && rnd() < mercChance) {
         r.merc = {
           hired: false,
-          cls: Math.random() < 0.5 ? 'blade' : 'bow',
+          cls: rnd() < 0.5 ? 'blade' : 'bow',
           cost: 40 + floorNum * 8,
           x: ox, y: oy,
         };

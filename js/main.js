@@ -161,6 +161,7 @@
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, scores: loadScores(),
     // --- co-op (multiplayer) ---
     coop: false,                 // true during a networked run
+    coopSeed: 0,                 // shared floor seed for the co-op party
     lobby: null,                 // {mode,entry,status} while on the lobby screen
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
     netReady: false,             // Net handlers wired once
@@ -245,7 +246,8 @@
   }
 
   function startFloor() {
-    g.dungeon = Dungeon.generateFloor(g.floorNum);
+    // co-op: everyone builds the SAME floor from the shared run seed
+    g.dungeon = Dungeon.generateFloor(g.floorNum, g.coop ? g.coopSeed : undefined);
     g.portal = null; // portals never carry across floors
     const theme = Dungeon.themeFor(g.floorNum);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
@@ -635,7 +637,10 @@
         (d.dir === 'N' && p.y < PF.y - 14) || (d.dir === 'S' && p.y > PF.y + PF.h + 14) ||
         (d.dir === 'W' && p.x < PF.x - 14) || (d.dir === 'E' && p.x > PF.x + PF.w + 14);
       if (past) {
-        g.transition = { dir: d.dir, next: g.room.doors[d.dir], t: 0 };
+        const next = g.room.doors[d.dir];
+        // tethered party: dragging everyone else to this room
+        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir });
+        g.transition = { dir: d.dir, next, t: 0 };
         g.state = 'transition';
         return;
       }
@@ -760,6 +765,8 @@
       Sfx.play('stairs');
       g.floorNum++;
       g.player.heal(20); // breather between floors
+      // tethered party: bring everyone down to the same next floor
+      if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
       startFloor();
     }
 
@@ -811,6 +818,7 @@
       g.toadMsg = null;
       bankEssenceCheckpoint();
       g.floorNum++;
+      if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
       p.heal(25); // a breath before the next circle
       startFloor();
     }
@@ -1231,7 +1239,11 @@
       rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = m.from;
       rp.last = g.time;
     });
-    Net.on('start', () => { if (!Net.isHost) startCoop(); });
+    Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
+    // tethered party: a peer moved through a door - everyone follows to that room
+    Net.on('room', m => { if (g.coop && g.dungeon) coopEnterRoom(m.gx, m.gy, m.dir, false); });
+    // host advanced the floor - regenerate the shared floor and follow
+    Net.on('floor', m => { if (g.coop) { g.floorNum = m.floor; g.coopSeed = m.seed; startFloor(); g.state = 'play'; } });
     Net.on('peer-leave', m => g.remotePlayers.delete(m.id));
     Net.onLifecycle('close', () => { if (g.lobby && g.lobby.mode === 'join') g.lobby.status = 'disconnected'; });
     Net.onLifecycle('error', () => { if (g.lobby) g.lobby.status = 'connection failed'; });
@@ -1252,10 +1264,19 @@
     Sfx.play('ui');
   }
 
-  function startCoop() {
+  function startCoop(seed) {
+    g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
     newRun(true);
+  }
+
+  // co-op room change: move to room (gx,gy). If `initiator`, tell everyone else.
+  function coopEnterRoom(gx, gy, dir, initiator) {
+    const room = g.dungeon.rooms.find(r => r.gx === gx && r.gy === gy);
+    if (!room || room === g.room) return;
+    enterRoom(room, dir);
+    if (initiator) Net.send({ t: 'room', gx, gy, dir });
   }
 
   function updateLobby() {
@@ -1276,7 +1297,10 @@
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'lobby-host') { Net.host(); lb.mode = 'host'; Sfx.play('ui'); }
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
-          if (r.action === 'lobby-start') { Net.send({ t: 'start' }); startCoop(); return; }
+          if (r.action === 'lobby-start') { // host picks the shared run seed
+            const seed = (Math.random() * 1e9) | 0;
+            Net.send({ t: 'start', seed }); startCoop(seed); return;
+          }
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
       }
@@ -2457,7 +2481,7 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { Net.send({ t: 'start' }); startCoop(); },
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.send({ t: 'start', seed }); startCoop(seed); },
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
   };
 
