@@ -41,3 +41,39 @@ describe('Abilities.build (Q = first two evolutions)', () => {
     }
   });
 });
+
+describe('Abilities.buildUltimates (left-click = choose 1 of 3 from Q + R)', () => {
+  it('returns exactly three ready ultimates carrying the ult flag', () => {
+    const q = Abilities.build('dmg', 'crit');
+    const r = Abilities.build('spd', 'hp');
+    const ults = Abilities.buildUltimates(q, r);
+    expect(ults.length).toBe(3);
+    for (const u of ults) {
+      expect(u.ult).toBe(true);
+      expect(u.cd).toBe(0);
+      expect(u.cdMax).toBeGreaterThanOrEqual(15); // ults are long-cooldown
+      expect(u.name).toBeTruthy();
+      expect(typeof u.desc).toBe('string');
+    }
+  });
+
+  it('amped ults out-damage their source ability; fusion is a nova', () => {
+    const q = Abilities.build('dmg', 'dmg'); // Prime Cleave, big numbers
+    const r = Abilities.build('crit', 'crit');
+    const [uq, ur, fusion] = Abilities.buildUltimates(q, r);
+    expect(uq.dmg).toBeGreaterThan(q.dmg);
+    expect(ur.dmg).toBeGreaterThan(r.dmg);
+    expect(fusion.kind).toBe('nova');
+    expect(fusion.name).toBe('FUSION CATACLYSM');
+  });
+
+  it('works for all Q x R pairings without throwing', () => {
+    for (const s1 of STATS) for (const s2 of STATS) {
+      const q = Abilities.build(s1, s2);
+      const r = Abilities.build(s2, s1);
+      const ults = Abilities.buildUltimates(q, r);
+      expect(ults.length).toBe(3);
+      ults.forEach(u => expect(u.ult).toBe(true));
+    }
+  });
+});

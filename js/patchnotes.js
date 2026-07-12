@@ -8,9 +8,18 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.5';
+  const VERSION = 'v2.6';
 
   const NOTES = [
+    {
+      v: 'v2.6', title: 'R Ability + Ultimate', date: '2026-07-12',
+      items: [
+        'Your 3rd + 4th evolutions now fuse into a second power, bound to R.',
+        'ULTIMATE unlocked: when R lands you CHOOSE one of three ultimates - a supercharged Q, a supercharged R, or a screen-shaking FUSION CATACLYSM.',
+        'Fire your ultimate with LEFT-CLICK. Long cooldown, huge payoff.',
+        'The HUD now shows all three ability badges (Q / R / left-click) with live cooldowns - hover any of them to read what it does.',
+      ],
+    },
     {
       v: 'v2.5', title: 'CO-OP is here (beta)', date: '2026-07-11',
       items: [

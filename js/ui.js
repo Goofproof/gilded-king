@@ -130,31 +130,41 @@ const UI = (() => {
     c.fillStyle = 'rgba(255,255,255,0.45)';
     c.fillText('Tab/RMB swap', 14, H - 112);
 
-    // Q ability badge (bottom-centre) - the power forged from the first two evolutions
-    if (p.ability) drawAbility(c, p.ability);
+    // ability badges (Q / R / Ultimate), bottom-centre; hover shows what each does
+    for (const b of abilityBadges(p)) drawAbility(c, b.a, b.key, b.x);
 
     c.restore();
   }
 
-  // the Q ability badge: a square key-cap with a cooldown sweep + the ability name
-  function drawAbility(c, a) {
-    const s = 46, x = W / 2 - s / 2, y = H - s - 12;
+  // layout of the present ability key-caps, shared by the HUD + the hover tooltip
+  function abilityBadges(p) {
+    const s = 46, gap = 10, list = [];
+    if (p.ability) list.push({ a: p.ability, key: 'Q' });
+    if (p.abilityR) list.push({ a: p.abilityR, key: 'R' });
+    if (p.abilityUlt) list.push({ a: p.abilityUlt, key: '★' });
+    const total = list.length * s + (list.length - 1) * gap;
+    let x = W / 2 - total / 2;
+    for (const b of list) { b.x = x; b.y = H - s - 12; b.s = s; x += s + gap; }
+    return list;
+  }
+
+  // one ability key-cap: cooldown sweep + the key letter (Q/R/★ = left-click ult)
+  function drawAbility(c, a, key, x) {
+    const s = 46, y = H - s - 12;
     const ready = a.cd <= 0;
     const k = a.cdMax > 0 ? Math.max(0, a.cd / a.cdMax) : 0;
     c.save();
     c.fillStyle = 'rgba(0,0,0,0.6)';
     c.fillRect(x, y, s, s);
-    // cooldown fill drains from the top
     if (!ready) { c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x, y, s, s * k); }
     c.strokeStyle = ready ? a.color : '#4a4f5d';
     c.lineWidth = ready ? 2.5 : 1.5;
     c.strokeRect(x, y, s, s);
-    // Q letter
     c.textAlign = 'center';
-    c.font = 'bold 20px monospace';
+    c.font = 'bold 18px monospace';
     c.fillStyle = ready ? a.color : '#7a8194';
-    c.fillText('Q', x + s / 2, y + s / 2 + 2);
-    if (ready) { // gentle ready-glow pulse
+    c.fillText(key, x + s / 2, y + s / 2 + 2);
+    if (ready) {
       c.globalAlpha = 0.35 + Math.sin(Date.now() / 300) * 0.2;
       c.strokeStyle = a.color; c.lineWidth = 2;
       c.strokeRect(x - 2, y - 2, s + 4, s + 4);
@@ -163,10 +173,6 @@ const UI = (() => {
       c.font = 'bold 12px monospace'; c.fillStyle = '#cdd4e2';
       c.fillText(Math.ceil(a.cd) + 's', x + s / 2, y + s - 6);
     }
-    // ability name above the cap
-    c.font = 'bold 11px monospace';
-    c.fillStyle = a.color;
-    c.fillText(a.name, W / 2, y - 6);
     c.restore();
   }
 
@@ -236,6 +242,48 @@ const UI = (() => {
   }
 
   // --- EVOLUTION CHOICE (Sam's system: stack a stat to 3/6/9/12) --------------------
+  // the ULTIMATE picker: choose 1 of 3 ultimates forged from your Q + R abilities
+  function drawUltPick(c, g) {
+    const opts = g.ultChoices || [];
+    const e = overlayEase(g);
+    c.save();
+    c.globalAlpha = e;
+    c.fillStyle = 'rgba(5,5,12,0.86)'; c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    c.font = 'bold 24px monospace'; c.fillStyle = '#ff2fb0';
+    c.fillText('CHOOSE YOUR ULTIMATE', W / 2, 92);
+    c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('forged from your Q + R · left-click unleashes it in battle', W / 2, 116);
+    const cardW = 250, cardH = 210, gap = 22, y = 168;
+    const totalW = opts.length * cardW + (opts.length - 1) * gap;
+    let cx = (W - totalW) / 2;
+    const rects = [];
+    opts.forEach((u, i) => {
+      const hover = g.hoverChoice === i;
+      c.fillStyle = hover ? 'rgba(255,47,176,0.14)' : 'rgba(255,255,255,0.04)';
+      c.fillRect(cx, y, cardW, cardH);
+      c.strokeStyle = hover ? u.color : '#4a4f5d'; c.lineWidth = hover ? 2.5 : 1.5;
+      c.strokeRect(cx, y, cardW, cardH);
+      c.textAlign = 'center';
+      c.font = 'bold 15px monospace'; c.fillStyle = u.color;
+      c.fillText(u.name, cx + cardW / 2, y + 34);
+      c.textAlign = 'left';
+      c.font = '11px monospace'; c.fillStyle = '#c8d2e0';
+      wrapText(c, u.desc, cx + 14, y + 66, cardW - 28, 15);
+      c.textAlign = 'center';
+      c.font = 'bold 12px monospace'; c.fillStyle = '#cdd4e2';
+      c.fillText(`${u.cdMax}s cooldown`, cx + cardW / 2, y + cardH - 16);
+      c.font = 'bold 13px monospace'; c.fillStyle = hover ? '#ffd24c' : '#555';
+      c.fillText(`[${i + 1}]`, cx + cardW / 2, y + cardH - 36);
+      rects.push({ x: cx, y, w: cardW, h: cardH, idx: i });
+      cx += cardW + gap;
+    });
+    c.font = '11px monospace'; c.fillStyle = '#667';
+    c.fillText('press 1 / 2 / 3, or click a card', W / 2, H - 34);
+    c.restore();
+    return rects;
+  }
+
   function drawEvolution(c, g) {
     const ev = g.evoChoices;
     const e = overlayEase(g);
@@ -1051,5 +1099,5 @@ const UI = (() => {
     return [{ ...r, y: r.y + dy }]; // hitbox tracks the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawPause, drawCharSheet, drawEnd, drawInitials };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawPause, drawCharSheet, drawEnd, drawInitials };
 })();

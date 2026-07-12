@@ -156,7 +156,7 @@
     essenceCheckpoint: 0,    // essence already banked to meta this run (quit-safe descent)
     bossIntroName: 'THE MIMIC KING', bossIntroSub: 'the dungeon was bait all along',
     autoAttack: (() => { try { return localStorage.getItem('drl_auto') === '1'; } catch { return false; } })(),
-    evoQueue: [], evoChoices: null,
+    evoQueue: [], evoChoices: null, ultChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, scores: loadScores(),
     // --- co-op (multiplayer) ---
@@ -859,13 +859,18 @@
     }
   }
 
-  // ============================ Q ABILITY ============================
-  // The power forged from the player's first two evolutions (see abilities.js).
-  function useAbility() {
-    const p = g.player, a = p.ability;
+  // ============================ ABILITIES (Q / R / ULTIMATE) ============================
+  // Q = first two evolutions, R = next two, Ultimate (left-click) = a chosen fusion of Q+R.
+  function useAbility() { castAbility(g.player.ability); }
+  function useAbilityR() { castAbility(g.player.abilityR); }
+  function useUltimate() { castAbility(g.player.abilityUlt); }
+
+  // run ANY ability (Q/R/ultimate). Ults just carry bigger numbers + the ult flag.
+  function castAbility(a) {
+    const p = g.player;
     if (!a || a.cd > 0 || p.dead || p.rollT >= 0) return;
     const dmgMul = a.dmgMul || 1;
-    Sfx.play('heavy');
+    Sfx.play(a.ult ? 'roar' : 'heavy');
 
     if (a.kind === 'nova' || a.kind === 'strike') {
       let dmg = (a.dmg || 60) * dmgMul;
@@ -908,7 +913,8 @@
     if (a.healOnCast) p.heal(p.maxHp * a.healOnCast);
     if (a.rageAfter) p.buffs.rageT = Math.max(p.buffs.rageT, a.rageAfter);
     if (a.hasteAfter) p.buffs.hasteT = Math.max(p.buffs.hasteT, a.hasteAfter);
-    Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
+    Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, a.ult ? 17 : 14);
+    if (a.ult) Fx.shake(9, 0.35);
     a.cd = a.cdMax;
   }
 
@@ -1181,6 +1187,7 @@
       case 'play': updatePlay(dt); break;
       case 'levelup': g.overlayT += dt; updateLevelUp(); break;
       case 'evolution': g.overlayT += dt; updateEvolution(); break;
+      case 'ultpick': g.overlayT += dt; updateUltPick(); break;
       case 'pause':
         g.overlayT += dt;
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
@@ -1706,6 +1713,8 @@
       checkMimicProximity();
       if (input.pressed('KeyE')) interact();
       if (input.pressed('KeyQ')) useAbility();
+      if (input.pressed('KeyR')) useAbilityR();
+      if (input.mouse.clicked && g.player.abilityUlt) useUltimate(); // left-click = ultimate
       if (input.pressed('KeyX')) salvageNearest();
       if (input.pressed('KeyU')) honeWeapon();
     }
@@ -1811,8 +1820,42 @@
       Fx.text(p.x, p.y - 58, `Q: ${p.ability.name.toUpperCase()}`, p.ability.color, 15);
       Sfx.play('roar');
     }
+    // the 4th evolution forges R + offers a CHOICE of 3 ultimates -> open the picker
+    if (p.evoHistory.length === 4 && p.abilityR) Fx.text(p.x, p.y - 58, `R: ${p.abilityR.name.toUpperCase()}`, p.abilityR.color, 15);
     g.evoChoices = null;
+    if (p.ultChoices && !p.abilityUlt) {
+      g.ultChoices = p.ultChoices; g.hoverChoice = -1; g.state = 'ultpick'; g.overlayT = 0;
+      Sfx.play('roar');
+      return;
+    }
     g.state = 'play';
+  }
+
+  function applyUltChoice(ult) {
+    const p = g.player;
+    p.abilityUlt = ult; p.abilityUlt.cd = 0;
+    p.ultChoices = null; g.ultChoices = null;
+    Sfx.play('levelup');
+    Fx.text(p.x, p.y - 40, `ULTIMATE: ${ult.name}`, ult.color, 16);
+    Fx.burst(p.x, p.y, [ult.color, '#fff', '#ffd24c'], 36, { speed: 240, life: 0.9, glow: true });
+    g.state = 'play';
+  }
+
+  function updateUltPick() {
+    const opts = g.ultChoices, n = opts.length;
+    if (g.hoverChoice < 0) g.hoverChoice = 0;
+    if (input.pressed('KeyA') || input.pressed('ArrowLeft')) { g.hoverChoice = (g.hoverChoice + n - 1) % n; Sfx.play('ui'); }
+    if (input.pressed('KeyD') || input.pressed('ArrowRight')) { g.hoverChoice = (g.hoverChoice + 1) % n; Sfx.play('ui'); }
+    for (const r of g.uiRects) {
+      const over = input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h;
+      if (!over) continue;
+      if (input.mouse.moved) g.hoverChoice = r.idx;
+      if (input.mouse.clicked) { applyUltChoice(opts[r.idx]); return; }
+    }
+    if ((input.pressed('Space') || input.pressed('Enter')) && opts[g.hoverChoice]) { applyUltChoice(opts[g.hoverChoice]); return; }
+    if (input.pressed('Digit1') && opts[0]) { applyUltChoice(opts[0]); return; }
+    if (input.pressed('Digit2') && opts[1]) { applyUltChoice(opts[1]); return; }
+    if (input.pressed('Digit3') && opts[2]) { applyUltChoice(opts[2]); return; }
   }
 
   function updateEvolution() {
@@ -2134,6 +2177,7 @@
     if (g.state === 'bossintro') UI.drawBossIntro(c, g);
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
+    if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
     if (g.state === 'pause') UI.drawPause(c, g);
     if (g.state === 'charsheet') UI.drawCharSheet(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
@@ -2410,7 +2454,7 @@
     if (room.type === 'start' && g.floorNum === 1) {
       c.font = '13px monospace'; c.textAlign = 'center';
       c.fillStyle = 'rgba(255,255,255,0.35)';
-      c.fillText('WASD move · aim with mouse · click to attack · SPACE to dodge roll', W / 2, PF.y + PF.h / 2 + 70);
+      c.fillText('WASD move · aim with mouse · auto-attack · SPACE dodge · Q / R / click abilities', W / 2, PF.y + PF.h / 2 + 70);
     }
 
     // treasure room sparkle ambience
@@ -2774,21 +2818,27 @@
         break;
       }
     }
-    // Q ability badge tooltip (bottom-centre): what does this power do?
-    const a = p.ability;
-    if (a) {
-      const qs = 46, qx = W / 2 - qs / 2, qy = H - qs - 12;
-      if (mx >= qx && mx <= qx + qs && my >= qy && my <= qy + qs) drawAbilityCard(c, a, W / 2, qy - 6);
+    // ability badge tooltips (Q / R / Ultimate), bottom-centre: what does each do?
+    const s = 46, gap = 10, badges = [];
+    if (p.ability)    badges.push({ a: p.ability,    key: 'Q',         forged: 'forged from your first two evolutions' });
+    if (p.abilityR)   badges.push({ a: p.abilityR,   key: 'R',         forged: 'forged from your 3rd + 4th evolutions' });
+    if (p.abilityUlt) badges.push({ a: p.abilityUlt, key: 'Ultimate', forged: 'left-click · forged from Q + R' });
+    const total = badges.length * s + (badges.length - 1) * gap;
+    let bx = W / 2 - total / 2;
+    for (const b of badges) {
+      const by = H - s - 12;
+      if (mx >= bx && mx <= bx + s && my >= by && my <= by + s) { drawAbilityCard(c, b.a, b.key, b.forged, bx + s / 2, by - 6); break; }
+      bx += s + gap;
     }
   }
 
-  // hovering the Q badge explains the ability forged from your first two evolutions
-  function drawAbilityCard(c, a, anchorX, anchorY) {
+  // hovering an ability badge explains the power and where it came from
+  function drawAbilityCard(c, a, key, forged, anchorX, anchorY) {
     const lines = [
       { text: a.name, color: a.color, bold: true },
-      { text: `Q ability · ${a.cdMax}s cooldown`, color: '#8fa3bf' },
+      { text: `${key} · ${a.cdMax}s cooldown`, color: '#8fa3bf' },
       ...(a.desc ? wrapToLines(c, a.desc, 250) : []).map(t => ({ text: t, color: '#cdd4e2' })),
-      { text: 'forged from your first two evolutions', color: '#9a8f7a', italic: true },
+      { text: forged, color: '#9a8f7a', italic: true },
     ];
     const cw = 268, lh = 16, chh = lines.length * lh + 14;
     let cx = Math.min(W - cw - 8, Math.max(8, anchorX - cw / 2));

@@ -88,5 +88,36 @@ const Abilities = (() => {
     return bits.join(' · ');
   }
 
-  return { build, describe, ACTIONS, MODS };
+  // ULTIMATE (left-click): once you have BOTH Q and R, you choose ONE of three
+  // ultimates forged from those two abilities. Long cooldown, big payoff. Options:
+  //  1) a supercharged Q,  2) a supercharged R,  3) a fusion cataclysm of both.
+  function buildUltimates(q, r) {
+    const amp = (a, name) => {
+      const u = Object.assign({}, a);
+      u.ult = true; u.cd = 0; u.cdMax = 15;
+      u.dmg = Math.round((a.dmg || 60) * 2.2);
+      u.dmgMul = (a.dmgMul || 1) * 1.5;
+      if (u.radius) u.radius = Math.round(u.radius * 1.45);
+      if (u.dist) u.dist = Math.round(u.dist * 1.3);
+      if (u.heal) u.heal = Math.min(1, u.heal * 1.8);
+      u.knock = Math.round((a.knock || 0) * 1.4) || u.knock;
+      u.castShield = true; u.critAll = true;
+      u.name = name; u.color = a.color;
+      u.desc = describe(u);
+      return u;
+    };
+    const u1 = amp(q, `${q.verb} PRIME`.toUpperCase());
+    const u2 = amp(r, `${r.verb} PRIME`.toUpperCase());
+    // fusion: a screen-shaking nova carrying both abilities' twists at once
+    const fusion = {
+      ult: true, kind: 'nova', color: '#ff2fb0', cd: 0, cdMax: 18,
+      dmg: Math.round(((q.dmg || 60) + (r.dmg || 60)) * 1.6), dmgMul: 1, radius: 240, knock: 320,
+      critAll: true, castShield: true, healOnCast: Math.max(q.heal || 0, r.heal || 0, 0.2),
+      rageAfter: 6, hasteAfter: 6, name: 'FUSION CATACLYSM',
+    };
+    fusion.desc = describe(fusion);
+    return [u1, u2, fusion];
+  }
+
+  return { build, buildUltimates, describe, ACTIONS, MODS };
 })();

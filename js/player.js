@@ -53,6 +53,9 @@ const PlayerDef = (() => {
       this.evoTaken = [];         // {key,name,tier} of every evolution taken (character sheet)
       this.evoCount = 0;          // total evolutions taken (drives the visual stage)
       this.ability = null;        // the Q ability, forged when the 2nd evolution lands
+      this.abilityR = null;       // the R ability, forged from the 3rd + 4th evolutions
+      this.abilityUlt = null;     // the chosen ultimate (left-click), forged from Q + R
+      this.ultChoices = null;     // 3 ultimate options, offered when the 4th evolution lands
       this.lifelineUsed = 0;
       this.frenzy = { s: 0, t: 0 };
 
@@ -124,8 +127,15 @@ const PlayerDef = (() => {
     recordEvoPick(statKey) {
       this.evoHistory.push(statKey);
       this.evoCount++;
-      if (this.evoHistory.length === 2 && !this.ability && typeof Abilities !== 'undefined') {
+      if (typeof Abilities === 'undefined') return;
+      // 2nd evolution -> Q ability
+      if (this.evoHistory.length === 2 && !this.ability) {
         this.ability = Abilities.build(this.evoHistory[0], this.evoHistory[1]);
+      }
+      // 4th evolution -> R ability + a CHOICE of 3 ultimates forged from Q + R
+      if (this.evoHistory.length === 4 && !this.abilityR) {
+        this.abilityR = Abilities.build(this.evoHistory[2], this.evoHistory[3]);
+        this.ultChoices = Abilities.buildUltimates(this.ability, this.abilityR);
       }
     }
 
@@ -348,6 +358,8 @@ const PlayerDef = (() => {
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
       if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
       if (this.ability && this.ability.cd > 0) this.ability.cd -= dt;
+      if (this.abilityR && this.abilityR.cd > 0) this.abilityR.cd -= dt;
+      if (this.abilityUlt && this.abilityUlt.cd > 0) this.abilityUlt.cd -= dt;
       const totalRegen = stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
