@@ -537,7 +537,9 @@
         const hasBoss = g.floorNum === 3 ||
           (typeof Descent !== 'undefined' && Descent.isBossFloor(g.floorNum));
         if (hasBoss) {
+          openPortal(); // #21: skip the long trek - a portal to the boss's doorstep opens
           Fx.text(W / 2, H / 2 - 30, 'THE BOSS DOOR OPENS...', '#ffd24c', 15);
+          Fx.text(W / 2, H / 2 - 8, 'a portal to its threshold shimmers open', '#b88aff', 13);
         } else {
           openPortal(); // floor done: a portal to the stairs room opens right here
           Fx.text(W / 2, H / 2 - 30, 'A PORTAL TO THE STAIRS OPENS', '#4cc9a8', 15);
@@ -555,6 +557,16 @@
   // send every loose (non-gear) pickup racing to the player
   function vacuumPickups() {
     for (const pk of g.pickups) if (pk.kind !== 'weapon' && pk.kind !== 'armorItem') pk.vacuum = true;
+  }
+
+  // #21: the room adjacent to the boss room (boss rooms are dead-ends with one door),
+  // i.e. the boss's "threshold" the floor-3 portal drops you at
+  function roomOutsideBoss() {
+    if (!g.dungeon) return null;
+    const boss = g.dungeon.rooms.find(r => r.type === 'boss');
+    if (!boss) return null;
+    for (const dir in boss.doors) return boss.doors[dir]; // first (only) neighbor
+    return null;
   }
 
   function openPortal() {
@@ -858,14 +870,18 @@
     }
 
     if (t.kind === 'portal') {
-      // one-way ride to the stairs room
+      // one-way ride to the floor's exit: the stairs room, or on a boss floor the
+      // room right OUTSIDE the boss door (#21 - no long backtrack to the boss)
       const stairsRoom = g.dungeon.rooms.find(r => r.type === 'stairs');
-      if (stairsRoom) {
+      const dest = stairsRoom || roomOutsideBoss();
+      if (dest) {
         Sfx.play('stairs');
         Fx.burst(p.x, p.y, ['#4cc9a8', '#b88aff'], 20, { speed: 180, life: 0.5, glow: true });
         g.portal = null;
-        enterRoom(stairsRoom, null);
-        p.y += 90; // land beside the stairwell, not inside it
+        // co-op: pull the party along so nobody is left behind by the shortcut
+        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null });
+        enterRoom(dest, null);
+        if (stairsRoom) p.y += 90; // land beside the stairwell, not inside it
       }
     }
 
