@@ -367,16 +367,26 @@ const PlayerDef = (() => {
       const totalRegen = stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
-      // auto-attack is always on now (Sam): aim locks onto the nearest enemy, else
-      // faces the mouse. There is no manual attack - you fight by positioning.
+      // auto-attack is always on (Sam). CURSOR-BASED targeting (#17): if you're
+      // aiming the mouse at (or near) an enemy, THAT one is your target - so you can
+      // pick off the summoner/healer instead of whatever is closest. If the cursor
+      // isn't on anyone, it falls back to the nearest enemy so you never stand idle.
       this.facing = Math.atan2(input.mouse.y - this.y, input.mouse.x - this.x);
-      let autoTarget = null, autoDist = 1e9;
+      let cursorTarget = null, cursorBest = 1e9;
+      let nearTarget = null, nearBest = 1e9;
       for (const m of g.monsters) {
         if (m.dead || m.spawnT > 0 || m.airborne) continue;
-        const d = Math.hypot(m.x - this.x, m.y - this.y);
-        if (d < autoDist) { autoDist = d; autoTarget = m; }
+        const dc = Math.hypot(m.x - input.mouse.x, m.y - input.mouse.y);
+        if (dc < 100 + m.r && dc < cursorBest) { cursorBest = dc; cursorTarget = m; }
+        const dp = Math.hypot(m.x - this.x, m.y - this.y);
+        if (dp < nearBest) { nearBest = dp; nearTarget = m; }
       }
-      if (autoTarget) this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
+      const autoTarget = cursorTarget || nearTarget;
+      let autoDist = 1e9;
+      if (autoTarget) {
+        autoDist = Math.hypot(autoTarget.x - this.x, autoTarget.y - this.y);
+        this.facing = Math.atan2(autoTarget.y - this.y, autoTarget.x - this.x);
+      }
 
       // --- movement ---------------------------------------------------------
       let mx = 0, my = 0;
