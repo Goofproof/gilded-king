@@ -2208,10 +2208,13 @@
     // and cornerless (collision stays rectangular underneath - a deliberate call)
     if (descent) drawMoltenCorners(c, pal);
 
-    // wall inner edge highlight
-    c.strokeStyle = pal.accent + '44';
-    c.lineWidth = 2;
-    c.strokeRect(PF.x + 1, PF.y + 1, PF.w - 2, PF.h - 2);
+    // wall inner edge highlight - skip in the Descent, where the molten rounded
+    // corners define the oblong edge (the rectangle outline was showing through)
+    if (!descent) {
+      c.strokeStyle = pal.accent + '44';
+      c.lineWidth = 2;
+      c.strokeRect(PF.x + 1, PF.y + 1, PF.w - 2, PF.h - 2);
+    }
 
     // doors - open doorways must READ as exits from across the room:
     // lit passage + accent frame posts + a pulsing chevron pointing out
