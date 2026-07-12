@@ -145,7 +145,7 @@
     floorNum: 1,
     dungeon: null, room: null,
     player: null,
-    monsters: [], projectiles: [], pickups: [], mercs: [],
+    monsters: [], projectiles: [], pickups: [], mercs: [], mines: [],
     boss: null, bossIntroT: 0, winTimer: -1, portal: null,
     // --- Descent (endless mode) ---
     kingSlain: false,        // slew the floor-3 Gilded King (scoreboard crown)
@@ -188,6 +188,7 @@
     queueLevelUp() { this.levelUpQueue++; },
     onKill(m) { onKill(m); },
     spawnPickup(kind, x, y) { spawnPickup(kind, x, y); }, // loot-goblin coin spill (monsters.js)
+    dropMine(x, y, dmg) { g.mines.push({ x, y, r: 8, blastR: 74, dmg, t: 0, armT: 0.6, armed: false, fuse: -1 }); }, // minelayer
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
@@ -309,6 +310,7 @@
     computeBacktrackDist(); // #34: how far are we from the nearest unexplored room?
     g.monsters = [];
     g.projectiles = [];
+    g.mines = [];
     g.pickups = room.savedPickups || [];
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
@@ -1920,6 +1922,7 @@
     updateMercs(dt);
     updateProjectiles(dt);
     updatePickups(dt);
+    updateMines(dt);
 
     // co-op: broadcast our position + smooth the other players; sync monsters;
     // revive downed teammates; end only on a full party wipe
@@ -2289,6 +2292,51 @@
     }
   }
 
+  // #27 minelayer: mines arm, then a nearby player trips a short fuse -> blast.
+  // Auto-detonate after 7s so they never pile up forever.
+  function updateMines(dt) {
+    const p = g.player;
+    const nearAnyPlayer = (x, y, rr) => {
+      if (!p.dead && Math.hypot(p.x - x, p.y - y) < rr + p.r) return true;
+      if (g.coop) for (const rp of g.remotePlayers.values()) if (rp.room && g.room && rp.room[0] === g.room.gx && rp.room[1] === g.room.gy && !rp.downed && Math.hypot(rp.x - x, rp.y - y) < rr) return true;
+      return false;
+    };
+    for (let i = g.mines.length - 1; i >= 0; i--) {
+      const mn = g.mines[i];
+      mn.t += dt;
+      if (!mn.armed) { if (mn.t >= mn.armT) mn.armed = true; continue; }
+      if (mn.fuse < 0) {
+        if (nearAnyPlayer(mn.x, mn.y, 42) || mn.t > 7) { mn.fuse = 0.4; Sfx.play('error'); }
+      } else {
+        mn.fuse -= dt;
+        if (mn.fuse <= 0) { detonateMine(mn); g.mines.splice(i, 1); }
+      }
+    }
+  }
+  function detonateMine(mn) {
+    Fx.shake(6, 0.25); Sfx.play('explode');
+    Fx.burst(mn.x, mn.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 24, { speed: 240, life: 0.55, glow: true });
+    for (const t of g.partyTargets()) if (Math.hypot(t.x - mn.x, t.y - mn.y) < mn.blastR + t.r) g.hurtTarget(t, mn.dmg, mn.x, mn.y, null);
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(mn.x), y: Math.round(mn.y), r: mn.blastR });
+  }
+  function drawMines(c) {
+    for (const mn of g.mines) {
+      c.save(); c.translate(mn.x, mn.y);
+      const col = mn.fuse >= 0 ? '#ff5533' : (mn.armed ? '#9a3a24' : '#4a4f5d');
+      c.fillStyle = col;
+      c.beginPath(); c.arc(0, 0, mn.r, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = col; c.lineWidth = 2;
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; c.beginPath(); c.moveTo(Math.cos(a) * mn.r, Math.sin(a) * mn.r); c.lineTo(Math.cos(a) * (mn.r + 4), Math.sin(a) * (mn.r + 4)); c.stroke(); }
+      if (mn.armed) {
+        const on = mn.fuse >= 0 ? (Math.sin(Date.now() / 40) > 0) : (Math.sin(Date.now() / 220) > 0);
+        c.fillStyle = on ? '#ffec80' : '#3a2a10';
+        c.beginPath(); c.arc(0, -mn.r * 0.2, 2.4, 0, Math.PI * 2); c.fill();
+        if (mn.fuse < 0) { c.strokeStyle = 'rgba(255,90,60,0.22)'; c.lineWidth = 1; c.beginPath(); c.arc(0, 0, 42, 0, Math.PI * 2); c.stroke(); }
+      }
+      c.restore();
+    }
+  }
+
   function updatePickups(dt) {
     const p = g.player;
     for (let i = g.pickups.length - 1; i >= 0; i--) {
@@ -2350,6 +2398,7 @@
 
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
+    drawMines(c);
 
     // actors
     for (const m of g.monsters) if (!m.dead) m.draw(c, g);

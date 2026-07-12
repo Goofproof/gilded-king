@@ -26,15 +26,17 @@ const Monsters = (() => {
     goblin:   { hp: 46, dmg: 0,  speed: 188, r: 13, xp: 8,  coins: [18, 30] },
     // #27 heat-seeker: slow drifter that lobs a homing orb you must juke
     seeker:   { hp: 30, dmg: 12, speed: 58,  r: 13, xp: 9,  coins: [2, 5] },
+    // #27 minelayer: kites and litters the floor with proximity mines
+    miner:    { hp: 44, dmg: 15, speed: 74,  r: 14, xp: 10, coins: [2, 5] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'swarmer'],
     2: ['chaser', 'swarmer', 'archer', 'bomber'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner'],
   };
   const COUNT = t => Math.min(8, 2 + t + ((Math.random() * 3) | 0)); // monsters per combat room
 
@@ -275,6 +277,17 @@ const Monsters = (() => {
             fireProjectile(g, m, m.facing, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
             Sfx.play('bowfire');
           }
+        }
+        break;
+      }
+      case 'miner': {
+        // keeps its distance and drops a proximity mine every ~1.9s as it weaves
+        if (dist < 200) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+        else if (dist > 360) moveToward(m, p.x, p.y, dt, m.speed * 0.8);
+        else { moveToward(m, m.x + Math.sin(m.t * 1.5) * 70, m.y + Math.cos(m.t * 1.2) * 70, dt, m.speed * 0.55); m.facing = Math.atan2(p.y - m.y, p.x - m.x); }
+        if (m.t - (m.lastMine || -2) > 1.9 && g.dropMine) {
+          m.lastMine = m.t; g.dropMine(m.x, m.y, m.dmg);
+          Sfx.play('upgrade'); Fx.burst(m.x, m.y + m.r * 0.5, ['#9a3a24', '#888'], 6, { speed: 50, life: 0.3 });
         }
         break;
       }
@@ -587,6 +600,7 @@ const Monsters = (() => {
       case 'mimic': case 'mimicbaby': drawMimicMonster(c, m, flash, ex, ey); break;
       case 'goblin': drawGoblin(c, m, flash, ex, ey); break;
       case 'seeker': drawSeeker(c, m, flash, ex, ey); break;
+      case 'miner': drawMiner(c, m, flash, ex, ey); break;
     }
 
     // elite aura: a pulsing ring + faint glow in the affix color
@@ -681,6 +695,15 @@ const Monsters = (() => {
     c.fillStyle = m.state === 'charge' ? '#fff6c0' : '#ff8a3d';
     c.beginPath(); c.arc(ex * 1.4, ey * 1.4, m.r * 0.34, 0, Math.PI * 2); c.fill();
     if (m.state === 'charge') { c.strokeStyle = 'rgba(255,180,80,0.8)'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, m.r + 4 + Math.sin(Date.now() / 60) * 2, 0, Math.PI * 2); c.stroke(); }
+  }
+  function drawMiner(c, m, flash, ex, ey) {
+    // squat armored beetle with mine-spikes ridging its back
+    body(c, m, flash ? '#fff' : '#6a5a48', flash);
+    c.fillStyle = flash ? '#eee' : '#463b2c';
+    c.beginPath(); c.arc(0, 0, m.r * 0.52, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#9a3a24'; c.lineWidth = 2;
+    for (const a of [-0.7, 0, 0.7]) { const ang = a - Math.PI / 2; c.beginPath(); c.moveTo(Math.cos(ang) * m.r * 0.9, Math.sin(ang) * m.r * 0.9); c.lineTo(Math.cos(ang) * (m.r + 5), Math.sin(ang) * (m.r + 5)); c.stroke(); }
+    eyes(c, ex, ey, 4, 2.2, '#ff8a3d');
   }
   function drawArcher(c, m, flash, ex, ey) {
     body(c, m, '#4a7c42', flash);
