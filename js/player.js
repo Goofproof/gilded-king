@@ -815,6 +815,13 @@ const PlayerDef = (() => {
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 0.9, this.r * 0.35, 0, 0, Math.PI * 2); c.fill();
 
+      // #43 PRESTIGE cape: a royal mantle that grows richer with each prestige level.
+      // Purely cosmetic (earned by resetting your essence account). Drawn behind
+      // everything so it flows out from under the champion. Distinct from the
+      // ACROBAT roll-tail (that one is a small coloured triangle).
+      const prestige = (g && g.meta && g.meta.prestige) || 0;
+      if (prestige > 0) this.drawPrestigeCape(c, prestige);
+
       // #22: evolution BODY PARTS grow from the paths you take - wings sit BEHIND
       // the body, so draw them before the cloak
       this.drawEvoParts(c, 'back');
@@ -844,6 +851,35 @@ const PlayerDef = (() => {
 
       // weapon rendering (outside the roll transform)
       if (this.rollT < 0) this.drawWeapon(c);
+    }
+
+    // #43 the prestige cape - a flowing royal mantle behind the champion. Its
+    // length, gold trim and glow escalate with prestige level (visual richness caps
+    // at ~tier 6 so it stays readable; the prestige NUMBER keeps climbing).
+    drawPrestigeCape(c, prestige) {
+      const r = this.r;
+      const t = Math.min(6, prestige);
+      const len = 1.15 + t * 0.12;                 // grows longer with prestige
+      // gentle billow, stronger while moving
+      const sway = Math.sin(Date.now() / 360 + this.x * 0.04) * (this.moving ? 0.22 : 0.09);
+      c.save();
+      c.globalAlpha = 0.92;
+      // deepening royal cloth (crimson -> deep violet at high prestige)
+      c.fillStyle = t >= 5 ? '#3a1150' : t >= 3 ? '#4a1030' : '#5a132e';
+      c.beginPath();
+      c.moveTo(-r * 0.72, -r * 0.3);
+      c.quadraticCurveTo(-r * (1.15 + len) * (1 + sway), r * (0.4 + len * 0.6), -r * 0.55, r * (1.45 + len));
+      c.quadraticCurveTo(0, r * (1.7 + len), r * 0.55, r * (1.45 + len));
+      c.quadraticCurveTo(r * (1.15 + len) * (1 - sway), r * (0.4 + len * 0.6), r * 0.72, -r * 0.3);
+      c.closePath(); c.fill();
+      // gold trim, thicker with prestige
+      c.strokeStyle = '#e8b52f'; c.lineWidth = 1.2 + t * 0.35;
+      c.stroke();
+      // a faint gold sheen down the centre fold
+      c.globalAlpha = 0.35 + t * 0.05;
+      c.strokeStyle = '#ffd24c'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, -r * 0.2); c.lineTo(0, r * (1.4 + len)); c.stroke();
+      c.restore();
     }
 
     // #22: physical evolution features. Each stat you've evolved (>=3 stacks, i.e.

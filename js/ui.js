@@ -655,6 +655,29 @@ const UI = (() => {
       rects.push(r);
       ry += rowH + 6;
     }
+
+    // --- #43 PRESTIGE: wipe the whole essence account for a cosmetic prestige level ---
+    {
+      const lvl = meta.prestige || 0;
+      const cost = 500 * (lvl + 1);
+      const afford = meta.essence >= cost;
+      const armed = (g.prestigeConfirm || 0) > 0;
+      const pr = { x: 14, y: ry + 2, w: rowW, h: 40, action: 'prestige' };
+      c.fillStyle = armed ? 'rgba(224,85,85,0.16)' : afford ? 'rgba(232,181,47,0.08)' : 'rgba(255,255,255,0.02)';
+      c.fillRect(pr.x, pr.y, pr.w, pr.h);
+      c.strokeStyle = armed ? '#e05555' : afford ? '#e8b52f' : '#2c3040';
+      c.lineWidth = armed ? 2 : 1; c.strokeRect(pr.x, pr.y, pr.w, pr.h);
+      c.textAlign = 'left';
+      c.font = 'bold 12px monospace'; c.fillStyle = '#e8b52f';
+      c.fillText(`♛ PRESTIGE ${lvl}`, pr.x + 10, pr.y + 16);
+      c.font = '9px monospace'; c.fillStyle = armed ? '#ff9a9a' : '#8fa3bf';
+      c.fillText(armed ? 'CLICK AGAIN: wipes ALL essence + upgrades' : 'reset everything for a grander cape', pr.x + 10, pr.y + 31);
+      c.textAlign = 'right';
+      c.font = 'bold 10px monospace'; c.fillStyle = afford ? '#ffd24c' : '#556';
+      c.fillText(afford ? `◆ ${cost}` : `need ◆ ${cost}`, pr.x + pr.w - 10, pr.y + 16);
+      rects.push(pr);
+      ry += 48;
+    }
     c.textAlign = 'center';
 
     // --- STABLE: pets you've befriended; pick one to start the next run with ---

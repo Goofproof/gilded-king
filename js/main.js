@@ -92,6 +92,7 @@
     if (!Array.isArray(m.petsUnlocked)) m.petsUnlocked = []; // pet types banked to the stable
     if (typeof m.selectedPet !== 'string') m.selectedPet = ''; // stable pet chosen for the next run
     if (typeof m.selectedClass !== 'string') m.selectedClass = ''; // #30 class chosen for the next run
+    if (typeof m.prestige !== 'number' || !isFinite(m.prestige)) m.prestige = 0; // #43 prestige level (cosmetic; reset essence+ranks to raise it)
     return m;
   }
   function saveMeta() {
@@ -1341,6 +1342,7 @@
 
   function updateTitle() {
     if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
+    if (g.prestigeConfirm > 0) g.prestigeConfirm -= 1 / 60; // an armed prestige-reset confirm expires
     if (g.showPatch) {
       // patch-notes overlay: any click or Esc closes it (and marks this version seen)
       if (input.mouse.clicked || input.pressed('Escape')) { g.showPatch = false; markVersionSeen(); }
@@ -1375,6 +1377,7 @@
             g.meta.selectedClass = r.key;
             saveMeta(); Sfx.play('ui');
           }
+          if (r.action === 'prestige') doPrestige(); // #43 reset account for a prestige level
         }
       }
     }
@@ -1396,6 +1399,24 @@
     } else {
       g.shareMsg = { text: url, t: 6 };
     }
+  }
+
+  // #43 PRESTIGE: sacrifice your whole essence account (essence + every upgrade rank)
+  // to climb one prestige level. The ONLY reward is cosmetic - a grander cape. The
+  // gate climbs each time so a new prestige always costs more than the last.
+  function prestigeCost() { return 500 * ((g.meta.prestige || 0) + 1); }
+  function doPrestige() {
+    const cost = prestigeCost();
+    if (g.meta.essence < cost) { Sfx.play('error'); g.prestigeConfirm = 0; return; }
+    // first click arms a confirm (this wipes your account); second click commits
+    if (!g.prestigeConfirm) { g.prestigeConfirm = 4; Sfx.play('ui'); return; }
+    g.meta.essence = 0;
+    g.meta.ranks = {};
+    g.meta.prestige = (g.meta.prestige || 0) + 1;
+    g.prestigeConfirm = 0;
+    saveMeta();
+    Sfx.play('levelup');
+    g.shareMsg = { text: `PRESTIGE ${g.meta.prestige} - your cape grows grander`, t: 3.5 };
   }
 
   function buyMetaUpgrade(key) {

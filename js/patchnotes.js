@@ -8,9 +8,17 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.11';
+  const VERSION = 'v2.12';
 
   const NOTES = [
+    {
+      v: 'v2.12', title: 'Prestige', date: '2026-07-12',
+      items: [
+        'PRESTIGE: on the home screen, sacrifice your WHOLE essence account - all your banked essence and every upgrade - to rise one prestige level.',
+        'The reward is pure bragging rights: a royal CAPE that grows longer, richer, and more gold-trimmed with every prestige level you earn.',
+        'The cost climbs each time, so a higher prestige is always a bigger sacrifice. Two clicks to confirm, so you never wipe your account by accident.',
+      ],
+    },
     {
       v: 'v2.11', title: 'Haggle With the Keeper', date: '2026-07-12',
       items: [
