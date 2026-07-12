@@ -1,0 +1,5 @@
+# wrangler local dev state + build cache (regenerated on every `wrangler dev`)
+.wrangler/
+node_modules/
+# no package.json in this folder; the lockfile npx created is noise
+package-lock.json
