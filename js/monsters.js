@@ -21,6 +21,9 @@ const Monsters = (() => {
     add:      { hp: 6,  dmg: 5,  speed: 140, r: 8,  xp: 1,  coins: [0, 1] },
     mimic:    { hp: 70, dmg: 14, speed: 105, r: 17, xp: 25, coins: [8, 14] },
     mimicbaby:{ hp: 18, dmg: 8,  speed: 115, r: 11, xp: 3,  coins: [1, 3] },
+    // loot goblin: never attacks, flees for a door, spills gold when hit and drops a
+    // fat purse if you catch it. Escapes (and takes the loot) if it reaches a door.
+    goblin:   { hp: 46, dmg: 0,  speed: 188, r: 13, xp: 8,  coins: [18, 30] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
@@ -87,6 +90,13 @@ const Monsters = (() => {
   function clampToField(m) {
     m.x = Math.max(PF.x + m.r, Math.min(PF.x + PF.w - m.r, m.x));
     m.y = Math.max(PF.y + m.r, Math.min(PF.y + PF.h - m.r, m.y));
+  }
+  // the edge point of a door on a given side (the loot goblin's escape route)
+  function doorPoint(dir) {
+    if (dir === 'N') return { x: PF.x + PF.w / 2, y: PF.y };
+    if (dir === 'S') return { x: PF.x + PF.w / 2, y: PF.y + PF.h };
+    if (dir === 'W') return { x: PF.x, y: PF.y + PF.h / 2 };
+    return { x: PF.x + PF.w, y: PF.y + PF.h / 2 }; // E
   }
   function distToPlayer(m, g) { return Math.hypot(g.player.x - m.x, g.player.y - m.y); }
 
@@ -178,6 +188,24 @@ const Monsters = (() => {
         const jx = Math.sin(m.t * 9 + m.x) * 40;
         moveToward(m, p.x + jx, p.y + Math.cos(m.t * 7) * 30, dt, m.speed);
         tryContactHit(m, g, p);
+        break;
+      }
+      case 'goblin': {
+        // LOOT GOBLIN: never attacks. Sprints for whichever door is farthest from
+        // the nearest player, bowing away when crowded. It bolts for good on a timer
+        // (12%/sec after 3s in the room, per Sam) or the moment it reaches a door.
+        m.roomT = (m.roomT || 0) + dt;
+        m.escRollT = (m.escRollT || 0) + dt;
+        m.bob = (m.bob || 0) + dt * 12;
+        if (m.roomT > 3 && m.escRollT >= 1) { m.escRollT = 0; if (Math.random() < 0.12) { escapeGoblin(m); break; } }
+        let goal = null, gd = -1;
+        for (const dir in g.room.doors) { const dp = doorPoint(dir); const d = Math.hypot(dp.x - p.x, dp.y - p.y); if (d > gd) { gd = d; goal = dp; } }
+        if (!goal) goal = { x: m.x - (p.x - m.x), y: m.y - (p.y - m.y) };
+        let tx = goal.x, ty = goal.y;
+        if (dist < 140) { tx += (m.x - p.x) * 0.9; ty += (m.y - p.y) * 0.9; } // juke away when close
+        moveToward(m, tx, ty, dt, m.speed);
+        clampToField(m);
+        if (Math.hypot(m.x - goal.x, m.y - goal.y) < 26) escapeGoblin(m);
         break;
       }
       case 'archer': {
@@ -404,8 +432,21 @@ const Monsters = (() => {
     }
   }
 
+  // the loot goblin got away: gone, and it takes its unclaimed gold with it (no onKill)
+  function escapeGoblin(m) {
+    m.dead = true; m.escaped = true;
+    Fx.text(m.x, m.y - m.r - 14, 'ESCAPED!', '#ffd24c', 15);
+    Fx.burst(m.x, m.y, ['#ffd24c', '#fff', '#6ee7a0'], 18, { speed: 210, life: 0.55, glow: true });
+    Sfx.play('stairs');
+  }
+
   function applyDamage(m, dmg, g, opts) {
     if (m.dead) return;
+    // loot goblin spills a few coins every time it's struck (catch it for the jackpot)
+    if (m.type === 'goblin' && !opts.silent && m.hp - dmg > 0 && g.spawnPickup) {
+      const n = 1 + ((Math.random() * 2) | 0);
+      for (let i = 0; i < n; i++) g.spawnPickup('coin', m.x, m.y);
+    }
     if (m.type === 'bomber' && m.hp <= 0) return; // already in death throes, fuse lit
     m.hp -= dmg;
     m.flash = 0.12;
@@ -482,6 +523,14 @@ const Monsters = (() => {
         out.push(make(type, x, y, tier, mods));
       }
     }
+    // loot goblin: a rare visitor (~11% of combat rooms). Spawns away from the player
+    // so it has room to run. Never carries Descent elite mods (it doesn't fight).
+    if (Math.random() < 0.11) {
+      let x, y, tries = 0;
+      do { x = PF.x + 90 + Math.random() * (PF.w - 180); y = PF.y + 90 + Math.random() * (PF.h - 180); tries++; }
+      while (Math.hypot(x - p.x, y - p.y) < 240 && tries < 30);
+      out.push(make('goblin', x, y, tier));
+    }
     return out;
   }
 
@@ -517,6 +566,7 @@ const Monsters = (() => {
       case 'bomber': drawBomber(c, m, flash, ex, ey); break;
       case 'summoner': drawSummoner(c, m, flash, ex, ey); break;
       case 'mimic': case 'mimicbaby': drawMimicMonster(c, m, flash, ex, ey); break;
+      case 'goblin': drawGoblin(c, m, flash, ex, ey); break;
     }
 
     // elite aura: a pulsing ring + faint glow in the affix color
@@ -578,6 +628,22 @@ const Monsters = (() => {
     c.beginPath(); c.moveTo(-m.r * 0.7, -m.r * 0.5); c.lineTo(-m.r * 1.1, -m.r * 1.3); c.lineTo(-m.r * 0.25, -m.r * 0.85); c.fill();
     c.beginPath(); c.moveTo(m.r * 0.7, -m.r * 0.5); c.lineTo(m.r * 1.1, -m.r * 1.3); c.lineTo(m.r * 0.25, -m.r * 0.85); c.fill();
     eyes(c, ex, ey, 5, 2.6, '#ffe08a');
+  }
+  function drawGoblin(c, m, flash, ex, ey) {
+    const bob = Math.sin(m.bob || 0) * 1.6;
+    // a bulging gold sack slung on its back (bounces as it sprints)
+    c.fillStyle = flash ? '#fff' : '#b8892f';
+    c.beginPath(); c.arc(-m.r * 0.75, -m.r * 0.25 + bob, m.r * 0.62, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#7a5a1a'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-m.r * 1.05, -m.r * 0.75 + bob); c.lineTo(-m.r * 0.45, -m.r * 0.75 + bob); c.stroke();
+    c.fillStyle = flash ? '#fff' : '#ffe08a';
+    c.beginPath(); c.arc(-m.r * 0.7, -m.r * 0.35 + bob, 1.7, 0, Math.PI * 2); c.fill();
+    // green body + big pointy ears + greedy gold eyes
+    body(c, m, flash ? '#fff' : '#5aa84a', flash);
+    c.fillStyle = flash ? '#fff' : '#4a8f3c';
+    c.beginPath(); c.moveTo(-m.r * 0.55, -m.r * 0.1); c.lineTo(-m.r * 1.5, -m.r * 0.55); c.lineTo(-m.r * 0.45, -m.r * 0.55); c.fill();
+    c.beginPath(); c.moveTo(m.r * 0.55, -m.r * 0.1); c.lineTo(m.r * 1.5, -m.r * 0.55); c.lineTo(m.r * 0.45, -m.r * 0.55); c.fill();
+    eyes(c, ex, ey, 4.5, 2.4, '#ffd24c');
   }
   function drawArcher(c, m, flash, ex, ey) {
     body(c, m, '#4a7c42', flash);

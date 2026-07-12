@@ -187,6 +187,7 @@
     time: 0,
     queueLevelUp() { this.levelUpQueue++; },
     onKill(m) { onKill(m); },
+    spawnPickup(kind, x, y) { spawnPickup(kind, x, y); }, // loot-goblin coin spill (monsters.js)
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
@@ -410,6 +411,12 @@
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'xp', a: m.xp });
     Fx.burst(m.x, m.y, ['#fff', '#ffd24c', '#ff6655'], 14, { speed: 180, life: 0.5 });
     Sfx.play('kill');
+    // #26: catching the loot goblin pays out a jackpot (its coins are set high in BASE)
+    if (m.type === 'goblin') {
+      Fx.text(m.x, m.y - 32, 'JACKPOT!', '#ffd24c', 18);
+      Fx.burst(m.x, m.y, ['#ffd24c', '#ffe08a', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+      Sfx.play('buy');
+    }
 
     const w = p.weapon;
     const looting = Weapons.has(w, 'looting');
