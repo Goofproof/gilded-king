@@ -46,13 +46,31 @@
 //   atkSpd            +v% attack speed
 //   frenzyMax         hits grant +2% attack speed for 3s, stacking to v
 //   echo              light-melee swings have v chance to strike twice (2nd at 50%)
+//   spellPower        wand/staff spell damage x(1+v)  (read in player.fireSpell)
+//   blastBonus        +v px to staff-burst blast radius  (read in player.fireSpell)
 // ============================================================================
+// #46 STAT WEB (Sam + Claude, 2026-07-12): the nine stats sort into three schools.
+//   MIGHT (kill fast): dmg, crit, atkspd
+//   VIGOR (stay alive): hp, regen, roll
+//   FLOW  (tempo/economy/arcane): spd, coin, magic
+// The cross-school evolutions (e.g. Cursorial Hunter's dmg+spd) are the deliberate
+// bridges. MAGIC finally gets its own tree below, themed to its FLOW school:
+// Spell Power (raw arcane), Elemental Reach (bigger bursts), Cast Tempo (speed).
 const Evolutions = (() => {
 
   const STAT_NAMES = {
     hp: 'TOUGH', dmg: 'BRUTAL', spd: 'FLEET', roll: 'ACROBAT',
     crit: 'DEADLY', coin: 'GREEDY', regen: 'MENDING', atkspd: 'FRENZY',
+    magic: 'ARCANE',
   };
+
+  // #46 which school each stat belongs to (drives the character-sheet grouping)
+  const STAT_SCHOOL = {
+    dmg: 'MIGHT', crit: 'MIGHT', atkspd: 'MIGHT',
+    hp: 'VIGOR', regen: 'VIGOR', roll: 'VIGOR',
+    spd: 'FLOW', coin: 'FLOW', magic: 'FLOW',
+  };
+  const SCHOOL_COLOR = { MIGHT: '#ffd24c', VIGOR: '#6ee7a0', FLOW: '#7fd4ff' };
 
   const TABLE = {
     // -------------------------------------------------- MENDING (regen)
@@ -239,6 +257,30 @@ const Evolutions = (() => {
         { name: 'St. Vitus\' Dance', desc: 'Frenzy: hits build +2% attack speed (3s), stacking to 40', fx: { frenzyMax: 40 } },
       ],
     },
+    // -------------------------------------------------- ARCANE (magic)  [#46]
+    // Three branches: Spell Power (raw) / Elemental Reach (bigger bursts) / Cast Tempo (speed)
+    magic: {
+      3: [
+        { name: 'Dirac Sea', desc: 'Draw from the vacuum\'s infinite energy: +25% spell damage', fx: { spellPower: 0.25 } },
+        { name: 'Brocken Spectre', desc: 'Your shadow looms huge on the cloud: +35px staff blast, +90px pickup range', fx: { blastBonus: 35, magnetR: 90 } },
+        { name: 'Larmor Precession', desc: 'Spin faster in the field: +20% cast and attack speed', fx: { atkSpd: 0.20 } },
+      ],
+      6: [
+        { name: 'Zero-Point Field', desc: 'Energy even at absolute zero: +40% spell damage', fx: { spellPower: 0.40 } },
+        { name: 'Sympathetic Detonation', desc: 'One blast sets off the next: +55px staff blast radius', fx: { blastBonus: 55 } },
+        { name: 'Saltatory Conduction', desc: 'The signal leaps node to node: +30% cast and attack speed', fx: { atkSpd: 0.30 } },
+      ],
+      9: [
+        { name: 'Chandrasekhar Limit', desc: 'Past the point of collapse: +60% spell damage', fx: { spellPower: 0.60 } },
+        { name: 'Kessler Syndrome', desc: 'A cascade with no end: +80px staff blast and +15% spell damage', fx: { blastBonus: 80, spellPower: 0.15 } },
+        { name: 'Ballistospore', desc: 'Launched at ten-thousand g: +40% cast speed and +14% move speed', fx: { atkSpd: 0.40, spd: 0.14 } },
+      ],
+      12: [
+        { name: 'Vacuum Decay', desc: 'Rewrite the laws themselves: +90% spell damage', fx: { spellPower: 0.90 } },
+        { name: 'Tunguska Event', desc: 'Flatten the forest for miles: +120px staff blast radius', fx: { blastBonus: 120 } },
+        { name: 'Nerve of Mauthner', desc: 'The fastest reflex in nature: +55% cast and attack speed', fx: { atkSpd: 0.55 } },
+      ],
+    },
   };
 
   const TIER_LABEL = { 3: 'I', 6: 'II', 9: 'III', 12: 'IV' };
@@ -247,5 +289,5 @@ const Evolutions = (() => {
     return (TABLE[statKey] && TABLE[statKey][stacks]) || null;
   }
 
-  return { TABLE, STAT_NAMES, TIER_LABEL, optionsFor };
+  return { TABLE, STAT_NAMES, STAT_SCHOOL, SCHOOL_COLOR, TIER_LABEL, optionsFor };
 })();

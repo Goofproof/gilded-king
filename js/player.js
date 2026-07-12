@@ -675,8 +675,9 @@ const PlayerDef = (() => {
       const w = this.weapon, a = this.facing;
       const fx = Weapons.fxPalette(w);
       // #49 Magic scaling: spells hit harder the more Magic you have (+8%/point over 1),
-      // so investing the stat is the payoff for a magic build (and Attunement earns its slot)
-      const magScale = 1 + Math.max(0, this.magicLevel() - 1) * 0.08;
+      // so investing the stat is the payoff for a magic build (and Attunement earns its slot).
+      // #46 the ARCANE Spell-Power branch multiplies on top of that (spellPower fx).
+      const magScale = (1 + Math.max(0, this.magicLevel() - 1) * 0.08) * (1 + this.mod('spellPower'));
       const mkProj = (ang, base, extra) => {
         const { dmg, crit } = this.computeDmg(base * magScale, null, g);
         const sp = w.projSpeed;
@@ -703,7 +704,8 @@ const PlayerDef = (() => {
         if (Weapons.has(w, 'frost'))      { col = '#7fe0ff'; elem = 'ice';    extra = { chill: true }; }
         else if (Weapons.has(w, 'venom')) { col = '#8ef06e'; elem = 'poison'; extra = { venom: true }; }
         else if (Weapons.has(w, 'chain')) { col = '#ffe27a'; elem = 'storm';  extra = { chain: true }; }
-        mkProj(a, w.dmg, Object.assign({ r: 8, color: col, life: 2.0, blast: 64, hitSfx: 'hitHeavy', spell: 'fireball', elem }, extra));
+        const blast = 64 + this.mod('blastBonus'); // #46 ARCANE Elemental-Reach branch widens the burst
+        mkProj(a, w.dmg, Object.assign({ r: 8, color: col, life: 2.0, blast, hitSfx: 'hitHeavy', spell: 'fireball', elem }, extra));
         Fx.shake(3, 0.12); Sfx.play('heavy');
       } else { // wand bolt (Multishot -> a 3-bolt fan)
         const n = Weapons.has(w, 'multishot') ? 3 : 1;
