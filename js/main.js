@@ -159,7 +159,7 @@
     playerName: (() => { try { return (localStorage.getItem('drl_name') || '').slice(0, 12); } catch { return ''; } })(),
     evoQueue: [], evoChoices: null, ultChoices: null,
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
-    initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, scores: loadScores(),
+    initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, showMythics: false, scores: loadScores(),
     // --- co-op (multiplayer) ---
     coop: false,                 // true during a networked run
     coopSeed: 0,                 // shared floor seed for the co-op party
@@ -1291,6 +1291,11 @@
       if (input.mouse.clicked || input.pressed('Escape')) g.showScores = false;
       return;
     }
+    if (g.showMythics) {
+      // #38 mythic gallery: any click or Esc closes it
+      if (input.mouse.clicked || input.pressed('Escape')) g.showMythics = false;
+      return;
+    }
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
@@ -1301,6 +1306,7 @@
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
           if (r.action === 'patchnotes') { g.showPatch = true; Sfx.play('ui'); }
+          if (r.action === 'mythics') { g.showMythics = true; Sfx.play('ui'); }
           if (r.action === 'selectPet') { // toggle the stable pet chosen for the next run
             g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
             saveMeta(); Sfx.play('ui');

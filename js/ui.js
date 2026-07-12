@@ -642,8 +642,9 @@ const UI = (() => {
     c.fillStyle = '#8a7340';
     c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
 
-    // mythic-collection laurel (top-right accolade)
+    // mythic-collection laurel (top-right accolade) - click to open the gallery
     drawLaurel(c, W - 72, 62, (meta.mythics || []).length, Weapons.MYTHIC_TOTAL);
+    rects.push({ x: W - 112, y: 28, w: 80, h: 70, action: 'mythics' });
 
     // patch-notes button (top-right, under the mythic laurel)
     if (typeof PatchNotes !== 'undefined') {
@@ -696,9 +697,55 @@ const UI = (() => {
     if (g.showScores) drawScoreboard(c, g);
     // patch-notes overlay
     if (g.showPatch) drawPatchNotes(c, g);
+    // #38: mythic collection gallery
+    if (g.showMythics) drawMythicGallery(c, g);
 
     c.restore();
     return rects;
+  }
+
+  // #38: the mythic collection - every mythic you've found (revealed) + the rest
+  // still locked as "???", so you can see what's left to hunt down.
+  function drawMythicGallery(c, g) {
+    const found = new Set(g.meta.mythics || []);
+    const all = [...Weapons.MYTHIC_WEAPONS, ...Weapons.MYTHIC_ARMOR];
+    const pw = 660, ph = 480, px = (W - pw) / 2, py = 30;
+    c.fillStyle = 'rgba(5,5,12,0.95)'; c.fillRect(0, 0, W, H);
+    c.strokeStyle = '#e8c66a'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 20px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText(`MYTHIC COLLECTION   ${found.size} / ${all.length}`, W / 2, py + 28);
+    c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('legendary uniques - won from Descent bosses and the secret shop', W / 2, py + 48);
+    const cols = 5, cw = 120, ch = 58, gpx = 6, gpy = 6;
+    const gx = px + (pw - (cols * cw + (cols - 1) * gpx)) / 2, gy = py + 66;
+    const trunc = (t, maxW) => { let s = t; while (s.length > 3 && c.measureText(s).width > maxW) s = s.slice(0, -1); return s === t ? t : s.slice(0, -1) + '…'; };
+    all.forEach((m, i) => {
+      const col = i % cols, row = (i / cols) | 0;
+      const x = gx + col * (cw + gpx), y = gy + row * (ch + gpy);
+      const has = found.has(m.id);
+      c.fillStyle = has ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.015)';
+      c.fillRect(x, y, cw, ch);
+      c.strokeStyle = has ? m.color : '#2c3040'; c.lineWidth = 1.2; c.strokeRect(x, y, cw, ch);
+      c.fillStyle = has ? m.color : '#20242f';
+      c.beginPath(); c.arc(x + 15, y + 15, 6.5, 0, Math.PI * 2); c.fill();
+      c.textAlign = 'left';
+      if (has) {
+        c.font = 'bold 10px monospace'; c.fillStyle = '#e8edf6';
+        c.fillText(trunc(m.name, cw - 30), x + 27, y + 18);
+        c.font = 'italic 8px monospace'; c.fillStyle = '#8a8f9e';
+        const words = m.flavor.split(' '); let line = '', ly = y + 34;
+        for (const w of words) { const t = line ? line + ' ' + w : w; if (c.measureText(t).width > cw - 14 && line) { c.fillText(line, x + 8, ly); ly += 10; line = w; if (ly > y + ch - 4) break; } else line = t; }
+        if (line && ly <= y + ch - 4) c.fillText(line, x + 8, ly);
+      } else {
+        c.font = 'bold 11px monospace'; c.fillStyle = '#4a4f5d';
+        c.fillText('? ? ?', x + 27, y + 19);
+        c.font = '8px monospace'; c.fillStyle = '#3a3f4d';
+        c.fillText('undiscovered', x + 8, y + 42);
+      }
+    });
+    c.textAlign = 'center'; c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('click anywhere or press Esc to close', W / 2, py + ph - 12);
   }
 
   // the changelog overlay: newest version first, scroll not needed (kept short)
