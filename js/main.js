@@ -1402,9 +1402,9 @@
     const list = [];
     for (const m of g.monsters) {
       if (!m.netId || m.dead) continue;
-      list.push({ i: m.netId, x: Math.round(m.x), y: Math.round(m.y), f: +(m.facing || 0).toFixed(2),
+      list.push({ i: m.netId, ty: m.type, x: Math.round(m.x), y: Math.round(m.y), f: +(m.facing || 0).toFixed(2),
                   hp: Math.round(m.hp), mh: Math.round(m.maxHp), r: Math.round(m.r),
-                  c: m.color || '#c0504d', dm: m.dmg || 8, s: m.spawnT > 0 ? 1 : 0 });
+                  dm: m.dmg || 8, s: m.spawnT > 0 ? 1 : 0, el: m.elite ? 1 : 0 });
     }
     Net.send({ t: 'mobs', list });
   }
@@ -1426,40 +1426,47 @@
     }
   }
 
-  // a render-only stand-in for a host monster; its takeHit forwards to the host
+  // the guest's stand-in for a host monster. We build a REAL Monsters object so it
+  // draws with the correct per-type art (chaser/archer/tank/... look like themselves),
+  // then override AI (positioned by snapshots) and takeHit (forward to the host).
+  function forwardHit(mon, dmg, opts) {
+    if (mon.dead) return false;
+    Net.send({ t: 'hit', i: mon.netId, dmg: Math.round(dmg),
+      sx: Math.round((opts && opts.sx) || mon.x), sy: Math.round((opts && opts.sy) || mon.y),
+      k: opts && opts.knock, fl: opts && opts.flame, ch: opts && opts.chill, vn: opts && opts.venom,
+      cr: opts && opts.crit ? 1 : 0, hs: opts && opts.hitSfx });
+    mon.flash = 0.12;
+    Fx.text(mon.x + (Math.random() * 16 - 8), mon.y - mon.r - 6, Math.round(dmg), opts && opts.crit ? '#ffd24c' : '#fff', opts && opts.crit ? 16 : 12);
+    Fx.burst(mon.x, mon.y, opts && opts.crit ? '#ffd24c' : '#ff6655', 5, { speed: 110, life: 0.35 });
+    return true; // let the attacker earn frenzy/lifesteal locally
+  }
   function makeMobProxy(s) {
-    return {
-      proxy: true, netId: s.i, type: 'mob',
-      x: s.x, y: s.y, tx: s.x, ty: s.y, facing: s.f || 0,
-      hp: s.hp, maxHp: s.mh, r: s.r, color: s.c, dm: s.dm || 8,
-      dead: false, airborne: false, spawnT: 0, kvx: 0, kvy: 0, flash: 0, contactCd: 0, isBoss: false,
-      takeHit(dmg, opts, _g) {
-        if (this.dead) return false;
-        Net.send({ t: 'hit', i: this.netId, dmg: Math.round(dmg),
-          sx: Math.round((opts && opts.sx) || this.x), sy: Math.round((opts && opts.sy) || this.y),
-          k: opts && opts.knock, fl: opts && opts.flame, ch: opts && opts.chill, vn: opts && opts.venom,
-          cr: opts && opts.crit ? 1 : 0, hs: opts && opts.hitSfx });
-        this.flash = 0.12;
-        Fx.text(this.x + (Math.random() * 16 - 8), this.y - this.r - 6, Math.round(dmg), opts && opts.crit ? '#ffd24c' : '#fff', opts && opts.crit ? 16 : 12);
-        Fx.burst(this.x, this.y, opts && opts.crit ? '#ffd24c' : '#ff6655', 5, { speed: 110, life: 0.35 });
-        return true; // let the attacker earn frenzy/lifesteal locally
-      },
-      update() { if (this.flash > 0) this.flash -= 1 / 60; }, // no AI; positioned by snapshots
-      draw(c) {
-        c.save(); c.translate(this.x, this.y);
-        c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, this.r * 0.7, this.r * 0.9, this.r * 0.32, 0, 0, Math.PI * 2); c.fill();
-        c.fillStyle = this.flash > 0 ? '#fff' : (this.color || '#c0504d');
-        c.beginPath(); c.arc(0, 0, this.r, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#1a1015';
-        c.beginPath(); c.arc(this.r * 0.3, -this.r * 0.24, this.r * 0.15, 0, Math.PI * 2); c.arc(this.r * 0.3, this.r * 0.24, this.r * 0.15, 0, Math.PI * 2); c.fill();
-        c.restore();
-        if (this.hp < this.maxHp) {
-          const bw = this.r * 2, k = Math.max(0, this.hp / this.maxHp);
-          c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(this.x - bw / 2 - 1, this.y - this.r - 8, bw + 2, 4);
-          c.fillStyle = '#e05555'; c.fillRect(this.x - bw / 2, this.y - this.r - 7, bw * k, 2);
-        }
-      },
-    };
+    let m;
+    const known = typeof Monsters !== 'undefined' && Monsters.BASE && Monsters.BASE[s.ty];
+    if (known) {
+      m = Monsters.make(s.ty, s.x, s.y, 1);   // real monster -> real art
+      m.spawnT = 0;
+    } else {
+      // boss / unknown type: fall back to a simple menacing circle
+      m = { type: s.ty || 'mob', x: s.x, y: s.y, r: s.r, facing: s.f || 0, kvx: 0, kvy: 0, contactCd: 0, isBoss: true,
+        draw(c) {
+          c.save(); c.translate(this.x, this.y);
+          c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, this.r * 0.7, this.r, this.r * 0.32, 0, 0, Math.PI * 2); c.fill();
+          c.fillStyle = this.flash > 0 ? '#fff' : '#a03050'; c.beginPath(); c.arc(0, 0, this.r, 0, Math.PI * 2); c.fill();
+          c.fillStyle = '#2a0f18'; c.beginPath(); c.arc(this.r * 0.35, -this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); c.arc(this.r * 0.35, this.r * 0.2, this.r * 0.14, 0, Math.PI * 2); c.fill();
+          c.restore();
+          if (this.hp < this.maxHp) { const bw = this.r * 2, k = Math.max(0, this.hp / this.maxHp);
+            c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(this.x - bw / 2 - 1, this.y - this.r - 10, bw + 2, 5);
+            c.fillStyle = '#e05555'; c.fillRect(this.x - bw / 2, this.y - this.r - 9, bw * k, 3); }
+        },
+      };
+    }
+    m.proxy = true; m.netId = s.i; m.dead = false; m.airborne = false;
+    m.hp = s.hp; m.maxHp = s.mh; m.r = s.r; m.facing = s.f || 0; m.dm = s.dm || 8;
+    m.tx = s.x; m.ty = s.y; m.flash = m.flash || 0; m.t = m.t || 0;
+    m.update = function () { this.t += 1 / 60; if (this.flash > 0) this.flash -= 1 / 60; }; // no AI
+    m.takeHit = function (dmg, opts) { return forwardHit(this, dmg, opts); };
+    return m;
   }
 
   // play a PEER's attack as a visual (damage stays host-authoritative via mob sync)
