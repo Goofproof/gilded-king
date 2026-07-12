@@ -143,26 +143,30 @@ const Evolutions = (() => {
       ],
     },
     // -------------------------------------------------- FLEET (spd)
+    // #46 sharpened: FLEET is pure MOVEMENT now - raw speed, slipstream (roll speed
+    // burst), and a magnet/economy line (its FLOW bridge). Roll i-frames (phantomStep)
+    // and roll-through damage (rollNova) belong to ACROBAT, not here - so the two
+    // trees no longer read as one stat split in two.
     spd: {
       3: [
-        { name: 'Kármán Vortex', desc: 'Rolling leaves the air spinning: 1.5s speed burst after each roll', fx: { windWake: 1.5 } },
         { name: 'Sidewinder', desc: '+16% move speed', fx: { spd: 0.16 } },
+        { name: 'Kármán Vortex', desc: 'Rolling leaves the air spinning: 1.5s speed burst after each roll', fx: { windWake: 1.5 } },
         { name: 'Lagrange Point', desc: 'Things fall toward you: +90px pickup magnet range', fx: { magnetR: 90 } },
       ],
       6: [
         { name: 'Mercurial Humour', desc: '+24% move speed', fx: { spd: 0.24 } },
         { name: 'Zephyrus Contract', desc: 'The west wind owes you: 2.4s speed burst after each roll', fx: { windWake: 2.4 } },
-        { name: 'Quantum Tunneling', desc: '+0.14s of i-frames on every roll', fx: { phantomStep: 0.14 } },
+        { name: 'Lodestone Vein', desc: 'A natural magnet in your bones: +150px pickup range and +10% move speed', fx: { magnetR: 150, spd: 0.10 } },
       ],
       9: [
         { name: 'Cheetah Spine', desc: '+32% move speed', fx: { spd: 0.32 } },
-        { name: 'Tachypsychia', desc: 'Time slows when it matters: +0.24s of i-frames on every roll', fx: { phantomStep: 0.24 } },
         { name: 'Jet Stream Rider', desc: '3.2s roll speed burst and +14% move speed', fx: { windWake: 3.2, spd: 0.14 } },
+        { name: 'Lorentz Draw', desc: 'Charge in a field bends toward you: +240px pickup range and +24% coins', fx: { magnetR: 240, coin: 0.24 } },
       ],
       12: [
         { name: 'Myelin Overdrive', desc: 'Insulated nerves fire faster: +55% move speed', fx: { spd: 0.55 } },
-        { name: 'Phase Velocity', desc: 'Faster than light (in a medium): +24% speed, +0.3s roll i-frames', fx: { spd: 0.24, phantomStep: 0.3 } },
-        { name: 'Cherenkov Wake', desc: 'Your roll glows past the limit: 60 damage rolling through enemies, +16% speed', fx: { rollNova: 60, spd: 0.16 } },
+        { name: 'Coandă Effect', desc: 'The jet clings to your wake: 4.5s roll speed burst and +20% move speed', fx: { windWake: 4.5, spd: 0.20 } },
+        { name: 'Meissner Effect', desc: 'Levitate over the field, sweeping it clean: +320px pickup range and +45% coins', fx: { magnetR: 320, coin: 0.45 } },
       ],
     },
     // -------------------------------------------------- ACROBAT (roll)

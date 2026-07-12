@@ -1076,7 +1076,7 @@ const UI = (() => {
     atkspd: 'also speeds bow draws & staff casts  (-> ranged/FLOW)',
     hp: 'thorns & retaliation turn defense into damage  (-> MIGHT)',
     regen: 'Tardigrade & Lamprey also cut damage / boost low-HP',
-    roll: 'shares i-frames & roll-nova with FLEET',
+    roll: 'roll-through damage (roll-nova) turns evasion into offense  (-> MIGHT)',
     spd: 'the pickup magnet pulls coins to you  (-> FLOW economy)',
     coin: 'Midas turns hoarded coins into raw damage  (-> MIGHT)',
     magic: 'every spell scales with the Magic stat  (FLOW arcane)',
