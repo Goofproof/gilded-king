@@ -61,6 +61,12 @@ DEFERRED (balance/cosmetic, need Sam's playtest, logged not fixed blindly):
   over 1) so the old power is only reached by investing the stat. This is a
   measured first-pass nerf, not a gutting - easy to push further after Sam plays.
 - Co-op mirrors magic shots as a plain arrow visual (cosmetic; damage is correct).
+  RESOLVED (2026-07-12): fireSpell now sends the spell type + radius (sp/r), and a
+  peer renders magic shots as a glowing orb + trail (fireball plays the 'heavy'
+  cast sound) instead of an arrow; bow arrows still render as arrows. Send path
+  verified live (bolt r5 violet, ice-fireball r8 cyan). Receive path is a 3-line
+  from:'remote' push mirroring the verified local spell projectile, so it draws as
+  a glowing circle; full 2-client visual confirmation not driven in this harness.
 - Attunement dead level-up pick with no magic weapon equipped - PARTLY addressed:
   Magic now boosts spell damage, so once you DO hold a wand/staff the stat pays off
   (still worthless with no magic weapon; a true fix is context-gating the offer).

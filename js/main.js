@@ -1870,9 +1870,17 @@
       }
       Sfx.play('swing');
     } else if (m.k === 'b') {
-      // visual-only arrow: from:'remote' so updateProjectiles never applies damage
-      g.projectiles.push({ from: 'remote', x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: 4, color: m.c || '#e8e3d0', life: 1.4, arrow: true, hitSet: new Set() });
-      Sfx.play('bowfire');
+      // visual-only shot: from:'remote' so updateProjectiles never applies damage.
+      // magic (sp set) renders as a glowing orb + trail; a bow arrow stays an arrow.
+      if (m.sp) {
+        g.projectiles.push({ from: 'remote', x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r || 6,
+          color: m.c || '#b06bff', life: 1.4, glow: true, spell: m.sp, hitSet: new Set(),
+          trail: [m.c || '#b06bff'], glowTrail: true });
+        Sfx.play(m.sp === 'fireball' ? 'heavy' : 'bowfire');
+      } else {
+        g.projectiles.push({ from: 'remote', x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: 4, color: m.c || '#e8e3d0', life: 1.4, arrow: true, hitSet: new Set() });
+        Sfx.play('bowfire');
+      }
     }
   }
 

@@ -691,7 +691,8 @@ const PlayerDef = (() => {
         Object.assign(pr, extra);
         g.projectiles.push(pr);
         if (g.coop && typeof Net !== 'undefined' && Net.connected) {
-          Net.send({ t: 'atk', k: 'b', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), c: pr.color || (fx.colors && fx.colors[0]) || '#b06bff' });
+          // sp/r let peers render the actual spell (glowing orb) instead of a plain arrow
+          Net.send({ t: 'atk', k: 'b', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), c: pr.color || (fx.colors && fx.colors[0]) || '#b06bff', sp: pr.spell, r: pr.r });
         }
       };
       if (w.magic === 'fireball') {
