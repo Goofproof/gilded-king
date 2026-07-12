@@ -1083,6 +1083,7 @@ const UI = (() => {
       ['Damage Reduce',  Math.round(Math.min(0.6, p.mod('reduce')) * 100) + '%'],
       ['Coin Bonus',     pct(p.stats.coinMul + p.mod('coin') - 1)],
       ['Regen',          (p.stats.regen + p.mod('regenFlat')).toFixed(1) + '/s'],
+      ['Magic',          (p.magicLevel ? p.magicLevel() : (p.stats.magic || 0))],
     ];
     if (p.mod('thorns')) stats.push(['Thorns', p.mod('thorns')]);
     let ly = py + 66;

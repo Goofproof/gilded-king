@@ -77,6 +77,7 @@ const PlayerDef = (() => {
         coinMul: 1 + (meta?.ranks?.greed || 0) * 0.10,
         regen: 0,
         atkSpeedMul: 1,
+        magic: 1,   // #16 Magic stat: gates wielding wands/staffs (base 1 = basic magic)
       };
 
       // two FREE weapon slots - any mix (two swords is a fine build).
@@ -114,6 +115,9 @@ const PlayerDef = (() => {
 
     // --- evolution / armor helpers ------------------------------------------
     mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0) + (this.petMods[key] || 0); }
+    // #16 your Magic stat - base + any from evolutions/armor. Gates wielding wands/staffs.
+    magicLevel() { return (this.stats.magic || 0) + this.mod('magic'); }
+    canWield(w) { return !w || !w.magicReq || this.magicLevel() >= w.magicReq; }
 
     // adopt a pet (replaces any current one - only one companion at a time)
     adoptPet(pet) {
@@ -493,6 +497,26 @@ const PlayerDef = (() => {
           this.fireBow(g);
           this.drawT = -1;
         }
+      } else if (w.archetype === 'wand' || w.archetype === 'staff') {
+        // #16 wield gate: you need enough Magic to channel this weapon at all
+        if (!this.canWield(w)) {
+          this.magicWarnT = (this.magicWarnT || 0) - dt;
+          if (this.magicWarnT <= 0) { this.magicWarnT = 1.2; Fx.text(this.x, this.y - 32, `NEEDS MAGIC ${w.magicReq}`, '#b06bff', 12); Sfx.play('error'); }
+        } else if (w.archetype === 'wand') {
+          // wand: fast auto-fired magic bolts, no draw - rip when a target exists
+          if (autoTarget && this.attackCd <= 0 && this.rollT < 0) this.fireSpell(g);
+        } else {
+          // staff: a charged cast (drawT = charge); fires a fireball at full charge
+          const wantCast = autoTarget && this.rollT < 0;
+          if (wantCast) {
+            if (this.drawT < 0 && this.attackCd <= 0) { this.drawT = 0; Sfx.play('bowdraw'); }
+            const asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
+            if (this.drawT >= 0) this.drawT += dt * asf;
+            if (this.drawT >= w.windup) { this.fireSpell(g); this.drawT = -1; }
+          } else if (this.drawT >= 0) {
+            this.drawT = -1; // target left before the cast finished: fizzle
+          }
+        }
       } else {
         if (autoMelee && this.attackCd <= 0 && this.rollT < 0) this.startSwing(g);
       }
@@ -622,6 +646,43 @@ const PlayerDef = (() => {
       }
       this.attackCd = w.cooldown;
       Sfx.play('bowfire');
+    }
+
+    // #16 MAGIC: wand fires fast bolts; staff fires a slow fireball that bursts on
+    // impact (AOE + burn). Both route enchants like a bow (Flame/Multishot/Power...).
+    fireSpell(g) {
+      const w = this.weapon, a = this.facing;
+      const fx = Weapons.fxPalette(w);
+      const mkProj = (ang, base, extra) => {
+        const { dmg, crit } = this.computeDmg(base, null, g);
+        const sp = w.projSpeed;
+        const pr = {
+          x: this.x + Math.cos(ang) * 16, y: this.y + Math.sin(ang) * 16,
+          vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+          dmg, from: 'player', crit, hitSet: new Set(),
+          trail: fx.colors, glowTrail: fx.glow,
+          flame: Weapons.has(w, 'flame'), chill: Weapons.has(w, 'frost'),
+          venom: Weapons.has(w, 'venom'), chain: Weapons.has(w, 'chain'),
+        };
+        Object.assign(pr, extra);
+        g.projectiles.push(pr);
+        if (g.coop && typeof Net !== 'undefined' && Net.connected) {
+          Net.send({ t: 'atk', k: 'b', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), c: pr.color || (fx.colors && fx.colors[0]) || '#b06bff' });
+        }
+      };
+      if (w.magic === 'fireball') {
+        mkProj(a, w.dmg, { r: 8, color: '#ff8a3d', life: 2.0, blast: 64, flame: 1 + (Weapons.has(w, 'flame') ? 1 : 0), hitSfx: 'hitHeavy', spell: 'fireball' });
+        Fx.shake(3, 0.12); Sfx.play('heavy');
+      } else { // wand bolt (Multishot -> a 3-bolt fan)
+        const n = Weapons.has(w, 'multishot') ? 3 : 1;
+        for (let i = 0; i < n; i++) mkProj(a + (i - (n - 1) / 2) * 0.12, w.dmg, {
+          r: 5, color: (fx.colors && fx.colors[0]) || '#b06bff', life: 1.4,
+          pierce: Weapons.has(w, 'piercing') ? 2 : 0, knock: Weapons.has(w, 'punch') ? 200 : 40,
+          hitSfx: 'hitArrow', spell: 'bolt',
+        });
+        Sfx.play('bowfire');
+      }
+      this.attackCd = w.cooldown;
     }
 
     // --- rendering -----------------------------------------------------------------
@@ -878,6 +939,20 @@ const PlayerDef = (() => {
           // full-draw sparkle
           if (pull >= 1) { c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(this.r + 19 - pull * 8, 0, 2.5, 0, Math.PI * 2); c.fill(); }
         }
+        c.restore();
+        return;
+      }
+      if (w.archetype === 'wand' || w.archetype === 'staff') {
+        // #16 a shaft with a glowing tip; the staff's tip swells as it charges a cast
+        const isStaff = w.archetype === 'staff';
+        const len = this.r + (isStaff ? 22 : 14);
+        c.strokeStyle = isStaff ? '#6a5030' : w.color; c.lineWidth = isStaff ? 3 : 2.5; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(this.r * 0.4, 0); c.lineTo(len - 4, 0); c.stroke();
+        const charge = (isStaff && this.drawT >= 0) ? Math.min(1, this.drawT / w.windup) : 0;
+        c.shadowColor = w.color; c.shadowBlur = 6 + charge * 10;
+        c.fillStyle = charge > 0.05 ? '#ffd24c' : w.color;
+        c.beginPath(); c.arc(len, 0, (isStaff ? 4 : 3) + charge * 3.5, 0, Math.PI * 2); c.fill();
+        c.shadowBlur = 0;
         c.restore();
         return;
       }

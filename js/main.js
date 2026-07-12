@@ -17,6 +17,7 @@
     { key: 'coin',   icon: '●', color: '#ffd24c', name: 'Greedy',  desc: '+20% coins from kills' },
     { key: 'regen',  icon: '✚', color: '#6ee7a0', name: 'Mending', desc: 'Regenerate 0.6 HP/s' },
     { key: 'atkspd', icon: '≫', color: '#ff9a3d', name: 'Frenzy',  desc: '+10% attack speed' },
+    { key: 'magic',  icon: '✷', color: '#b06bff', name: 'Attunement', desc: '+1 Magic (wield stronger wands/staffs)' },
   ];
 
   // --- SHOP TUNING ---------------------------------------------------------------
@@ -2059,6 +2060,7 @@
       case 'coin': s.coinMul += 0.20; break;
       case 'regen': s.regen += 0.6; break;
       case 'atkspd': s.atkSpeedMul += 0.10; break;
+      case 'magic': s.magic = (s.magic || 0) + 1; break; // #16 raise Magic to wield stronger wands/staffs
     }
     // EVOLUTIONS (Sam's design): the 3rd/6th/9th/12th stack of a stat opens
     // an evolution menu for it, immediately
@@ -2291,6 +2293,16 @@
         }
       }
       if (dead) {
+        // #16 staff fireball: bursts on impact for AOE + burn to nearby monsters
+        if (pr.blast && pr.from === 'player') {
+          Fx.shake(5, 0.2); Sfx.play('explode');
+          Fx.burst(pr.x, pr.y, ['#ff8833', '#ffcc44', '#ff4422'], 22, { speed: 230, life: 0.5, glow: true });
+          const P = g.player;
+          for (const m of g.monsters) {
+            if (m.dead || m.airborne) continue;
+            if (Math.hypot(pr.x - m.x, pr.y - m.y) < pr.blast + m.r) m.takeHit(pr.dmg * 0.8, { sx: pr.x, sy: pr.y, knock: 110, flame: pr.flame, crit: pr.crit, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+          }
+        }
         Fx.burst(pr.x, pr.y, pr.color, 4, { speed: 70, life: 0.25 });
         g.projectiles.splice(i, 1);
       }

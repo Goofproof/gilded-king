@@ -58,6 +58,11 @@ const Weapons = (() => {
              names: ['Dagger', 'Shortsword', 'Rapier', 'Twinfang'] },
     bow:   { dmg: 14, cooldown: 0.45, windup: 0.0,  range: 0,  arc: 0, projSpeed: 540,
              names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'] },
+    // #16 MAGIC: wand = fast single-target bolts; staff = slow charged fireball (AOE + burn)
+    wand:  { dmg: 12, cooldown: 0.30, windup: 0.0,  range: 0,  arc: 0, projSpeed: 470, magic: 'bolt',
+             names: ['Wand', 'Scepter', 'Rod', 'Willow Wand'] },
+    staff: { dmg: 34, cooldown: 1.05, windup: 0.5,  range: 0,  arc: 0, projSpeed: 300, magic: 'fireball',
+             names: ['Staff', 'Stave', 'Runewood Staff', 'Emberstaff'] },
   };
   // legendary prefix must NOT be 'Mythic' (that's the tier ABOVE it) - it read as
   // "Legendary Mythic X" and looked like a mythic. 'Ancient' keeps the flavor.
@@ -89,7 +94,8 @@ const Weapons = (() => {
   function rollEnchants(archetype, rar) {
     const rarIdx = RARITY.indexOf(rar);
     const nSlots = rar.slots[0] + ((Math.random() * (rar.slots[1] - rar.slots[0] + 1)) | 0);
-    const poolKey = archetype === 'bow' ? 'bow' : 'melee';
+    // magic weapons (wand/staff) fling projectiles, so they draw the ranged enchant pool
+    const poolKey = (archetype === 'bow' || archetype === 'wand' || archetype === 'staff') ? 'bow' : 'melee';
     const avail = ENCHANTS.filter(e => (e.pool === poolKey || e.pool === 'any') && e.tier <= rar.maxTier);
     const out = [];
     let needSignature = rar.key === 'legendary'; // legendary guarantees >=1 signature enchant
@@ -122,8 +128,10 @@ const Weapons = (() => {
   }
 
   // main entry: tier = dungeon depth tier (1..6ish), opts {archetype, minRarity, luck}
+  // weighted so melee stays common and magic is a real but rarer find
+  const ARCH_ROLL = [['heavy', 24], ['light', 24], ['bow', 20], ['wand', 16], ['staff', 16]];
   function rollWeapon(tier = 1, opts = {}) {
-    const archKey = opts.archetype || ['heavy', 'light', 'bow'][(Math.random() * 3) | 0];
+    const archKey = opts.archetype || weightedPick(ARCH_ROLL.map(([k, w]) => ({ k, w })), 'w').k;
     const arch = ARCHETYPES[archKey];
     const rar = rollRarity(opts);
     const rarIdx = RARITY.indexOf(rar);
@@ -137,13 +145,17 @@ const Weapons = (() => {
       cooldown: arch.cooldown, windup: arch.windup,
       range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0,
       stagger: arch.stagger || 0,
+      magic: arch.magic || null, // wand='bolt' / staff='fireball' drives fireSpell()
+      // #16 minimum Magic stat to wield: base wands need 1 (everyone can), deeper/rarer
+      // magic weapons demand real investment in the Magic stat
+      magicReq: arch.magic ? Math.max(1, Math.round((tier - 1) * 0.7 + rarIdx * 0.45)) : 0,
       enchants,
       price: rar.price + tier * 5,
     };
     applyEnchantStats(w);
     // rarity FEEL bump: higher-tier melee swings reach a little further and wider,
     // so a Mythic maul is visibly (and mechanically) grander than a Worn one
-    if (archKey !== 'bow') {
+    if (archKey === 'heavy' || archKey === 'light') {
       w.range *= 1 + rarIdx * 0.05;
       w.arc = Math.min(Math.PI * 1.9, w.arc * (1 + rarIdx * 0.04));
     }
