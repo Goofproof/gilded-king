@@ -186,6 +186,56 @@ const UI = (() => {
     c.restore();
   }
 
+  // #70 one unmistakable silhouette per weapon type, so you never mistake a wand for a
+  // mace at a glance: bow = strung arc + arrow, sword = slim blade, axe = chunky wedge
+  // head, wand = glowing orb + sparkle, staff = tall faceted crystal. Draws at the
+  // current origin/scale in the current colour (caller sets translate/scale/fill/stroke).
+  // Shared by the HUD slots (here) and the ground-drop glyph (main.js).
+  function weaponSilhouette(c, arch) {
+    if (arch === 'bow') {
+      c.lineWidth = 2.5;
+      c.beginPath(); c.arc(-2, 0, 11, -Math.PI / 2.3, Math.PI / 2.3); c.stroke();
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(-2 + Math.cos(-Math.PI / 2.3) * 11, Math.sin(-Math.PI / 2.3) * 11);
+      c.lineTo(-2 + Math.cos(Math.PI / 2.3) * 11, Math.sin(Math.PI / 2.3) * 11);
+      c.stroke();
+      c.lineWidth = 1.5; c.beginPath(); c.moveTo(-9, 0); c.lineTo(9, 0); c.stroke(); // nocked arrow
+    } else if (arch === 'wand') {
+      c.save(); c.rotate(-Math.PI / 6);
+      c.lineWidth = 2; c.beginPath(); c.moveTo(-1, 13); c.lineTo(1, -3); c.stroke();
+      c.beginPath(); c.arc(2, -8, 5, 0, Math.PI * 2); c.fill();
+      const gc = c.fillStyle; c.globalAlpha = 0.5; c.fillStyle = '#fff';
+      c.beginPath(); c.arc(0.5, -9.5, 1.8, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1; c.fillStyle = gc;
+      c.strokeStyle = '#fff'; c.globalAlpha = 0.85; c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(2, -16); c.lineTo(2, -12); c.moveTo(2, -4); c.lineTo(2, -1);
+      c.moveTo(-4, -8); c.lineTo(-1, -8); c.moveTo(5, -8); c.lineTo(8, -8); c.stroke();
+      c.globalAlpha = 1; c.restore();
+    } else if (arch === 'staff') {
+      c.lineWidth = 3; c.beginPath(); c.moveTo(0, 15); c.lineTo(0, -5); c.stroke();
+      c.beginPath(); c.moveTo(0, -17); c.lineTo(5.5, -9); c.lineTo(0, -1); c.lineTo(-5.5, -9); c.closePath(); c.fill();
+      const gc = c.fillStyle; c.globalAlpha = 0.5; c.fillStyle = '#fff';
+      c.beginPath(); c.moveTo(0, -14); c.lineTo(2.6, -9.5); c.lineTo(0, -5); c.lineTo(-2.6, -9.5); c.closePath(); c.fill();
+      c.globalAlpha = 1; c.fillStyle = gc;
+    } else if (arch === 'heavy') {
+      c.save(); c.rotate(-Math.PI / 4);
+      c.fillRect(-1.5, -6, 3, 20);                                                        // haft
+      c.beginPath(); c.moveTo(1.5, -14); c.quadraticCurveTo(12, -11, 9.5, -3); c.quadraticCurveTo(4.5, -5, 1.5, -5); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(-1.5, -14); c.quadraticCurveTo(-12, -11, -9.5, -3); c.quadraticCurveTo(-4.5, -5, -1.5, -5); c.closePath(); c.fill();
+      c.beginPath(); c.arc(0, 9, 2, 0, Math.PI * 2); c.fill();                            // pommel
+      c.restore();
+    } else {
+      c.save(); c.rotate(-Math.PI / 4);
+      c.beginPath(); c.moveTo(0, -16); c.lineTo(2, -6); c.lineTo(-2, -6); c.closePath(); c.fill(); // tip
+      c.fillRect(-1.5, -8, 3, 12);                                                        // blade
+      c.fillRect(-6, 4, 12, 2.5);                                                         // crossguard
+      c.fillRect(-1.5, 6.5, 3, 4);                                                        // grip
+      c.beginPath(); c.arc(0, 12, 1.8, 0, Math.PI * 2); c.fill();                         // pommel
+      c.restore();
+    }
+  }
+
   function drawWeaponSlot(c, w, x, y, active) {
     c.save();
     c.globalAlpha = active ? 1 : 0.55;
@@ -198,27 +248,7 @@ const UI = (() => {
       c.translate(x + 21, y + 21);
       c.strokeStyle = w.color; c.fillStyle = w.color;
       c.save(); // glyph rotation must not leak into the pip row below
-      if (w.archetype === 'bow') {
-        c.lineWidth = 2.5;
-        c.beginPath(); c.arc(-3, 0, 12, -Math.PI / 2.3, Math.PI / 2.3); c.stroke();
-        c.lineWidth = 1;
-        c.beginPath(); c.moveTo(-3 + Math.cos(-Math.PI / 2.3) * 12, Math.sin(-Math.PI / 2.3) * 12);
-        c.lineTo(-3 + Math.cos(Math.PI / 2.3) * 12, Math.sin(Math.PI / 2.3) * 12); c.stroke();
-      } else if (w.archetype === 'heavy') {
-        c.rotate(-Math.PI / 4);
-        c.fillRect(-3, -16, 6, 22);       // fat blade
-        c.fillRect(-8, 6, 16, 4);         // crossguard
-      } else if (w.archetype === 'wand' || w.archetype === 'staff') {
-        // a rod with a glowing orb tip (staff = thicker)
-        c.rotate(-Math.PI / 4);
-        c.lineWidth = w.archetype === 'staff' ? 3 : 2;
-        c.beginPath(); c.moveTo(0, 11); c.lineTo(0, -7); c.stroke();
-        c.beginPath(); c.arc(0, -10, w.archetype === 'staff' ? 4 : 3, 0, Math.PI * 2); c.fill();
-      } else {
-        c.rotate(-Math.PI / 4);
-        c.fillRect(-1.5, -15, 3, 20);
-        c.fillRect(-6, 5, 12, 3);
-      }
+      weaponSilhouette(c, w.archetype); // #70 same unmistakable silhouette as the ground drop
       c.restore();
       // enchant pips: gold=signature, purple=major, grey-green=minor
       w.enchants.forEach((e, i) => {
@@ -1400,5 +1430,5 @@ const UI = (() => {
     return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette };
 })();

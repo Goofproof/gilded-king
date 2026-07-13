@@ -3359,25 +3359,7 @@
     c.scale(scale, scale);
     c.shadowColor = w.color; c.shadowBlur = w.rarIdx >= 3 ? 12 : w.rarIdx >= 2 ? 6 : 0;
     c.strokeStyle = w.color; c.fillStyle = w.color;
-    if (w.archetype === 'bow') {
-      c.lineWidth = 2.5;
-      c.beginPath(); c.arc(-2, 0, 11, -Math.PI / 2.3, Math.PI / 2.3); c.stroke();
-      c.lineWidth = 1;
-      c.beginPath();
-      c.moveTo(-2 + Math.cos(-Math.PI / 2.3) * 11, Math.sin(-Math.PI / 2.3) * 11);
-      c.lineTo(-2 + Math.cos(Math.PI / 2.3) * 11, Math.sin(Math.PI / 2.3) * 11);
-      c.stroke();
-    } else if (w.archetype === 'wand' || w.archetype === 'staff') {
-      c.rotate(-Math.PI / 4);
-      c.lineWidth = w.archetype === 'staff' ? 3 : 2;
-      c.beginPath(); c.moveTo(0, 11); c.lineTo(0, -8); c.stroke();
-      c.beginPath(); c.arc(0, -11, w.archetype === 'staff' ? 4.5 : 3.5, 0, Math.PI * 2); c.fill();
-    } else {
-      c.rotate(-Math.PI / 4);
-      const fat = w.archetype === 'heavy';
-      c.fillRect(fat ? -3 : -1.5, -15, fat ? 6 : 3, 20);
-      c.fillRect(-6, 4, 12, 3);
-    }
+    UI.weaponSilhouette(c, w.archetype); // #70 shared unmistakable per-type silhouette
     c.restore();
   }
 
