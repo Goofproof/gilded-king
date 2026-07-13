@@ -1000,6 +1000,11 @@ const PlayerDef = (() => {
     // Might build sprouts horns, a Swift build gets wings, an assassin grows claws.
     drawEvoParts(c, layer) {
       const r = this.r;
+      // #52b harmonize with the class look: mage/ranger/rogue wear headgear, so head
+      // evolutions (horns/crown) defer to it (flank/band) instead of piling on top;
+      // the warrior already has pauldrons, so its hp evolution spikes THOSE up.
+      const cls = (this.class && this.class.id) || '';
+      const headHat = cls === 'mage' || cls === 'ranger' || cls === 'rogue';
       for (const k in this.upgradeStacks) {
         const stacks = this.upgradeStacks[k];
         if (stacks < 3) continue;
@@ -1029,12 +1034,16 @@ const PlayerDef = (() => {
           c.restore();
         } else if (layer === 'front' && k === 'dmg') {       // MIGHT -> horns
           c.save(); c.fillStyle = col;
+          // with headgear the horns emerge lower and splay out to the SIDES so they
+          // flank the hat/cowl instead of stabbing through it
+          const hy = headHat ? -r * 0.35 : -r * 0.78;
+          const hx = headHat ? 0.5 : 0.3;
           for (const s of [-1, 1]) {
             c.save(); c.scale(s, 1);
             c.beginPath();
-            c.moveTo(r * 0.3, -r * 0.78);
-            c.quadraticCurveTo(r * (0.8 + g * 0.4), -r * (1.4 + g * 0.4), r * (1.05 + g * 0.3), -r * 0.65);
-            c.quadraticCurveTo(r * 0.75, -r * 1.05, r * 0.45, -r * 0.78);
+            c.moveTo(r * hx, hy);
+            c.quadraticCurveTo(r * (0.95 + g * 0.4), hy - r * (0.6 + g * 0.4), r * (1.15 + g * 0.3), hy + r * 0.15);
+            c.quadraticCurveTo(r * 0.8, hy - r * 0.25, r * (hx + 0.15), hy);
             c.closePath(); c.fill();
             c.restore();
           }
@@ -1052,16 +1061,32 @@ const PlayerDef = (() => {
           c.restore();
         } else if (layer === 'front' && k === 'hp') {        // BULWARK -> shoulder plates
           c.save(); c.fillStyle = col;
-          for (const s of [-1, 1]) {
-            c.beginPath(); c.ellipse(s * r * 0.85, -r * 0.1, r * (0.35 + g * 0.1), r * 0.5, s * 0.4, 0, Math.PI * 2); c.fill();
+          if (cls === 'warrior') {
+            // upgrade the class pauldrons: spikes rising off the existing shoulder plates
+            for (const s of [-1, 1]) {
+              c.beginPath();
+              c.moveTo(s * r * 0.6, -r * 0.1); c.lineTo(s * r * (0.95 + g * 0.2), -r * (0.7 + g * 0.3)); c.lineTo(s * r * 1.0, -r * 0.05);
+              c.closePath(); c.fill();
+            }
+          } else {
+            for (const s of [-1, 1]) {
+              c.beginPath(); c.ellipse(s * r * 0.85, -r * 0.1, r * (0.35 + g * 0.1), r * 0.5, s * 0.4, 0, Math.PI * 2); c.fill();
+            }
           }
           c.restore();
         } else if (layer === 'front' && k === 'coin') {      // MAGNATE -> a gold crown
           c.save(); c.fillStyle = col;
-          const cw = r * 1.1, cy = -r * 0.95;
-          c.beginPath(); c.moveTo(-cw / 2, cy);
-          for (let i = 0; i <= 4; i++) { const x = -cw / 2 + (cw / 4) * i; c.lineTo(x, cy - (i % 2 ? r * 0.5 : r * 0.15)); c.lineTo(x + cw / 8, cy); }
-          c.lineTo(cw / 2, cy + r * 0.18); c.lineTo(-cw / 2, cy + r * 0.18); c.closePath(); c.fill();
+          if (headHat) {
+            // with headgear, the crown becomes a jewelled gold band around the brim
+            c.beginPath(); c.ellipse(0, -r * 0.55, r * 0.9, r * 0.2, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#fff6c0';
+            for (let i = -1; i <= 1; i++) { c.beginPath(); c.arc(i * r * 0.5, -r * 0.6, 1.6, 0, Math.PI * 2); c.fill(); }
+          } else {
+            const cw = r * 1.1, cy = -r * 0.95;
+            c.beginPath(); c.moveTo(-cw / 2, cy);
+            for (let i = 0; i <= 4; i++) { const x = -cw / 2 + (cw / 4) * i; c.lineTo(x, cy - (i % 2 ? r * 0.5 : r * 0.15)); c.lineTo(x + cw / 8, cy); }
+            c.lineTo(cw / 2, cy + r * 0.18); c.lineTo(-cw / 2, cy + r * 0.18); c.closePath(); c.fill();
+          }
           c.restore();
         } else if (layer === 'front' && k === 'regen') {     // EVERLIVING -> a leafy halo
           c.save(); c.strokeStyle = col; c.lineWidth = 1.4; c.globalAlpha = 0.8;
