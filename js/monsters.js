@@ -54,6 +54,39 @@ const Monsters = (() => {
 
   function tierFor(floor, dist) { return Math.max(1, Math.min(5, floor + Math.floor(dist / 3))); }
 
+  // #110 EMPOWERED MOVES: every combat type occasionally does a bigger, telegraphed
+  // version of its attack (or a one-off buff). The cooldown ticks in update(); when it
+  // fires, ranged/melee types just flag m.emp = true so their NEXT wind-up becomes the
+  // empowered one (reusing the existing telegraph), while a few passive types act now.
+  const EMPOWER_TYPES = new Set(['chaser', 'archer', 'tank', 'swarmer', 'glass', 'bomber',
+    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber']);
+  function triggerEmpower(m, g) {
+    if (m.type === 'worm') {
+      // #110 (Sam) worm gets a temporary SLITHER SPEED burst
+      m.empSpeedT = 2.6; m.emp = false;
+      Fx.text(m.x, m.y - m.r - 10, 'FRENZY!', '#8fd0a0', 12);
+      Fx.burst(m.x, m.y, ['#8fd0a0', '#cfe8b0'], 12, { speed: 130, life: 0.4, glow: true });
+      return;
+    }
+    if (m.type === 'swarmer') {
+      // #110 (Sam) swarmers REPLICATE (split a copy) if the room isn't already flooded
+      const n = g.monsters.filter(x => (x.type === 'swarmer' || x.type === 'add') && !x.dead).length;
+      if (n < 22) {
+        const a = Math.random() * Math.PI * 2;
+        const baby = make('swarmer', m.x + Math.cos(a) * 18, m.y + Math.sin(a) * 18, m.tier);
+        baby.empowerCd = 8 + Math.random() * 6; // its own clock, staggered
+        g.monsters.push(baby);
+        Fx.text(m.x, m.y - m.r - 8, 'SPLIT!', '#c9b3ff', 11);
+        Fx.burst(m.x, m.y, ['#c9b3ff', '#fff'], 10, { speed: 120, life: 0.35, glow: true });
+      }
+      return;
+    }
+    // everyone else: flag the next attack as empowered + a gold "big one coming" cue
+    m.emp = true;
+    m.empAura = 0.9; // brief gold aura pulse timer, faded in update
+    Fx.text(m.x, m.y - m.r - 10, 'EMPOWERED', '#ffd24c', 11);
+  }
+
   // ============================================================================
   // mods (Descent): { hpMul, dmgMul, speedMul, elite } - endless-floor scaling and
   // an optional elite affix. null on the base 3 floors, so those are untouched.
@@ -74,6 +107,10 @@ const Monsters = (() => {
       kvx: 0, kvy: 0, dead: false, spawnT: 0.35, // brief spawn-in so rooms don't insta-hit
       shieldUp: type === 'shielded',
       fuse: -1,
+      // #110 every combat type gets an occasional EMPOWERED move (telegraphed): first
+      // one after 6-11s, then every ~10-16s. undefined for trash that shouldn't.
+      empowerCd: EMPOWER_TYPES.has(type) ? 6 + Math.random() * 5 : undefined,
+      emp: false, empSpeedT: 0,
       update(dt, g) { update(this, dt, g); },
       draw(c, g) { draw(this, c, g); },
       takeHit(dmg, opts, g) { takeHit(this, dmg, opts, g); },
@@ -237,6 +274,14 @@ const Monsters = (() => {
 
     const p = nearestTarget(m, g), dist = Math.hypot(p.x - m.x, p.y - m.y); // PR-1: chase the closest player
 
+    // #110 empowered-move cooldown: tick it down and, when ready, arm/trigger the move
+    if (m.empowerCd !== undefined) {
+      m.empowerCd -= dt;
+      if (m.empowerCd <= 0) { m.empowerCd = 10 + Math.random() * 6; triggerEmpower(m, g); }
+    }
+    if (m.empSpeedT > 0) m.empSpeedT -= dt;
+    if (m.empAura > 0) m.empAura -= dt;
+
     switch (m.type) {
       case 'chaser':
       case 'mimicbaby':
@@ -255,13 +300,16 @@ const Monsters = (() => {
           if (dist < 95 && m.t > 0.4) { m.state = 'windup'; m.t = 0; m.lungeAngle = Math.atan2(p.y - m.y, p.x - m.x); }
           tryContactHit(m, g, p);
         } else if (m.state === 'windup') {
-          m.telegraph = 0.32 - m.t;
-          if (m.t >= 0.32) { m.state = 'lunge'; m.t = 0; Sfx.play('swing'); }
+          // #110 EMPOWERED chaser: a longer-telegraphed BULL CHARGE - faster, travels far
+          const w = m.emp ? 0.42 : 0.32;
+          m.telegraph = w - m.t;
+          if (m.t >= w) { m.state = 'lunge'; m.t = 0; Sfx.play('swing'); if (m.emp) Fx.burst(m.x, m.y, ['#ffd24c', '#fff'], 10, { speed: 120, life: 0.3 }); }
         } else if (m.state === 'lunge') {
-          m.x += Math.cos(m.lungeAngle) * m.speed * 3.4 * dt;
-          m.y += Math.sin(m.lungeAngle) * m.speed * 3.4 * dt;
+          const boost = m.emp ? 1.5 : 1;
+          m.x += Math.cos(m.lungeAngle) * m.speed * 3.4 * boost * dt;
+          m.y += Math.sin(m.lungeAngle) * m.speed * 3.4 * boost * dt;
           tryContactHit(m, g, p, 1.2);
-          if (m.t >= 0.28) { m.state = 'idle'; m.t = 0; }
+          if (m.t >= (m.emp ? 0.42 : 0.28)) { m.state = 'idle'; m.t = 0; m.emp = false; }
         }
         break;
       }
@@ -330,7 +378,10 @@ const Monsters = (() => {
           m.telegraph = 0.6 - m.t;
           if (m.t >= 0.6) {
             m.state = 'idle'; m.t = 0;
-            fireProjectile(g, m, m.facing, 330, m.dmg, '#cfe8b0', 4);
+            if (m.emp) { // #110 EMPOWERED: a flaming three-arrow volley
+              for (let k = -1; k <= 1; k++) fireProjectile(g, m, m.facing + k * 0.2, 340, m.dmg, '#ff9a3d', 5, { glow: true });
+              m.emp = false;
+            } else fireProjectile(g, m, m.facing, 330, m.dmg, '#cfe8b0', 4);
             Sfx.play('bowfire');
           }
         }
@@ -347,7 +398,10 @@ const Monsters = (() => {
         m.lobT = (m.lobT || 0) + dt;
         if (m.lobT > 2.6 && dist < 400 && m.state !== 'draw') {
           m.lobT = 0; m.state = 'draw'; m.lobStart = m.t;
-          g.ultFx.push({ type: 'lob', x: p.x, y: p.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
+          if (m.emp) { // #110 EMPOWERED: a three-bomb BARRAGE straddling the player
+            for (const off of [[0, 0], [-70, -30], [70, 40]]) g.ultFx.push({ type: 'lob', x: p.x + off[0], y: p.y + off[1], sx: m.x, sy: m.y, t: 0, delay: 1.05, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
+            m.emp = false;
+          } else g.ultFx.push({ type: 'lob', x: p.x, y: p.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
           Sfx.play('bowfire');
         }
         break;
@@ -364,6 +418,10 @@ const Monsters = (() => {
             Fx.shake(7, 0.25); Sfx.play('heavy');
             Fx.burst(m.x, m.y, ['#8899aa', '#ffffff'], 16, { speed: 200, life: 0.4 });
             if (dist < 115 + p.r) g.hurtTarget(p, m.dmg, m.x, m.y, m); // p is a party-target wrapper (no .damage); route like tryContactHit
+            if (m.emp) { // #110 EMPOWERED: the slam throws off a shockwave RING of shrapnel
+              for (let i = 0; i < 12; i++) fireProjectile(g, m, i / 12 * Math.PI * 2, 190, Math.round(m.dmg * 0.7), '#c8d2e0', 5, { glow: true });
+              Fx.shake(10, 0.35); m.emp = false;
+            }
           }
         } else if (m.state === 'slam') {
           if (m.t > 0.5) { m.state = 'idle'; m.t = 0; }
@@ -380,7 +438,10 @@ const Monsters = (() => {
           m.telegraph = 0.55 - m.t;
           if (m.t >= 0.55) {
             m.state = 'idle'; m.t = 0;
-            fireProjectile(g, m, m.facing, 420, m.dmg, '#ff66dd', 6, { glow: true });
+            if (m.emp) { // #110 EMPOWERED: a three-bolt scatter
+              for (let k = -1; k <= 1; k++) fireProjectile(g, m, m.facing + k * 0.16, 430, m.dmg, '#ff66dd', 6, { glow: true });
+              m.emp = false;
+            } else fireProjectile(g, m, m.facing, 420, m.dmg, '#ff66dd', 6, { glow: true });
             Sfx.play('crit');
           }
         }
@@ -397,7 +458,10 @@ const Monsters = (() => {
           m.telegraph = 0.7 - m.t;
           if (m.t >= 0.7) {
             m.state = 'idle'; m.t = 0;
-            fireProjectile(g, m, m.facing, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
+            if (m.emp) { // #110 EMPOWERED: three homing orbs in a spread
+              for (let k = -1; k <= 1; k++) fireProjectile(g, m, m.facing + k * 0.35, 150, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.6, turnRate: 2.5 });
+              m.emp = false;
+            } else fireProjectile(g, m, m.facing, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
             Sfx.play('bowfire');
           }
         }
@@ -413,7 +477,7 @@ const Monsters = (() => {
         let near = null, nd = 1e9;
         for (const o of g.monsters) { if (o === m || o.dead || o.type === 'wormling') continue; const d = Math.hypot(o.x - m.x, o.y - m.y); if (d < nd) { nd = d; near = o; } }
         if (near && nd < 260) { tx = (p.x + near.x) / 2; ty = (p.y + near.y) / 2; }
-        moveToward(m, tx, ty, dt, m.speed);
+        moveToward(m, tx, ty, dt, m.speed * (m.empSpeedT > 0 ? 1.7 : 1)); // #110 EMPOWERED: slither-speed frenzy
         const perp = m.facing + Math.PI / 2, wob = Math.sin(m.t * 6.5) * 62; // strong zig-zag
         m.x += Math.cos(perp) * wob * dt; m.y += Math.sin(perp) * wob * dt;
         clampToField(m);
@@ -442,6 +506,10 @@ const Monsters = (() => {
             m.state = 'idle'; m.t = 0;
             const n = 14;
             for (let i = 0; i < n; i++) fireProjectile(g, m, (i / n) * Math.PI * 2 + (m.pulseSpin || 0), 172, m.dmg, '#b06bff', 5, { glow: true });
+            if (m.emp) { // #110 EMPOWERED: a SECOND ring offset to fill the gaps + a faster wave
+              for (let i = 0; i < n; i++) fireProjectile(g, m, (i / n) * Math.PI * 2 + (m.pulseSpin || 0) + Math.PI / n, 232, m.dmg, '#d09bff', 5, { glow: true });
+              m.emp = false;
+            }
             m.pulseSpin = (m.pulseSpin || 0) + 0.224;
             Fx.shake(4, 0.2); Sfx.play('mimic');
             Fx.burst(m.x, m.y, ['#b06bff', '#fff'], 20, { speed: 200, life: 0.4, glow: true });
@@ -455,7 +523,11 @@ const Monsters = (() => {
         else if (dist > 360) moveToward(m, p.x, p.y, dt, m.speed * 0.8);
         else { moveToward(m, m.x + Math.sin(m.t * 1.5) * 70, m.y + Math.cos(m.t * 1.2) * 70, dt, m.speed * 0.55); m.facing = Math.atan2(p.y - m.y, p.x - m.x); }
         if (m.t - (m.lastMine || -2) > 1.9 && g.dropMine) {
-          m.lastMine = m.t; g.dropMine(m.x, m.y, m.dmg);
+          m.lastMine = m.t;
+          if (m.emp) { // #110 EMPOWERED: a whole MINEFIELD cluster in one drop
+            for (const off of [[0, 0], [-34, -20], [34, -18], [0, 34]]) g.dropMine(m.x + off[0], m.y + off[1], m.dmg);
+            m.emp = false; Fx.shake(3, 0.15);
+          } else g.dropMine(m.x, m.y, m.dmg);
           Sfx.play('upgrade'); Fx.burst(m.x, m.y + m.r * 0.5, ['#9a3a24', '#888'], 6, { speed: 50, life: 0.3 });
         }
         break;
@@ -526,7 +598,8 @@ const Monsters = (() => {
           if (m.t >= 1.0) {
             m.state = 'idle'; m.t = 0;
             const adds = g.monsters.filter(x => x.type === 'add' && !x.dead).length;
-            const n = Math.min(2, 6 - adds); // cap adds so rooms can't flood
+            const n = Math.min(m.emp ? 4 : 2, (m.emp ? 8 : 6) - adds); // #110 EMPOWERED: a bigger brood
+            if (m.emp) { m.emp = false; Fx.text(m.x, m.y - m.r - 10, 'SWARM!', '#9ef01a', 11); }
             for (let i = 0; i < n; i++) {
               const a = Math.random() * Math.PI * 2;
               const add = make('add', m.x + Math.cos(a) * 40, m.y + Math.sin(a) * 40, m.tier);
@@ -600,6 +673,15 @@ const Monsters = (() => {
       if (o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) {
         applyDamage(o, m.dmg * 1.5, g, {});
       }
+    }
+    // #110 EMPOWERED bomber: the blast calls down an AIRSTRIKE - a ring of delayed,
+    // telegraphed napalm impacts around it (each uses the lob-ring tell, so it's dodgeable)
+    if (m.emp && g.ultFx) {
+      for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2, rr = 90 + Math.random() * 30;
+        g.ultFx.push({ type: 'lob', x: m.x + Math.cos(a) * rr, y: m.y + Math.sin(a) * rr, sx: m.x, sy: m.y - 30, t: 0, delay: 0.9 + i * 0.12, dmg: Math.round(m.dmg * 0.8), radius: 60, color: '#ff7a2c' });
+      }
+      Fx.text(m.x, m.y - 20, 'AIRSTRIKE!', '#ff7a2c', 12);
     }
     g.onKill(m);
   }
@@ -905,6 +987,17 @@ const Monsters = (() => {
       case 'miner': drawMiner(c, m, flash, ex, ey); break;
       case 'pulser': drawPulser(c, m, flash, ex, ey); break;
       case 'worm': drawWorm(c, m, flash, ex, ey); break;
+    }
+
+    // #110 EMPOWERED aura: a gold pulsing ring while a mob has a big move armed (or a
+    // worm is mid-frenzy), so the player reads "this one's about to do something bigger"
+    if (m.emp || m.empSpeedT > 0) {
+      c.save();
+      c.strokeStyle = `rgba(255,210,76,${0.5 + Math.sin(Date.now() / 110) * 0.3})`;
+      c.shadowColor = '#ffd24c'; c.shadowBlur = 6;
+      c.lineWidth = 2.2;
+      c.beginPath(); c.arc(0, 0, m.r + 6, 0, Math.PI * 2); c.stroke();
+      c.restore();
     }
 
     // elite aura: a pulsing ring + faint glow in the affix color
