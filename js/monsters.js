@@ -209,16 +209,27 @@ const Monsters = (() => {
       }
     }
 
-    // #68 FORMATION HOLD: while the unit braces, each mob sits in its assigned spot
-    // facing the player and does NOT attack - until the timer runs out OR the player
-    // closes in, then it breaks to normal AI (the whole line engages together).
+    // #68/#94 FORMATION: a prepared UNIT. It doesn't sit still - it ADVANCES as one
+    // rigid block (base-of-fire + maneuver): every mob's slot creeps forward along
+    // the SAME shared axis so relative spacing is preserved, while ranged units lay
+    // down SUPPRESSING FIRE immediately, even with the player out of their normal
+    // range. The whole line breaks to individual AI together once it closes to
+    // engagement range (or the brace timer runs out).
     if (m.holdT > 0) {
       m.holdT -= dt;
       const t = nearestTarget(m, g);
-      if (Math.hypot(t.x - m.x, t.y - m.y) < 135) { m.holdT = 0; }
+      if (Math.hypot(t.x - m.x, t.y - m.y) < 150) { m.holdT = 0; }
       else {
-        if (m.formationX != null) { m.x += (m.formationX - m.x) * Math.min(1, dt * 4); m.y += (m.formationY - m.y) * Math.min(1, dt * 4); }
+        // rigid group advance: translate the assigned slot along the shared front axis
+        const adv = 30 * dt; // px/s the line pushes forward together
+        if (m.formationX != null) {
+          m.formationX += (m.formFX || 0) * adv;
+          m.formationY += (m.formFY || 0) * adv;
+          m.x += (m.formationX - m.x) * Math.min(1, dt * 4);
+          m.y += (m.formationY - m.y) * Math.min(1, dt * 4);
+        }
         m.facing = Math.atan2(t.y - m.y, t.x - m.x);
+        formationSuppress(m, t, g, dt); // #94 ranged fire on the advance, in or out of range
         clampToField(m);
         return;
       }
@@ -819,9 +830,32 @@ const Monsters = (() => {
         m.facing = Math.atan2(-fy, -fx);   // face the player's entry side
         m.holdT = 2.8 + Math.random() * 1.4; // hold the line ~2.8-4.2s (or until the player closes)
         m.formationX = m.x; m.formationY = m.y;
+        m.formFX = fx; m.formFY = fy;      // #94 shared forward axis: the whole line advances as ONE rigid block
+        m.suppressCd = 0.2 + Math.random() * 0.5; // #94 base-of-fire: ranged open up almost at once
       });
     };
     lay(rank.front, 46); lay(rank.mid, 0); lay(rank.back, -60);
+  }
+
+  // #94 BASE OF FIRE: while a prepared unit advances, its ranged mobs open fire on
+  // the player IMMEDIATELY - even from beyond their usual range (suppressing fire) -
+  // using each type's own projectile so it reads the same as their normal attack.
+  function formationSuppress(m, t, g, dt) {
+    if (m.type !== 'archer' && m.type !== 'lobber' && m.type !== 'seeker') return;
+    m.suppressCd = (m.suppressCd || 0) - dt;
+    if (m.suppressCd > 0) return;
+    const ang = Math.atan2(t.y - m.y, t.x - m.x);
+    m.facing = ang;
+    if (m.type === 'archer') {
+      fireProjectile(g, m, ang, 330, m.dmg, '#cfe8b0', 4);
+      m.suppressCd = 1.5; Sfx.play('bowfire');
+    } else if (m.type === 'seeker') {
+      fireProjectile(g, m, ang, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
+      m.suppressCd = 2.4; Sfx.play('bowfire');
+    } else { // lobber: arc a bomb onto where the player stands
+      g.ultFx.push({ type: 'lob', x: t.x, y: t.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
+      m.suppressCd = 2.6; Sfx.play('bowfire');
+    }
   }
 
   // --- rendering ------------------------------------------------------------------
