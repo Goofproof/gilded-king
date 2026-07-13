@@ -2237,7 +2237,15 @@
       g.pendingCoopRoom = { gx, gy, dir };
       return;
     }
-    enterRoom(room, dir);
+    // #69 a follower must enter via the door in ITS OWN room that leads to the
+    // destination - not the initiator's exit dir, which is only correct when both
+    // stood in the same room. Derive the follower's real door; center-drop if the
+    // follower was somewhere that doesn't connect (better than a wrong-side door).
+    let myDir = dir;
+    if (!initiator && g.room && g.room.doors) {
+      myDir = Object.keys(g.room.doors).find(dd => g.room.doors[dd] === room) || null;
+    }
+    enterRoom(room, myDir);
     if (initiator) Net.send({ t: 'room', gx, gy, dir });
   }
 
