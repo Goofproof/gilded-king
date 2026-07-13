@@ -259,11 +259,20 @@ const Monsters = (() => {
     if (m.holdT > 0) {
       m.holdT -= dt;
       const t = nearestTarget(m, g);
-      if (Math.hypot(t.x - m.x, t.y - m.y) < 150) { m.holdT = 0; }
+      const td = Math.hypot(t.x - m.x, t.y - m.y);
+      if (td < 150) { m.holdT = 0; }
       else {
-        // rigid group advance: translate the assigned slot along the shared front axis
-        const adv = 30 * dt; // px/s the line pushes forward together
-        if (m.formationX != null) {
+        // #115 SMARTER TACTICS - base of fire HOLDS its ground. A ranged trooper that
+        // already has a good standoff AND a clear shot stops advancing and keeps
+        // suppressing; only the melee/screen element keeps maneuvering forward. It used
+        // to march the whole block (archers included) straight into your lap - now the
+        // shooters sit at range where they're strong and let the wall close the gap.
+        const walls = g.room && g.room.walls;
+        const losClear = !walls || !walls.length || !Dungeon.segBlocked(m.x, m.y, t.x, t.y, walls);
+        const holdGround = RANGED_ALLY[m.type] && td >= 240 && losClear;
+        if (!holdGround && m.formationX != null) {
+          // rigid group advance: translate the assigned slot along the shared front axis
+          const adv = 30 * dt; // px/s the line pushes forward together
           m.formationX += (m.formFX || 0) * adv;
           m.formationY += (m.formFY || 0) * adv;
           m.x += (m.formationX - m.x) * Math.min(1, dt * 4);
@@ -977,7 +986,7 @@ const Monsters = (() => {
   // the player IMMEDIATELY - even from beyond their usual range (suppressing fire) -
   // using each type's own projectile so it reads the same as their normal attack.
   function formationSuppress(m, t, g, dt) {
-    if (m.type !== 'archer' && m.type !== 'lobber' && m.type !== 'seeker') return;
+    if (m.type !== 'archer' && m.type !== 'lobber' && m.type !== 'seeker' && m.type !== 'gunner') return;
     const ang = Math.atan2(t.y - m.y, t.x - m.x);
     // #105 AIM WINDUP: telegraph every suppressing shot so it stays dodgeable (it
     // used to fire the instant the cooldown cleared, violating the "every attack is
@@ -990,6 +999,7 @@ const Monsters = (() => {
         m.telegraph = 0;
         if (m.type === 'archer') { fireProjectile(g, m, ang, 330, m.dmg, '#cfe8b0', 4); m.suppressCd = 1.5; Sfx.play('bowfire'); }
         else if (m.type === 'seeker') { fireProjectile(g, m, ang, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 }); m.suppressCd = 2.4; Sfx.play('bowfire'); }
+        else if (m.type === 'gunner') { for (let k = -1; k <= 1; k++) fireProjectile(g, m, ang + k * 0.12, 400, m.dmg, '#ffd24c', 3, { glow: true }); m.muzzle = 0.07; m.suppressCd = 1.6; Sfx.play('bowfire'); } // #115 held gunner lays down a short burst
         else { g.ultFx.push({ type: 'lob', x: t.x, y: t.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' }); m.suppressCd = 2.6; Sfx.play('bowfire'); }
       }
       return;
