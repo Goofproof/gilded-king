@@ -264,6 +264,14 @@ const Weapons = (() => {
     { id: 'deadeye',     name: 'Deadeye',          archetype: 'bow',   color: '#ff5a2c', dmg: 38, enchants: ['piercing', 'power', 'punch'],               flavor: 'It has never blinked. Not once.' },
     { id: 'ghostwind',   name: 'Ghostwind',        archetype: 'bow',   color: '#9be8d8', dmg: 35, enchants: ['infinity', 'multishot', 'power'],           flavor: 'The quiver is empty. The arrows keep coming.' },
     { id: 'hellfire',    name: 'Hellfire',         archetype: 'bow',   color: '#ff3a1a', dmg: 37, enchants: ['flame', 'piercing', 'multishot'],           flavor: 'Loosed from the seventh circle, aimed at the eighth.' },
+    // WAND mythics - fast arcane bolts
+    { id: 'astra',       name: 'Astra',            archetype: 'wand',  color: '#b06bff', dmg: 28, magicReq: 3, enchants: ['multishot', 'power', 'piercing'], flavor: 'Every bolt is a fallen star, and it never runs out of sky.' },
+    { id: 'hemlock',     name: 'Hemlock',          archetype: 'wand',  color: '#4ade80', dmg: 27, magicReq: 3, enchants: ['venom', 'power', 'multishot'],    flavor: "Socrates' last cup, distilled into a wand." },
+    { id: 'voltaic',     name: 'Voltaic Scepter',  archetype: 'wand',  color: '#ffe27a', dmg: 26, magicReq: 3, enchants: ['chain', 'infinity', 'power'],      flavor: 'It remembers the storm that forged it, and repeats it on command.' },
+    // STAFF mythics - each casts a different element (frost/venom/storm/fire)
+    { id: 'emberfall',   name: 'Emberfall',        archetype: 'staff', color: '#ff6a2c', dmg: 84, magicReq: 4, enchants: ['flame', 'power', 'punch'],        flavor: 'The last coal of a dead sun, still hungry.' },
+    { id: 'rimeheart',   name: 'Rimeheart',        archetype: 'staff', color: '#aee7ff', dmg: 80, magicReq: 4, enchants: ['frost', 'power', 'punch'],        flavor: 'Its bearer\'s heart slowed, then stopped, then kept the room cold.' },
+    { id: 'verdigris',   name: 'Verdigris',        archetype: 'staff', color: '#6ee7a0', dmg: 82, magicReq: 4, enchants: ['venom', 'power', 'looting'],      flavor: 'The green rot that eats bronze and men alike.' },
   ];
   const MYTHIC_ARMOR = [
     { id: 'aegisfallen', name: 'Aegis of the Fallen',   color: '#ffd24c', defense: 0.16, enchants: ['juggernaut', 'bulwark'],               flavor: 'The last king who wore it never fell.' },
@@ -293,11 +301,14 @@ const Weapons = (() => {
       name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
       dmg: e.dmg, cooldown: arch.cooldown, windup: arch.windup,
       range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0, stagger: arch.stagger || 0,
+      magic: arch.magic || null,                       // wand='bolt' / staff='fireball' -> fireSpell()
+      magicReq: arch.magic ? (e.magicReq || 4) : 0,    // magic mythics ask for real Magic investment
       enchants: mythicEnchants(e.enchants, ENCHANTS),
       price: 400 + tier * 5,
     };
     applyEnchantStats(w);
-    if (e.archetype !== 'bow') { w.range *= 1.25; w.arc = Math.min(Math.PI * 1.9, w.arc * 1.2); }
+    // melee mythics get a reach bump; ranged/magic (range 0) are unaffected
+    if (e.archetype === 'heavy' || e.archetype === 'light') { w.range *= 1.25; w.arc = Math.min(Math.PI * 1.9, w.arc * 1.2); }
     return w;
   }
 
