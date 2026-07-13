@@ -38,15 +38,19 @@ const Monsters = (() => {
     // #66 lobber: ranged artillery that kites and LOBS arcing bombs over walls/obstacles,
     // landing where you stand (telegraphed) - punishes standing still behind cover
     lobber:   { hp: 48, dmg: 16, speed: 64,  r: 14, xp: 11, coins: [3, 6] },
+    // #114 gunner: mid-range machine-gunner. Kites, revs up (telegraphed), then unloads
+    // a rapid BURST of weak tracers before a long reload. Each round is soft; the STREAM
+    // is the threat, so you break line-of-sight / roll through the gap between bursts.
+    gunner:   { hp: 34, dmg: 6,  speed: 76,  r: 13, xp: 10, coins: [2, 5] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -59,7 +63,7 @@ const Monsters = (() => {
   // fires, ranged/melee types just flag m.emp = true so their NEXT wind-up becomes the
   // empowered one (reusing the existing telegraph), while a few passive types act now.
   const EMPOWER_TYPES = new Set(['chaser', 'archer', 'tank', 'swarmer', 'glass', 'bomber',
-    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber']);
+    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner']);
   function triggerEmpower(m, g) {
     if (m.type === 'worm') {
       // #110 (Sam) worm gets a temporary SLITHER SPEED burst
@@ -167,7 +171,7 @@ const Monsters = (() => {
   // #48 UNIT TACTICS: enemies that shoot from range are "line troops" the melee
   // units screen for. Bulwarks (shielded) body-block for them, swarmers picket
   // them, and chasers flank the player instead of charging straight in.
-  const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1 };
+  const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1, gunner: 1 };
   function nearestRangedAlly(m, g) {
     let best = null, bd = 1e9;
     for (const o of g.monsters) {
@@ -385,6 +389,39 @@ const Monsters = (() => {
             Sfx.play('bowfire');
           }
         }
+        break;
+      }
+      case 'gunner': {
+        // #114 machine-gunner: kite at mid range, rev up (telegraphed), then unload a
+        // rapid tracer BURST with a bit of spread, then a long reload. Soft per-round.
+        if (dist < 190) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+        else if (dist > 330) moveToward(m, p.x, p.y, dt, m.speed * 0.8);
+        else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'idle') {
+          if (m.t > 2.4 && dist < 420) { m.state = 'spin'; m.t = 0; } // reload done -> spin up
+        } else if (m.state === 'spin') {
+          m.facing = Math.atan2(p.y - m.y, p.x - m.x); // tracks while revving
+          m.telegraph = 0.7 - m.t;                     // long readable spin-up (red ring)
+          m.spin = (m.spin || 0) + dt * 22;            // barrel spin for the draw
+          if (m.t >= 0.7) {
+            m.state = 'burst'; m.t = 0; m.telegraph = 0;
+            m.burstLeft = m.emp ? 12 : 7; m.burstShotT = 0; m.empBurst = m.emp; m.emp = false;
+          }
+        } else if (m.state === 'burst') {
+          m.spin = (m.spin || 0) + dt * 34;
+          m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+          m.burstShotT -= dt;
+          if (m.burstShotT <= 0 && m.burstLeft > 0) {
+            m.burstShotT = 0.085; // ~12 rounds/sec
+            const spread = (Math.random() - 0.5) * (m.empBurst ? 0.34 : 0.2);
+            fireProjectile(g, m, m.facing + spread, 400, m.dmg, m.empBurst ? '#ff7a2c' : '#ffd24c', 3, { glow: true });
+            m.muzzle = 0.07;
+            m.burstLeft--;
+            Sfx.play('bowfire');
+            if (m.burstLeft <= 0) { m.state = 'idle'; m.t = 0; } // into the reload
+          }
+        }
+        if (m.muzzle > 0) m.muzzle -= dt;
         break;
       }
       case 'lobber': {
@@ -990,6 +1027,7 @@ const Monsters = (() => {
     switch (m.type) {
       case 'chaser': drawChaser(c, m, flash, ex, ey); break;
       case 'archer': drawArcher(c, m, flash, ex, ey); break;
+      case 'gunner': drawGunner(c, m, flash, ex, ey); break;
       case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
@@ -1178,6 +1216,33 @@ const Monsters = (() => {
     c.lineTo(m.r + 4 + Math.cos(Math.PI / 2.2) * 9, Math.sin(Math.PI / 2.2) * 9);
     c.stroke();
     if (pull > 0) { c.strokeStyle = '#cfe8b0'; c.lineWidth = 2; c.beginPath(); c.moveTo(m.r + 4 - pull, 0); c.lineTo(m.r + 13 - pull, 0); c.stroke(); }
+    c.restore();
+  }
+  // #114 machine-gunner: a squat steel body with a stubby multi-barrel gun that spins
+  // up (spin state) and spits a muzzle flash while bursting.
+  function drawGunner(c, m, flash, ex, ey) {
+    body(c, m, flash ? '#fff' : '#586b7a', flash);
+    // ammo-belt bandolier across the body
+    c.strokeStyle = flash ? '#eee' : '#c9a227'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-m.r * 0.7, -m.r * 0.3); c.lineTo(m.r * 0.7, m.r * 0.45); c.stroke();
+    eyes(c, ex, ey, 4, 2.2, '#ff9a3d');
+    c.save(); c.rotate(m.facing);
+    // barrel cluster (3 stubby barrels), spinning while spun-up / firing
+    const spin = m.spin || 0;
+    c.fillStyle = flash ? '#eee' : '#39434e';
+    c.beginPath(); c.roundRect ? c.roundRect(m.r - 2, -6, 16, 12, 3) : c.rect(m.r - 2, -6, 16, 12); c.fill();
+    for (let i = 0; i < 3; i++) {
+      const off = Math.sin(spin + i * 2.09) * 3.2;
+      c.fillStyle = flash ? '#fff' : '#20272e';
+      c.fillRect(m.r + 12, off - 1.4, 8, 2.8);
+    }
+    // muzzle flash during the burst
+    if (m.muzzle > 0) {
+      c.globalAlpha = Math.min(1, m.muzzle / 0.07);
+      c.fillStyle = '#ffe08a';
+      c.beginPath(); c.moveTo(m.r + 20, 0); c.lineTo(m.r + 32, -5); c.lineTo(m.r + 28, 0); c.lineTo(m.r + 32, 5); c.closePath(); c.fill();
+      c.globalAlpha = 1;
+    }
     c.restore();
   }
   function drawTank(c, m, flash, ex, ey) {
