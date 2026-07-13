@@ -42,8 +42,8 @@ const Monsters = (() => {
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
-    1: ['chaser', 'chaser', 'swarmer'],
-    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm'],
+    1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded'], // #112 shielders on floor 1 (teaches flank-or-bait early); ~20% so they don't swamp it
+    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
     3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber'],
     4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
     5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
