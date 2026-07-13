@@ -23,6 +23,7 @@ const Net = (() => {
 
   let ws = null;
   let myId = null, hostId = null, roomCode = null;
+  let intentional = false, retries = 0, reTimer = null; // auto-reconnect state
   const peers = new Set();
   const handlers = {};        // type -> fn(msg)
   const lifecycle = {};       // 'open'|'close'|'error'|'change' -> fn
@@ -41,12 +42,25 @@ const Net = (() => {
     return s;
   }
 
-  function connect(code) {
-    roomCode = code.toUpperCase();
-    myId = null; hostId = null; peers.clear();
+  // open (or re-open) the socket to the CURRENT roomCode. On an unintentional close
+  // it auto-reconnects to the same room with backoff (up to 6 tries), keeping the
+  // client's local game state, so a brief WiFi blip self-heals instead of freezing
+  // or kicking the player to the menu.
+  function openSocket() {
     ws = new WebSocket(wsUrl(roomCode));
-    ws.onopen = () => emit('open');
-    ws.onclose = () => { emit('close'); };
+    ws.onopen = () => { retries = 0; emit('open'); };
+    ws.onclose = () => {
+      emit('close');
+      if (!intentional && roomCode && retries < 6) {
+        retries++;
+        if (reTimer) clearTimeout(reTimer);
+        reTimer = setTimeout(() => {
+          if (intentional || !roomCode) return;
+          myId = null; hostId = null; peers.clear(); // a fresh welcome will repopulate
+          openSocket();
+        }, Math.min(600 + retries * 600, 4000));
+      }
+    };
     ws.onerror = e => emit('error', e);
     ws.onmessage = ev => {
       let m; try { m = JSON.parse(ev.data); } catch { return; }
@@ -65,10 +79,17 @@ const Net = (() => {
     };
   }
 
+  function connect(code) {
+    intentional = false; retries = 0;
+    roomCode = code.toUpperCase();
+    myId = null; hostId = null; peers.clear();
+    openSocket();
+  }
+
   return {
     host() { const code = makeCode(); connect(code); return code; },
     join(code) { connect(code); return code; },
-    disconnect() { if (ws) { try { ws.close(); } catch { } ws = null; } peers.clear(); myId = hostId = roomCode = null; },
+    disconnect() { intentional = true; if (reTimer) { clearTimeout(reTimer); reTimer = null; } if (ws) { try { ws.close(); } catch { } ws = null; } peers.clear(); myId = hostId = roomCode = null; },
     send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); },
     on(type, fn) { handlers[type] = fn; },
     onLifecycle(name, fn) { lifecycle[name] = fn; },

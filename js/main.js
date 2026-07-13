@@ -1554,19 +1554,15 @@
     // trumps any pending level-up gate: clear it so nothing is left stranded)
     Net.on('floor', m => { if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; startFloor(); g.state = 'play'; } });
     Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
+    // NOTE: a mid-run socket close must NOT yank the player to the menu (that kicked
+    // live players out on every WiFi blip). net.js now auto-reconnects to the same room
+    // and keeps the local game state, so a brief drop self-heals. Only surface status
+    // in the lobby; show a transient "reconnecting" banner in-run.
     Net.onLifecycle('close', () => {
       if (g.lobby && g.lobby.mode === 'join') { g.lobby.status = 'disconnected'; return; }
-      // #M4 our socket dropped mid-run -> don't silently freeze; bail to menu with a message
-      if (g.coop) endCoopDisconnected('Connection lost - returned to the menu.');
+      if (g.coop && g.state !== 'title') g.shareMsg = { text: 'Reconnecting...', t: 3 };
     });
     Net.onLifecycle('error', () => { if (g.lobby) g.lobby.status = 'connection failed'; });
-    // #M4 the host changed mid-run = the original host left. The relay promotes a guest,
-    // but proxy monsters have no AI, so the run can't continue - end it gracefully for all.
-    Net.onLifecycle('change', () => {
-      if (g.coop && g.coopHostId && Net.hostId && Net.hostId !== g.coopHostId) {
-        endCoopDisconnected('The host left - the run has ended. Back to the menu.');
-      }
-    });
   }
 
   function openLobby() {
@@ -1776,10 +1772,13 @@
   // also every remote peer sharing this room (so enemies chase BOTH players).
   function partyTargets() {
     const P = g.player;
-    const list = [{ x: P.x, y: P.y, r: P.r, ref: P, isRemote: false, id: 'me' }];
+    // DOWNED/dead players are NOT valid targets - monsters must ignore a downed body
+    // (otherwise they swarm it, no one can revive, and the party false-wipes to menu).
+    const list = [];
+    if (!P.dead && !P.downed) list.push({ x: P.x, y: P.y, r: P.r, ref: P, isRemote: false, id: 'me' });
     if (g.coop && typeof Net !== 'undefined' && Net.isHost && g.room) {
       for (const [id, rp] of g.remotePlayers) {
-        if (g.time - (rp.last || 0) > 3 || rp.dead) continue;
+        if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed) continue;
         if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
         list.push({ x: rp.x, y: rp.y, r: 13, ref: rp, isRemote: true, id });
       }
