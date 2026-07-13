@@ -1456,6 +1456,7 @@
       if (rp.x === undefined) { rp.x = m.x; rp.y = m.y; }
       rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
+      rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
       rp.last = g.time;
     });
     Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
@@ -1671,6 +1672,9 @@
       r: [g.room.gx, g.room.gy], hp: Math.round(p.hp), mh: Math.round(p.maxHp),
       wc: p.weapon ? p.weapon.color : '#9ee7ff', dd: p.downed ? 1 : 0,
       nm: g.playerName || '',
+      wa: p.weapon ? p.weapon.archetype : 'light',  // so peers can draw your weapon
+      pr: (g.meta.prestige || 0),                     // so peers can draw your prestige cape
+      mv: p.moving ? 1 : 0,                            // so your cape waves for others too
     });
   }
 
@@ -1703,6 +1707,8 @@
       if (rp.swing) drawPeerSwing(c, rp);
       c.save();
       c.translate(rp.x, rp.y);
+      // prestige cape (behind the body) - so teammates see each other's capes
+      if (rp.pr > 0 && PlayerDef.capeAt) PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x);
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = '#2c3e60'; c.beginPath(); c.arc(0, 2, 13, 0, Math.PI * 2); c.fill();
@@ -1711,6 +1717,8 @@
       c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
       c.fillStyle = '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
       c.restore();
+      // held weapon (aimed where they're facing) - so teammates see each other's weapons
+      if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, 13);
       c.restore();
       c.textAlign = 'center';
       c.fillStyle = '#7fd4ff'; c.font = 'bold 10px monospace';

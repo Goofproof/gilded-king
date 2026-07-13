@@ -21,6 +21,69 @@ const PlayerDef = (() => {
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
+  // #43 the prestige cape, drawn at the current translate origin. Shared by the local
+  // player AND remote peers (main.js drawRemotePlayers) so everyone sees each other's
+  // capes. Two fold panels + gold trim + collar; waves harder while moving.
+  function capeAt(c, r, prestige, moving, seedX) {
+    const t = Math.min(6, prestige);
+    const now = Date.now();
+    const amp = moving ? 11 : 2.5;
+    const freq = moving ? 200 : 430;
+    const ph = now / freq + (seedX || 0) * 0.05;
+    const swayL = Math.sin(ph) * amp;
+    const swayR = Math.sin(ph + 1.2) * amp;
+    const midW = Math.sin(ph + 0.6) * amp * 0.6;
+    const L = r * (2.1 + t * 0.14) + (moving ? r * 0.5 : 0);
+    const tw = r * 0.5, bw = r * (1.05 + t * 0.05);
+    const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
+    const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
+    c.save();
+    c.fillStyle = dark;
+    c.beginPath();
+    c.moveTo(0, -r * 0.2); c.lineTo(-tw, -r * 0.16);
+    c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
+    c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+    c.closePath(); c.fill();
+    c.fillStyle = lite;
+    c.beginPath();
+    c.moveTo(0, -r * 0.2); c.lineTo(tw, -r * 0.16);
+    c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, bw + swayR, L);
+    c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#e8b52f'; c.lineWidth = 1.3 + t * 0.3; c.lineJoin = 'round';
+    c.beginPath();
+    c.moveTo(-tw, -r * 0.16);
+    c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
+    c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+    c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, bw + swayR, L);
+    c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, tw, -r * 0.16);
+    c.stroke();
+    c.fillStyle = '#ffd24c';
+    c.beginPath(); c.ellipse(0, -r * 0.18, tw * 0.9, 2.6 + t * 0.2, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
+
+  // a compact weapon silhouette for remote peers, drawn at the origin, aimed at `ang`.
+  function peerWeapon(c, arch, color, facing, r) {
+    c.save();
+    c.rotate(facing || 0);
+    c.strokeStyle = color || '#cfe0f0'; c.fillStyle = color || '#cfe0f0'; c.lineCap = 'round';
+    if (arch === 'bow') {
+      c.lineWidth = 2; c.beginPath(); c.arc(r * 0.5, 0, r * 0.7, -1.1, 1.1); c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(r * 0.5 + Math.cos(-1.1) * r * 0.7, Math.sin(-1.1) * r * 0.7); c.lineTo(r * 0.5 + Math.cos(1.1) * r * 0.7, Math.sin(1.1) * r * 0.7); c.stroke();
+    } else if (arch === 'wand' || arch === 'staff') {
+      c.lineWidth = arch === 'staff' ? 3 : 2;
+      c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * (arch === 'staff' ? 1.3 : 1.0), 0); c.stroke();
+      c.beginPath(); c.arc(r * (arch === 'staff' ? 1.35 : 1.05), 0, arch === 'staff' ? 4 : 3, 0, Math.PI * 2); c.fill();
+    } else if (arch === 'heavy') {
+      c.lineWidth = 4; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 1.15, 0); c.stroke();
+    } else { // light
+      c.lineWidth = 2.5; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 0.95, 0); c.stroke();
+    }
+    c.restore();
+  }
+
   // visual evolution (Sam, 2026-07-11): the champion's look escalates with the
   // stat you've invested in most. accent = aura/crest colour; cloak/body are the
   // recoloured robes that take over at stage 2+. Stage = number of evolutions
@@ -870,51 +933,7 @@ const PlayerDef = (() => {
     // and a gold collar clasp, so it reads as real cloth instead of a blob. Length,
     // richness and colour deepen with prestige (caps ~tier 6; the number keeps climbing).
     drawPrestigeCape(c, prestige) {
-      const r = this.r;
-      const t = Math.min(6, prestige);
-      // #43 the cape catches the wind when you RUN: a bigger, faster, phase-shifted
-      // ripple while moving so it flaps and streams out; a gentle idle sway when still.
-      const now = Date.now();
-      const running = this.moving;
-      const amp = running ? 11 : 2.5;              // billow amplitude
-      const freq = running ? 200 : 430;            // faster flap when running
-      const ph = now / freq + this.x * 0.05;
-      const swayL = Math.sin(ph) * amp;            // left hem
-      const swayR = Math.sin(ph + 1.2) * amp;      // right hem, offset -> a travelling ripple
-      const midW = Math.sin(ph + 0.6) * amp * 0.6; // hem centre notch waggles too
-      const L = r * (2.1 + t * 0.14) + (running ? r * 0.5 : 0); // streams longer when running
-      const tw = r * 0.5;                           // half-width at the collar
-      const bw = r * (1.05 + t * 0.05);             // half-width at the hem
-      const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
-      const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
-      c.save();
-      // left fold (darker)
-      c.fillStyle = dark;
-      c.beginPath();
-      c.moveTo(0, -r * 0.2); c.lineTo(-tw, -r * 0.16);
-      c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
-      c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
-      c.closePath(); c.fill();
-      // right fold (lighter, catches the light)
-      c.fillStyle = lite;
-      c.beginPath();
-      c.moveTo(0, -r * 0.2); c.lineTo(tw, -r * 0.16);
-      c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, bw + swayR, L);
-      c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
-      c.closePath(); c.fill();
-      // gold trim around the outer silhouette + the scalloped hem notch
-      c.strokeStyle = '#e8b52f'; c.lineWidth = 1.3 + t * 0.3; c.lineJoin = 'round';
-      c.beginPath();
-      c.moveTo(-tw, -r * 0.16);
-      c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
-      c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
-      c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, bw + swayR, L);
-      c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, tw, -r * 0.16);
-      c.stroke();
-      // gold collar clasp at the shoulders
-      c.fillStyle = '#ffd24c';
-      c.beginPath(); c.ellipse(0, -r * 0.18, tw * 0.9, 2.6 + t * 0.2, 0, 0, Math.PI * 2); c.fill();
-      c.restore();
+      capeAt(c, this.r, prestige, this.moving, this.x);
     }
 
     // #22: physical evolution features. Each stat you've evolved (>=3 stacks, i.e.
@@ -1168,5 +1187,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById };
+  return { Player, T, CLASSES, classById, capeAt, peerWeapon };
 })();
