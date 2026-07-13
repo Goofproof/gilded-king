@@ -42,15 +42,19 @@ const Monsters = (() => {
     // a rapid BURST of weak tracers before a long reload. Each round is soft; the STREAM
     // is the threat, so you break line-of-sight / roll through the gap between bursts.
     gunner:   { hp: 34, dmg: 6,  speed: 76,  r: 13, xp: 10, coins: [2, 5] },
+    // #128 mage: an enemy caster. Kites and hurls a telegraphed arcane bolt (a slow,
+    // dodgeable glowing orb); empowered it fans three. Reads distinct from the archer's
+    // arrows and the gunner's tracers - it's magic.
+    mage:     { hp: 30, dmg: 12, speed: 66,  r: 13, xp: 11, coins: [2, 5] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -63,7 +67,7 @@ const Monsters = (() => {
   // fires, ranged/melee types just flag m.emp = true so their NEXT wind-up becomes the
   // empowered one (reusing the existing telegraph), while a few passive types act now.
   const EMPOWER_TYPES = new Set(['chaser', 'archer', 'tank', 'swarmer', 'glass', 'bomber',
-    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner']);
+    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage']);
   function triggerEmpower(m, g) {
     if (m.type === 'worm') {
       // #110 (Sam) worm gets a temporary SLITHER SPEED burst
@@ -192,7 +196,7 @@ const Monsters = (() => {
   // #48 UNIT TACTICS: enemies that shoot from range are "line troops" the melee
   // units screen for. Bulwarks (shielded) body-block for them, swarmers picket
   // them, and chasers flank the player instead of charging straight in.
-  const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1, gunner: 1 };
+  const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1, gunner: 1, mage: 1 };
   function nearestRangedAlly(m, g) {
     let best = null, bd = 1e9;
     for (const o of g.monsters) {
@@ -453,6 +457,28 @@ const Monsters = (() => {
           }
         }
         if (m.muzzle > 0) m.muzzle -= dt;
+        break;
+      }
+      case 'mage': {
+        // #128 enemy caster: kite at range, then a telegraphed cast hurls a slow arcane
+        // orb (dodgeable); empowered fans three. Reads as magic, not arrows/tracers.
+        if (dist < 180) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+        else if (dist > 330) moveToward(m, p.x, p.y, dt, m.speed * 0.8);
+        else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'idle' && m.t > 2.0) { m.state = 'cast'; m.t = 0; }
+        if (m.state === 'cast') {
+          m.facing = Math.atan2(p.y - m.y, p.x - m.x); // tracks while charging (dodge on release)
+          m.telegraph = 0.65 - m.t;
+          m.castGlow = Math.min(1, m.t / 0.65);          // the orb charges up (for draw)
+          if (m.t >= 0.65) {
+            m.state = 'idle'; m.t = 0; m.telegraph = 0; m.castGlow = 0;
+            if (m.emp) { // #110 EMPOWERED: a three-bolt arcane fan
+              for (let k = -1; k <= 1; k++) fireProjectile(g, m, m.facing + k * 0.26, 320, m.dmg, '#c9a3ff', 6, { glow: true });
+              m.emp = false;
+            } else fireProjectile(g, m, m.facing, 300, m.dmg, '#b06bff', 6, { glow: true });
+            Sfx.play('bowfire');
+          }
+        }
         break;
       }
       case 'lobber': {
@@ -1057,6 +1083,7 @@ const Monsters = (() => {
       case 'chaser': drawChaser(c, m, flash, ex, ey); break;
       case 'archer': drawArcher(c, m, flash, ex, ey); break;
       case 'gunner': drawGunner(c, m, flash, ex, ey); break;
+      case 'mage': drawMage(c, m, flash, ex, ey); break;
       case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
@@ -1273,6 +1300,25 @@ const Monsters = (() => {
       c.globalAlpha = 1;
     }
     c.restore();
+  }
+  // #128 enemy mage: a dark-robed caster with a peaked hood and an arcane orb that
+  // brightens as it charges a cast.
+  function drawMage(c, m, flash, ex, ey) {
+    body(c, m, flash ? '#fff' : '#4a3070', flash);
+    // peaked hood
+    c.fillStyle = flash ? '#eee' : '#2a1c44';
+    c.beginPath(); c.moveTo(0, -m.r * 1.5); c.lineTo(m.r * 0.62, -m.r * 0.2); c.lineTo(-m.r * 0.62, -m.r * 0.2); c.closePath(); c.fill();
+    eyes(c, ex, ey, 4, 2.2, '#c9a3ff');
+    // charging orb, aimed at the target while casting
+    const glow = m.castGlow || 0;
+    if (glow > 0 || m.state === 'cast') {
+      c.save(); c.rotate(m.facing || 0);
+      c.globalAlpha = 0.4 + glow * 0.6; c.fillStyle = '#b06bff';
+      c.beginPath(); c.arc(m.r + 7, 0, 2.5 + glow * 5, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1; c.fillStyle = '#e0c0ff';
+      c.beginPath(); c.arc(m.r + 7, 0, 1.2 + glow * 2, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
   }
   function drawTank(c, m, flash, ex, ey) {
     // heavy hexagonal bruiser
