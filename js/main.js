@@ -689,17 +689,38 @@
   function commitInitials(skip) {
     if (!skip) {
       const name = g.initials.letters.map(c => String.fromCharCode(c)).join('');
+      const entry = { initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain };
       const scores = loadScores();
-      scores.push({ initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain });
+      scores.push(entry);
       scores.sort((a, b) => b.score - a.score);
       g.scores = scores.slice(0, SCORE_CAP);
       saveScores(g.scores);
       g.newScoreRank = g.scores.findIndex(s => s.score === g.essenceEarned && s.initials === name) + 1;
       Sfx.play('upgrade');
+      submitGlobalScore(entry); // #62 post to the global leaderboard (best-effort)
     }
     g.state = g.afterInitials;
     g.overlayT = 0;
     g.initials = null;
+  }
+
+  // #62 GLOBAL LEADERBOARD (best-effort; the local board is always the fallback).
+  // POST a finished score, then refresh the board from what the server returns.
+  function leaderboardUrl() {
+    try { return (Net.relayBase ? Net.relayBase() : '') + '/scores'; } catch { return ''; }
+  }
+  function submitGlobalScore(entry) {
+    const url = leaderboardUrl(); if (!url) return;
+    fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(entry) })
+      .then(r => r.json())
+      .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = d.top; g.globalScores = true; if (d.rank) g.newScoreRank = d.rank; } })
+      .catch(() => { /* offline -> keep the local board */ });
+  }
+  function fetchGlobalScores() {
+    const url = leaderboardUrl(); if (!url) return;
+    fetch(url).then(r => r.json())
+      .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = d.top; g.globalScores = true; } })
+      .catch(() => { /* offline -> keep the local board */ });
   }
 
   function updateInitials() {
@@ -3599,5 +3620,7 @@
   // boot
   console.log('[dungeon] loaded - Dungeon of the Gilded King');
   maybeShowPatchNotes();
+  fetchGlobalScores();            // #62 pull the global leaderboard for the title board
+  setInterval(() => { if (g.state === 'title') fetchGlobalScores(); }, 300000); // refresh every 5 min on the title
   requestAnimationFrame(frame);
 })();

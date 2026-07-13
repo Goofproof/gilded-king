@@ -13,14 +13,25 @@
 // game traffic that it just fans out.
 // ============================================================================
 
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'content-type',
+};
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
 
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+
     // health check / friendly root
     if (parts.length === 0) {
-      return new Response('Gilded King co-op relay is up. Connect a WebSocket to /room/<CODE>.', {
+      return new Response('Gilded King relay is up. WebSocket -> /room/<CODE>. Leaderboard -> /scores.', {
         headers: { 'content-type': 'text/plain', 'access-control-allow-origin': '*' },
       });
     }
@@ -34,9 +45,41 @@ export default {
       return stub.fetch(request);
     }
 
+    // /scores -> the single global leaderboard Durable Object (GET top 50, POST a score)
+    if (parts[0] === 'scores') {
+      const id = env.LEADERBOARD.idFromName('global');
+      return env.LEADERBOARD.get(id).fetch(request);
+    }
+
     return new Response('not found', { status: 404 });
   },
 };
+
+// A single Durable Object holds the global top-100 scores in persistent storage.
+export class Leaderboard {
+  constructor(state) { this.state = state; }
+  async fetch(request) {
+    if (request.method === 'POST') {
+      let s; try { s = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      if (!s || typeof s.score !== 'number' || !isFinite(s.score)) return json({ error: 'bad score' }, 400);
+      const entry = {
+        initials: String(s.initials || 'AAA').replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'AAA',
+        score: Math.max(0, Math.min(1e9, Math.round(s.score))),
+        floor: Math.max(0, Math.min(999, s.floor | 0)),
+        won: !!s.won,
+        t: Date.now(),
+      };
+      let list = (await this.state.storage.get('scores')) || [];
+      list.push(entry);
+      list.sort((a, b) => b.score - a.score);
+      list = list.slice(0, 100);
+      await this.state.storage.put('scores', list);
+      return json({ ok: true, rank: list.indexOf(entry) + 1, top: list.slice(0, 50) });
+    }
+    const list = (await this.state.storage.get('scores')) || [];
+    return json({ top: list.slice(0, 50) });
+  }
+}
 
 export class Room {
   constructor(state, env) {
