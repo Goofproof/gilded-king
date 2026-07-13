@@ -3541,17 +3541,20 @@
         break;
       }
     }
-    // ability badge tooltips (Q / R / Ultimate), bottom-centre: what does each do?
-    const s = 46, gap = 10, badges = [];
-    if (p.ability)    badges.push({ a: p.ability,    key: 'Q',         forged: `your ${(p.class && p.class.name) || 'class'} ability` });
-    if (p.abilityR)   badges.push({ a: p.abilityR,   key: 'R',         forged: 'forged from your first two evolutions' });
-    if (p.abilityUlt) badges.push({ a: p.abilityUlt, key: 'Ultimate', forged: 'right-click · forged from Q + R' });
-    const total = badges.length * s + (badges.length - 1) * gap;
-    let bx = W / 2 - total / 2;
-    for (const b of badges) {
-      const by = H - s - 12;
-      if (mx >= bx && mx <= bx + s && my >= by && my <= by + s) { drawAbilityCard(c, b.a, b.key, b.forged, bx + s / 2, by - 6); break; }
-      bx += s + gap;
+    // ability badge tooltips (Q / R / Ultimate): what does each do? Use UI's own
+    // badge layout so the hover zone always tracks the real badges (they moved to
+    // the bottom-right in #63; the old hard-coded centre layout stopped matching).
+    const FORGED = {
+      'Q': `your ${(p.class && p.class.name) || 'class'} ability`,
+      'R': 'forged from your first two evolutions',
+      '★': 'right-click · forged from Q + R',
+    };
+    const LABEL = { 'Q': 'Q', 'R': 'R', '★': 'Ultimate' };
+    for (const b of UI.abilityBadges(p)) {
+      if (mx >= b.x && mx <= b.x + b.s && my >= b.y && my <= b.y + b.s) {
+        drawAbilityCard(c, b.a, LABEL[b.key] || b.key, FORGED[b.key] || '', b.x + b.s / 2, b.y - 6);
+        break;
+      }
     }
   }
 
