@@ -28,7 +28,11 @@ const Descent = (() => {
   function threat(f) {
     const d = Math.max(0, f - 3);
     return {
-      hp:    1 + 0.16 * d,             // health climbs fastest (spongier, not deadlier)
+      // #126 the player out-scaled deep floors (a mage was one-shotting the floor-9
+      // boss). HP now ACCELERATES with depth (quadratic term) so it barely moves on
+      // floors 4-5 but keeps pace with a compounding build deep: d2 ~1.42, d6 ~2.62,
+      // d12 ~5.32 (was linear 1.32 / 1.96 / 2.92).
+      hp:    1 + 0.18 * d + 0.015 * d * d,
       dmg:   1 + 0.09 * d,             // damage climbs slower (still fair to dodge)
       speed: Math.min(1.45, 1 + 0.02 * d),
       count: 1 + 0.10 * d,             // more bodies per room, capped by spawnForRoom
@@ -109,7 +113,7 @@ const Descent = (() => {
       pal: BOSS_PALS[idx],
       name: 'THE ' + PAL_ADJ[idx] + ' ' + VARIANT_NOUN[variant],
       subtitle: VARIANT_SUB[variant],
-      hpMul: t.hp * (1 + 0.12 * anger),   // beefier each appearance, on top of depth
+      hpMul: t.hp * (1 + 0.18 * anger),   // #126 beefier each appearance (was 0.12), on top of the steeper depth curve so a burst build can't delete a Warden
       dmgMul: t.dmg,
     };
   }
