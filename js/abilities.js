@@ -130,20 +130,28 @@ const Abilities = (() => {
     ranger:  { base: 'roll',   name: 'Tumble Volley', color: '#6ee7a0' },                 // dash + i-frames + roll refund
     mage:    { base: 'dmg',    name: 'Arcane Nova',   color: '#b06bff', dmg: 130, radius: 205 }, // big AoE burst
     rogue:   { base: 'crit',   name: 'Eviscerate',    color: '#ffd24c' },                 // point-blank execute, crits
+    // #78 new classes - these declare `kind` directly (no ACTIONS base template)
+    barbarian: { name: 'War Shout',   color: '#d6482e', kind: 'fear', dur: 5, radius: 300, cdMax: 9,
+                 desc: 'A terrifying roar - every nearby enemy flees in fear for 5 seconds' },
+    paladin:   { name: 'Lay on Hands', color: '#ffe08a', kind: 'buff', heal: 0.30, castShield: true, cdMax: 9,
+                 desc: 'Heal 30% and raise a holy shield that blocks the next hit' },
+    cleric:    { name: 'Mend',         color: '#8effc0', kind: 'heal', heal: 0.40, radius: 240, cdMax: 8,
+                 desc: 'Channel light - heal yourself and every ally near you' },
   };
   function classAbility(classId) {
     const spec = CLASS_Q[classId] || CLASS_Q[''];
-    const act = ACTIONS[spec.base];
-    const a = { key: 'class:' + (classId || 'adv'), classQ: true, kind: act.kind, color: spec.color, verb: spec.name, cdMax: 7, cd: 0 };
-    for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
+    const act = spec.base ? ACTIONS[spec.base] : null;
+    const a = { key: 'class:' + (classId || 'adv'), classQ: true, kind: spec.kind || (act && act.kind), color: spec.color, verb: spec.name, cdMax: spec.cdMax || 7, cd: 0 };
+    if (act) for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
                      'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter']) {
       if (act[k] !== undefined) a[k] = act[k];
     }
-    if (spec.dmg !== undefined) a.dmg = spec.dmg;
-    if (spec.radius !== undefined) a.radius = spec.radius;
-    if (spec.knock !== undefined) a.knock = spec.knock;
+    for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
+                     'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter', 'dur']) {
+      if (spec[k] !== undefined) a[k] = spec[k];
+    }
     a.name = spec.name;
-    a.desc = describe(a);
+    a.desc = spec.desc || describe(a);
     return a;
   }
 

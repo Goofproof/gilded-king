@@ -190,6 +190,22 @@ const Monsters = (() => {
     // stagger (from heavy weapon) freezes behavior briefly
     if (m.stagger > 0) { m.stagger -= dt; clampToField(m); return; }
 
+    // #78 FEAR (Barbarian War Shout): the monster panics and flees from the nearest
+    // player, throwing no attacks, until the timer runs out. Bosses are immune.
+    if (m.feared > 0) {
+      m.feared -= dt;
+      if (!m.isBoss) {
+        const t = nearestTarget(m, g);
+        const dx = m.x - t.x, dy = m.y - t.y, d = Math.hypot(dx, dy) || 1;
+        const sp = (m.speed || 60) * 1.2;
+        m.x += (dx / d) * sp * dt; m.y += (dy / d) * sp * dt;
+        m.facing = Math.atan2(dy, dx);
+        if (Math.random() < 0.04) Fx.text(m.x, m.y - m.r - 8, '!', '#c9b3ff', 12);
+        clampToField(m);
+        return;
+      }
+    }
+
     const p = nearestTarget(m, g), dist = Math.hypot(p.x - m.x, p.y - m.y); // PR-1: chase the closest player
 
     switch (m.type) {

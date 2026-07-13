@@ -634,40 +634,42 @@ const UI = (() => {
     // --- #30 CLASS picker: pick your starting kit for the next run (centered) ---
     const classes = (typeof PlayerDef !== 'undefined' && PlayerDef.CLASSES) || [];
     if (classes.length) {
-      // centered in the free band between the essence panel (left) and scores (right)
+      // centered in the free band between the essence panel (left) and scores (right).
+      // #78 two-row grid so 8+ classes fit.
       const bandC = (262 + (W - 168)) / 2;
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('CHOOSE YOUR CLASS', bandC, 284);
-      const cw = 104, chh = 66, cgap = 8;
-      const totalW = classes.length * cw + (classes.length - 1) * cgap;
-      let cx = bandC - totalW / 2;
+      c.fillText('CHOOSE YOUR CLASS', bandC, 280);
+      const perRow = Math.ceil(classes.length / 2), gap = 8, chh = 58, y0 = 288;
+      const cw = Math.min(104, Math.floor((520 - (perRow - 1) * gap) / perRow));
       const sel = meta.selectedClass || '';
-      for (const cl of classes) {
+      classes.forEach((cl, i) => {
+        const row = Math.floor(i / perRow), col = i % perRow;
+        const rowN = row === 0 ? Math.min(perRow, classes.length) : classes.length - perRow;
+        const rowW = rowN * cw + (rowN - 1) * gap;
+        const x = bandC - rowW / 2 + col * (cw + gap), y = y0 + row * (chh + gap);
         const on = cl.id === sel;
-        const r = { x: cx, y: 294, w: cw, h: chh, action: 'selectClass', key: cl.id };
+        const r = { x, y, w: cw, h: chh, action: 'selectClass', key: cl.id };
         c.fillStyle = on ? 'rgba(255,210,76,0.12)' : 'rgba(255,255,255,0.02)';
         c.fillRect(r.x, r.y, r.w, r.h);
         c.lineWidth = on ? 2.5 : 1; c.strokeStyle = on ? '#ffd24c' : '#3a4050';
         c.strokeRect(r.x, r.y, r.w, r.h);
-        // #71 a real portrait instead of a glyph
-        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cl, r.x + r.w / 2, r.y + 30, 14);
+        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cl, r.x + r.w / 2, r.y + 24, 12);
         c.textAlign = 'center';
-        c.font = 'bold 11px monospace'; c.fillStyle = on ? '#ffe9a8' : '#c8d0de';
-        c.fillText(cl.name, r.x + r.w / 2, r.y + r.h - 8);
+        c.font = 'bold 10px monospace'; c.fillStyle = on ? '#ffe9a8' : '#c8d0de';
+        c.fillText(cl.name, r.x + r.w / 2, r.y + r.h - 6);
         rects.push(r);
-        cx += cw + cgap;
-      }
-      // the selected class's kit/perk line + the Q ability it grants, under the chips
+      });
+      const gridBottom = y0 + 2 * (chh + gap);
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
       c.textAlign = 'center';
       c.font = '11px monospace'; c.fillStyle = chosen.color;
-      c.fillText(chosen.desc, bandC, 378);
+      c.fillText(chosen.desc, bandC, gridBottom + 12);
       if (chosen.q) {
         c.font = 'bold 11px monospace'; c.fillStyle = '#9ecbff';
-        c.fillText('Q ability · ' + chosen.q, bandC, 396);
+        c.fillText('Q ability · ' + chosen.q, bandC, gridBottom + 30);
         c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-        c.fillText(chosen.qDesc, bandC, 411);
+        c.fillText(chosen.qDesc, bandC, gridBottom + 45);
       }
     }
 

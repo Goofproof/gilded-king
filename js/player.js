@@ -23,6 +23,16 @@ const PlayerDef = (() => {
     { id: 'rogue',   name: 'Rogue',      color: '#ffd24c', icon: '✦', arch: 'light',
       desc: 'Starts with a dagger. +10% crit and rolls recharge 12% faster.', fx: { critCh: 0.10, rollCd: 0.12 },
       q: 'Eviscerate',   qDesc: 'A point-blank strike that always lands a critical hit.' },
+    // #78 new classes
+    { id: 'barbarian', name: 'Barbarian', color: '#d6482e', icon: '⚑', arch: 'heavy',
+      desc: 'Starts with a heavy weapon. +30 max HP and hits 12% harder.', hp: 30, fx: { dmg: 0.12 },
+      q: 'War Shout',    qDesc: 'A terrifying roar - every nearby enemy flees in fear for 5 seconds.' },
+    { id: 'paladin',   name: 'Paladin',   color: '#ffe08a', icon: '✚', arch: 'heavy',
+      desc: 'Starts with a heavy weapon. +15 HP, takes 6% less damage, regenerates.', hp: 15, fx: { reduce: 0.06, regenFlat: 0.6 },
+      q: 'Lay on Hands', qDesc: 'Heal 30% of your health and raise a holy shield that blocks the next hit.' },
+    { id: 'cleric',    name: 'Cleric',    color: '#8effc0', icon: '✷', arch: 'wand',
+      desc: 'Starts with a wand. Magic 2, +40% healing done.', magic: 2, fx: { healMult: 0.4 },
+      q: 'Mend',         qDesc: 'Channel light - heal yourself and every ally near you.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -94,7 +104,7 @@ const PlayerDef = (() => {
   // (cx,cy) is the head centre; s is the head radius.
   function drawClassPortrait(c, cls, cx, cy, s) {
     const id = cls.id || '';
-    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f' }[id] || '#5b6884';
+    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a' }[id] || '#5b6884';
     c.save();
     c.translate(cx, cy);
     // shoulders / torso
@@ -140,6 +150,23 @@ const PlayerDef = (() => {
       c.beginPath(); c.arc(-s * 0.24, -s * 0.06, s * 0.09, 0, Math.PI * 2); c.fill();
       c.beginPath(); c.arc(s * 0.24, -s * 0.06, s * 0.09, 0, Math.PI * 2); c.fill();
       c.globalAlpha = 1;
+    } else if (id === 'barbarian') {
+      c.fillStyle = '#5a3a22'; c.beginPath(); c.arc(0, -s * 0.2, s * 0.72, Math.PI, 0); c.fill();          // fur cap
+      c.fillStyle = '#e8e0cf';                                                                             // bone horns
+      for (const sgn of [-1, 1]) { c.beginPath(); c.moveTo(sgn * s * 0.55, -s * 0.5); c.quadraticCurveTo(sgn * s * 1.2, -s * 0.9, sgn * s * 0.9, -s * 1.4); c.quadraticCurveTo(sgn * s * 0.8, -s * 0.9, sgn * s * 0.38, -s * 0.55); c.closePath(); c.fill(); }
+    } else if (id === 'paladin') {
+      c.fillStyle = '#c9cdd6'; c.beginPath(); c.arc(0, -s * 0.16, s * 0.8, Math.PI, 0); c.fill();          // helm
+      c.fillStyle = '#8a919c'; c.fillRect(-s * 0.1, -s * 0.16, s * 0.2, s * 0.7);                          // nasal
+      c.fillStyle = '#ffd24c'; c.beginPath(); c.moveTo(-s * 0.14, -s * 0.9); c.lineTo(0, -s * 1.4); c.lineTo(s * 0.14, -s * 0.9); c.closePath(); c.fill(); // crest
+      c.strokeStyle = '#ffe08a'; c.lineWidth = 2; c.globalAlpha = 0.9;                                     // halo
+      c.beginPath(); c.ellipse(0, -s * 1.2, s * 0.62, s * 0.2, 0, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1;
+    } else if (id === 'cleric') {
+      c.fillStyle = '#e8eef0'; c.beginPath();                                                              // white hood
+      c.moveTo(-s * 0.9, s * 0.2); c.quadraticCurveTo(-s * 1.0, -s * 0.98, 0, -s * 1.0);
+      c.quadraticCurveTo(s * 1.0, -s * 0.98, s * 0.9, s * 0.2);
+      c.quadraticCurveTo(s * 0.5, -s * 0.12, 0, -s * 0.18);
+      c.quadraticCurveTo(-s * 0.5, -s * 0.12, -s * 0.9, s * 0.2); c.closePath(); c.fill();
+      c.fillStyle = '#ffd24c'; c.fillRect(-s * 0.09, -s * 0.92, s * 0.18, s * 0.4); c.fillRect(-s * 0.22, -s * 0.8, s * 0.44, s * 0.15); // gold cross
     } else {
       c.fillStyle = '#6a5a44'; c.beginPath(); c.arc(0, -s * 0.34, s * 0.66, Math.PI, 0); c.fill();        // adventurer: simple hair
     }
@@ -1086,6 +1113,33 @@ const PlayerDef = (() => {
         c.quadraticCurveTo(-r * 0.55, -r * 0.15, -r * 0.95, r * 0.15);
         c.closePath(); c.fill();
         c.strokeStyle = 'rgba(201,162,39,0.6)'; c.lineWidth = 1; c.stroke();
+      } else if (id === 'barbarian') {
+        // a fur cap crowned with two curved bone horns
+        c.fillStyle = '#5a3a22';
+        c.beginPath(); c.arc(0, -r * 0.55, r * 0.66, Math.PI, 0); c.fill();
+        c.fillStyle = '#7a5233';
+        c.beginPath(); c.ellipse(0, -r * 0.5, r * 0.72, r * 0.2, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#e8e0cf';
+        for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * r * 0.5, -r * 0.7); c.quadraticCurveTo(s * r * 1.1, -r * 1.1, s * r * 0.8, -r * 1.6); c.quadraticCurveTo(s * r * 0.7, -r * 1.1, s * r * 0.35, -r * 0.75); c.closePath(); c.fill(); }
+      } else if (id === 'paladin') {
+        // a crested helm with a floating halo
+        c.fillStyle = '#c9cdd6';
+        c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
+        c.fillStyle = '#ffd24c';
+        c.beginPath(); c.moveTo(-r * 0.12, -r * 1.0); c.lineTo(0, -r * 1.5); c.lineTo(r * 0.12, -r * 1.0); c.closePath(); c.fill();
+        c.strokeStyle = '#ffe08a'; c.lineWidth = 2; c.globalAlpha = 0.9;
+        c.beginPath(); c.ellipse(0, -r * 1.35, r * 0.6, r * 0.2, 0, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1;
+      } else if (id === 'cleric') {
+        // a white-and-gold hood with a small holy cross
+        c.fillStyle = '#e8eef0';
+        c.beginPath();
+        c.moveTo(-r * 0.9, r * 0.1); c.quadraticCurveTo(-r * 1.0, -r * 1.1, 0, -r * 1.12);
+        c.quadraticCurveTo(r * 1.0, -r * 1.1, r * 0.9, r * 0.1);
+        c.quadraticCurveTo(r * 0.5, -r * 0.18, 0, -r * 0.22);
+        c.quadraticCurveTo(-r * 0.5, -r * 0.18, -r * 0.9, r * 0.1);
+        c.closePath(); c.fill();
+        c.fillStyle = '#ffd24c';
+        c.fillRect(-r * 0.09, -r * 1.05, r * 0.18, r * 0.42); c.fillRect(-r * 0.24, -r * 0.92, r * 0.48, r * 0.16);
       }
       // adventurer: no signature look (plain champion)
     }

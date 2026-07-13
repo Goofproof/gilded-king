@@ -1155,6 +1155,18 @@
       Fx.burst(p.x, p.y, ['#ffd24c', '#fff'], 34, { speed: 300, life: 0.5, glow: true });
     } else if (a.kind === 'caltrops') {
       g.ultFx.push({ type: 'caltrops', t: 0, dur: a.dur, color: a.color });
+    } else if (a.kind === 'fear') {
+      // #78 Barbarian War Shout: every enemy in range flees in terror
+      const R = a.radius || 300;
+      for (const m of g.monsters) { if (!m.dead && !m.isBoss && Math.hypot(m.x - p.x, m.y - p.y) < R + m.r) m.feared = a.dur || 5; }
+      Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
+      Fx.shake(6, 0.28);
+    } else if (a.kind === 'heal') {
+      // #78 Cleric Mend: heal self + allies (mercs/summons) in range
+      p.heal(p.maxHp * (a.heal || 0.4));
+      const R = a.radius || 240;
+      for (const merc of g.mercs) { if (!merc.dead && Math.hypot(merc.x - p.x, merc.y - p.y) < R) merc.hp = Math.min(merc.maxHp, merc.hp + merc.maxHp * (a.heal || 0.4)); }
+      Fx.burst(p.x, p.y, [a.color, '#fff', '#9effc0'], 30, { speed: 180, life: 0.7, glow: true });
     }
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
