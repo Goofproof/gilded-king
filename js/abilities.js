@@ -146,6 +146,20 @@ const Abilities = (() => {
     summoner:  { name: 'Summon Elemental', color: '#9ad0ff', kind: 'summon', cdMax: 9,
                  desc: 'Summon an elemental matching your weapon (earth if none). It fights until killed; the cooldown starts when it dies' },
   };
+  // #109 every class Q grows with player level (like the Engineer's turret count).
+  // Returns multipliers for the value-driven Qs; the turret/summon Qs additionally
+  // fold a level term into their own scaling. Applied at cast time in castAbility.
+  function qLevelScale(level) {
+    const L = Math.max(1, level | 0);
+    return {
+      dmg: 1 + 0.07 * (L - 1),        // +7% ability damage per level
+      radius: 1 + 0.03 * (L - 1),     // a little more reach
+      heal: 1 + 0.05 * (L - 1),       // stronger heals
+      knock: 1 + 0.02 * (L - 1),
+      durBonus: Math.floor((L - 1) / 4) * 0.5, // +0.5s duration every 4 levels
+    };
+  }
+
   function classAbility(classId) {
     const spec = CLASS_Q[classId] || CLASS_Q[''];
     const act = spec.base ? ACTIONS[spec.base] : null;
@@ -218,5 +232,5 @@ const Abilities = (() => {
     return out;
   }
 
-  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, ACTIONS, MODS, CLASS_Q, ULTIMATES };
+  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, ULTIMATES };
 })();

@@ -1200,6 +1200,20 @@
     if (typeof Ach !== 'undefined') Ach.cast(a.ult ? 'ult' : (a === p.abilityR ? 'R' : 'Q'), g); // #86
     Sfx.play(a.ult ? 'roar' : 'heavy');
 
+    // #109 class Q abilities GROW with player level. Scale the value-driven fields for
+    // this cast (turret/summon read none of these - they fold level into their own
+    // scaling below), then restore the base values before the post-cast modifiers.
+    let _qScaled = null;
+    if (a === p.ability && a.classQ && typeof Abilities !== 'undefined' && Abilities.qLevelScale) {
+      const s = Abilities.qLevelScale(p.level);
+      _qScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, knock: a.knock };
+      if (a.dmg) a.dmg = Math.round(a.dmg * s.dmg);
+      if (a.knock) a.knock = Math.round(a.knock * s.knock);
+      if (a.radius) a.radius = Math.round(a.radius * s.radius);
+      if (a.heal) a.heal = Math.min(0.95, a.heal * s.heal);
+      if (a.dur) a.dur = +(a.dur + s.durBonus).toFixed(2);
+    }
+
     if (a.kind === 'nova' || a.kind === 'strike') {
       let dmg = (a.dmg || 60) * dmgMul;
       if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
@@ -1275,8 +1289,9 @@
       // #78 Engineer: build a turret at the player's feet (charge consumed above-guarded)
       p.turretCharges--;
       const agi = (p.statPoints && p.statPoints.AGILITY) || 0;
-      const dmg = Math.round(11 * (p.stats.dmgMul || 1) * (1 + 0.15 * agi));
-      const hp = Math.round(60 * (1 + 0.06 * agi + 0.08 * Math.max(0, g.floorNum - 1)));
+      const lvlUp = 1 + 0.05 * (p.level - 1); // #109 turret power grows with level too
+      const dmg = Math.round(11 * (p.stats.dmgMul || 1) * (1 + 0.15 * agi) * lvlUp);
+      const hp = Math.round(60 * (1 + 0.06 * agi + 0.08 * Math.max(0, g.floorNum - 1)) * lvlUp);
       g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: 0.7, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0 });
       Fx.burst(p.x, p.y, [a.color, '#fff'], 16, { speed: 120, life: 0.4 });
       Fx.text(p.x, p.y - 30, 'TURRET', a.color, 12);
@@ -1284,11 +1299,13 @@
       // #78 Summoner: conjure an elemental matching your slot-1 weapon (earth by default)
       const elem = elementFromWeapon(p);
       const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
-      const scale = 1 + 0.12 * arc + 0.06 * Math.max(0, g.floorNum - 1);
+      const scale = 1 + 0.12 * arc + 0.06 * Math.max(0, g.floorNum - 1) + 0.05 * (p.level - 1); // #109 also grows with level
       g.summon = makeElemental(elem, p.x - 24, p.y + 16, scale);
       Fx.text(p.x, p.y - 30, elem.toUpperCase() + ' ELEMENTAL', a.color, 12);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 22, { speed: 160, life: 0.5, glow: true });
     }
+
+    if (_qScaled) Object.assign(a, _qScaled); // #109 restore base Q values after the scaled cast
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
     if (a.castShield) p.buffs.shield = 1;
@@ -4225,7 +4242,7 @@
     // badge layout so the hover zone always tracks the real badges (they moved to
     // the bottom-right in #63; the old hard-coded centre layout stopped matching).
     const FORGED = {
-      'Q': `your ${(p.class && p.class.name) || 'class'} ability`,
+      'Q': `your ${(p.class && p.class.name) || 'class'} ability · grows with level (Lv ${p.level})`, // #109
       'R': 'forged from your first two evolutions',
       '★': 'right-click · forged from Q + R',
     };
