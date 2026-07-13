@@ -918,6 +918,11 @@ const PlayerDef = (() => {
       c.fillRect(this.r * 0.3, -2.5, this.r * 0.5, 5);
       c.restore();
 
+      // #52 class signature look: warrior pauldrons, ranger feather cap, mage hat,
+      // rogue cowl. Drawn on the head/shoulders in the FIXED body frame (doesn't spin
+      // with aim); evolution parts layer on top.
+      this.drawClassFeature(c, evoStage, pal);
+
       // #22: front body parts (horns / claws / pauldrons / crown / halo) grown
       // from your evolution paths, drawn over the body
       this.drawEvoParts(c, 'front');
@@ -934,6 +939,56 @@ const PlayerDef = (() => {
     // richness and colour deepen with prestige (caps ~tier 6; the number keeps climbing).
     drawPrestigeCape(c, prestige) {
       capeAt(c, this.r, prestige, this.moving, this.x);
+    }
+
+    // #52 the class's signature headwear/armor, in the fixed body frame
+    drawClassFeature(c) {
+      const r = this.r;
+      const id = (this.class && this.class.id) || '';
+      if (id === 'warrior') {
+        // bronze pauldrons on both shoulders with a gold rivet
+        for (const s of [-1, 1]) {
+          c.save(); c.scale(s, 1);
+          c.fillStyle = '#b06a28';
+          c.beginPath(); c.ellipse(r * 0.8, 1, r * 0.42, r * 0.3, -0.35, 0, Math.PI * 2); c.fill();
+          c.strokeStyle = '#6e3f14'; c.lineWidth = 1.5; c.stroke();
+          c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(r * 0.8, 1, 1.6, 0, Math.PI * 2); c.fill();
+          c.restore();
+        }
+      } else if (id === 'ranger') {
+        // green cap + a feather sweeping up and back
+        c.fillStyle = '#2f6b46';
+        c.beginPath(); c.arc(0, -r * 0.72, r * 0.6, Math.PI * 1.04, -Math.PI * 0.04); c.fill();
+        c.fillStyle = '#26543a';
+        c.beginPath(); c.ellipse(0, -r * 0.7, r * 0.72, r * 0.18, 0, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#8ef0a8'; c.lineWidth = 2.4; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(-r * 0.2, -r * 1.0); c.quadraticCurveTo(-r * 0.95, -r * 1.5, -r * 0.7, -r * 1.98); c.stroke();
+      } else if (id === 'mage') {
+        // a full pointed wizard hat: wide brim, tall bent cone, a band and a gold star
+        c.fillStyle = '#2a1840';
+        c.beginPath(); c.ellipse(0, -r * 0.55, r * 1.05, r * 0.26, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#4a2d70';
+        c.beginPath();
+        c.moveTo(-r * 0.72, -r * 0.6);
+        c.quadraticCurveTo(-r * 0.35, -r * 1.6, r * 0.55, -r * 2.2); // up to a bent tip
+        c.quadraticCurveTo(-r * 0.05, -r * 1.25, r * 0.72, -r * 0.6);
+        c.closePath(); c.fill();
+        c.strokeStyle = '#2a1840'; c.lineWidth = 1; c.stroke();
+        c.fillStyle = '#6b48a0'; c.fillRect(-r * 0.6, -r * 0.78, r * 1.2, r * 0.16); // hatband
+        c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-r * 0.05, -r * 1.15, 2.1, 0, Math.PI * 2); c.fill();
+      } else if (id === 'rogue') {
+        // a dark cowl hooding the head, open at the face, with a faint gold trim
+        c.fillStyle = '#221d13';
+        c.beginPath();
+        c.moveTo(-r * 0.95, r * 0.15);
+        c.quadraticCurveTo(-r * 1.05, -r * 1.15, 0, -r * 1.18);
+        c.quadraticCurveTo(r * 1.05, -r * 1.15, r * 0.95, r * 0.15);
+        c.quadraticCurveTo(r * 0.55, -r * 0.15, 0, -r * 0.2);
+        c.quadraticCurveTo(-r * 0.55, -r * 0.15, -r * 0.95, r * 0.15);
+        c.closePath(); c.fill();
+        c.strokeStyle = 'rgba(201,162,39,0.6)'; c.lineWidth = 1; c.stroke();
+      }
+      // adventurer: no signature look (plain champion)
     }
 
     // #22: physical evolution features. Each stat you've evolved (>=3 stacks, i.e.
