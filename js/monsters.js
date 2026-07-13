@@ -46,6 +46,10 @@ const Monsters = (() => {
     // dodgeable glowing orb); empowered it fans three. Reads distinct from the archer's
     // arrows and the gunner's tracers - it's magic.
     mage:     { hp: 30, dmg: 12, speed: 66,  r: 13, xp: 11, coins: [2, 5] },
+    // #128 doppelganger: a shade that morphs into a copy of YOU - wears your class's
+    // headgear + weapon and fights in your style (melee lunge if you carry a blade,
+    // kite-and-shoot if you carry a bow/wand/staff). Turning your own kit against you.
+    doppel:   { hp: 44, dmg: 14, speed: 92,  r: 13, xp: 14, coins: [3, 6] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
@@ -53,8 +57,8 @@ const Monsters = (() => {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
     3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'doppel'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'doppel'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -67,7 +71,7 @@ const Monsters = (() => {
   // fires, ranged/melee types just flag m.emp = true so their NEXT wind-up becomes the
   // empowered one (reusing the existing telegraph), while a few passive types act now.
   const EMPOWER_TYPES = new Set(['chaser', 'archer', 'tank', 'swarmer', 'glass', 'bomber',
-    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage']);
+    'summoner', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'doppel']);
   function triggerEmpower(m, g) {
     if (m.type === 'worm') {
       // #110 (Sam) worm gets a temporary SLITHER SPEED burst
@@ -477,6 +481,59 @@ const Monsters = (() => {
               m.emp = false;
             } else fireProjectile(g, m, m.facing, 300, m.dmg, '#b06bff', 6, { glow: true });
             Sfx.play('bowfire');
+          }
+        }
+        break;
+      }
+      case 'doppel': {
+        // #128 DOPPELGANGER: on first sight it morphs into a copy of the player and
+        // fights in their style - melee lunge for a blade, kite-and-shoot for a bow/
+        // wand/staff, drawn with the player's own class headgear + weapon.
+        if (!m.mirror && g.player) {
+          const pl = g.player;
+          m.mirror = {
+            classId: (pl.class && pl.class.id) || '',
+            arch: (pl.weapon && pl.weapon.archetype) || 'light',
+            wc: (pl.weapon && pl.weapon.color) || '#9ee7ff',
+          };
+          m.morphT = 0.6;
+          Fx.burst(m.x, m.y, ['#c9a3ff', '#ff5edb', '#fff'], 16, { speed: 150, life: 0.5, glow: true });
+          Fx.text(m.x, m.y - m.r - 10, 'IT WEARS YOUR FACE', '#ff5edb', 11);
+        }
+        if (m.morphT > 0) m.morphT -= dt;
+        const mir = m.mirror || { arch: 'light' };
+        const ranged = mir.arch === 'bow' || mir.arch === 'wand' || mir.arch === 'staff';
+        if (ranged) {
+          if (dist < 190) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+          else if (dist > 340) moveToward(m, p.x, p.y, dt, m.speed * 0.85);
+          else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+          if (m.state === 'idle' && m.t > 1.6) { m.state = 'aim'; m.t = 0; }
+          if (m.state === 'aim') {
+            m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+            m.telegraph = 0.5 - m.t;
+            if (m.t >= 0.5) {
+              m.state = 'idle'; m.t = 0; m.telegraph = 0;
+              const magic = mir.arch !== 'bow';
+              const shots = m.emp ? 3 : 1;
+              for (let k = 0; k < shots; k++) { const off = (k - (shots - 1) / 2) * 0.22; fireProjectile(g, m, m.facing + off, magic ? 300 : 360, m.dmg, mir.wc, magic ? 6 : 4, { glow: magic }); }
+              m.emp = false; Sfx.play('bowfire');
+            }
+          }
+        } else { // melee: chase + telegraphed lunge, mirroring the player's blade
+          if (m.state === 'idle') {
+            moveToward(m, p.x, p.y, dt, m.speed);
+            if (dist < 90 && m.t > 0.4) { m.state = 'windup'; m.t = 0; m.lungeAngle = Math.atan2(p.y - m.y, p.x - m.x); }
+            tryContactHit(m, g, p);
+          } else if (m.state === 'windup') {
+            const w = m.emp ? 0.4 : 0.3;
+            m.telegraph = w - m.t;
+            if (m.t >= w) { m.state = 'lunge'; m.t = 0; Sfx.play('swing'); }
+          } else if (m.state === 'lunge') {
+            m.x += Math.cos(m.lungeAngle) * m.speed * 3.2 * dt;
+            m.y += Math.sin(m.lungeAngle) * m.speed * 3.2 * dt;
+            m.facing = m.lungeAngle;
+            tryContactHit(m, g, p, 0.8);
+            if (m.t > 0.34) { m.state = 'idle'; m.t = 0; m.emp = false; }
           }
         }
         break;
@@ -1084,6 +1141,7 @@ const Monsters = (() => {
       case 'archer': drawArcher(c, m, flash, ex, ey); break;
       case 'gunner': drawGunner(c, m, flash, ex, ey); break;
       case 'mage': drawMage(c, m, flash, ex, ey); break;
+      case 'doppel': drawDoppelganger(c, m, flash, ex, ey); break;
       case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
@@ -1318,6 +1376,28 @@ const Monsters = (() => {
       c.globalAlpha = 1; c.fillStyle = '#e0c0ff';
       c.beginPath(); c.arc(m.r + 7, 0, 1.2 + glow * 2, 0, Math.PI * 2); c.fill();
       c.restore();
+    }
+  }
+  // #128 doppelganger: a dark shade of the player, wearing YOUR class headgear and
+  // weapon (reuses PlayerDef.classFeature/peerWeapon so it reads as a corrupt copy of
+  // you), with a violet morph-in shimmer.
+  function drawDoppelganger(c, m, flash, ex, ey) {
+    const mir = m.mirror || {};
+    // shade body: the champion silhouette but darkened to a bruised violet
+    c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = flash ? '#fff' : '#241c34'; c.beginPath(); c.arc(0, 2, m.r, 0, Math.PI * 2); c.fill();
+    c.fillStyle = flash ? '#eee' : '#3a2a54'; c.beginPath(); c.arc(0, -2, m.r * 0.82, 0, Math.PI * 2); c.fill();
+    // menacing magenta eyes
+    eyes(c, ex, ey, 4, 2.2, '#ff5edb');
+    // YOUR class headgear + weapon, aimed at the target
+    if (mir.classId && typeof PlayerDef !== 'undefined' && PlayerDef.classFeature) PlayerDef.classFeature(c, mir.classId, m.r);
+    if (mir.arch && typeof PlayerDef !== 'undefined' && PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, mir.arch, mir.wc || '#cfe0f0', m.facing || 0, m.r);
+    // morph-in shimmer
+    if (m.morphT > 0) {
+      const k = m.morphT / 0.6;
+      c.globalAlpha = k * 0.6; c.strokeStyle = '#c9a3ff'; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, m.r + (1 - k) * 10, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = 1;
     }
   }
   function drawTank(c, m, flash, ex, ey) {
