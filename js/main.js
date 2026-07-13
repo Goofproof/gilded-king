@@ -189,6 +189,7 @@
     coop: false,                 // true during a networked run
     coopSeed: 0,                 // shared floor seed for the co-op party
     netMobId: 0,                 // host-assigned monster ids (for co-op sync)
+    netGearId: 0,                // #96 shared ids for kill-drop gear so grabbing one despawns it for the whole party
     mobSendT: 0,                 // monster-snapshot broadcast throttle
     lobby: null,                 // {mode,entry,status} while on the lobby screen
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
@@ -619,11 +620,22 @@
   function dropGear(kind, item, x, y) {
     const pk = { kind, x, y, t: 0 };
     if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
+    // #96 shared gear id: each client spawns its own copy of the SAME drop under this
+    // id, so when anyone grabs it a 'gearget' broadcast despawns the copy everywhere.
+    if (g.coop) pk.gid = ++g.netGearId;
     g.pickups.push(pk);
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
-      Net.send({ t: 'gear', kind, item, x: Math.round(x), y: Math.round(y) });
+      Net.send({ t: 'gear', kind, item, x: Math.round(x), y: Math.round(y), gid: pk.gid });
     }
     return pk;
+  }
+
+  // #96 remove a gear pickup locally and, in co-op, tell the party to despawn their
+  // linked copy (same gid) so a grabbed item can't be picked up twice.
+  function consumeGear(pk) {
+    const i = g.pickups.indexOf(pk);
+    if (i >= 0) g.pickups.splice(i, 1);
+    if (g.coop && pk && pk.gid && typeof Net !== 'undefined') Net.send({ t: 'gearget', gid: pk.gid });
   }
 
   function checkRoomCleared() {
@@ -1012,12 +1024,12 @@
 
     if (t.kind === 'weaponPickup') {
       p.pickupWeapon(t.pk.weapon, g);
-      g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+      consumeGear(t.pk); // #96 despawn this drop for the whole party
     }
 
     if (t.kind === 'armorPickup') {
       p.equipArmor(t.pk.armor, g);
-      g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+      consumeGear(t.pk); // #96 despawn this drop for the whole party
     }
 
     if (t.kind === 'shopItem') {
@@ -1335,7 +1347,7 @@
     const item = t.pk.weapon || t.pk.armor;
     const val = SHARD_VALUE[item.rarIdx] || 1;
     g.player.shards += val;
-    g.pickups.splice(g.pickups.indexOf(t.pk), 1);
+    consumeGear(t.pk); // #96 salvaging also despawns this drop for the whole party
     Sfx.play('kill');
     Fx.burst(t.pk.x, t.pk.y, ['#7fe8e0', item.color], 14, { speed: 150, life: 0.5, glow: true });
     Fx.text(t.pk.x, t.pk.y - 20, `+${val} SHARDS`, '#7fe8e0', 13);
@@ -2074,10 +2086,17 @@
     // ground, so player 2/3 can walk over + grab stronger weapons/armor of their own
     Net.on('gear', m => {
       if (!isCoopGuest()) return;
-      const pk = { kind: m.kind, x: m.x, y: m.y, t: 0 };
+      const pk = { kind: m.kind, x: m.x, y: m.y, t: 0, gid: m.gid }; // #96 same shared id as the host's copy
       if (m.kind === 'weapon') pk.weapon = m.item; else pk.armor = m.item;
       g.pickups.push(pk);
       Fx.text(m.x, m.y - 24, 'LOOT', m.item && m.item.color || '#ffd24c', 12);
+    });
+    // #96 a teammate grabbed a shared gear drop -> despawn our linked copy (same gid).
+    // Symmetric (host<->guest) and idempotent (findIndex no-ops if already gone).
+    Net.on('gearget', m => {
+      if (!g.coop) return;
+      const i = g.pickups.findIndex(pk => pk.gid === m.gid);
+      if (i >= 0) g.pickups.splice(i, 1);
     });
     // P1-D: room cleared on the host -> guest vacuums its coins + unseals its doors
     Net.on('roomclear', m => {
