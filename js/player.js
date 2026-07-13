@@ -441,6 +441,7 @@ const PlayerDef = (() => {
         this.hp = Math.min(this.maxHp, this.hp + 15); // level-up heals a chunk
         Sfx.play('levelup');
         Fx.burst(this.x, this.y, ['#ffd24c', '#7fd4ff', '#fff'], 24, { speed: 200, life: 0.8, glow: true });
+        if (typeof Ach !== 'undefined') Ach.level(this.level, g); // #86 level milestones
         g.queueLevelUp();
       }
     }
@@ -495,6 +496,7 @@ const PlayerDef = (() => {
       const reduce = Math.min(0.6, this.mod('reduce'));
       dmg = dmg * (1 - reduce);
       this.hp -= dmg;
+      if (typeof Ach !== 'undefined') Ach.damaged(g); // #86 breaks the floor's no-hit streak
       this.iframes = T.hurtIframes;
       this.flash = 0.25;
       Fx.shake(6, 0.25);

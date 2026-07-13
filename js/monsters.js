@@ -633,6 +633,7 @@ const Monsters = (() => {
         Fx.text(m.x, m.y - m.r - 20, 'INTERRUPTED', '#aaddff', 11);
       }
     }
+    if (typeof Ach !== 'undefined') Ach.hit(dmg, !!opts.crit, g); // #86 biggest hit / crit
     applyDamage(m, dmg, g, opts);
     // Chain Lightning: the strike arcs to nearby OTHER monsters (no re-chain)
     if (opts.chain && !opts.chainArc) chainArc(m, dmg, g, opts.chain);

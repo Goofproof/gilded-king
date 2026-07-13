@@ -154,6 +154,7 @@
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     if (g.showPatch) { g.patchScroll = Math.max(0, (g.patchScroll || 0) + e.deltaY); return; } // #76 scroll the changelog
+    if (g.showAchievements) { g.achScroll = Math.max(0, (g.achScroll || 0) + e.deltaY); return; } // #86 scroll the accolades
     if (g.state === 'play' && e.timeStamp - lastWheelSwap >= 150) {
       g.player.swapWeapon();
       lastWheelSwap = e.timeStamp;
@@ -217,6 +218,7 @@
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
     recordMythic(item) { recordMythic(item); },
+    saveMeta() { saveMeta(); }, // #86 lets the achievements module persist unlocks
   };
 
   // claiming a mythic (Descent boss drop or the mythic shop) earns a permanent
@@ -285,6 +287,7 @@
       const def = petDefByType(g.meta.selectedPet);
       if (def) g.player.adoptPet(def);
     }
+    if (typeof Ach !== 'undefined') Ach.startRun(g); // #86 record the class + reset run stats
     startFloor();
     g.state = 'play';
     Sfx.play('door');
@@ -295,6 +298,7 @@
     g.dungeon = Dungeon.generateFloor(g.floorNum, g.coop ? g.coopSeed : undefined);
     g.portal = null; // portals never carry across floors
     g.alarm = 0;     // #77 the dungeon's alertness resets each floor (rises per room cleared)
+    if (typeof Ach !== 'undefined') Ach.floor(g.floorNum, g); // #86 depth + reset no-hit tracking
     const theme = Dungeon.themeFor(g.floorNum);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
     Sfx.setAmbient(theme.ambient);
@@ -478,6 +482,7 @@
   function onKill(m) {
     const p = g.player;
     p.kills++;
+    if (typeof Ach !== 'undefined') Ach.kill(m, g); // #86 accolades: kills, bosses, pits, goblins...
     // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
     const alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
     p.addXp(alarmXp, g);
@@ -623,6 +628,9 @@
         g.monsters.every(m => m.dead)) {
       g.room.cleared = true;
       g.player.roomsCleared++;
+      if (typeof Ach !== 'undefined') Ach.roomCleared(g); // #86 lifetime room count
+      // #86 a full floor cleared (all combat rooms down) - the no-hit accolade checks here
+      if (typeof Ach !== 'undefined' && g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) Ach.floorCleared(g);
       // #77 the dungeon grows more ALERT with every room you clear (resets each floor).
       // Higher alarm = tougher rooms (more bodies/elites/formations) but richer rewards
       // (loot rarity + XP). Capped so deep-floor + max-alarm stays beatable.
@@ -707,6 +715,7 @@
     if (g.coop) { goDowned(); return; }
     if (g.runEnded) return; // never bank twice (death/victory race)
     g.runEnded = true;
+    if (typeof Ach !== 'undefined') Ach.endRun(g, false); // #86 death: runs/deaths
     // bank essence: what you carried + 10% of unspent coins
     const fromCoins = Math.floor(g.player.coins * 0.10);
     g.essenceEarned = g.player.essenceRun + fromCoins;               // total, for the end screen
@@ -737,6 +746,7 @@
   function onVictory() {
     if (g.runEnded) return; // never bank twice (death/victory race)
     g.runEnded = true;
+    if (typeof Ach !== 'undefined') Ach.endRun(g, true); // #86 victory: wins + class-win
     g.essenceEarned = g.player.essenceRun + Math.floor(g.player.coins * 0.10) + 20; // victory bonus
     g.meta.essence += g.essenceEarned;
     saveMeta();
@@ -1058,6 +1068,7 @@
       Fx.text(et.x, et.y - 34, 'RE-ENCHANTED!', '#b06bff', 14);
       const names = (w.enchants || []).map(e => e.name).join(', ') || 'no enchants';
       g.shopMsg = { text: `${w.name}: ${names}`, t: 2.6 };
+      if (typeof Ach !== 'undefined') Ach.flag('enchanted', g); // #86
     }
 
     // #75 TRAINING BARRACKS: spend gold at a station for a run-only stat boost
@@ -1070,6 +1081,7 @@
       Fx.text(st.x, st.y - 30, st.stat + ' TRAINED', st.color, 14);
       Fx.burst(st.x, st.y, [st.color, '#ffd24c', '#fff'], 22, { speed: 170, life: 0.6, glow: true });
       g.shopMsg = { text: `${st.stat}: ${st.label}`, t: 2 };
+      if (typeof Ach !== 'undefined') Ach.flag('barracks', g); // #86
     }
 
     if (t.kind === 'stairs') {
@@ -1123,6 +1135,7 @@
       g.mercs.push(makeMercFollower(npc, g.floorNum));
       Sfx.play('buy');
       Fx.text(p.x, p.y - 30, (npc.cls === 'blade' ? 'Blade' : 'Archer') + ' hired!', '#7ee0a0', 14);
+      if (typeof Ach !== 'undefined') Ach.flag('mercHired', g); // #86
     }
 
     if (t.kind === 'descentPortal') {
@@ -1157,6 +1170,7 @@
     // #78 Summoner: can't resummon while the elemental is alive (its cd starts on death)
     if (a.kind === 'summon' && g.summon && !g.summon.dead) { g.shopMsg = { text: 'Elemental still active', t: 1.2 }; Sfx.play('error'); return; }
     const dmgMul = a.dmgMul || 1;
+    if (typeof Ach !== 'undefined') Ach.cast(a.ult ? 'ult' : (a === p.abilityR ? 'R' : 'Q'), g); // #86
     Sfx.play(a.ult ? 'roar' : 'heavy');
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -1670,6 +1684,12 @@
     // global keys
     if (input.pressed('KeyM')) Sfx.toggleMute();
 
+    // #86 accolade toasts fade regardless of game state
+    if (g.achToasts && g.achToasts.length) {
+      for (const t of g.achToasts) t.t -= dt;
+      g.achToasts = g.achToasts.filter(t => t.t > 0);
+    }
+
     switch (g.state) {
       case 'title': updateTitle(); break;
       case 'lobby': updateLobby(); break;
@@ -1737,6 +1757,18 @@
       if (input.mouse.clicked || input.pressed('Escape')) g.showMythics = false;
       return;
     }
+    if (g.showAchievements) {
+      // #86 accolades gallery: arrows/wheel scroll, click or Esc closes
+      if (input.pressed('ArrowDown')) g.achScroll = (g.achScroll || 0) + 52;
+      if (input.pressed('ArrowUp'))   g.achScroll = Math.max(0, (g.achScroll || 0) - 52);
+      if (input.pressed('PageDown'))  g.achScroll = (g.achScroll || 0) + 260;
+      if (input.pressed('PageUp'))    g.achScroll = Math.max(0, (g.achScroll || 0) - 260);
+      if (input.pressed('Escape')) { g.showAchievements = false; return; }
+      // a click on the gallery body closes it (but ignore the click that opened it this frame)
+      if (input.mouse.clicked && g.overlayT > 0.2) g.showAchievements = false;
+      g.overlayT += 1 / 60;
+      return;
+    }
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
@@ -1748,6 +1780,7 @@
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
           if (r.action === 'patchnotes') { g.showPatch = true; g.patchScroll = 0; Sfx.play('ui'); }
           if (r.action === 'mythics') { g.showMythics = true; Sfx.play('ui'); }
+          if (r.action === 'achievements') { g.showAchievements = true; g.achScroll = 0; g.overlayT = 0; Sfx.play('ui'); }
           if (r.action === 'selectPet') { // toggle the stable pet chosen for the next run
             g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
             saveMeta(); Sfx.play('ui');
@@ -2403,6 +2436,7 @@
       return;
     }
     if (Fx.tickHitstop(dt)) { g.preserveInput = true; return; } // hit-stop: world freezes, but buffered presses survive it
+    if (typeof Ach !== 'undefined') Ach.tick(g); // #86 live maxes (hp/coins/rooms)
 
     // #32: a room-follow that arrived while we were gated/picking now applies (party
     // stays together - we catch up to wherever the mover led once we're back in play)
@@ -2603,6 +2637,8 @@
 
   function applyEvolutionChoice(opt) {
     const p = g.player;
+    // #86 record the base stat + tier reached (stacks 3/6/9/12 -> tier 1-4)
+    if (typeof Ach !== 'undefined' && g.evoChoices) Ach.evolve(g.evoChoices.stat, Math.round((g.evoChoices.stacks || 3) / 3), g);
     p.applyEvolution(opt.fx);
     // #stat-redesign: the chosen option carries statKey = its origin sub-stat tree,
     // so evoTaken + R-fusion keep receiving valid fine-grained keys (dmg/crit/...).
@@ -3205,6 +3241,9 @@
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
     if (g.state === 'initials') g.uiRects = UI.drawInitials(c, g);
+
+    // #86 accolade unlock toasts render on top of everything, in any play state
+    UI.drawToasts(c, g);
   }
 
   // deterministic per-room decoration random

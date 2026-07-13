@@ -823,6 +823,19 @@ const UI = (() => {
     });
     c.textAlign = 'center';
 
+    // #86 ACCOLADES button (right column, under the top-raiders list)
+    if (typeof Ach !== 'undefined') {
+      const earned = Ach.earnedCount(g), tot = Ach.total();
+      const acR = { x: W - 164, y: 306, w: 150, h: 30, action: 'achievements' };
+      c.strokeStyle = '#c9a227'; c.lineWidth = 1.5;
+      c.strokeRect(acR.x, acR.y, acR.w, acR.h);
+      c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText('🏆 ACCOLADES', acR.x + acR.w / 2, acR.y + 14);
+      c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText(`${earned} / ${tot} earned`, acR.x + acR.w / 2, acR.y + 26);
+      rects.push(acR);
+    }
+
     // share button (bottom-right): copies the game's public link
     const shareR = { x: W - 150, y: H - 46, w: 136, h: 30, action: 'share' };
     c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
@@ -847,9 +860,86 @@ const UI = (() => {
     if (g.showPatch) drawPatchNotes(c, g);
     // #38: mythic collection gallery
     if (g.showMythics) drawMythicGallery(c, g);
+    // #86: accolades gallery
+    if (g.showAchievements) drawAchievements(c, g);
 
     c.restore();
     return rects;
+  }
+
+  // #86 ACCOLADES gallery: a scrollable grid of every feat, earned ones lit gold,
+  // locked ones dimmed with their unlock hint. g.achScroll pages the list.
+  function drawAchievements(c, g) {
+    if (typeof Ach === 'undefined') return;
+    c.save();
+    c.fillStyle = 'rgba(5,6,10,0.94)';
+    c.fillRect(0, 0, W, H);
+    const list = Ach.all(), earned = Ach.earnedCount(g), tot = Ach.total();
+    c.textAlign = 'center';
+    c.font = 'bold 26px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText('ACCOLADES', W / 2, 44);
+    c.font = '13px monospace'; c.fillStyle = '#8fd0a0';
+    c.fillText(`${earned} of ${tot} earned`, W / 2, 66);
+    c.font = '11px monospace'; c.fillStyle = '#667';
+    c.fillText('scroll / arrows to see more · click or Esc to close', W / 2, 84);
+
+    // two columns of cards, clipped to a scrolling viewport
+    const cols = 2, cardW = 440, cardH = 44, gapX = 24, gapY = 8;
+    const gridW = cols * cardW + (cols - 1) * gapX;
+    const x0 = (W - gridW) / 2, top = 100, bottom = H - 24;
+    const rows = Math.ceil(list.length / cols);
+    const contentH = rows * (cardH + gapY);
+    const viewH = bottom - top;
+    const maxScroll = Math.max(0, contentH - viewH);
+    g.achScroll = Math.max(0, Math.min(maxScroll, g.achScroll || 0));
+    c.beginPath(); c.rect(0, top - 6, W, viewH + 12); c.clip();
+    list.forEach((a, i) => {
+      const col = i % cols, row = (i / cols) | 0;
+      const x = x0 + col * (cardW + gapX);
+      const y = top + row * (cardH + gapY) - g.achScroll;
+      if (y + cardH < top - 6 || y > bottom + 6) return; // cull off-view
+      const done = Ach.isDone(g, a.id);
+      c.fillStyle = done ? 'rgba(255,210,76,0.10)' : 'rgba(255,255,255,0.02)';
+      c.fillRect(x, y, cardW, cardH);
+      c.strokeStyle = done ? '#c9a227' : '#2c3040'; c.lineWidth = 1;
+      c.strokeRect(x, y, cardW, cardH);
+      // medal
+      c.beginPath(); c.arc(x + 22, y + cardH / 2, 12, 0, Math.PI * 2);
+      c.fillStyle = done ? '#ffd24c' : '#20242f'; c.fill();
+      c.strokeStyle = done ? '#8a6d1f' : '#3a4050'; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = done ? '#5a4410' : '#3a4050';
+      c.font = 'bold 12px monospace'; c.textAlign = 'center';
+      c.fillText(done ? '★' : '?', x + 22, y + cardH / 2 + 4);
+      // text
+      c.textAlign = 'left';
+      c.font = 'bold 13px monospace'; c.fillStyle = done ? '#ffe9a8' : '#6a7284';
+      c.fillText(a.name, x + 44, y + 19);
+      c.font = '10px monospace'; c.fillStyle = done ? '#b7c2d4' : '#565e70';
+      c.fillText(a.desc, x + 44, y + 34);
+    });
+    c.restore();
+  }
+
+  // #86 accolade unlock toasts: gold banners that slide in bottom-centre and fade
+  function drawToasts(c, g) {
+    if (!g.achToasts || !g.achToasts.length) return;
+    c.save();
+    c.textAlign = 'center';
+    let y = H - 90;
+    for (const t of g.achToasts) {
+      const a = Math.min(1, t.t) * Math.min(1, (4.5 - t.t) * 3 + 1); // fade in/out
+      c.globalAlpha = Math.max(0, Math.min(1, a));
+      const w = 320, x = W / 2 - w / 2;
+      c.fillStyle = 'rgba(20,16,6,0.92)';
+      c.fillRect(x, y, w, 40);
+      c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(x, y, w, 40);
+      c.fillStyle = '#ffd24c'; c.font = 'bold 13px monospace';
+      c.fillText('🏆 ACCOLADE UNLOCKED', W / 2, y + 16);
+      c.fillStyle = '#ffe9a8'; c.font = '12px monospace';
+      c.fillText(t.name, W / 2, y + 32);
+      y -= 48;
+    }
+    c.restore();
   }
 
   // #38: the mythic collection - every mythic you've found (revealed) + the rest
@@ -1506,5 +1596,5 @@ const UI = (() => {
     return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts };
 })();

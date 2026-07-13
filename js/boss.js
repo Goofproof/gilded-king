@@ -392,6 +392,7 @@ const Boss = (() => {
   function takeHit(b, dmg, opts, g) {
     if (b.dead || b.airborne) return false; // can't be hit mid-slam-leap
     if (opts.flame) b.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
+    if (typeof Ach !== 'undefined') Ach.hit(dmg, !!opts.crit, g); // #86 biggest hit / crit
     b.hp -= dmg;
     b.flash = 0.1;
     Fx.text(b.x + (Math.random() * 30 - 15), b.y - b.r - 10, Math.round(dmg), opts.crit ? '#ffd24c' : '#fff', opts.crit ? 16 : 12);
