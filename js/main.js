@@ -864,11 +864,28 @@
   function leaderboardUrl() {
     try { return (Net.relayBase ? Net.relayBase() : '') + '/scores'; } catch { return ''; }
   }
+  // #118 the global board can hold only a handful of real scores early on (it launched
+  // with almost nothing in it), which made the title show a lonely single raider. Blend
+  // the returned global scores with the built-in seed "past raiders" - same trick the
+  // LOCAL board already uses so it's never empty - so a full top-5 always displays. Real
+  // scores still sort to the top; seeds just fill the empty rows below them.
+  function displayBoard(globalTop) {
+    const all = [...(Array.isArray(globalTop) ? globalTop : []), ...SEED_SCORES].filter(validScore);
+    all.sort((a, b) => b.score - a.score);
+    const seen = new Set(), out = [];
+    for (const e of all) {
+      const k = `${e.initials}|${e.score}|${e.floor || 0}`;
+      if (seen.has(k)) continue;                 // drop exact dupes (same name+score+floor)
+      seen.add(k); out.push(e);
+      if (out.length >= SCORE_CAP) break;
+    }
+    return out;
+  }
   function submitGlobalScore(entry) {
     const url = leaderboardUrl(); if (!url) return;
     fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(entry) })
       .then(r => r.json())
-      .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = d.top; g.globalScores = true; if (d.rank) g.newScoreRank = d.rank; } })
+      .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = displayBoard(d.top); g.globalScores = true; if (d.rank) g.newScoreRank = d.rank; } })
       .catch(() => { /* offline -> keep the local board */ });
   }
   function fetchGlobalScores() {
@@ -877,7 +894,7 @@
     const url = leaderboardUrl();
     if (!url) { g.scoresReady = true; return; } // no relay -> show the local fallback now
     fetch(url).then(r => r.json())
-      .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = d.top; g.globalScores = true; } })
+      .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = displayBoard(d.top); g.globalScores = true; } }) // #118 pad to a full board
       .catch(() => { /* offline -> keep the local board */ })
       .finally(() => { g.scoresReady = true; });
   }
