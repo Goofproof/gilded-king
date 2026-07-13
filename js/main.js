@@ -342,8 +342,6 @@
       for (const tr of g.turrets) if (!tr.dead) g.player.turretRecharge.push(2);
       g.turrets = [];
     }
-    // #78 the elemental persists across rooms - bring it along to the player's side
-    if (g.summon && !g.summon.dead && g.player) { g.summon.x = g.player.x - 26; g.summon.y = g.player.y + 18; }
     // drops are persistent: whatever was left on this room's floor is still there
     if (g.room) g.room.savedPickups = g.pickups;
     g.room = room;
@@ -376,6 +374,10 @@
     for (const merc of g.mercs) { merc.x = p.x - 30 + Math.random() * 60; merc.y = p.y + 34; }
     // pet travels with you too - snap it beside the player (was left across the room)
     if (p.pet) { p.pet.x = p.x - 24; p.pet.y = p.y - 18; }
+    // #78/#90 the Summoner's elemental persists across rooms - snap it to the
+    // summoner's NEW side (must run AFTER the player is placed at the door, or it
+    // gets stranded at the previous room's exit)
+    if (g.summon && !g.summon.dead) { g.summon.x = p.x - 26; g.summon.y = p.y + 18; }
 
     if (room.type === 'boss' && !room.cleared) {
       g.state = 'bossintro';
