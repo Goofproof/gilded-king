@@ -101,6 +101,9 @@ const PlayerDef = (() => {
       // #30 class: starting kit + stat bias + one signature perk
       const cls = classById(meta?.selectedClass);
       this.class = cls;
+      // Q is your class ability, live from the start of the run (R + ultimate come
+      // from your evolutions - see recordEvoPick)
+      if (typeof Abilities !== 'undefined') this.ability = Abilities.classAbility(cls.id);
       if (cls.magic) this.stats.magic = cls.magic;
       if (cls.hp) { this.maxHp += cls.hp; this.hp = this.maxHp; }
       if (cls.fx) this.applyEvolution(cls.fx); // the perk folds into evo -> mod()
@@ -158,14 +161,11 @@ const PlayerDef = (() => {
       this.evoHistory.push(statKey);
       this.evoCount++;
       if (typeof Abilities === 'undefined') return;
-      // 2nd evolution -> Q ability
-      if (this.evoHistory.length === 2 && !this.ability) {
-        this.ability = Abilities.build(this.evoHistory[0], this.evoHistory[1]);
-      }
-      // 4th evolution -> R ability + a CHOICE of 3 ultimates forged from Q + R
-      if (this.evoHistory.length === 4 && !this.abilityR) {
-        this.abilityR = Abilities.build(this.evoHistory[2], this.evoHistory[3]);
-        this.ultChoices = Abilities.buildUltimates(this.ability, this.abilityR);
+      // Q is the class ability (set at construct). Your first two EVOLUTIONS fuse into
+      // R, and once R exists the ULTIMATE (right-click) is class-Q + R.
+      if (this.evoHistory.length === 2 && !this.abilityR) {
+        this.abilityR = Abilities.build(this.evoHistory[0], this.evoHistory[1]);
+        if (this.ability) this.ultChoices = Abilities.buildUltimates(this.ability, this.abilityR);
       }
     }
 

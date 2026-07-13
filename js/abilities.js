@@ -119,5 +119,31 @@ const Abilities = (() => {
     return [u1, u2, fusion];
   }
 
-  return { build, buildUltimates, describe, ACTIONS, MODS };
+  // #30/#Q CLASS ABILITY (Q): each class has one fixed signature ability, available
+  // from the start of the run (the evolution fusion is now R, and the ultimate is
+  // this class Q fused with that R). Built from the same ACTION templates.
+  const CLASS_Q = {
+    '':      { base: 'atkspd', name: 'Adrenaline',    color: '#cdd4e2' },                 // buff: rage + haste
+    warrior: { base: 'hp',     name: 'Shield Bash',   color: '#e0894a', dmg: 95, knock: 300 }, // nova + shield
+    ranger:  { base: 'roll',   name: 'Tumble Volley', color: '#6ee7a0' },                 // dash + i-frames + roll refund
+    mage:    { base: 'dmg',    name: 'Arcane Nova',   color: '#b06bff', dmg: 130, radius: 205 }, // big AoE burst
+    rogue:   { base: 'crit',   name: 'Eviscerate',    color: '#ffd24c' },                 // point-blank execute, crits
+  };
+  function classAbility(classId) {
+    const spec = CLASS_Q[classId] || CLASS_Q[''];
+    const act = ACTIONS[spec.base];
+    const a = { key: 'class:' + (classId || 'adv'), classQ: true, kind: act.kind, color: spec.color, verb: spec.name, cdMax: 7, cd: 0 };
+    for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
+                     'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter']) {
+      if (act[k] !== undefined) a[k] = act[k];
+    }
+    if (spec.dmg !== undefined) a.dmg = spec.dmg;
+    if (spec.radius !== undefined) a.radius = spec.radius;
+    if (spec.knock !== undefined) a.knock = spec.knock;
+    a.name = spec.name;
+    a.desc = describe(a);
+    return a;
+  }
+
+  return { build, buildUltimates, classAbility, describe, ACTIONS, MODS, CLASS_Q };
 })();

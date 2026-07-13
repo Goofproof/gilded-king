@@ -2203,17 +2203,15 @@
     const p = g.player;
     p.applyEvolution(opt.fx);
     p.evoTaken.push({ key: g.evoChoices.key, name: opt.name, tier: Evolutions.TIER_LABEL[g.evoChoices.stacks] });
-    p.recordEvoPick(g.evoChoices.key); // first two picks forge the Q ability
+    p.recordEvoPick(g.evoChoices.key); // first two picks fuse into the R ability
     Sfx.play('levelup');
     Fx.text(p.x, p.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
     Fx.burst(p.x, p.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
-    // the moment the 2nd evolution lands, the Q ability is born
-    if (p.evoHistory.length === 2 && p.ability) {
-      Fx.text(p.x, p.y - 58, `Q: ${p.ability.name.toUpperCase()}`, p.ability.color, 15);
+    // the moment the 2nd evolution lands, R is forged (Q is your class ability)
+    if (p.evoHistory.length === 2 && p.abilityR) {
+      Fx.text(p.x, p.y - 58, `R: ${p.abilityR.name.toUpperCase()}`, p.abilityR.color, 15);
       Sfx.play('roar');
     }
-    // the 4th evolution forges R + offers a CHOICE of 3 ultimates -> open the picker
-    if (p.evoHistory.length === 4 && p.abilityR) Fx.text(p.x, p.y - 58, `R: ${p.abilityR.name.toUpperCase()}`, p.abilityR.color, 15);
     g.evoChoices = null;
     if (p.ultChoices && !p.abilityUlt) {
       g.ultChoices = p.ultChoices; g.hoverChoice = -1; g.state = 'ultpick'; g.overlayT = 0;
@@ -3312,8 +3310,8 @@
     }
     // ability badge tooltips (Q / R / Ultimate), bottom-centre: what does each do?
     const s = 46, gap = 10, badges = [];
-    if (p.ability)    badges.push({ a: p.ability,    key: 'Q',         forged: 'forged from your first two evolutions' });
-    if (p.abilityR)   badges.push({ a: p.abilityR,   key: 'R',         forged: 'forged from your 3rd + 4th evolutions' });
+    if (p.ability)    badges.push({ a: p.ability,    key: 'Q',         forged: `your ${(p.class && p.class.name) || 'class'} ability` });
+    if (p.abilityR)   badges.push({ a: p.abilityR,   key: 'R',         forged: 'forged from your first two evolutions' });
     if (p.abilityUlt) badges.push({ a: p.abilityUlt, key: 'Ultimate', forged: 'right-click · forged from Q + R' });
     const total = badges.length * s + (badges.length - 1) * gap;
     let bx = W / 2 - total / 2;
