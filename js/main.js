@@ -126,7 +126,10 @@
   window.addEventListener('mousedown', e => {
     mousePos(e); Sfx.ensure();
     if (e.button === 0) { input.mouse.down = true; input.mouse.clicked = true; }
-    if (e.button === 2) g.player && g.state === 'play' && g.player.swapWeapon();
+    // right-click = ULTIMATE (was weapon-swap; Tab still swaps). LMB attack + RMB
+    // special is the pattern the newcomers already know, and it frees left-click
+    // to be a manual attack when auto-attack is off.
+    if (e.button === 2 && g.player && g.state === 'play' && g.player.abilityUlt) useUltimate();
   });
   window.addEventListener('mouseup', e => { if (e.button === 0) input.mouse.down = false; });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -2043,7 +2046,8 @@
       }
       if (input.pressed('KeyQ')) useAbility();
       if (input.pressed('KeyR')) useAbilityR();
-      if (input.mouse.clicked && g.player.abilityUlt) useUltimate(); // left-click = ultimate
+      // left-click = manual attack while auto-attack is OFF (ultimate moved to RMB)
+      if (input.mouse.clicked && !p.autoAttack) p.manualAttack(g, input.mouse.x, input.mouse.y);
       if (input.pressed('KeyX')) salvageNearest();
       if (input.pressed('KeyU')) honeWeapon();
     }
@@ -3310,7 +3314,7 @@
     const s = 46, gap = 10, badges = [];
     if (p.ability)    badges.push({ a: p.ability,    key: 'Q',         forged: 'forged from your first two evolutions' });
     if (p.abilityR)   badges.push({ a: p.abilityR,   key: 'R',         forged: 'forged from your 3rd + 4th evolutions' });
-    if (p.abilityUlt) badges.push({ a: p.abilityUlt, key: 'Ultimate', forged: 'left-click · forged from Q + R' });
+    if (p.abilityUlt) badges.push({ a: p.abilityUlt, key: 'Ultimate', forged: 'right-click · forged from Q + R' });
     const total = badges.length * s + (badges.length - 1) * gap;
     let bx = W / 2 - total / 2;
     for (const b of badges) {

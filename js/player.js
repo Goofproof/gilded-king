@@ -586,6 +586,18 @@ const PlayerDef = (() => {
       }
     }
 
+    // #S3 manual attack: when auto-attack is OFF, left-click swings/fires the current
+    // weapon toward the cursor, respecting its cooldown. Restores the click-to-attack
+    // instinct so 'auto off' doesn't turn a player into a pacifist.
+    manualAttack(g, mx, my) {
+      if (this.dead || this.rollT >= 0 || this.attackCd > 0) return;
+      const w = this.weapon; if (!w) return;
+      this.facing = Math.atan2(my - this.y, mx - this.x);
+      if (w.archetype === 'bow') { this.drawT = 0.72; this.fireBow(g); this.drawT = -1; }
+      else if (w.archetype === 'wand' || w.archetype === 'staff') { if (this.canWield(w)) this.fireSpell(g); }
+      else this.startSwing(g);
+    }
+
     startSwing(g) {
       const w = this.weapon;
       const windup = w.windup;
