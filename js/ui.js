@@ -842,6 +842,17 @@ const UI = (() => {
   }
 
   // the changelog overlay: newest version first, scroll not needed (kept short)
+  // count how many lines `text` wraps to at maxW in the current font (measure only)
+  function wrapLineCount(c, text, maxW) {
+    const words = text.split(' ');
+    let line = '', n = 1;
+    for (const wd of words) {
+      const test = line ? line + ' ' + wd : wd;
+      if (c.measureText(test).width > maxW) { n++; line = wd; } else line = test;
+    }
+    return n;
+  }
+
   function drawPatchNotes(c, g) {
     const notes = (typeof PatchNotes !== 'undefined' && PatchNotes.NOTES) || [];
     const pw = 600, ph = 476, px = (W - pw) / 2, py = 36;
@@ -852,29 +863,59 @@ const UI = (() => {
     c.textAlign = 'center';
     c.font = 'bold 20px monospace'; c.fillStyle = '#8fd0ff';
     c.fillText('PATCH NOTES', W / 2, py + 30);
-    c.textAlign = 'left';
-    let y = py + 62;
+
+    // #76 the changelog is longer than the panel, so it SCROLLS. The content area is
+    // clipped and shifted by g.patchScroll (driven by the wheel + arrow/page keys).
+    const top = py + 50, bot = py + ph - 22, viewH = bot - top;
+    // measure total content height first so we can clamp the scroll + size a scrollbar
+    let contentH = 0;
     for (const rel of notes) {
-      if (y > py + ph - 24) break;
+      contentH += 20; // header row
+      c.font = '11px monospace';
+      for (const it of rel.items) contentH += (wrapLineCount(c, it, pw - 60) - 1) * 15 + 16;
+      contentH += 12; // gap after a release
+    }
+    const maxScroll = Math.max(0, contentH - viewH);
+    g.patchScroll = Math.max(0, Math.min(g.patchScroll || 0, maxScroll));
+    const scroll = g.patchScroll;
+
+    c.save();
+    c.beginPath(); c.rect(px + 2, top - 4, pw - 4, viewH + 8); c.clip();
+    c.textAlign = 'left';
+    let y = top + 12 - scroll;
+    for (const rel of notes) {
       c.font = 'bold 14px monospace'; c.fillStyle = '#ffd24c';
       c.fillText(`${rel.v} - ${rel.title}`, px + 20, y);
       c.font = '11px monospace'; c.fillStyle = '#7a8194';
       c.textAlign = 'right'; c.fillText(rel.date, px + pw - 20, y); c.textAlign = 'left';
       y += 20;
       for (const it of rel.items) {
-        if (y > py + ph - 20) break;
         c.fillStyle = '#8fd0ff'; c.font = '11px monospace';
         c.fillText('•', px + 24, y);
         c.fillStyle = '#cdd4e2';
-        // wrapText returns the LAST line's baseline (== y when it fits on one line);
-        // add a full line height so single- and multi-line items both clear properly
         y = wrapText(c, it, px + 36, y, pw - 60, 15) + 16;
       }
       y += 12;
     }
+    c.restore();
+
+    // scrollbar (only when there's overflow)
+    if (maxScroll > 0) {
+      const trackX = px + pw - 7, trackH = viewH;
+      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(trackX, top, 4, trackH);
+      const thumbH = Math.max(24, trackH * viewH / contentH);
+      const thumbY = top + (trackH - thumbH) * (scroll / maxScroll);
+      c.fillStyle = '#8fd0ff'; c.fillRect(trackX, thumbY, 4, thumbH);
+      // a soft "more below" hint arrow while not at the bottom
+      if (scroll < maxScroll - 1) {
+        c.textAlign = 'center'; c.fillStyle = '#8fd0ff';
+        c.font = 'bold 12px monospace'; c.fillText('▼', W / 2 + 130, py + ph - 8);
+      }
+    }
+
     c.textAlign = 'center';
     c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('click anywhere or press Esc to close', W / 2, py + ph - 8);
+    c.fillText('scroll for more · click or Esc to close', W / 2, py + ph - 8);
   }
 
   function drawScoreboard(c, g) {

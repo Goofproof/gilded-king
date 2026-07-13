@@ -138,6 +138,7 @@
   let lastWheelSwap = -Infinity;
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
+    if (g.showPatch) { g.patchScroll = Math.max(0, (g.patchScroll || 0) + e.deltaY); return; } // #76 scroll the changelog
     if (g.state === 'play' && e.timeStamp - lastWheelSwap >= 150) {
       g.player.swapWeapon();
       lastWheelSwap = e.timeStamp;
@@ -1438,6 +1439,11 @@
     if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
     if (g.prestigeConfirm > 0) g.prestigeConfirm -= 1 / 60; // an armed prestige-reset confirm expires
     if (g.showPatch) {
+      // #76 arrow / page keys scroll the changelog (mouse wheel handled in the wheel listener)
+      if (input.pressed('ArrowDown')) g.patchScroll = (g.patchScroll || 0) + 40;
+      if (input.pressed('ArrowUp'))   g.patchScroll = Math.max(0, (g.patchScroll || 0) - 40);
+      if (input.pressed('PageDown'))  g.patchScroll = (g.patchScroll || 0) + 240;
+      if (input.pressed('PageUp'))    g.patchScroll = Math.max(0, (g.patchScroll || 0) - 240);
       // patch-notes overlay: any click or Esc closes it (and marks this version seen)
       if (input.mouse.clicked || input.pressed('Escape')) { g.showPatch = false; markVersionSeen(); }
       return;
@@ -1461,7 +1467,7 @@
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
-          if (r.action === 'patchnotes') { g.showPatch = true; Sfx.play('ui'); }
+          if (r.action === 'patchnotes') { g.showPatch = true; g.patchScroll = 0; Sfx.play('ui'); }
           if (r.action === 'mythics') { g.showMythics = true; Sfx.play('ui'); }
           if (r.action === 'selectPet') { // toggle the stable pet chosen for the next run
             g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
