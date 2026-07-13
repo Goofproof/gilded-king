@@ -398,6 +398,9 @@
       // the hooded merchant already drawn in drawShop so you press the visible NPC.
       keeper: { x: PF.x + PF.w / 2, y: PF.y + 62 },
       haggled: false,
+      // #60 enchant table: spend gold + shards to re-roll your weapon's enchants
+      enchTable: { x: PF.x + PF.w / 2, y: PF.y + PF.h - 58 },
+      enchUses: 0,
     };
     for (const it of room.shopStock.items) {
       if (it.kind === 'weapon') it.price = it.weapon.price;
@@ -828,6 +831,11 @@
       const k = g.room.shopStock.keeper;
       consider(k.x, k.y, { kind: 'shopkeeper', k });
     }
+    // #60 enchant table (regular shops)
+    if (g.room.type === 'shop' && g.room.shopStock && g.room.shopStock.enchTable) {
+      const et = g.room.shopStock.enchTable;
+      consider(et.x, et.y, { kind: 'enchantTable', et });
+    }
     if (g.room.stairs && g.room.stairs.open !== undefined) {
       if (Dungeon.uncleared(g.dungeon) === 0) consider(g.room.stairs.x, g.room.stairs.y, { kind: 'stairs' });
     }
@@ -933,6 +941,25 @@
         Fx.text(k.x, k.y - 30, 'PRICES +30%', '#ff6b6b', 15);
         Fx.burst(k.x, k.y, ['#ff6b6b', '#8a5a5a'], 16, { speed: 120, life: 0.5 });
       }
+    }
+
+    // #60 ENCHANT TABLE: spend gold + shards to disenchant + re-roll your active
+    // weapon's enchants (a gamble to improve your gear). Cost climbs each use.
+    if (t.kind === 'enchantTable') {
+      const stock = g.room.shopStock, et = t.et, w = p.weapon;
+      const gCost = 30 + 15 * stock.enchUses, sCost = 3 + stock.enchUses;
+      if (!w) { g.shopMsg = { text: 'No weapon to enchant', t: 1.4 }; Sfx.play('error'); return; }
+      if (p.coins < gCost || p.shards < sCost) {
+        g.shopMsg = { text: `Need ${gCost} gold + ${sCost} shards to enchant`, t: 1.8 };
+        Sfx.play('error'); return;
+      }
+      p.coins -= gCost; p.shards -= sCost; stock.enchUses++;
+      Weapons.reEnchant(w);
+      Sfx.play('upgrade');
+      Fx.burst(et.x, et.y, ['#b06bff', '#ffd24c', '#fff'], 26, { speed: 180, life: 0.7, glow: true });
+      Fx.text(et.x, et.y - 34, 'RE-ENCHANTED!', '#b06bff', 14);
+      const names = (w.enchants || []).map(e => e.name).join(', ') || 'no enchants';
+      g.shopMsg = { text: `${w.name}: ${names}`, t: 2.6 };
     }
 
     if (t.kind === 'stairs') {
@@ -3202,6 +3229,23 @@
     c.fillText(myth ? '"only the worthy leave with these"' : '"browse, friend - no refunds"', 0, 34);
     c.restore();
 
+    // #60 enchant table (regular shops): a runed table with a floating arcane orb
+    if (room.shopStock.enchTable) {
+      const et = room.shopStock.enchTable;
+      c.save(); c.translate(et.x, et.y);
+      c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 14, 26, 8, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#3a2456'; c.fillRect(-22, -2, 44, 16);       // table
+      c.fillStyle = '#241c2e'; c.fillRect(-22, 10, 6, 8); c.fillRect(16, 10, 6, 8); // legs
+      const pulse = 0.6 + Math.sin(g.time * 3) * 0.35;
+      c.globalAlpha = pulse; c.fillStyle = '#b06bff';
+      c.beginPath(); c.arc(0, -8, 6, 0, Math.PI * 2); c.fill();   // floating orb
+      c.globalAlpha = 1; c.fillStyle = '#e0c0ff';
+      c.beginPath(); c.arc(0, -8, 2.5, 0, Math.PI * 2); c.fill();
+      c.font = '10px monospace'; c.textAlign = 'center'; c.fillStyle = 'rgba(176,107,255,0.8)';
+      c.fillText('ENCHANT', 0, 30);
+      c.restore();
+    }
+
     for (const it of room.shopStock.items) {
       if (it.sold) continue;
       // pedestal
@@ -3353,6 +3397,7 @@
     if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
+    if (t.kind === 'enchantTable') { const st = g.room.shopStock; x = t.et.x; y = t.et.y - 34; label = `E - re-enchant weapon (${30 + 15 * st.enchUses}g + ${3 + st.enchUses}◈)`; }
     if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
     if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }
     if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal') return; // these draw their own prompt

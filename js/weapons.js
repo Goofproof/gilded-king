@@ -166,6 +166,10 @@ const Weapons = (() => {
 
   // bake enchant effects that modify flat weapon stats
   function applyEnchantStats(w) {
+    // snapshot the pre-enchant base ONCE so re-enchanting (enchant table) resets to it
+    // instead of stacking the baked bonuses each time
+    if (!w._base) w._base = { dmg: w.dmg, cooldown: w.cooldown, range: w.range, arc: w.arc, price: w.price };
+    else { w.dmg = w._base.dmg; w.cooldown = w._base.cooldown; w.range = w._base.range; w.arc = w._base.arc; w.price = w._base.price; }
     const lv = k => { const e = w.enchants.find(e => e.key === k); return e ? (e.level || 1) : 0; };
     if (lv('sharpness')) w.dmg += 3 * lv('sharpness');
     if (lv('power'))     w.dmg += 3 * lv('power');
@@ -173,6 +177,15 @@ const Weapons = (() => {
     if (lv('infinity'))  w.cooldown *= 0.6;
     // price bump for enchants
     w.price += w.enchants.reduce((s, e) => s + e.tier * 8 + (e.level || 0) * 4, 0);
+  }
+
+  // #60 enchant table: disenchant + re-enchant a weapon (or armor) with a fresh roll
+  function reEnchant(item) {
+    if (!item) return null;
+    const rar = RARITY.find(r => r.key === item.rarity) || RARITY[0];
+    if (item.isArmor) { item.enchants = rollArmorEnchants(rar); }
+    else { item.enchants = rollEnchants(item.archetype, rar); applyEnchantStats(item); }
+    return item;
   }
 
   function has(w, key) { const e = w && w.enchants.find(e => e.key === key); return e ? (e.level || 1) : 0; }
@@ -359,5 +372,5 @@ const Weapons = (() => {
   }
 
   return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette,
-           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL };
+           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL, reEnchant };
 })();
