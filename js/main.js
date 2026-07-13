@@ -164,6 +164,7 @@
     autoAttack: (() => { try { return localStorage.getItem('drl_auto') === '1'; } catch { return false; } })(),
     playerName: (() => { try { return (localStorage.getItem('drl_name') || '').slice(0, 12); } catch { return ''; } })(),
     evoQueue: [], evoChoices: null, ultChoices: null,
+    ultFx: [], midasT: 0,        // active ultimate room-effects + double-gold window
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, showMythics: false, scores: loadScores(),
     // --- co-op (multiplayer) ---
@@ -318,6 +319,7 @@
     g.monsters = [];
     g.projectiles = [];
     g.mines = [];
+    g.ultFx = [];
     g.pickups = room.savedPickups || [];
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
@@ -451,6 +453,7 @@
     const [c0, c1] = m.coins;
     let n = c0 + ((Math.random() * (c1 - c0 + 1)) | 0);
     if (looting) n = Math.round(n * (1 + 0.3 * looting));
+    if (g.midasT > 0) n *= 2; // MIDAS WAVE ultimate: double gold while active
     for (let i = 0; i < n; i++) spawnPickup('coin', m.x, m.y);
 
     // hearts: small mercy drop
@@ -1031,6 +1034,31 @@
     } else if (a.kind === 'buff') {
       if (a.heal) p.heal(p.maxHp * a.heal);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 26, { speed: 170, life: 0.7, glow: true });
+    } else if (a.kind === 'meteor') {
+      // a huge delayed blast where you're aiming
+      g.ultFx.push({ type: 'meteor', x: input.mouse.x, y: input.mouse.y, t: 0, delay: 0.8, dmg: a.dmg, radius: a.radius, color: a.color });
+    } else if (a.kind === 'inferno') {
+      for (const m of g.monsters) { if (!m.dead) m.burn = { t: a.dur, tick: 0, dps: a.dps }; }
+      Fx.burst(p.x, p.y, ['#ff5a2c', '#ffcc44'], 32, { speed: 220, life: 0.6, glow: true });
+    } else if (a.kind === 'sleep') {
+      for (const m of g.monsters) { if (!m.dead && !m.isBoss) { m.stagger = Math.max(m.stagger || 0, a.dur); m.state = 'idle'; } }
+      Fx.burst(p.x, p.y, ['#9ecbff', '#fff'], 24, { speed: 150, life: 0.6, glow: true });
+    } else if (a.kind === 'freeze') {
+      for (const m of [...g.monsters]) { if (m.dead) continue; m.chillT = a.dur; m.chillMul = 0.32; m.takeHit(a.dmg, { sx: p.x, sy: p.y, fromPlayer: true, hitSfx: 'hitLight' }, g); }
+      Fx.burst(p.x, p.y, ['#7fe0ff', '#fff'], 32, { speed: 240, life: 0.6, glow: true });
+    } else if (a.kind === 'storm') {
+      g.ultFx.push({ type: 'storm', t: 0, dur: a.dur, next: 0, dmg: a.dmg, strikes: a.strikes, done: 0, color: a.color });
+    } else if (a.kind === 'poison') {
+      g.ultFx.push({ type: 'poison', x: p.x, y: p.y, t: 0, dur: a.dur, tick: 0, dps: a.dps, color: a.color });
+    } else if (a.kind === 'vanish') {
+      p.invisT = a.dur; p.iframes = Math.max(p.iframes, a.dur);
+      Fx.burst(p.x, p.y, ['#b6c0d0', '#fff'], 26, { speed: 180, life: 0.6 });
+    } else if (a.kind === 'midas') {
+      g.midasT = 12; // kills drop double gold for a window
+      for (const m of [...g.monsters]) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - p.x, m.y - p.y) > (a.radius || 180) + m.r) continue; m.takeHit(a.dmg, { sx: p.x, sy: p.y, knock: 150, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
+      Fx.burst(p.x, p.y, ['#ffd24c', '#fff'], 34, { speed: 300, life: 0.5, glow: true });
+    } else if (a.kind === 'caltrops') {
+      g.ultFx.push({ type: 'caltrops', t: 0, dur: a.dur, color: a.color });
     }
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
@@ -1783,7 +1811,7 @@
     // DOWNED/dead players are NOT valid targets - monsters must ignore a downed body
     // (otherwise they swarm it, no one can revive, and the party false-wipes to menu).
     const list = [];
-    if (!P.dead && !P.downed) list.push({ x: P.x, y: P.y, r: P.r, ref: P, isRemote: false, id: 'me' });
+    if (!P.dead && !P.downed && !(P.invisT > 0)) list.push({ x: P.x, y: P.y, r: P.r, ref: P, isRemote: false, id: 'me' });
     if (g.coop && typeof Net !== 'undefined' && Net.isHost && g.room) {
       for (const [id, rp] of g.remotePlayers) {
         if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed) continue;
@@ -2064,6 +2092,7 @@
     updateProjectiles(dt);
     updatePickups(dt);
     updateMines(dt);
+    updateUltFx(dt);
 
     // co-op: broadcast our position + smooth the other players; sync monsters;
     // revive downed teammates; end only on a full party wipe
@@ -2117,6 +2146,17 @@
       g.state = 'levelup';
       g.overlayT = 0;
       p.drawT = -1; // a held bow draw must not survive the overlay and fire on resume
+      return;
+    }
+    // offer the ULTIMATE on its own beat, a couple levels AFTER R was forged (never
+    // simultaneously - Sam: avoid information overload). 3 random picks from the pool.
+    if (p.abilityR && !p.abilityUlt && p.ultAtLevel && p.level >= p.ultAtLevel &&
+        !g.ultChoices && g.evoQueue.length === 0 && g.levelUpQueue === 0 &&
+        p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+      g.ultChoices = Abilities.rollUltimates(3);
+      g.hoverChoice = -1; g.state = 'ultpick'; g.overlayT = 0;
+      p.drawT = -1; p.ultAtLevel = 0;
+      Sfx.play('roar');
       return;
     }
     // #32 co-op: once the whole pick sequence is drained, don't slip back into play
@@ -2220,11 +2260,7 @@
       Sfx.play('roar');
     }
     g.evoChoices = null;
-    if (p.ultChoices && !p.abilityUlt) {
-      g.ultChoices = p.ultChoices; g.hoverChoice = -1; g.state = 'ultpick'; g.overlayT = 0;
-      Sfx.play('roar');
-      return;
-    }
+    // (the ultimate is offered later, from updatePlay, a couple levels after R lands)
     g.state = 'play';
   }
 
@@ -2480,6 +2516,65 @@
     for (const t of g.partyTargets()) if (Math.hypot(t.x - mn.x, t.y - mn.y) < mn.blastR + t.r) g.hurtTarget(t, mn.dmg, mn.x, mn.y, null);
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(mn.x), y: Math.round(mn.y), r: mn.blastR });
   }
+
+  // ULTIMATE room-effects (meteor / lightning storm / poison cloud / caltrops)
+  function updateUltFx(dt) {
+    if (g.midasT > 0) g.midasT -= dt;
+    for (let i = g.ultFx.length - 1; i >= 0; i--) {
+      const e = g.ultFx[i];
+      e.t += dt;
+      if (e.type === 'meteor') {
+        if (e.t >= e.delay) {
+          Fx.shake(11, 0.4); Sfx.play('explode');
+          Fx.burst(e.x, e.y, ['#ff8a3d', '#ffcc44', '#fff'], 42, { speed: 340, life: 0.6, glow: true });
+          for (const m of [...g.monsters]) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) m.takeHit(e.dmg, { sx: e.x, sy: e.y, knock: 260, crit: true, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
+          g.ultFx.splice(i, 1);
+        }
+      } else if (e.type === 'storm') {
+        e.next -= dt;
+        if (e.done < e.strikes && e.next <= 0 && e.t < e.dur) {
+          e.next = e.dur / e.strikes;
+          const alive = g.monsters.filter(m => !m.dead && !m.airborne && m.spawnT <= 0);
+          const tgt = alive.length ? alive[(Math.random() * alive.length) | 0] : null;
+          const sx = tgt ? tgt.x : PF.x + 60 + Math.random() * (PF.w - 120);
+          const sy = tgt ? tgt.y : PF.y + 60 + Math.random() * (PF.h - 120);
+          Fx.burst(sx, sy, ['#ffe27a', '#fff'], 14, { speed: 180, life: 0.35, glow: true });
+          Fx.shake(3, 0.12); Sfx.play('crit');
+          for (const m of [...g.monsters]) { if (m.dead || m.airborne) continue; if (Math.hypot(m.x - sx, m.y - sy) < 62 + m.r) m.takeHit(e.dmg, { sx, sy, knock: 120, crit: true, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
+          e.done++;
+        }
+        if (e.t >= e.dur) g.ultFx.splice(i, 1);
+      } else if (e.type === 'poison') {
+        e.tick -= dt;
+        if (e.tick <= 0) {
+          e.tick = 0.5;
+          for (const m of [...g.monsters]) { if (m.dead || m.airborne) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < 155 + m.r) m.takeHit(e.dps * 0.5, { sx: e.x, sy: e.y, fromPlayer: true, hitSfx: 'hitLight' }, g); }
+        }
+        if (e.t >= e.dur) g.ultFx.splice(i, 1);
+      } else if (e.type === 'caltrops') {
+        for (const m of g.monsters) { if (!m.dead) { m.chillT = 0.4; m.chillMul = 0.5; } }
+        if (e.t >= e.dur) g.ultFx.splice(i, 1);
+      }
+    }
+  }
+  function drawUltFx(c) {
+    for (const e of g.ultFx) {
+      if (e.type === 'meteor') {
+        const k = Math.min(1, e.t / e.delay);
+        c.strokeStyle = `rgba(255,138,61,${0.4 + 0.4 * Math.abs(Math.sin(g.time * 18))})`; c.lineWidth = 3;
+        c.beginPath(); c.arc(e.x, e.y, e.radius * (0.4 + 0.6 * k), 0, Math.PI * 2); c.stroke();
+        const rockY = e.y - (1 - k) * 320;
+        c.fillStyle = '#5a3520'; c.beginPath(); c.arc(e.x, rockY, 11, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#ff8a3d'; c.beginPath(); c.arc(e.x, rockY, 5, 0, Math.PI * 2); c.fill();
+      } else if (e.type === 'poison') {
+        c.save(); c.globalAlpha = 0.2 * Math.min(1, (e.dur - e.t) * 1.5); c.fillStyle = e.color;
+        c.beginPath(); c.arc(e.x, e.y, 155, 0, Math.PI * 2); c.fill(); c.restore();
+      } else if (e.type === 'caltrops') {
+        c.fillStyle = e.color;
+        for (let s = 0; s < 12; s++) { const a = s * 2.3, rr = 45 + (s % 4) * 40; c.beginPath(); c.arc(PF.x + PF.w / 2 + Math.cos(a) * rr, PF.y + PF.h / 2 + Math.sin(a) * rr * 0.7, 2.5, 0, Math.PI * 2); c.fill(); }
+      }
+    }
+  }
   function drawMines(c) {
     for (const mn of g.mines) {
       c.save(); c.translate(mn.x, mn.y);
@@ -2560,6 +2655,7 @@
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);
+    drawUltFx(c);
 
     // actors
     for (const m of g.monsters) if (!m.dead) m.draw(c, g);

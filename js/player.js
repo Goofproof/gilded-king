@@ -192,6 +192,7 @@ const PlayerDef = (() => {
       this.ghostTimer = 0;
 
       this.attackCd = 0;
+      this.invisT = 0;           // Vanish ultimate: untargetable window
       this.autoAttack = true;    // #51 toggle with F; when off, hold fire entirely
       this.swing = null;         // {t,dur,windup,fired,arc,range,dir}
       this.drawT = -1;           // bow draw time (>=0 while drawing)
@@ -228,7 +229,9 @@ const PlayerDef = (() => {
       // R, and once R exists the ULTIMATE (right-click) is class-Q + R.
       if (this.evoHistory.length === 2 && !this.abilityR) {
         this.abilityR = Abilities.build(this.evoHistory[0], this.evoHistory[1]);
-        if (this.ability) this.ultChoices = Abilities.buildUltimates(this.ability, this.abilityR);
+        // the ULTIMATE is offered a couple of character levels LATER (not the same
+        // moment R lands) so it isn't information overload - see updatePlay
+        this.ultAtLevel = this.level + 2;
       }
     }
 
@@ -453,6 +456,7 @@ const PlayerDef = (() => {
       const stats = this.stats;
 
       if (this.iframes > 0) this.iframes -= dt;
+      if (this.invisT > 0) this.invisT -= dt; // Vanish ultimate: untargetable window
       if (this.rollCd > 0) this.rollCd -= dt;
       if (this.attackCd > 0) this.attackCd -= dt * (stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02);
       if (this.flash > 0) this.flash -= dt;

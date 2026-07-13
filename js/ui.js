@@ -268,7 +268,7 @@ const UI = (() => {
     c.font = 'bold 24px monospace'; c.fillStyle = '#ff2fb0';
     c.fillText('CHOOSE YOUR ULTIMATE', W / 2, 92);
     c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('forged from your Q + R · left-click unleashes it in battle', W / 2, 116);
+    c.fillText('pick one · RIGHT-CLICK unleashes it in battle', W / 2, 116);
     const cardW = 250, cardH = 210, gap = 22, y = 168;
     const totalW = opts.length * cardW + (opts.length - 1) * gap;
     let cx = (W - totalW) / 2;

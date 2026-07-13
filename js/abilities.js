@@ -145,5 +145,28 @@ const Abilities = (() => {
     return a;
   }
 
-  return { build, buildUltimates, classAbility, describe, ACTIONS, MODS, CLASS_Q };
+  // ULTIMATES (Sam): a POOL of wildly distinct room-scale powers, NOT amped Q/R.
+  // You're offered 3 random ones to choose from, so builds feel unique. Each maps to
+  // a `kind` handled in main.js castAbility(); numbers are first-pass and tunable.
+  const ULTIMATES = [
+    { id: 'meteor',    name: 'METEOR',          color: '#ff8a3d', kind: 'meteor',  dmg: 300, radius: 200, cdMax: 16, desc: 'Call down a meteor where you aim - a huge delayed blast' },
+    { id: 'inferno',   name: 'INFERNO',         color: '#ff5a2c', kind: 'inferno', dps: 55,  dur: 5,   cdMax: 15, desc: 'Every enemy in the room bursts into flame' },
+    { id: 'timestop',  name: 'TIME STOP',       color: '#9ecbff', kind: 'sleep',   dur: 3.5, cdMax: 18, desc: 'Freeze every enemy in place for a few seconds' },
+    { id: 'blizzard',  name: 'DEEP FREEZE',     color: '#7fe0ff', kind: 'freeze',  dmg: 70,  dur: 4.5, cdMax: 15, desc: 'The whole room ices over - enemies crawl and take frost damage' },
+    { id: 'storm',     name: 'LIGHTNING STORM', color: '#ffe27a', kind: 'storm',   dmg: 95,  strikes: 11, dur: 3, cdMax: 16, desc: 'Lightning hammers random enemies across the room' },
+    { id: 'miasma',    name: 'POISON MIASMA',   color: '#8ef06e', kind: 'poison',  dps: 45,  dur: 5.5, cdMax: 15, desc: 'A creeping poison cloud rots everything in the room' },
+    { id: 'vanish',    name: 'VANISH',          color: '#b6c0d0', kind: 'vanish',  dur: 4,   cdMax: 15, desc: 'Turn invisible - enemies lose track of you' },
+    { id: 'midas',     name: 'MIDAS WAVE',      color: '#ffd24c', kind: 'midas',   dmg: 90,  radius: 190, cdMax: 15, desc: 'A golden blast - every enemy here drops DOUBLE gold' },
+    { id: 'caltrops',  name: 'CALTROPS',        color: '#c9a227', kind: 'caltrops', dur: 6,  cdMax: 14, desc: 'Scatter caltrops that cripple every enemy in the room' },
+    { id: 'cataclysm', name: 'CATACLYSM',       color: '#ff2fb0', kind: 'nova',    dmg: 420, radius: 250, knock: 340, critAll: true, castShield: true, cdMax: 18, desc: 'A screen-shaking blast that levels everything nearby' },
+  ];
+  function rollUltimates(n) {
+    const pool = ULTIMATES.slice(), out = [];
+    for (let i = 0; i < n && pool.length; i++) {
+      out.push(Object.assign({ cd: 0, ult: true }, pool.splice((Math.random() * pool.length) | 0, 1)[0]));
+    }
+    return out;
+  }
+
+  return { build, buildUltimates, classAbility, rollUltimates, describe, ACTIONS, MODS, CLASS_Q, ULTIMATES };
 })();
