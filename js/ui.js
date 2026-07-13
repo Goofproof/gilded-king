@@ -677,38 +677,36 @@ const UI = (() => {
     c.fillStyle = '#0d0d16';
     c.fillRect(0, 0, W, H);
 
-    // faint radial vignette spotlighting the hero + play buttons (redesign: D4 graft)
+    // faint radial vignette spotlighting the title + play buttons
     {
-      const vg = c.createRadialGradient(W / 2, 190, 40, W / 2, 190, 360);
+      const vg = c.createRadialGradient(W / 2, 150, 40, W / 2, 150, 380);
       vg.addColorStop(0, 'rgba(40,40,60,0.5)');
       vg.addColorStop(1, 'rgba(40,40,60,0)');
       c.fillStyle = vg; c.fillRect(0, 0, W, H);
     }
-    // a faint framed central column so the clear side gutters read as intentional
-    roundRectPath(c, 168, 84, 624, 392, 14);
-    c.fillStyle = '#12121e'; c.fill();
-    c.strokeStyle = 'rgba(232,181,47,0.22)'; c.lineWidth = 1; c.stroke();
 
     // floating coin particles handled by Fx from main
 
     c.textAlign = 'center';
-    // deliberately NOT the boss's real name - the reveal belongs to the boss intro
+    // TITLE at the very top of the page. deliberately NOT the boss's real name - the
+    // reveal belongs to the boss intro
     c.font = 'bold 44px monospace';
     c.fillStyle = '#241a08';
-    c.fillText('DUNGEON OF THE', W / 2 + 3, 121);
+    c.fillText('DUNGEON OF THE', W / 2 + 3, 53);
     c.fillStyle = '#ffd24c';
-    c.fillText('DUNGEON OF THE', W / 2, 118);
+    c.fillText('DUNGEON OF THE', W / 2, 50);
     c.font = 'bold 60px monospace';
     c.fillStyle = '#241a08';
-    c.fillText('GILDED KING', W / 2 + 4, 180);
+    c.fillText('GILDED KING', W / 2 + 4, 112);
     c.fillStyle = '#e8b52f';
-    c.fillText('GILDED KING', W / 2, 176);
-
-    // (controls legend removed to de-crowd the home screen; keys show in-run and on pause)
+    c.fillText('GILDED KING', W / 2, 108);
+    // tagline directly under the title
+    c.font = 'italic 12px monospace'; c.fillStyle = '#8a7340';
+    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, 132);
 
     // solo + co-op buttons, side by side
-    const startR = { x: W / 2 - 212, y: 216, w: 200, h: 46, action: 'start' };
-    const coopR  = { x: W / 2 + 12,  y: 216, w: 200, h: 46, action: 'coop' };
+    const startR = { x: W / 2 - 212, y: 152, w: 200, h: 46, action: 'start' };
+    const coopR  = { x: W / 2 + 12,  y: 152, w: 200, h: 46, action: 'coop' };
     const pulse = Math.sin(Date.now() / 300) * 0.12 + 0.88;
     c.fillStyle = `rgba(212,175,55,${0.15 * pulse})`;
     c.fillRect(startR.x, startR.y, startR.w, startR.h);
@@ -738,8 +736,9 @@ const UI = (() => {
       const cx0 = W / 2;
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('CHOOSE YOUR CLASS', cx0, 282);
-      const perRow = Math.ceil(classes.length / 2), gap = 8, cw = 108, chh = 58, y0 = 290, rowStride = 64;
+      c.fillText('CHOOSE YOUR CLASS', cx0, 228);
+      // fits between the side panels (loadout right / raiders left)
+      const perRow = Math.ceil(classes.length / 2), gap = 8, cw = 100, chh = 54, y0 = 236, rowStride = 60;
       const sel = meta.selectedClass || '';
       classes.forEach((cl, i) => {
         const row = Math.floor(i / perRow), col = i % perRow;
@@ -758,75 +757,113 @@ const UI = (() => {
         c.fillText(cl.name, r.x + r.w / 2, r.y + r.h - 6);
         rects.push(r);
       });
-      const gridBottom = y0 + rowStride + chh; // 412
+      const gridBottom = y0 + rowStride + chh; // 350
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
       c.textAlign = 'center';
       c.font = '11px monospace'; c.fillStyle = chosen.color;
       c.fillText(chosen.desc, cx0, gridBottom + 14);
       if (chosen.q) {
         c.font = 'bold 11px monospace'; c.fillStyle = '#9ecbff';
-        c.fillText('Q ability · ' + chosen.q, cx0, gridBottom + 30);
+        c.fillText('Q ability · ' + chosen.q, cx0, gridBottom + 28);
         c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-        c.fillText(chosen.qDesc, cx0, gridBottom + 44);
+        c.fillText(chosen.qDesc, cx0, gridBottom + 40);
       }
     }
 
     // (ESSENCE/permanent-boosts moved to the bottom dock, below)
 
-    // --- STABLE: pets you've befriended; pick one to start the next run with ---
+    // companions available to BOTH the centered picker and the loadout preview panel
     const roster = (typeof Descent !== 'undefined' && Descent.PETS) || [];
+    const unlocked = meta.petsUnlocked || [];
+
+    // --- PICK A COMPANION: the pet picker, moved off the top into the centered spine ---
     if (roster.length) {
-      const unlocked = meta.petsUnlocked || [];
       c.textAlign = 'center';
-      c.font = 'bold 12px monospace';
-      c.fillStyle = '#8fd0a0';
-      c.fillText(`STABLE  ·  ${unlocked.length}/${roster.length}`, W / 2, 24);
-      const chip = 28, cgap = 16, r = chip / 2, cyp = 50;
+      c.font = 'bold 11px monospace'; c.fillStyle = '#8fd0a0';
+      c.fillText(`PICK A COMPANION  ·  ${unlocked.length}/${roster.length}`, W / 2, 406);
+      const chip = 24, cgap = 12, r = chip / 2, cyp = 428;
       const rowW = roster.length * chip + (roster.length - 1) * cgap;
       let px = (W - rowW) / 2;
       for (const pet of roster) {
         const has = unlocked.includes(pet.type);
         const sel = has && meta.selectedPet === pet.type;
         const cxp = px + r;
-        // its distinguishing feature (horn/wings/glow/...) sits behind the body
         if (has) drawPetFeature(c, pet.type, cxp, cyp, r, pet.color);
         c.beginPath(); c.arc(cxp, cyp, r, 0, Math.PI * 2);
         c.fillStyle = has ? pet.color : '#20242f'; c.fill();
-        if (has) { c.fillStyle = '#0e1016'; c.beginPath(); c.arc(cxp - 3, cyp - 2, 2, 0, Math.PI * 2); c.arc(cxp + 3, cyp - 2, 2, 0, Math.PI * 2); c.fill(); }
-        else { c.fillStyle = '#3a3f4d'; c.font = 'bold 14px monospace'; c.fillText('?', cxp, cyp + 5); }
+        if (has) { c.fillStyle = '#0e1016'; c.beginPath(); c.arc(cxp - 3, cyp - 2, 1.8, 0, Math.PI * 2); c.arc(cxp + 3, cyp - 2, 1.8, 0, Math.PI * 2); c.fill(); }
+        else { c.fillStyle = '#3a3f4d'; c.font = 'bold 12px monospace'; c.fillText('?', cxp, cyp + 4); }
         c.lineWidth = sel ? 3 : 1.5;
         c.strokeStyle = sel ? '#ffd24c' : has ? '#5a6478' : '#2c3040';
         c.beginPath(); c.arc(cxp, cyp, r, 0, Math.PI * 2); c.stroke();
         if (has) rects.push({ x: px - 4, y: cyp - r - 6, w: chip + 8, h: chip + 12, action: 'selectPet', key: pet.type });
         px += chip + cgap;
       }
-      // name + passive of the chosen pet, dropped clear of the pet circles (#40)
-      const chosen = roster.find(pp => pp.type === meta.selectedPet && unlocked.includes(pp.type));
-      c.font = '11px monospace';
-      c.fillStyle = chosen ? chosen.color : '#667';
-      c.fillText(chosen ? `${chosen.name} · ${chosen.desc}  (click to unselect)`
-                        : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 82);
     }
-    // tagline, relocated under the hero (the bottom edge is the dock now)
-    c.textAlign = 'center';
-    c.font = 'italic 12px monospace';
-    c.fillStyle = '#8a7340';
-    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, 200);
 
-    // #118 TOP RAIDERS - kept on the home screen (Sam wants the top 5 at a glance),
-    // tucked into the left gutter so it doesn't crowd the centered spine.
-    c.textAlign = 'left';
-    c.font = 'bold 10px monospace'; c.fillStyle = '#c9a227';
-    c.fillText('TOP RAIDERS', 18, 262);
-    if (!g.scoresReady) {
-      c.font = 'italic 10px monospace'; c.fillStyle = '#6a7484';
-      c.fillText('loading...', 18, 280);
-    } else {
-      (g.scores || []).slice(0, 5).forEach((s, i) => {
-        c.font = '10px monospace';
-        c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
-        c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, 18, 280 + i * 15);
-      });
+    // --- LEFT PANEL: TOP RAIDERS (#118), a framed card mirroring the loadout panel ---
+    {
+      const px = 16, py = 150, pw = 180, ph = 300, pcx = px + pw / 2;
+      roundRectPath(c, px, py, pw, ph, 12);
+      c.fillStyle = '#12121e'; c.fill();
+      c.strokeStyle = 'rgba(232,181,47,0.18)'; c.lineWidth = 1; c.stroke();
+      c.textAlign = 'center';
+      c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227';
+      c.fillText('TOP RAIDERS', pcx, py + 26);
+      c.textAlign = 'left';
+      if (!g.scoresReady) {
+        c.font = 'italic 11px monospace'; c.fillStyle = '#6a7484';
+        c.fillText('loading...', px + 16, py + 58);
+      } else {
+        (g.scores || []).slice(0, 5).forEach((s, i) => {
+          c.font = '11px monospace';
+          c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
+          c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, px + 16, py + 60 + i * 22);
+        });
+      }
+      c.font = 'italic 10px monospace'; c.fillStyle = '#5a6478';
+      c.fillText('compete for the crown', px + 16, py + ph - 18);
+    }
+
+    // --- RIGHT PANEL: YOUR LOADOUT - a live preview of the class + companion you're
+    // about to play, so you see exactly what launches when you ENTER ---
+    {
+      const px = 764, py = 150, pw = 180, ph = 300, pcx = px + pw / 2;
+      roundRectPath(c, px, py, pw, ph, 12);
+      c.fillStyle = '#12121e'; c.fill();
+      c.strokeStyle = 'rgba(232,181,47,0.18)'; c.lineWidth = 1; c.stroke();
+      c.textAlign = 'center';
+      c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText('YOUR LOADOUT', pcx, py + 26);
+      // selected class portrait + name
+      const cls = classes.find(cl => cl.id === (meta.selectedClass || '')) || classes[0];
+      if (cls) {
+        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cls, pcx, py + 70, 20);
+        c.font = 'bold 13px monospace'; c.fillStyle = cls.color || '#e8d3b0';
+        c.fillText(cls.name, pcx, py + 116);
+      }
+      c.strokeStyle = 'rgba(255,255,255,0.08)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(px + 26, py + 136); c.lineTo(px + pw - 26, py + 136); c.stroke();
+      c.font = '9px monospace'; c.fillStyle = '#667';
+      c.fillText('WITH', pcx, py + 150);
+      // selected companion (or "none")
+      const pet = roster.find(pp => pp.type === meta.selectedPet && unlocked.includes(pp.type));
+      const pcy = py + 188, pr = 16;
+      if (pet) {
+        drawPetFeature(c, pet.type, pcx, pcy, pr, pet.color);
+        c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.fillStyle = pet.color; c.fill();
+        c.fillStyle = '#0e1016'; c.beginPath(); c.arc(pcx - 4, pcy - 2, 2.4, 0, Math.PI * 2); c.arc(pcx + 4, pcy - 2, 2.4, 0, Math.PI * 2); c.fill();
+        c.lineWidth = 1.5; c.strokeStyle = '#5a6478'; c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.stroke();
+        c.font = 'bold 12px monospace'; c.fillStyle = pet.color;
+        c.fillText(pet.name, pcx, pcy + 34);
+      } else {
+        c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.fillStyle = '#20242f'; c.fill();
+        c.lineWidth = 1.5; c.strokeStyle = '#2c3040'; c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = '#3a3f4d'; c.font = 'bold 16px monospace'; c.fillText('?', pcx, pcy + 5);
+        c.font = '10px monospace'; c.fillStyle = '#667'; c.fillText('no companion', pcx, pcy + 34);
+      }
+      c.font = 'bold 10px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText('▶ ENTER to descend', pcx, py + ph - 16);
     }
     c.textAlign = 'center';
 
