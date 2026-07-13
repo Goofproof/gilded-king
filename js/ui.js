@@ -475,7 +475,7 @@ const UI = (() => {
         c.fillRect(x, y, cell, cell);
       }
       // room-type glyphs, readable at the bigger cell size
-      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!', mythicshop: '✦' }[r.type];
+      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!', mythicshop: '✦', barracks: '⚔' }[r.type];
       if (glyph) {
         const gs = Math.max(11, Math.round(cell * 0.66)); // glyph scales with the (now adaptive) cell
         c.font = `bold ${gs}px monospace`; c.textAlign = 'center';

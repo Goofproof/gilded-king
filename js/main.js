@@ -406,6 +406,7 @@
     if ((room.type === 'shop' || room.type === 'mythicshop') && !room.shopStock) {
       if (room.type === 'mythicshop') rollMythicShopStock(room); else rollShopStock(room);
     }
+    if (room.type === 'barracks' && !room.barracks) rollBarracksStock(room); // #75
     if (room.type === 'treasure' && !room.spawned) {
       room.spawned = true;
       g.player.addXp(10, g); // treasure rooms grant bonus XP on discovery
@@ -438,6 +439,23 @@
       if (it.kind === 'potion') it.price = POTION_PRICE;
       if (it.kind === 'reroll') it.price = REROLL_BASE;
     }
+  }
+
+  // #75 training barracks: five stations, one per base stat. Spend GOLD for a
+  // run-only boost to that stat's power (no evolution progress). Cost climbs per use.
+  const BARRACKS_STATS = [
+    { stat: 'MIGHT',   color: '#ffd24c', label: '+8% damage',       apply: p => { p.stats.dmgMul += 0.08; } },
+    { stat: 'VIGOR',   color: '#6ee7a0', label: '+20 max health',   apply: p => { p.maxHp += 20; p.hp = Math.min(p.maxHp, p.hp + 20); } },
+    { stat: 'AGILITY', color: '#7fd4ff', label: '+6% move speed',   apply: p => { p.stats.speedMul += 0.06; } },
+    { stat: 'ARCANE',  color: '#b06bff', label: '+12% spell power', apply: p => { p.applyEvolution({ spellPower: 0.12 }); } },
+    { stat: 'FORTUNE', color: '#ffce54', label: '+15% coins',       apply: p => { p.stats.coinMul += 0.15; } },
+  ];
+  const barracksCost = st => 30 + 20 * st.uses;
+  function rollBarracksStock(room) {
+    room.barracks = {
+      trainer: { x: PF.x + PF.w / 2, y: PF.y + 66 },
+      stations: BARRACKS_STATS.map((s, i) => ({ stat: s.stat, color: s.color, label: s.label, apply: s.apply, x: PF.x + 132 + i * 150, y: PF.y + PF.h - 128, uses: 0 })),
+    };
   }
 
   // the secret mythic shop: three hand-built uniques, no potions, no rerolls
@@ -912,6 +930,10 @@
       const et = g.room.shopStock.enchTable;
       consider(et.x, et.y, { kind: 'enchantTable', et });
     }
+    // #75 training barracks stations
+    if (g.room.type === 'barracks' && g.room.barracks) {
+      for (const st of g.room.barracks.stations) consider(st.x, st.y, { kind: 'trainStation', st });
+    }
     if (g.room.stairs && g.room.stairs.open !== undefined) {
       if (Dungeon.uncleared(g.dungeon) === 0) consider(g.room.stairs.x, g.room.stairs.y, { kind: 'stairs' });
     }
@@ -1036,6 +1058,18 @@
       Fx.text(et.x, et.y - 34, 'RE-ENCHANTED!', '#b06bff', 14);
       const names = (w.enchants || []).map(e => e.name).join(', ') || 'no enchants';
       g.shopMsg = { text: `${w.name}: ${names}`, t: 2.6 };
+    }
+
+    // #75 TRAINING BARRACKS: spend gold at a station for a run-only stat boost
+    if (t.kind === 'trainStation') {
+      const st = t.st, cost = barracksCost(st);
+      if (p.coins < cost) { g.shopMsg = { text: `Need ${cost} gold to train ${st.stat}`, t: 1.6 }; Sfx.play('error'); return; }
+      p.coins -= cost; st.uses++;
+      st.apply(p);
+      Sfx.play('upgrade');
+      Fx.text(st.x, st.y - 30, st.stat + ' TRAINED', st.color, 14);
+      Fx.burst(st.x, st.y, [st.color, '#ffd24c', '#fff'], 22, { speed: 170, life: 0.6, glow: true });
+      g.shopMsg = { text: `${st.stat}: ${st.label}`, t: 2 };
     }
 
     if (t.kind === 'stairs') {
@@ -3424,6 +3458,7 @@
 
     // shop furnishing
     if ((room.type === 'shop' || room.type === 'mythicshop') && room.shopStock) drawShop(c, room);
+    if (room.type === 'barracks' && room.barracks) drawBarracks(c, room);
 
     // hireable mercenary standing in the room
     if (room.merc && !room.merc.hired) drawMercNPC(c, room.merc);
@@ -3598,6 +3633,37 @@
     c.restore();
   }
 
+  // #75 the training barracks: a drill sergeant + five stat stations
+  function drawBarracks(c, room) {
+    const b = room.barracks;
+    c.textAlign = 'center'; c.font = 'bold 16px monospace'; c.fillStyle = '#c9a227';
+    c.fillText('TRAINING BARRACKS', PF.x + PF.w / 2, PF.y + 40);
+    c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('spend gold to sharpen your stats for this run', PF.x + PF.w / 2, PF.y + 56);
+    const t = b.trainer;
+    c.save(); c.translate(t.x, t.y);
+    c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 16, 14, 5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#5a6b4a'; c.beginPath(); c.arc(0, 0, 14, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8d3b0'; c.beginPath(); c.arc(0, -4, 8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#3a4a2a'; c.beginPath(); c.arc(0, -8, 8, Math.PI, 0); c.fill();
+    c.restore();
+    for (const st of b.stations) {
+      const cost = 30 + 20 * st.uses, afford = g.player.coins >= cost;
+      c.save(); c.translate(st.x, st.y);
+      c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 20, 14, 5, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#6a4a2a'; c.fillRect(-3, -4, 6, 26);
+      c.fillStyle = st.color; c.beginPath(); c.arc(0, -10, 12, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.25)'; c.beginPath(); c.arc(-3, -13, 4, 0, Math.PI * 2); c.fill();
+      c.restore();
+      c.textAlign = 'center'; c.font = 'bold 11px monospace'; c.fillStyle = st.color;
+      c.fillText(st.stat, st.x, st.y - 30);
+      c.font = '10px monospace'; c.fillStyle = '#c8d0de';
+      c.fillText(st.label, st.x, st.y + 34);
+      c.font = 'bold 10px monospace'; c.fillStyle = afford ? '#ffd24c' : '#a05555';
+      c.fillText('◉ ' + cost + (st.uses ? '  (x' + st.uses + ')' : ''), st.x, st.y + 48);
+    }
+  }
+
   function drawShop(c, room) {
     // shopkeeper: a chill hooded merchant behind the counter (mythic shop = a
     // stranger robed in magenta who deals only in legends)
@@ -3768,6 +3834,7 @@
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
     if (t.kind === 'enchantTable') { const st = g.room.shopStock; x = t.et.x; y = t.et.y - 34; label = `E - re-enchant weapon (${30 + 15 * st.enchUses}g + ${3 + st.enchUses}◈)`; }
+    if (t.kind === 'trainStation') { x = t.st.x; y = t.st.y - 46; label = `E - train ${t.st.stat} ${t.st.label} (${30 + 20 * t.st.uses}g)`; }
     if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
     if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }
     if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal') return; // these draw their own prompt

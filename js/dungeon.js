@@ -142,6 +142,9 @@ const Dungeon = (() => {
       (typeof Descent !== 'undefined' && Descent.isBossFloor(floorNum));
     claim(bossFloor ? 'boss' : 'stairs');
     claim('shop');
+    // #75 a training barracks (spend gold on stat boosts) appears from floor 2 on,
+    // most floors - a gold sink alternative to the item shop
+    if (floorNum >= 2 && rnd() < 0.7) claim('barracks');
     // a secret mythic-only shop opens every 5th floor of the Descent
     if (typeof Descent !== 'undefined' && Descent.isMythicFloor(floorNum)) claim('mythicshop');
     const nTreasure = TREASURE_ROOMS[0] + ((rnd() * (TREASURE_ROOMS[1] - TREASURE_ROOMS[0] + 1)) | 0);
