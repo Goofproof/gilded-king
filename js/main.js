@@ -195,7 +195,7 @@
     queueLevelUp() { this.levelUpQueue++; },
     onKill(m) { onKill(m); },
     spawnPickup(kind, x, y) { spawnPickup(kind, x, y); }, // loot-goblin coin spill (monsters.js)
-    dropMine(x, y, dmg) { g.mines.push({ x, y, r: 8, blastR: 74, dmg, t: 0, armT: 0.6, armed: false, fuse: -1 }); }, // minelayer
+    dropMine(x, y, dmg) { g.mines.push({ x, y, r: 8, blastR: 105, dmg: Math.round(dmg * 3.2), t: 0, armT: 0.6, armed: false, fuse: -1 }); }, // minelayer - TERRIFYING blast (big dmg + radius)
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },

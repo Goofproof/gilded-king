@@ -486,7 +486,9 @@ const PlayerDef = (() => {
       }
       const autoTarget = cursorTarget || nearTarget;
       let autoDist = 1e9;
-      if (autoTarget) {
+      // #54 only auto-face a target while AUTO-ATTACK is on. With it off you aim purely
+      // with the cursor (facing set above), so a manual left-click strikes where you point.
+      if (this.autoAttack && autoTarget) {
         autoDist = Math.hypot(autoTarget.x - this.x, autoTarget.y - this.y);
         // #47: melee faces the NEAREST enemy (it hits what's adjacent); ranged (bow/
         // wand/staff) faces the cursor pick so you can aim distant targets (#17)
