@@ -13,12 +13,18 @@ const UI = (() => {
   // past their listed tiers each rank costs more (geometric) and keeps scaling,
   // since the effects are per-rank in the Player constructor. Acrobat/Armory stay
   // capped (their effects can't scale forever).
+  // #88 aligned to the 5 base stats (MIGHT/VIGOR/AGILITY/ARCANE/FORTUNE) so the
+  // permanent boosts read as the same system as in-run evolutions. Keys are kept
+  // stable (vitality/acrobat/greed) so existing saved ranks + the Player
+  // constructor keep working; only the names/colors changed. 'arcane' is new.
+  const STAT_TINT = { MIGHT: '#ff6b5c', VIGOR: '#6ee7a0', AGILITY: '#7fd4ff', ARCANE: '#b06bff', FORTUNE: '#ffd24c', '': '#b88aff' };
   const META_UPGRADES = [
-    { key: 'vitality', name: 'Vitality',  desc: '+10 starting health',       maxRank: 3, costs: [25, 50, 90], endless: true },
-    { key: 'might',    name: 'Might',     desc: '+5% damage',                maxRank: 3, costs: [25, 50, 90], endless: true },
-    { key: 'acrobat',  name: 'Acrobat',   desc: '-8% roll cooldown',         maxRank: 2, costs: [30, 60] },
-    { key: 'greed',    name: 'Greed',     desc: '+10% coins from kills',     maxRank: 3, costs: [30, 60, 100], endless: true },
-    { key: 'armory',   name: 'Armory',    desc: 'Start with an Uncommon weapon', maxRank: 1, costs: [80] },
+    { key: 'might',    stat: 'MIGHT',   name: 'Might',   desc: '+5% damage',                maxRank: 3, costs: [25, 50, 90],  endless: true },
+    { key: 'vitality', stat: 'VIGOR',   name: 'Vigor',   desc: '+10 starting health',       maxRank: 3, costs: [25, 50, 90],  endless: true },
+    { key: 'acrobat',  stat: 'AGILITY', name: 'Agility', desc: '-8% roll cooldown',         maxRank: 2, costs: [30, 60] },
+    { key: 'arcane',   stat: 'ARCANE',  name: 'Arcane',  desc: '+1 Magic (stronger spells)', maxRank: 3, costs: [30, 60, 110] },
+    { key: 'greed',    stat: 'FORTUNE', name: 'Fortune', desc: '+10% coins from kills',     maxRank: 3, costs: [30, 60, 100], endless: true },
+    { key: 'armory',   stat: '',        name: 'Armory',  desc: 'Start with an Uncommon weapon', maxRank: 1, costs: [80] },
   ];
 
   // essence cost of the NEXT rank; null once a capped upgrade is maxed
@@ -690,41 +696,44 @@ const UI = (() => {
     c.fillText(`◆ ESSENCE  ${meta.essence}`, 18, 150);
     c.font = '10px monospace'; c.fillStyle = '#667';
     c.fillText('permanent boosts - they survive death', 18, 167);
-    const rowW = 246, rowH = 42; // stays left of the centre ENTER DUNGEON button
-    let ry = 180;
+    const rowW = 246, rowH = 40; // stays left of the centre ENTER DUNGEON button
+    let ry = 178;
     for (const u of META_UPGRADES) {
       const rank = meta.ranks[u.key] || 0;
       const cost = metaCost(u, rank);
       const maxed = cost === null;                    // only capped upgrades ever max
       const afford = cost !== null && meta.essence >= cost;
       const past = rank >= u.maxRank;                 // into the endless tiers
+      const tint = STAT_TINT[u.stat] || '#b88aff';    // #88 the stat this boost feeds
       const r = { x: 14, y: ry, w: rowW, h: rowH, action: 'upgrade', key: u.key };
       c.fillStyle = maxed ? 'rgba(184,138,255,0.10)' : afford ? 'rgba(184,138,255,0.06)' : 'rgba(255,255,255,0.02)';
       c.fillRect(r.x, r.y, r.w, r.h);
       c.strokeStyle = maxed ? '#b88aff' : afford ? '#6a5a8a' : '#2c3040';
       c.lineWidth = 1; c.strokeRect(r.x, r.y, r.w, r.h);
-      // name + effect (left two lines)
+      // #88 stat-colored accent strip down the left edge - ties the boost to its stat
+      c.fillStyle = tint; c.fillRect(r.x, r.y, 3, rowH);
+      // name (in its stat tint) + effect
       c.textAlign = 'left';
-      c.font = 'bold 12px monospace'; c.fillStyle = maxed ? '#b88aff' : '#dde3ee';
-      c.fillText(u.name, r.x + 10, r.y + 17);
+      c.font = 'bold 12px monospace'; c.fillStyle = tint;
+      c.fillText(u.name + (u.stat ? '' : ''), r.x + 12, r.y + 16);
       c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-      c.fillText(u.desc, r.x + 10, r.y + 32);
+      c.fillText(u.desc, r.x + 12, r.y + 31);
       // cost (top-right) + rank pips / Lv (bottom-right)
       c.textAlign = 'right';
       c.font = 'bold 11px monospace';
       c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#555';
-      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, r.x + rowW - 10, r.y + 17);
+      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, r.x + rowW - 10, r.y + 16);
       if (past && u.endless) {
-        c.font = 'bold 10px monospace'; c.fillStyle = '#b88aff';
-        c.fillText(`Lv ${rank}`, r.x + rowW - 10, r.y + 33);
+        c.font = 'bold 10px monospace'; c.fillStyle = tint;
+        c.fillText(`Lv ${rank}`, r.x + rowW - 10, r.y + 32);
       } else {
         for (let i = 0; i < u.maxRank; i++) {
-          c.fillStyle = i < rank ? '#b88aff' : '#2c3040';
-          c.beginPath(); c.arc(r.x + rowW - 12 - (u.maxRank - 1 - i) * 11, r.y + 29, 3, 0, Math.PI * 2); c.fill();
+          c.fillStyle = i < rank ? tint : '#2c3040';
+          c.beginPath(); c.arc(r.x + rowW - 12 - (u.maxRank - 1 - i) * 11, r.y + 28, 3, 0, Math.PI * 2); c.fill();
         }
       }
       rects.push(r);
-      ry += rowH + 6;
+      ry += rowH + 4;
     }
 
     // --- #43 PRESTIGE: wipe the whole essence account for a cosmetic prestige level ---

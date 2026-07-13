@@ -278,7 +278,7 @@ const PlayerDef = (() => {
         coinMul: 1 + (meta?.ranks?.greed || 0) * 0.10,
         regen: 0,
         atkSpeedMul: 1,
-        magic: 1,   // #16 Magic stat: gates wielding wands/staffs (base 1 = basic magic)
+        magic: 1 + (meta?.ranks?.arcane || 0),   // #16/#88 Magic stat: gates wands/staffs; the Arcane permanent boost adds +1 per rank
       };
 
       // #30 class: starting kit + stat bias + one signature perk
@@ -287,7 +287,7 @@ const PlayerDef = (() => {
       // Q is your class ability, live from the start of the run (R + ultimate come
       // from your evolutions - see recordEvoPick)
       if (typeof Abilities !== 'undefined') this.ability = Abilities.classAbility(cls.id);
-      if (cls.magic) this.stats.magic = cls.magic;
+      if (cls.magic) this.stats.magic = cls.magic + (meta?.ranks?.arcane || 0); // #88 Arcane boost stacks on a caster's base Magic
       if (cls.hp) { this.maxHp += cls.hp; this.hp = this.maxHp; }
       if (cls.fx) this.applyEvolution(cls.fx); // the perk folds into evo -> mod()
 
