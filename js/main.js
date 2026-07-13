@@ -439,6 +439,19 @@
       Fx.burst(m.x, m.y, ['#ffd24c', '#ffe08a', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
       Sfx.play('buy');
     }
+    // #56 a worm's head dying looses its body - each segment scatters off as a wormling
+    if (m.type === 'worm' && m.bodySegs && m.bodySegs.length) {
+      for (const s of m.bodySegs) {
+        const wl = Monsters.make('wormling', s.x, s.y, m.tier);
+        const a = Math.random() * Math.PI * 2;
+        wl.kvx = Math.cos(a) * 280; wl.kvy = Math.sin(a) * 280; // burst outward, then it hunts
+        wl.spawnT = 0.25;
+        g.monsters.push(wl);
+        Fx.burst(s.x, s.y, ['#8fd0a0', '#6ee7a0'], 8, { speed: 150, life: 0.4 });
+      }
+      Fx.text(m.x, m.y - 30, 'IT SPLITS!', '#8fd0a0', 15);
+      Sfx.play('mimic');
+    }
 
     const w = p.weapon;
     const looting = Weapons.has(w, 'looting');
@@ -2449,6 +2462,16 @@
           }
         }
       } else if (!dead && pr.from === 'player') {
+        // #56 worm body segments are INVULNERABLE shields: a shot hitting a segment is
+        // blocked (consumed) with no damage, so you must thread shots past the body to
+        // the head. The head itself (m.x,m.y) is a normal target below.
+        let blocked = false;
+        for (const w of g.monsters) {
+          if (w.dead || w.type !== 'worm' || !w.bodySegs) continue;
+          for (const s of w.bodySegs) if (Math.hypot(pr.x - s.x, pr.y - s.y) < s.r + pr.r) { blocked = true; break; }
+          if (blocked) break;
+        }
+        if (blocked) { Fx.burst(pr.x, pr.y, ['#8fd0a0', '#cfe8b0'], 5, { speed: 70, life: 0.25 }); g.projectiles.splice(i, 1); continue; }
         for (const m of g.monsters) {
           if (m.dead || m.airborne || (pr.hitSet && pr.hitSet.has(m))) continue; // airborne boss can't eat arrows
           if (Math.hypot(pr.x - m.x, pr.y - m.y) < m.r + pr.r) {

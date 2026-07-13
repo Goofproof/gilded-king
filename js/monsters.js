@@ -30,8 +30,11 @@ const Monsters = (() => {
     miner:    { hp: 44, dmg: 15, speed: 74,  r: 14, xp: 10, coins: [2, 5] },
     // #27 pulser: slow bruiser that erupts rings of bullets like the Mimic King
     pulser:   { hp: 58, dmg: 10, speed: 44,  r: 15, xp: 13, coins: [3, 6] },
-    // #27 worm: a slithering segmented body - the whole trail bites on contact
-    worm:     { hp: 58, dmg: 11, speed: 108, r: 12, xp: 11, coins: [2, 5] },
+    // #56 worm: only the HEAD is damageable; its body segments are invulnerable
+    // shields, and it splits into scattering wormlings when the head dies
+    worm:     { hp: 64, dmg: 11, speed: 112, r: 12, xp: 11, coins: [2, 5] },
+    // a body segment set loose when a worm's head dies - small, fast, scatters
+    wormling: { hp: 7,  dmg: 6,  speed: 165, r: 8,  xp: 1,  coins: [0, 1] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
@@ -216,6 +219,13 @@ const Monsters = (() => {
         }
         break;
       }
+      case 'wormling': {
+        // a loosed body segment: it scatters out (initial knockback), then hunts fast
+        const jx = Math.sin(m.t * 11 + m.x) * 30;
+        moveToward(m, p.x + jx, p.y + Math.cos(m.t * 8) * 24, dt, m.speed);
+        tryContactHit(m, g, p);
+        break;
+      }
       case 'swarmer': {
         // jittery fast chase, threatens through numbers.
         // #48 picket: while a ranged ally is alive and the player is at range, the
@@ -318,18 +328,27 @@ const Monsters = (() => {
         break;
       }
       case 'worm': {
-        // slithers toward the player with a sine weave; its BODY is a trail of the
-        // head's recent path, and the whole thing bites on contact
-        moveToward(m, p.x, p.y, dt, m.speed);
-        const perp = m.facing + Math.PI / 2, wob = Math.sin(m.t * 7) * 34;
+        // #56 the HEAD chases with a strong serpentine weave, threading between the
+        // player and any other mob. Only the head takes damage; the body segments are
+        // INVULNERABLE shields (updateProjectiles blocks shots on them), and on death
+        // each segment scatters away as a wormling.
+        let tx = p.x, ty = p.y;
+        // thread toward the midpoint between the player and the nearest OTHER mob
+        let near = null, nd = 1e9;
+        for (const o of g.monsters) { if (o === m || o.dead || o.type === 'wormling') continue; const d = Math.hypot(o.x - m.x, o.y - m.y); if (d < nd) { nd = d; near = o; } }
+        if (near && nd < 260) { tx = (p.x + near.x) / 2; ty = (p.y + near.y) / 2; }
+        moveToward(m, tx, ty, dt, m.speed);
+        const perp = m.facing + Math.PI / 2, wob = Math.sin(m.t * 6.5) * 62; // strong zig-zag
         m.x += Math.cos(perp) * wob * dt; m.y += Math.sin(perp) * wob * dt;
         clampToField(m);
         if (!m.trail) m.trail = [];
         m.trailT = (m.trailT || 0) + dt;
-        if (m.trailT > 0.03) { m.trailT = 0; m.trail.unshift({ x: m.x, y: m.y }); if (m.trail.length > 40) m.trail.pop(); }
+        if (m.trailT > 0.025) { m.trailT = 0; m.trail.unshift({ x: m.x, y: m.y }); if (m.trail.length > 48) m.trail.pop(); }
+        // body segments (invulnerable shields) sampled behind the head
+        m.bodySegs = [];
+        for (let i = 6; i < m.trail.length && m.bodySegs.length < 6; i += 7) m.bodySegs.push({ x: m.trail[i].x, y: m.trail[i].y, r: m.r * 0.85 });
         if (m.contactCd <= 0) {
-          const pts = [{ x: m.x, y: m.y }];
-          for (let i = 8; i < m.trail.length; i += 8) pts.push(m.trail[i]);
+          const pts = [{ x: m.x, y: m.y }, ...m.bodySegs];
           for (const s of pts) if (Math.hypot(p.x - s.x, p.y - s.y) < m.r + p.r + 2) { g.hurtTarget(p, m.dmg, s.x, s.y, m); m.contactCd = 0.7; break; }
         }
         break;
@@ -704,7 +723,7 @@ const Monsters = (() => {
       case 'chaser': drawChaser(c, m, flash, ex, ey); break;
       case 'archer': drawArcher(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
-      case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
+      case 'swarmer': case 'add': case 'wormling': drawSwarmer(c, m, flash, ex, ey); break;
       case 'glass': drawGlass(c, m, flash, ex, ey); break;
       case 'shielded': drawShielded(c, m, flash, ex, ey); break;
       case 'bomber': drawBomber(c, m, flash, ex, ey); break;
