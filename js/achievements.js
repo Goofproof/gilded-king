@@ -186,6 +186,20 @@ const Ach = (() => {
     if (!g || !g.meta) return;
     const a = store(g);
     const S = snapshot(g);
+    // #111 FIRST-EVER pass: an account that already had essence / mythics / pets /
+    // prestige before accolades existed would otherwise unlock a wall of milestones
+    // (and toast-spam) the instant they log in. Silently grandfather everything
+    // already satisfied - the player keeps the credit in the gallery, but no toasts -
+    // then only NEW progress from here on pops a banner.
+    if (!a.baselined) {
+      for (const ach of LIST) {
+        if (a.done[ach.id]) continue;
+        try { if (ach.test(S, g)) a.done[ach.id] = 1; } catch (e) { }
+      }
+      a.baselined = 1;
+      if (typeof g.saveMeta === 'function') g.saveMeta();
+      return false; // no toasts on the grandfather pass
+    }
     let unlocked = false;
     for (const ach of LIST) {
       if (a.done[ach.id]) continue;
