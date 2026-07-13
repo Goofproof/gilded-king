@@ -543,12 +543,29 @@ const UI = (() => {
     c.restore();
   }
 
-  // a laurel wreath badge: the mythic-collection accolade on the title screen
-  function drawLaurel(c, cx, cy, count, total) {
+  // rounded-rect path helper (native roundRect where available, manual arcs otherwise)
+  function roundRectPath(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) { c.roundRect(x, y, w, h, r); return; }
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  // a laurel wreath badge: the mythic-collection accolade. opts.scale shrinks it for
+  // the dock badge; opts.noText suppresses the built-in count/label so the caller can
+  // render its own count+caption beside it (matches the other dock badges).
+  function drawLaurel(c, cx, cy, count, total, opts) {
+    const scale = (opts && opts.scale) || 1;
+    const noText = !!(opts && opts.noText);
     const earned = count > 0;
     const col = earned ? '#e8c66a' : '#4f4a3a';
     c.save();
     c.translate(cx, cy);
+    c.scale(scale, scale);
     // two arcs of leaves forming the open wreath (open at the top)
     for (const R of [32, 25]) {
       for (let k = 0; k <= 10; k++) {
@@ -563,15 +580,66 @@ const UI = (() => {
     // little tie at the bottom
     c.fillStyle = col;
     c.beginPath(); c.arc(0, 33, 2.4, 0, Math.PI * 2); c.fill();
-    // count in the middle
-    c.textAlign = 'center';
-    c.font = 'bold 16px monospace';
-    c.fillStyle = earned ? '#ffd24c' : '#6a6350';
-    c.fillText(`${count}/${total}`, 0, 2);
-    c.font = 'bold 8px monospace';
-    c.fillStyle = earned ? '#c9a227' : '#5a5340';
-    c.fillText('MYTHICS', 0, 15);
+    if (!noText) {
+      c.textAlign = 'center';
+      c.font = 'bold 16px monospace';
+      c.fillStyle = earned ? '#ffd24c' : '#6a6350';
+      c.fillText(`${count}/${total}`, 0, 2);
+      c.font = 'bold 8px monospace';
+      c.fillStyle = earned ? '#c9a227' : '#5a5340';
+      c.fillText('MYTHICS', 0, 15);
+    }
     c.restore();
+  }
+
+  // --- #86 title dock icon-badges: small canvas glyphs so the six bottom-dock controls
+  // (essence, mythics, accolades, scores, patch, share) read as one badge family ------
+  function iconCrystal(c, cx, cy, col) { // ESSENCE: a faceted purple diamond cluster
+    c.save(); c.translate(cx, cy); c.fillStyle = col;
+    const dia = (x, s) => { c.beginPath(); c.moveTo(x, -s); c.lineTo(x + s * 0.7, 0); c.lineTo(x, s); c.lineTo(x - s * 0.7, 0); c.closePath(); c.fill(); };
+    c.globalAlpha = 0.7; dia(-7, 5); dia(7, 5); c.globalAlpha = 1; dia(0, 8);
+    c.restore();
+  }
+  function iconTrophy(c, cx, cy, col) { // ACCOLADES: a little cup
+    c.save(); c.translate(cx, cy); c.fillStyle = col; c.strokeStyle = col; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(-6, -7); c.lineTo(6, -7); c.lineTo(4, 2); c.lineTo(-4, 2); c.closePath(); c.fill();
+    c.beginPath(); c.arc(-6, -5, 3, Math.PI * 0.5, Math.PI * 1.5); c.stroke();
+    c.beginPath(); c.arc(6, -5, 3, -Math.PI * 0.5, Math.PI * 0.5); c.stroke();
+    c.fillRect(-1.5, 2, 3, 4); c.fillRect(-5, 6, 10, 2);
+    c.restore();
+  }
+  function iconStar(c, cx, cy, col) { // HIGH SCORES: a five-point star
+    c.save(); c.translate(cx, cy); c.fillStyle = col; c.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? 3.4 : 8; const a = -Math.PI / 2 + i * Math.PI / 5; c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
+    c.closePath(); c.fill(); c.restore();
+  }
+  function iconScroll(c, cx, cy, col) { // PATCH NOTES: a small scroll with lines
+    c.save(); c.translate(cx, cy); c.fillStyle = col;
+    c.globalAlpha = 0.85; c.fillRect(-6, -7, 12, 14); c.globalAlpha = 1;
+    c.fillStyle = '#0d0d16'; for (let i = -1; i <= 1; i++) c.fillRect(-4, i * 4, 8, 1.4);
+    c.restore();
+  }
+  function iconLink(c, cx, cy, col) { // SHARE: two interlocked links
+    c.save(); c.translate(cx, cy); c.strokeStyle = col; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(-3, 0, 4.5, 3, -0.6, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.ellipse(3, 0, 4.5, 3, -0.6, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+  // one shared 124x46 dock cell: faint accent fill + border, an icon, a bold value line
+  // and a small-caps caption. `hot` brightens it (e.g. an affordable essence badge).
+  function dockBadge(c, rects, x, action, accent, capCol, iconFn, line1, cap, hot) {
+    const y = 487, w = 124, h = 46;
+    c.fillStyle = accent + (hot ? '24' : '12');   // 8-digit hex alpha
+    c.fillRect(x, y, w, h);
+    c.strokeStyle = hot ? accent : accent + '99'; c.lineWidth = hot ? 2 : 1;
+    c.strokeRect(x, y, w, h);
+    iconFn(c, x + 26, y + h / 2, accent);
+    c.textAlign = 'left';
+    c.font = 'bold 13px monospace'; c.fillStyle = accent;
+    c.fillText(line1, x + 48, y + 20);
+    c.font = 'bold 9px monospace'; c.fillStyle = capCol;
+    c.fillText(cap, x + 48, y + 34);
+    rects.push({ x, y, w, h, action });
   }
 
   // --- title / hub -----------------------------------------------------------------
@@ -608,6 +676,18 @@ const UI = (() => {
     c.save();
     c.fillStyle = '#0d0d16';
     c.fillRect(0, 0, W, H);
+
+    // faint radial vignette spotlighting the hero + play buttons (redesign: D4 graft)
+    {
+      const vg = c.createRadialGradient(W / 2, 190, 40, W / 2, 190, 360);
+      vg.addColorStop(0, 'rgba(40,40,60,0.5)');
+      vg.addColorStop(1, 'rgba(40,40,60,0)');
+      c.fillStyle = vg; c.fillRect(0, 0, W, H);
+    }
+    // a faint framed central column so the clear side gutters read as intentional
+    roundRectPath(c, 168, 84, 624, 392, 14);
+    c.fillStyle = '#12121e'; c.fill();
+    c.strokeStyle = 'rgba(232,181,47,0.22)'; c.lineWidth = 1; c.stroke();
 
     // floating coin particles handled by Fx from main
 
@@ -650,23 +730,22 @@ const UI = (() => {
 
     const rects = [startR, coopR];
 
-    // --- #30 CLASS picker: pick your starting kit for the next run (centered) ---
+    // --- #30 CLASS picker: pick your starting kit for the next run. Redesign: dead-
+    // centered on true center (x=480) with slightly wider cards (was pushed right to
+    // dodge the old left panel, which is now gone). #78 two-row grid so 10 classes fit.
     const classes = (typeof PlayerDef !== 'undefined' && PlayerDef.CLASSES) || [];
     if (classes.length) {
-      // centered in the free band between the essence panel (left) and scores (right).
-      // #78 two-row grid so 8+ classes fit.
-      const bandC = (262 + (W - 168)) / 2;
+      const cx0 = W / 2;
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('CHOOSE YOUR CLASS', bandC, 280);
-      const perRow = Math.ceil(classes.length / 2), gap = 8, chh = 58, y0 = 288;
-      const cw = Math.min(104, Math.floor((520 - (perRow - 1) * gap) / perRow));
+      c.fillText('CHOOSE YOUR CLASS', cx0, 282);
+      const perRow = Math.ceil(classes.length / 2), gap = 8, cw = 108, chh = 58, y0 = 290, rowStride = 64;
       const sel = meta.selectedClass || '';
       classes.forEach((cl, i) => {
         const row = Math.floor(i / perRow), col = i % perRow;
         const rowN = row === 0 ? Math.min(perRow, classes.length) : classes.length - perRow;
         const rowW = rowN * cw + (rowN - 1) * gap;
-        const x = bandC - rowW / 2 + col * (cw + gap), y = y0 + row * (chh + gap);
+        const x = cx0 - rowW / 2 + col * (cw + gap), y = y0 + row * rowStride;
         const on = cl.id === sel;
         const r = { x, y, w: cw, h: chh, action: 'selectClass', key: cl.id };
         c.fillStyle = on ? 'rgba(255,210,76,0.12)' : 'rgba(255,255,255,0.02)';
@@ -679,39 +758,20 @@ const UI = (() => {
         c.fillText(cl.name, r.x + r.w / 2, r.y + r.h - 6);
         rects.push(r);
       });
-      const gridBottom = y0 + 2 * (chh + gap);
+      const gridBottom = y0 + rowStride + chh; // 412
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
       c.textAlign = 'center';
       c.font = '11px monospace'; c.fillStyle = chosen.color;
-      c.fillText(chosen.desc, bandC, gridBottom + 12);
+      c.fillText(chosen.desc, cx0, gridBottom + 14);
       if (chosen.q) {
         c.font = 'bold 11px monospace'; c.fillStyle = '#9ecbff';
-        c.fillText('Q ability · ' + chosen.q, bandC, gridBottom + 30);
+        c.fillText('Q ability · ' + chosen.q, cx0, gridBottom + 30);
         c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-        c.fillText(chosen.qDesc, bandC, gridBottom + 45);
+        c.fillText(chosen.qDesc, cx0, gridBottom + 44);
       }
     }
 
-    // --- PERMANENT BOOSTS: a button (like ACCOLADES) that opens the essence popup.
-    // The old always-on left panel crowded the home screen; the shop now lives in a
-    // modal so the title stays clean and the boosts get room to breathe. ---
-    {
-      const bought = META_UPGRADES.reduce((n, u) => n + (meta.ranks[u.key] || 0), 0);
-      const anyAfford = META_UPGRADES.some(u => { const cst = metaCost(u, meta.ranks[u.key] || 0); return cst !== null && meta.essence >= cst; });
-      const upR = { x: 14, y: 150, w: 246, h: 50, action: 'upgrades' };
-      const pulse = anyAfford ? (Math.sin(Date.now() / 320) * 0.06 + 0.12) : 0.06;
-      c.fillStyle = `rgba(184,138,255,${pulse})`;
-      c.fillRect(upR.x, upR.y, upR.w, upR.h);
-      c.strokeStyle = anyAfford ? '#b88aff' : '#6a5a8a'; c.lineWidth = anyAfford ? 2 : 1.5;
-      c.strokeRect(upR.x, upR.y, upR.w, upR.h);
-      c.textAlign = 'left';
-      c.font = 'bold 14px monospace'; c.fillStyle = '#b88aff';
-      c.fillText('◆ PERMANENT BOOSTS', upR.x + 12, upR.y + 21);
-      c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-      c.fillText(`◆ ${meta.essence} essence · ${bought} bought${anyAfford ? ' · can afford one!' : ''}`, upR.x + 12, upR.y + 38);
-      rects.push(upR);
-      c.textAlign = 'center';
-    }
+    // (ESSENCE/permanent-boosts moved to the bottom dock, below)
 
     // --- STABLE: pets you've befriended; pick one to start the next run with ---
     const roster = (typeof Descent !== 'undefined' && Descent.PETS) || [];
@@ -747,79 +807,63 @@ const UI = (() => {
       c.fillText(chosen ? `${chosen.name} · ${chosen.desc}  (click to unselect)`
                         : 'befriend pets in the dungeon, then pick one to bring along', W / 2, 82);
     }
-    // tagline stays anchored at the very bottom
+    // tagline, relocated under the hero (the bottom edge is the dock now)
+    c.textAlign = 'center';
     c.font = 'italic 12px monospace';
     c.fillStyle = '#8a7340';
-    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, H - 14);
+    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, 200);
 
-    // mythic-collection laurel (top-right accolade) - click to open the gallery
-    drawLaurel(c, W - 72, 62, (meta.mythics || []).length, Weapons.MYTHIC_TOTAL);
-    rects.push({ x: W - 112, y: 28, w: 80, h: 70, action: 'mythics' });
-
-    // patch-notes button (top-right, under the mythic laurel)
-    if (typeof PatchNotes !== 'undefined') {
-      const pnR = { x: W - 164, y: 108, w: 150, h: 28, action: 'patchnotes' };
-      c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
-      c.strokeRect(pnR.x, pnR.y, pnR.w, pnR.h);
-      c.font = 'bold 12px monospace';
-      c.fillStyle = '#8fd0ff';
-      c.fillText(`◆ PATCH NOTES ${PatchNotes.VERSION}`, pnR.x + pnR.w / 2, pnR.y + 18);
-      rects.push(pnR);
-    }
-
-    // high-scores button + TOP 5 (right side, below patch notes - the left is essence now)
-    const scoresR = { x: W - 164, y: 150, w: 150, h: 28, action: 'scores' };
-    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
-    c.strokeRect(scoresR.x, scoresR.y, scoresR.w, scoresR.h);
-    c.font = 'bold 12px monospace';
-    c.fillStyle = '#ffd24c';
-    c.fillText('★ HIGH SCORES', scoresR.x + scoresR.w / 2, scoresR.y + 19);
-    rects.push(scoresR);
+    // #118 TOP RAIDERS - kept on the home screen (Sam wants the top 5 at a glance),
+    // tucked into the left gutter so it doesn't crowd the centered spine.
     c.textAlign = 'left';
-    c.font = 'bold 11px monospace'; c.fillStyle = '#c9a227';
-    c.fillText('TOP RAIDERS', W - 162, 200);
-    // #116 hold the list until the global fetch settles, so a refresh doesn't flash the
-    // stale local board first. Once ready it's the global board (or local fallback offline).
+    c.font = 'bold 10px monospace'; c.fillStyle = '#c9a227';
+    c.fillText('TOP RAIDERS', 18, 262);
     if (!g.scoresReady) {
-      c.font = 'italic 11px monospace'; c.fillStyle = '#6a7484';
-      c.fillText('loading...', W - 162, 218);
+      c.font = 'italic 10px monospace'; c.fillStyle = '#6a7484';
+      c.fillText('loading...', 18, 280);
     } else {
       (g.scores || []).slice(0, 5).forEach((s, i) => {
-        c.font = '11px monospace';
+        c.font = '10px monospace';
         c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
-        c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, W - 162, 218 + i * 16);
+        c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, 18, 280 + i * 15);
       });
     }
     c.textAlign = 'center';
 
-    // #86 ACCOLADES button (right column, under the top-raiders list)
+    // --- THE GILDED DAIS: a bottom dock of matched icon-badges. Every secondary control
+    // lives here now, so the sides stay clean and the whole screen centers. ---
+    c.fillStyle = '#14141f';
+    c.fillRect(0, 480, W, 60);
+    c.strokeStyle = 'rgba(176,141,87,0.4)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, 480.5); c.lineTo(W, 480.5); c.stroke();
+
+    // ESSENCE (opens the permanent-boosts popup) - purple crystal sibling to the laurel
+    const anyAfford = META_UPGRADES.some(u => { const cst = metaCost(u, meta.ranks[u.key] || 0); return cst !== null && meta.essence >= cst; });
+    dockBadge(c, rects, 73, 'upgrades', '#b88aff', '#8a78b0', iconCrystal, `${meta.essence}`, 'ESSENCE', anyAfford);
+    // MYTHICS (laurel icon, no internal text - rendered beside it)
+    const mCount = (meta.mythics || []).length, mTotal = (typeof Weapons !== 'undefined' && Weapons.MYTHIC_TOTAL) || 36;
+    dockBadge(c, rects, 211, 'mythics', '#e8c66a', '#c9a227', (cc, ix, iy) => drawLaurel(cc, ix, iy, mCount, mTotal, { scale: 0.42, noText: true }), `${mCount}/${mTotal}`, 'MYTHICS');
+    // ACCOLADES
     if (typeof Ach !== 'undefined') {
-      const earned = Ach.earnedCount(g), tot = Ach.total();
-      const acR = { x: W - 164, y: 306, w: 150, h: 30, action: 'achievements' };
-      c.strokeStyle = '#c9a227'; c.lineWidth = 1.5;
-      c.strokeRect(acR.x, acR.y, acR.w, acR.h);
-      c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('🏆 ACCOLADES', acR.x + acR.w / 2, acR.y + 14);
-      c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-      c.fillText(`${earned} / ${tot} earned`, acR.x + acR.w / 2, acR.y + 26);
-      rects.push(acR);
+      dockBadge(c, rects, 349, 'achievements', '#ffd24c', '#c9a227', iconTrophy, `${Ach.earnedCount(g)}/${Ach.total()}`, 'ACCOLADES');
     }
+    // HIGH SCORES (opens the full board, which hosts the top-5 too)
+    const topScore = (g.scoresReady && g.scores && g.scores[0]) ? `${g.scores[0].score}` : '—';
+    dockBadge(c, rects, 487, 'scores', '#ffd24c', '#c9a227', iconStar, topScore, 'HIGH SCORES');
+    // PATCH NOTES
+    if (typeof PatchNotes !== 'undefined') {
+      dockBadge(c, rects, 625, 'patchnotes', '#8fd0ff', '#6fa8c0', iconScroll, `${PatchNotes.VERSION}`, 'PATCH NOTES');
+    }
+    // SHARE
+    dockBadge(c, rects, 763, 'share', '#8fa3bf', '#667', iconLink, 'SHARE', 'the link');
 
-    // share button (bottom-right): copies the game's public link
-    const shareR = { x: W - 150, y: H - 46, w: 136, h: 30, action: 'share' };
-    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5;
-    c.strokeRect(shareR.x, shareR.y, shareR.w, shareR.h);
-    c.font = 'bold 12px monospace';
-    c.fillStyle = '#8fa3bf';
-    c.fillText('SHARE THE GAME', shareR.x + shareR.w / 2, shareR.y + 19);
-    rects.push(shareR);
-
-    // share toast
+    // share toast (draws just above the dock)
     if (g.shareMsg && g.shareMsg.t > 0) {
       c.globalAlpha = Math.min(1, g.shareMsg.t);
+      c.textAlign = 'center';
       c.font = 'bold 13px monospace';
       c.fillStyle = '#ffd24c';
-      c.fillText(g.shareMsg.text, W / 2, H - 60);
+      c.fillText(g.shareMsg.text, W / 2, 470);
       c.globalAlpha = 1;
     }
 
