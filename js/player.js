@@ -42,31 +42,29 @@ const PlayerDef = (() => {
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
-  // #43/#117 the prestige cape, drawn at the current translate origin. Shared by the
-  // local player AND remote peers (main.js drawRemotePlayers) so everyone sees each
-  // other's capes. Two fold panels + gold trim + collar. #117: (velX,velY) is the
-  // player's smoothed travel vector - the cape streams OPPOSITE it (apparent wind),
-  // flaps harder + faster with speed, and whips out on a roll, so it reads as fabric
-  // billowing behind you rather than a symmetric idle wobble.
+  // #43/#117/#119 the prestige cape, drawn at the current translate origin. Shared by
+  // the local player AND remote peers (main.js drawRemotePlayers). Two fold panels +
+  // gold trim + collar, draped from the shoulders. #119 rework: the cape stays ANCHORED
+  // and symmetric (it no longer slid off to one side / stretched, which read as broken);
+  // instead the hem FLUTTERS harder + faster with speed - a rippling wind flap - with
+  // only a whisper of lateral lean for wind direction, and a gentle billow on a roll.
   function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
     velX = velX || 0; velY = velY || 0;
     const speed = Math.hypot(velX, velY);
-    const sp01 = Math.min(1.9, speed / 205);            // ~1.0 at a run, ~2.1 mid-roll
-    const trailX = -velX / 205 * r * 1.25;              // hem leans behind your travel
-    const amp = 2.5 + sp01 * 11;                        // flap amplitude scales with speed
-    const freq = Math.max(150, 430 - sp01 * 150);       // and the flutter quickens
+    const sp01 = Math.min(1.8, speed / 205);            // ~1.0 at a run, ~2.1 mid-roll
+    const amp = 2.5 + sp01 * 7;                         // flutter grows with speed (gentler)
+    const freq = Math.max(180, 380 - sp01 * 110);       // and quickens a touch
     const ph = now / freq + (seedX || 0) * 0.05;
-    // a traveling wave down the cape: the hem (bottom) whips more than the shoulders
-    const flapHem = Math.sin(ph + 2.0) * amp * 0.5;
-    const swayL = Math.sin(ph) * amp + trailX + flapHem;
-    const swayR = Math.sin(ph + 1.15) * amp + trailX + flapHem;
-    const midW = Math.sin(ph + 0.6) * amp * 0.6 + trailX * 0.55;
-    // length billows with speed; running UP (velY<0) streams it long behind you, DOWN
-    // bunches it shorter (top-down: you move into vs away from the draped cloth)
+    const lean = -velX / 205 * r * 0.3;                 // just a whisper of wind direction
+    // each hem control point flutters at its own phase so the cloth ripples like fabric
+    const swayL = Math.sin(ph) * amp + lean;
+    const swayR = Math.sin(ph + 1.1) * amp + lean;
+    const midW = Math.sin(ph + 0.5) * amp * 0.55 + lean * 0.5;
+    // a modest billow with speed - no vertical stretch/squash (that looked distorted)
     const base = r * (2.1 + t * 0.14) + (moving ? r * 0.5 : 0);
-    const L = Math.max(r * 1.6, base + sp01 * r * 0.4 - velY / 205 * r * 0.5);
+    const L = base + sp01 * r * 0.28;
     const tw = r * 0.5, bw = r * (1.05 + t * 0.05);
     const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
     const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
