@@ -167,7 +167,7 @@
     floorNum: 1,
     dungeon: null, room: null,
     player: null,
-    monsters: [], projectiles: [], pickups: [], mercs: [], mines: [], turrets: [],
+    monsters: [], projectiles: [], pickups: [], mercs: [], mines: [], turrets: [], summon: null,
     boss: null, bossIntroT: 0, winTimer: -1, portal: null,
     // --- Descent (endless mode) ---
     kingSlain: false,        // slew the floor-3 Gilded King (scoreboard crown)
@@ -273,6 +273,7 @@
     // reset Descent state
     g.mercs = [];
     g.turrets = [];
+    g.summon = null;
     g.kingSlain = false;
     g.circleBossSeen = 0;
     g.descentPortal = null;
@@ -336,6 +337,8 @@
       for (const tr of g.turrets) if (!tr.dead) g.player.turretRecharge.push(2);
       g.turrets = [];
     }
+    // #78 the elemental persists across rooms - bring it along to the player's side
+    if (g.summon && !g.summon.dead && g.player) { g.summon.x = g.player.x - 26; g.summon.y = g.player.y + 18; }
     // drops are persistent: whatever was left on this room's floor is still there
     if (g.room) g.room.savedPickups = g.pickups;
     g.room = room;
@@ -1105,6 +1108,8 @@
       g.shopMsg = { text: (p.turretCharges | 0) <= 0 ? 'No turret charges' : 'Turret limit reached', t: 1.2 };
       Sfx.play('error'); return;
     }
+    // #78 Summoner: can't resummon while the elemental is alive (its cd starts on death)
+    if (a.kind === 'summon' && g.summon && !g.summon.dead) { g.shopMsg = { text: 'Elemental still active', t: 1.2 }; Sfx.play('error'); return; }
     const dmgMul = a.dmgMul || 1;
     Sfx.play(a.ult ? 'roar' : 'heavy');
 
@@ -1188,6 +1193,14 @@
       g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: 0.7, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0 });
       Fx.burst(p.x, p.y, [a.color, '#fff'], 16, { speed: 120, life: 0.4 });
       Fx.text(p.x, p.y - 30, 'TURRET', a.color, 12);
+    } else if (a.kind === 'summon') {
+      // #78 Summoner: conjure an elemental matching your slot-1 weapon (earth by default)
+      const elem = elementFromWeapon(p);
+      const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
+      const scale = 1 + 0.12 * arc + 0.06 * Math.max(0, g.floorNum - 1);
+      g.summon = makeElemental(elem, p.x - 24, p.y + 16, scale);
+      Fx.text(p.x, p.y - 30, elem.toUpperCase() + ' ELEMENTAL', a.color, 12);
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 22, { speed: 160, life: 0.5, glow: true });
     }
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
@@ -1198,6 +1211,9 @@
     Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, a.ult ? 17 : 14);
     if (a.ult) Fx.shake(9, 0.35);
     a.cd = a.cdMax;
+    // #78 the summon's cooldown does NOT run while the elemental lives - it starts the
+    // moment the elemental dies (killSummon sets a.cd). Until then Q is gated, not on cd.
+    if (a.kind === 'summon') a.cd = 0;
   }
 
   // --- SHARD SALVAGE (Sam's idea: floor loot shouldn't be waste) ------------------
@@ -1408,6 +1424,95 @@
     c.fillStyle = tr.flash > 0 ? '#fff' : '#8a7a4a'; c.beginPath(); c.arc(0, -3, 8, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#c9a227'; c.beginPath(); c.arc(0, -3, 4, 0, Math.PI * 2); c.fill();
     if (tr.hp < tr.maxHp) { const w = 20; c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(-w / 2, -18, w, 3); c.fillStyle = tr.hp / tr.maxHp > 0.4 ? '#5cd65c' : '#e05555'; c.fillRect(-w / 2, -18, w * Math.max(0, tr.hp / tr.maxHp), 3); }
+    c.restore();
+  }
+  // #78 Summoner elementals: a single companion whose behaviour matches your weapon's
+  // element (Fire/Lightning/Poison, else Earth). Persistent until killed; the Q cooldown
+  // starts the moment it dies. Damage scales with the ARCANE stat at summon time.
+  const ELEM_BASE = {
+    earth:     { hp: 130, dmg: 15, speed: 92,  r: 13, range: 42,  rate: 0.7 },
+    fire:      { hp: 55,  dmg: 15, speed: 122, r: 11, range: 270, rate: 0.85 },
+    lightning: { hp: 70,  dmg: 11, speed: 104, r: 12, range: 250, rate: 1.7 },
+    poison:    { hp: 90,  dmg: 8,  speed: 74,  r: 12, range: 44,  rate: 0.7 },
+  };
+  const ELEM_COLOR = { earth: '#a07a4a', fire: '#ff7a2c', lightning: '#ffe27a', poison: '#8ef06e' };
+  function elementFromWeapon(p) {
+    const w = p.weapons && p.weapons.a;
+    if (w && typeof Weapons !== 'undefined') {
+      if (Weapons.has(w, 'fireaspect') || Weapons.has(w, 'flame')) return 'fire';
+      if (Weapons.has(w, 'chain')) return 'lightning';
+      if (Weapons.has(w, 'venom')) return 'poison';
+    }
+    return 'earth'; // frost or no element defaults to Earth
+  }
+  function makeElemental(elem, x, y, scale) {
+    const b = ELEM_BASE[elem] || ELEM_BASE.earth;
+    const hp = Math.round(b.hp * scale);
+    return { elem, x, y, hp, maxHp: hp, dmg: Math.round(b.dmg * scale), speed: b.speed, r: b.r, range: b.range, atkRate: b.rate, atkCd: 0, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0 };
+  }
+  function killSummon(s) {
+    if (s.dead) return;
+    s.dead = true;
+    Fx.burst(s.x, s.y, [ELEM_COLOR[s.elem], '#fff'], 20, { speed: 160, life: 0.5, glow: true });
+    Sfx.play('hitHeavy');
+    const a = g.player.ability;
+    if (a && a.kind === 'summon') a.cd = a.cdMax; // NOW the resummon cooldown begins
+  }
+  function summonMove(s, tx, ty, dt, mul) {
+    const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy) || 1;
+    s.x += (dx / d) * s.speed * (mul || 1) * dt; s.y += (dy / d) * s.speed * (mul || 1) * dt;
+  }
+  function summonBolt(s, ang, color, opts) {
+    g.projectiles.push(Object.assign({ x: s.x + Math.cos(ang) * 12, y: s.y + Math.sin(ang) * 12, vx: Math.cos(ang) * 520, vy: Math.sin(ang) * 520, r: 4, dmg: s.dmg, from: 'player', color, life: 1.2, arrow: true, hitSet: new Set(), crit: false }, opts || {}));
+  }
+  function updateSummons(dt) {
+    const s = g.summon; if (!s || s.dead) return;
+    const p = g.player;
+    s.t += dt;
+    if (s.atkCd > 0) s.atkCd -= dt;
+    if (s.flash > 0) s.flash -= dt;
+    if (s.hurtCd > 0) s.hurtCd -= dt;
+    if (s.hurtCd <= 0) for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; if (Math.hypot(m.x - s.x, m.y - s.y) < m.r + s.r) { s.hp -= m.dmg; s.hurtCd = 0.5; s.flash = 0.12; break; } }
+    if (s.hp <= 0) { killSummon(s); return; }
+    let target = null, td = 1e9;
+    for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; const d = Math.hypot(m.x - s.x, m.y - s.y); if (d < td) { td = d; target = m; } }
+    const hasT = target && td < 360;
+    const home = () => summonMove(s, p.x - 26, p.y + 18, dt, 0.9);
+    if (s.elem === 'earth') {
+      if (hasT) { s.facing = Math.atan2(target.y - s.y, target.x - s.x); if (td > s.range) summonMove(s, target.x, target.y, dt); else if (s.atkCd <= 0) { target.takeHit(s.dmg, { sx: s.x, sy: s.y, knock: 120, fromPlayer: true, hitSfx: 'hitHeavy' }, g); s.atkCd = s.atkRate; } }
+      else if (Math.hypot(p.x - s.x, p.y - s.y) > 40) home();
+    } else if (s.elem === 'fire') {
+      if (hasT) { s.facing = Math.atan2(target.y - s.y, target.x - s.x); if (td < 150) summonMove(s, s.x * 2 - target.x, s.y * 2 - target.y, dt, 0.8); else if (td > s.range) summonMove(s, target.x, target.y, dt); if (s.atkCd <= 0) { summonBolt(s, s.facing, '#ff7a2c', { flame: 2 }); s.atkCd = s.atkRate; Sfx.play('bowfire'); } }
+      else home();
+    } else if (s.elem === 'lightning') {
+      if (hasT && td > 130) summonMove(s, target.x, target.y, dt, 0.7);
+      else if (!hasT) home();
+      if (hasT && s.atkCd <= 0) { for (let i = 0; i < 8; i++) summonBolt(s, i / 8 * Math.PI * 2, '#ffe27a', { chain: 1 }); s.atkCd = s.atkRate; Sfx.play('bowfire'); }
+    } else { // poison
+      if (hasT) { s.facing = Math.atan2(target.y - s.y, target.x - s.x); summonMove(s, target.x, target.y, dt); if (td < s.range && s.atkCd <= 0) { target.takeHit(s.dmg, { sx: s.x, sy: s.y, venom: 2, fromPlayer: true }, g); s.atkCd = s.atkRate; } }
+      else home();
+      if (Math.floor(s.t / 0.25) !== Math.floor((s.t - dt) / 0.25)) { // ~4x/s trail
+        Fx.burst(s.x, s.y, ['#8ef06e', '#3aa83a'], 2, { speed: 20, life: 0.6 });
+        for (const m of g.monsters) { if (!m.dead && Math.hypot(m.x - s.x, m.y - s.y) < 34) m.poison = { t: 2, dps: s.dmg, tick: 0 }; }
+      }
+    }
+    s.x = Math.max(PF.x + 10, Math.min(PF.x + PF.w - 10, s.x));
+    s.y = Math.max(PF.y + 10, Math.min(PF.y + PF.h - 10, s.y));
+  }
+  function drawSummon(c) {
+    const s = g.summon; if (!s || s.dead) return;
+    const col = ELEM_COLOR[s.elem];
+    c.save(); c.translate(s.x, s.y);
+    c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, s.r * 0.8, s.r * 0.9, s.r * 0.35, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = s.flash > 0 ? '#fff' : col;
+    if (s.elem === 'earth') { c.fillRect(-s.r * 0.8, -s.r * 0.8, s.r * 1.6, s.r * 1.6); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(-s.r * 0.45, -s.r * 0.45, s.r * 0.5, s.r * 0.5); }
+    else { c.beginPath(); c.arc(0, 0, s.r, 0, Math.PI * 2); c.fill(); }
+    c.save(); c.globalAlpha = 0.6 + Math.sin(Date.now() / 120) * 0.3;
+    if (s.elem === 'fire') { c.fillStyle = '#ffd24c'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(Math.sin(Date.now() / 80 + i) * s.r * 0.4, -s.r - 2 - i * 2, 2, 0, Math.PI * 2); c.fill(); } }
+    else if (s.elem === 'lightning') { c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-s.r, 0); c.lineTo(-2, -3); c.lineTo(2, 3); c.lineTo(s.r, 0); c.stroke(); }
+    else if (s.elem === 'poison') { c.fillStyle = '#cfffb0'; c.beginPath(); c.arc(0, 0, s.r * 0.5, 0, Math.PI * 2); c.fill(); }
+    c.restore();
+    if (s.hp < s.maxHp) { const w = 22; c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(-w / 2, -s.r - 8, w, 3); c.fillStyle = s.hp / s.maxHp > 0.4 ? '#5cd65c' : '#e05555'; c.fillRect(-w / 2, -s.r - 8, w * Math.max(0, s.hp / s.maxHp), 3); }
     c.restore();
   }
   function drawMerc(c, merc) {
@@ -2290,6 +2395,7 @@
     updatePickups(dt);
     updateMines(dt);
     updateTurrets(dt);
+    updateSummons(dt);
     updateUltFx(dt);
     if (g.playerTaunt.t > 0) { g.playerTaunt.t -= dt; if (g.playerTaunt.src && g.playerTaunt.src.dead) g.playerTaunt.t = 0; }
 
@@ -2918,6 +3024,7 @@
     for (const m of g.monsters) if (!m.dead) m.draw(c, g);
     for (const merc of g.mercs) if (!merc.dead) drawMerc(c, merc);
     for (const tr of g.turrets) if (!tr.dead) drawTurret(c, tr);
+    drawSummon(c);
     if (g.coop) drawRemotePlayers(c);
     g.player.draw(c, g);
 

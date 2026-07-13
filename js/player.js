@@ -36,6 +36,9 @@ const PlayerDef = (() => {
     { id: 'engineer',  name: 'Engineer',  color: '#c9a227', icon: '⚙', arch: 'bow',
       desc: 'Starts with a bow. +6% move speed. Deploys auto-turrets.', fx: { spd: 0.06 },
       q: 'Deploy Turret', qDesc: 'Build an auto-turret at your feet. More charges as you level (up to 5); turrets scale with Agility.' },
+    { id: 'summoner',  name: 'Summoner',  color: '#9ad0ff', icon: '❈', arch: 'wand',
+      desc: 'Starts with a wand. Magic 2. Commands an elemental.', magic: 2, fx: { spellPower: 0.10 },
+      q: 'Summon Elemental', qDesc: 'Summon an elemental matching your weapon (Fire/Lightning/Poison, or Earth). It fights until killed; scales with Arcane.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -107,7 +110,7 @@ const PlayerDef = (() => {
   // (cx,cy) is the head centre; s is the head radius.
   function drawClassPortrait(c, cls, cx, cy, s) {
     const id = cls.id || '';
-    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a' }[id] || '#5b6884';
+    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8' }[id] || '#5b6884';
     c.save();
     c.translate(cx, cy);
     // shoulders / torso
@@ -176,6 +179,15 @@ const PlayerDef = (() => {
       c.fillStyle = '#b8841a'; c.fillRect(-s * 0.08, -s * 0.92, s * 0.16, s * 0.5);                        // ridge
       c.fillStyle = '#3a3f48'; c.fillRect(-s * 0.5, s * 0.02, s * 1.0, s * 0.2);                           // goggles strap
       c.fillStyle = '#8fd0ff'; c.beginPath(); c.arc(-s * 0.26, s * 0.12, s * 0.16, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(s * 0.26, s * 0.12, s * 0.16, 0, Math.PI * 2); c.fill(); // goggle lenses
+    } else if (id === 'summoner') {
+      c.fillStyle = '#2a4a70'; c.beginPath();                                                             // deep-blue hood
+      c.moveTo(-s * 0.9, s * 0.15); c.quadraticCurveTo(-s * 1.0, -s * 1.05, 0, -s * 1.08);
+      c.quadraticCurveTo(s * 1.0, -s * 1.05, s * 0.9, s * 0.15);
+      c.quadraticCurveTo(s * 0.5, -s * 0.14, 0, -s * 0.2);
+      c.quadraticCurveTo(-s * 0.5, -s * 0.14, -s * 0.9, s * 0.15); c.closePath(); c.fill();
+      c.fillStyle = '#9ad0ff'; c.globalAlpha = 0.9;                                                       // floating arcane orb
+      c.beginPath(); c.arc(0, -s * 1.4, s * 0.24, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+      c.strokeStyle = '#cfe9ff'; c.lineWidth = 1; c.beginPath(); c.arc(0, -s * 1.4, s * 0.38, 0, Math.PI * 2); c.stroke();
     } else {
       c.fillStyle = '#6a5a44'; c.beginPath(); c.arc(0, -s * 0.34, s * 0.66, Math.PI, 0); c.fill();        // adventurer: simple hair
     }
@@ -1160,6 +1172,16 @@ const PlayerDef = (() => {
         c.fillStyle = '#e0a91e'; c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
         c.fillStyle = '#c9931a'; c.fillRect(-r * 0.78, -r * 0.55, r * 1.56, r * 0.12);
         c.fillStyle = '#b8841a'; c.fillRect(-r * 0.07, -r * 1.15, r * 0.14, r * 0.55);
+      } else if (id === 'summoner') {
+        // a deep-blue hood + a small floating orb above
+        c.fillStyle = '#2a4a70';
+        c.beginPath();
+        c.moveTo(-r * 0.92, r * 0.12); c.quadraticCurveTo(-r * 1.02, -r * 1.05, 0, -r * 1.08);
+        c.quadraticCurveTo(r * 1.02, -r * 1.05, r * 0.92, r * 0.12);
+        c.quadraticCurveTo(r * 0.5, -r * 0.15, 0, -r * 0.2);
+        c.quadraticCurveTo(-r * 0.5, -r * 0.15, -r * 0.92, r * 0.12); c.closePath(); c.fill();
+        c.fillStyle = '#9ad0ff'; c.globalAlpha = 0.5 + Math.sin(Date.now() / 300) * 0.3;
+        c.beginPath(); c.arc(0, -r * 1.7, r * 0.28, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
       }
       // adventurer: no signature look (plain champion)
     }
