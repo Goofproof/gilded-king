@@ -150,6 +150,27 @@ const Monsters = (() => {
     m.x = Math.max(PF.x + m.r, Math.min(PF.x + PF.w - m.r, m.x));
     m.y = Math.max(PF.y + m.r, Math.min(PF.y + PF.h - m.r, m.y));
   }
+  // #122 rock + pit + wall collision for a monster. Pits are SOLID to a normally-moving
+  // monster (push-out at the lip), but a hard-knockback shove into the hole drops it (#74).
+  // Extracted so EVERY movement path can call it - previously the formation-advance and
+  // stagger paths returned early and skipped it, so a marching/staggered mob (e.g. a tank
+  // in a prepared room) walked straight over pits. Returns true if the monster fell in.
+  function resolveTerrain(m, g) {
+    if (!g.room) return false;
+    for (const o of g.room.obstacles || []) {
+      const dx = m.x - o.x, dy = m.y - o.y, d = Math.hypot(dx, dy);
+      if (o.kind === 'pit') {
+        const knocked = (m.kvx * m.kvx + m.kvy * m.kvy) > 140 * 140 && !m.isBoss && m.type !== 'worm';
+        if (knocked) { if (d < o.r) { fallInPit(m, g); return true; } } // shoved over the edge - let it fall
+        else if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
+        continue;
+      }
+      if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
+    }
+    if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w, m.px, m.py); if (q) { m.x = q.x; m.y = q.y; } }
+    clampToField(m);
+    return false;
+  }
   // the edge point of a door on a given side (the loot goblin's escape route)
   function doorPoint(dir) {
     if (dir === 'N') return { x: PF.x + PF.w / 2, y: PF.y };
@@ -231,8 +252,9 @@ const Monsters = (() => {
       if (m.fuse <= 0) { explode(m, g); return; }
     }
 
-    // stagger (from heavy weapon) freezes behavior briefly
-    if (m.stagger > 0) { m.stagger -= dt; clampToField(m); return; }
+    // stagger (from heavy weapon) freezes behavior briefly (but still respects terrain,
+    // so a staggered mob shoved into a pit still falls)
+    if (m.stagger > 0) { m.stagger -= dt; resolveTerrain(m, g); return; }
 
     // #78 FEAR (Barbarian War Shout): the monster panics and flees from the nearest
     // player, throwing no attacks, until the timer runs out. Bosses are immune.
@@ -280,7 +302,7 @@ const Monsters = (() => {
         }
         m.facing = Math.atan2(t.y - m.y, t.x - m.x);
         formationSuppress(m, t, g, dt); // #94 ranged fire on the advance, in or out of range
-        clampToField(m);
+        resolveTerrain(m, g); // #122 a marching formation still can't walk through pits/walls
         return;
       }
     }
@@ -679,22 +701,9 @@ const Monsters = (() => {
       }
     }
 
-    // rock + pit collision (simple circle push-out). Pits are solid to a monster
-    // walking normally, but if it's under real knockback and gets shoved OUT over
-    // the lip (centre crosses into the hole), it falls to its death (#74).
-    for (const o of g.room.obstacles) {
-      const dx = m.x - o.x, dy = m.y - o.y, d = Math.hypot(dx, dy);
-      if (o.kind === 'pit') {
-        const knocked = (m.kvx * m.kvx + m.kvy * m.kvy) > 140 * 140 && !m.isBoss && m.type !== 'worm';
-        if (knocked) { if (d < o.r) { fallInPit(m, g); return; } }        // shoved over the edge - no push, let it fall
-        else if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
-        continue;
-      }
-      if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
-    }
-    // #67b solid wall rects (anti-tunnel via pre-move pos)
-    if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w, m.px, m.py); if (q) { m.x = q.x; m.y = q.y; } }
-    clampToField(m);
+    // rock + pit + wall collision (#122: shared helper, also used by the early-return
+    // formation/stagger paths so nothing walks over a pit).
+    resolveTerrain(m, g);
   }
 
   function fireProjectile(g, m, angle, speed, dmg, color, r, opts = {}) {
