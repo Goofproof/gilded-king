@@ -233,8 +233,10 @@ const PlayerDef = (() => {
     constructor(meta) {
       this.x = PF.x + PF.w / 2; this.y = PF.y + PF.h / 2;
       this.r = 13;
-      // meta-progression boosts (from the hub) fold into starting stats
-      const mHp = (meta?.ranks?.vitality || 0) * 10;
+      // meta-progression boosts (from the hub) fold into starting stats.
+      // #104 clamp to rank 3 so a grinder can't exceed the intended cap even on a
+      // save that bought extra ranks back when these were endless.
+      const mHp = Math.min(3, meta?.ranks?.vitality || 0) * 10;
       this.maxHp = T.maxHp + mHp;
       this.hp = this.maxHp;
       this.coins = 0; this.essenceRun = 0; this.shards = 0;
@@ -271,11 +273,11 @@ const PlayerDef = (() => {
 
       // stat multipliers - passive upgrades stack into these
       this.stats = {
-        dmgMul: 1 + (meta?.ranks?.might || 0) * 0.05,
+        dmgMul: 1 + Math.min(3, meta?.ranks?.might || 0) * 0.05,   // #104 cap at +15%
         speedMul: 1,
         rollCdMul: 1 - (meta?.ranks?.acrobat || 0) * 0.08,
         crit: 0,
-        coinMul: 1 + (meta?.ranks?.greed || 0) * 0.10,
+        coinMul: 1 + Math.min(3, meta?.ranks?.greed || 0) * 0.10,  // #104 cap at +30%
         regen: 0,
         atkSpeedMul: 1,
         magic: 1 + (meta?.ranks?.arcane || 0),   // #16/#88 Magic stat: gates wands/staffs; the Arcane permanent boost adds +1 per rank

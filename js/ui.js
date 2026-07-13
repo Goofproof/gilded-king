@@ -19,11 +19,13 @@ const UI = (() => {
   // constructor keep working; only the names/colors changed. 'arcane' is new.
   const STAT_TINT = { MIGHT: '#ff6b5c', VIGOR: '#6ee7a0', AGILITY: '#7fd4ff', ARCANE: '#b06bff', FORTUNE: '#ffd24c', '': '#b88aff' };
   const META_UPGRADES = [
-    { key: 'might',    stat: 'MIGHT',   name: 'Might',   desc: '+5% damage',                maxRank: 3, costs: [25, 50, 90],  endless: true },
-    { key: 'vitality', stat: 'VIGOR',   name: 'Vigor',   desc: '+10 starting health',       maxRank: 3, costs: [25, 50, 90],  endless: true },
+    // #104 meta boosts HARD-CAP at rank 3 (no more endless:true) so account grind
+    // can't outweigh in-run choices - the applied effect is also clamped in player.js.
+    { key: 'might',    stat: 'MIGHT',   name: 'Might',   desc: '+5% damage',                maxRank: 3, costs: [25, 50, 90] },
+    { key: 'vitality', stat: 'VIGOR',   name: 'Vigor',   desc: '+10 starting health',       maxRank: 3, costs: [25, 50, 90] },
     { key: 'acrobat',  stat: 'AGILITY', name: 'Agility', desc: '-8% roll cooldown',         maxRank: 2, costs: [30, 60] },
     { key: 'arcane',   stat: 'ARCANE',  name: 'Arcane',  desc: '+1 Magic (stronger spells)', maxRank: 3, costs: [30, 60, 110] },
-    { key: 'greed',    stat: 'FORTUNE', name: 'Fortune', desc: '+10% coins from kills',     maxRank: 3, costs: [30, 60, 100], endless: true },
+    { key: 'greed',    stat: 'FORTUNE', name: 'Fortune', desc: '+10% coins from kills',     maxRank: 3, costs: [30, 60, 100] },
     { key: 'armory',   stat: '',        name: 'Armory',  desc: 'Start with an Uncommon weapon', maxRank: 1, costs: [80] },
   ];
 
