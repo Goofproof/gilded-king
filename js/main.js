@@ -294,6 +294,7 @@
     // co-op: everyone builds the SAME floor from the shared run seed
     g.dungeon = Dungeon.generateFloor(g.floorNum, g.coop ? g.coopSeed : undefined);
     g.portal = null; // portals never carry across floors
+    g.alarm = 0;     // #77 the dungeon's alertness resets each floor (rises per room cleared)
     const theme = Dungeon.themeFor(g.floorNum);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
     Sfx.setAmbient(theme.ambient);
@@ -457,10 +458,12 @@
   function onKill(m) {
     const p = g.player;
     p.kills++;
-    p.addXp(m.xp, g);
+    // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
+    const alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
+    p.addXp(alarmXp, g);
     // co-op: the whole party levels off shared kills (kills only ever happen on
     // the host, so it grants everyone the same XP)
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'xp', a: m.xp });
+    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'xp', a: alarmXp });
     Fx.burst(m.x, m.y, ['#fff', '#ffd24c', '#ff6655'], 14, { speed: 180, life: 0.5 });
     Sfx.play('kill');
     // #26: catching the loot goblin pays out a jackpot (its coins are set high in BASE)
@@ -556,11 +559,12 @@
       if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
-      dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 }), m.x, m.y);
-    } else if (Math.random() < 0.045 * (1 + 0.5 * looting)) {
-      dropGear('weapon', Weapons.rollWeapon(tier), m.x, m.y);
-    } else if (Math.random() < 0.035 * (1 + 0.5 * looting)) {
-      dropGear('armorItem', Weapons.rollArmor(tier), m.x, m.y);
+      dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 + 0.1 * (g.alarm || 0) }), m.x, m.y);
+    } else if (Math.random() < 0.045 * (1 + 0.5 * looting) * (1 + 0.09 * (g.alarm || 0))) {
+      // #77 higher ALARM => richer loot: better drop odds AND higher rarity
+      dropGear('weapon', Weapons.rollWeapon(tier, { luck: 0.1 * (g.alarm || 0) }), m.x, m.y);
+    } else if (Math.random() < 0.035 * (1 + 0.5 * looting) * (1 + 0.09 * (g.alarm || 0))) {
+      dropGear('armorItem', Weapons.rollArmor(tier, { luck: 0.1 * (g.alarm || 0) }), m.x, m.y);
     }
 
     checkRoomCleared();
@@ -599,9 +603,15 @@
         g.monsters.every(m => m.dead)) {
       g.room.cleared = true;
       g.player.roomsCleared++;
+      // #77 the dungeon grows more ALERT with every room you clear (resets each floor).
+      // Higher alarm = tougher rooms (more bodies/elites/formations) but richer rewards
+      // (loot rarity + XP). Capped so deep-floor + max-alarm stays beatable.
+      g.alarm = Math.min(8, (g.alarm || 0) + 1);
       vacuumPickups(); // room-clear reward: every dropped coin flies to you
       Sfx.play('unlock');
       Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
+      const ALARM_FLAVOR = { 2: 'The dungeon stirs...', 4: 'The dungeon is on alert', 6: 'The dungeon hunts you' };
+      if (ALARM_FLAVOR[g.alarm]) Fx.text(W / 2, H / 2 - 36, ALARM_FLAVOR[g.alarm], '#ff8a3d', 14);
       // P1-D: guests never run onKill/checkRoomCleared - tell them the room cleared so
       // their coins vacuum and their doors unseal
       if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy });

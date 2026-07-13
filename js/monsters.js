@@ -725,6 +725,9 @@ const Monsters = (() => {
     const th = descent ? Descent.threat(floor) : null;
     let n = COUNT(tier);
     if (th) n = Math.min(14, Math.round(n * th.count));
+    // #77 the floor's ALARM adds a few more bodies per room (capped) - the difficulty
+    // side of the risk/reward: staying longer means fuller rooms.
+    if (g.alarm) n = Math.min(16, n + Math.round(g.alarm * 0.35));
     const out = [];
     const p = g.player;
     // #67b/#74 don't spawn a mob buried in a wall or standing in a pit

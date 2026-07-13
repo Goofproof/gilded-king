@@ -65,6 +65,17 @@ const UI = (() => {
     c.fillStyle = '#cbb8ff';
     c.fillText(`Lv ${p.level}`, hbX + hbW + 10, hbY + hbH + 11);
 
+    // #77 ALARM meter: rises per room cleared this floor. Higher = tougher rooms but
+    // richer loot + XP. A thin bar under the XP bar with a warning count.
+    {
+      const al = g.alarm || 0, amY = hbY + hbH + 16, amH = 5;
+      c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(hbX - 2, amY - 2, hbW + 4, amH + 4);
+      c.fillStyle = '#2a1810'; c.fillRect(hbX, amY, hbW, amH);
+      c.fillStyle = al >= 6 ? '#ff3020' : al >= 4 ? '#ff8a3d' : '#ffc64c';
+      c.fillRect(hbX, amY, hbW * Math.min(1, al / 8), amH);
+      if (al > 0) { c.font = 'bold 9px monospace'; c.fillStyle = al >= 4 ? '#ff8a3d' : '#c9a98a'; c.fillText('⚠ ' + al, hbX + hbW + 10, amY + 6); }
+    }
+
     // coins
     c.fillStyle = '#ffd24c';
     c.beginPath(); c.arc(hbX + 8, hbY + hbH + 32, 7, 0, Math.PI * 2); c.fill();
