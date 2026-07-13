@@ -202,19 +202,21 @@ const Dungeon = (() => {
     // pet:  5% in a treasure room, 2% in a normal combat room.
     // merc: 10% in a treasure room, 5% in a normal combat room (floor 2+).
     const havePets = typeof Descent !== 'undefined' && Descent.rollPet;
+    let petPlaced = false; // #65 at most ONE pet per floor (a streak of 3 was possible before)
     for (const r of list) {
       const isTreasure = r.type === 'treasure';
       const isNormal = r.type === 'combat';
       if (!isTreasure && !isNormal) continue;
-      const petChance = isTreasure ? 0.05 : 0.02;
+      // #65 pets are now much rarer (was 5%/2%) AND capped at one per floor
+      const petChance = isTreasure ? 0.03 : 0.008;
       const mercChance = isTreasure ? 0.10 : 0.05;
       // offset from centre so the occupant never blocks the door you walk in through
       const ox = PF.x + PF.w / 2 + (rnd() < 0.5 ? -110 : 110);
       const oy = PF.y + PF.h / 2 - 40;
-      if (havePets && rnd() < petChance) {
+      if (havePets && !petPlaced && rnd() < petChance) {
         const pet = Descent.rollPet();
         pet.activated = false; pet.x = ox; pet.y = oy; pet.bob = rnd() * 6;
-        r.pet = pet;
+        r.pet = pet; petPlaced = true;
       } else if (floorNum >= 2 && rnd() < mercChance) {
         r.merc = {
           hired: false,
