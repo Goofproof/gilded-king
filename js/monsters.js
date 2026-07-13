@@ -273,7 +273,7 @@ const Monsters = (() => {
             m.state = 'slam'; m.t = 0;
             Fx.shake(7, 0.25); Sfx.play('heavy');
             Fx.burst(m.x, m.y, ['#8899aa', '#ffffff'], 16, { speed: 200, life: 0.4 });
-            if (dist < 115 + p.r) p.damage(m.dmg, m.x, m.y, g);
+            if (dist < 115 + p.r) g.hurtTarget(p, m.dmg, m.x, m.y, m); // p is a party-target wrapper (no .damage); route like tryContactHit
           }
         } else if (m.state === 'slam') {
           if (m.t > 0.5) { m.state = 'idle'; m.t = 0; }

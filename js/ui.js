@@ -1109,10 +1109,19 @@ const UI = (() => {
         c.fillText((lb.entry || '')[i] || '', x + bw / 2, 240);
       }
       if (Net.connected) {
-        c.font = '14px monospace'; c.fillStyle = '#6ee7a0';
-        c.fillText(`connected · ${Net.playerCount} in lobby`, W / 2, 300);
-        c.fillStyle = '#8fa3bf'; c.font = '13px monospace';
-        c.fillText('waiting for the host to start...', W / 2, 324);
+        // if you 'joined' but you're the only one here AND you're the host, you typed a
+        // code for a room nobody else is in - almost always a mistyped code.
+        if (Net.isHost && Net.playerCount <= 1) {
+          c.font = 'bold 13px monospace'; c.fillStyle = '#e0b070';
+          c.fillText('no one else here - check the code and try again', W / 2, 302);
+          c.fillStyle = '#8fa3bf'; c.font = '12px monospace';
+          c.fillText('a correct code drops you into your friend\'s lobby', W / 2, 324);
+        } else {
+          c.font = '14px monospace'; c.fillStyle = '#6ee7a0';
+          c.fillText(`connected · ${Net.playerCount} in lobby`, W / 2, 300);
+          c.fillStyle = '#8fa3bf'; c.font = '13px monospace';
+          c.fillText('waiting for the host to start...', W / 2, 324);
+        }
       } else {
         c.font = '12px monospace'; c.fillStyle = lb.status ? '#e0b070' : '#667';
         c.fillText(lb.status || 'type the code, then press Enter', W / 2, 300);

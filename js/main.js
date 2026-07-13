@@ -1469,7 +1469,10 @@
     // dodge, so it's shielded from damage until it resumes - no dying on the menu.
     Net.on('phit', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
-      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'levelwait') return;
+      // frozen on any menu/overlay -> shielded (can't dodge). Includes pause + the
+      // character sheet, which a first-timer WILL open assuming it's safe.
+      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' ||
+          g.state === 'levelwait' || g.state === 'pause' || g.state === 'charsheet') return;
       g.player.damage(m.dmg, m.sx, m.sy, g);
     });
     // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
@@ -1548,8 +1551,19 @@
     // trumps any pending level-up gate: clear it so nothing is left stranded)
     Net.on('floor', m => { if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; startFloor(); g.state = 'play'; } });
     Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
-    Net.onLifecycle('close', () => { if (g.lobby && g.lobby.mode === 'join') g.lobby.status = 'disconnected'; });
+    Net.onLifecycle('close', () => {
+      if (g.lobby && g.lobby.mode === 'join') { g.lobby.status = 'disconnected'; return; }
+      // #M4 our socket dropped mid-run -> don't silently freeze; bail to menu with a message
+      if (g.coop) endCoopDisconnected('Connection lost - returned to the menu.');
+    });
     Net.onLifecycle('error', () => { if (g.lobby) g.lobby.status = 'connection failed'; });
+    // #M4 the host changed mid-run = the original host left. The relay promotes a guest,
+    // but proxy monsters have no AI, so the run can't continue - end it gracefully for all.
+    Net.onLifecycle('change', () => {
+      if (g.coop && g.coopHostId && Net.hostId && Net.hostId !== g.coopHostId) {
+        endCoopDisconnected('The host left - the run has ended. Back to the menu.');
+      }
+    });
   }
 
   function openLobby() {
@@ -1572,7 +1586,24 @@
     g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
+    // #M4 remember who the ORIGINAL host is; if that changes mid-run the host dropped
+    g.coopHostId = (typeof Net !== 'undefined') ? Net.hostId : null;
     newRun(true);
+  }
+
+  // #M4 a co-op run ended by a network event (our own drop, or the host leaving).
+  // Proxy monsters have no AI so a promoted host can't take over the sim - rather
+  // than a silent frozen world, bail to the menu with a clear message. Idempotent
+  // (guards on g.coop, which an intentional quit already cleared).
+  function endCoopDisconnected(msg) {
+    if (!g.coop) return;
+    g.coop = false;
+    if (typeof Net !== 'undefined') Net.disconnect();
+    g.remotePlayers.clear();
+    g.lobby = null;
+    g.state = 'title';
+    g.shareMsg = { text: msg, t: 8 };
+    Sfx.play('error');
   }
 
   // co-op room change: move to room (gx,gy). If `initiator`, tell everyone else.
@@ -1602,9 +1633,11 @@
       if (input.pressed('Space') && (g.playerName || '').length < 12) { g.playerName += ' '; saveName(); }
       if (input.pressed('Backspace') && (g.playerName || '').length) { g.playerName = g.playerName.slice(0, -1); saveName(); }
     }
-    // code entry while joining
+    // code entry while joining. Restricted to the SAME confusable-free alphabet the
+    // host generator uses (net.js) so a newcomer can't type an impossible code
+    // (I/L/O/0/1 are never in a real code) and get silently dropped into an orphan room.
     if (lb.mode === 'join' && !Net.connected) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
       for (const ch of chars) {
         const code = (ch >= '0' && ch <= '9') ? 'Digit' + ch : 'Key' + ch;
         if (input.pressed(code) && lb.entry.length < 4) { lb.entry += ch; Sfx.play('ui'); }
