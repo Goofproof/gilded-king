@@ -167,7 +167,7 @@
     floorNum: 1,
     dungeon: null, room: null,
     player: null,
-    monsters: [], projectiles: [], pickups: [], mercs: [], mines: [],
+    monsters: [], projectiles: [], pickups: [], mercs: [], mines: [], turrets: [],
     boss: null, bossIntroT: 0, winTimer: -1, portal: null,
     // --- Descent (endless mode) ---
     kingSlain: false,        // slew the floor-3 Gilded King (scoreboard crown)
@@ -272,6 +272,7 @@
     g.shopMsg = null;
     // reset Descent state
     g.mercs = [];
+    g.turrets = [];
     g.kingSlain = false;
     g.circleBossSeen = 0;
     g.descentPortal = null;
@@ -329,6 +330,12 @@
   }
 
   function enterRoom(room, fromDir) {
+    // #78 turrets don't follow: leaving a room with a live turret refunds 80% of its
+    // charge recharge (a fast 2s instead of the full 10s), so abandoning them is cheap.
+    if (g.turrets && g.turrets.length && g.player) {
+      for (const tr of g.turrets) if (!tr.dead) g.player.turretRecharge.push(2);
+      g.turrets = [];
+    }
     // drops are persistent: whatever was left on this room's floor is still there
     if (g.room) g.room.savedPickups = g.pickups;
     g.room = room;
@@ -1093,6 +1100,11 @@
   function castAbility(a) {
     const p = g.player;
     if (!a || a.cd > 0 || p.dead || p.rollT >= 0) return;
+    // #78 Engineer turret is gated on CHARGES, not just cooldown - don't waste the cd if empty
+    if (a.kind === 'turret' && ((p.turretCharges | 0) <= 0 || g.turrets.length >= p.turretMax())) {
+      g.shopMsg = { text: (p.turretCharges | 0) <= 0 ? 'No turret charges' : 'Turret limit reached', t: 1.2 };
+      Sfx.play('error'); return;
+    }
     const dmgMul = a.dmgMul || 1;
     Sfx.play(a.ult ? 'roar' : 'heavy');
 
@@ -1167,6 +1179,15 @@
       const R = a.radius || 240;
       for (const merc of g.mercs) { if (!merc.dead && Math.hypot(merc.x - p.x, merc.y - p.y) < R) merc.hp = Math.min(merc.maxHp, merc.hp + merc.maxHp * (a.heal || 0.4)); }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#9effc0'], 30, { speed: 180, life: 0.7, glow: true });
+    } else if (a.kind === 'turret') {
+      // #78 Engineer: build a turret at the player's feet (charge consumed above-guarded)
+      p.turretCharges--;
+      const agi = (p.statPoints && p.statPoints.AGILITY) || 0;
+      const dmg = Math.round(11 * (p.stats.dmgMul || 1) * (1 + 0.15 * agi));
+      const hp = Math.round(60 * (1 + 0.06 * agi + 0.08 * Math.max(0, g.floorNum - 1)));
+      g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: 0.7, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0 });
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 16, { speed: 120, life: 0.4 });
+      Fx.text(p.x, p.y - 30, 'TURRET', a.color, 12);
     }
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
@@ -1332,6 +1353,62 @@
     }
     // clear the fallen so they stop rendering and free their slot
     for (let i = g.mercs.length - 1; i >= 0; i--) if (g.mercs[i].dead) g.mercs.splice(i, 1);
+  }
+
+  // #78 Engineer turrets: stationary auto-cannons. Charges regrow with level + on a
+  // per-charge recharge that STARTS when a turret dies; leaving a room refunds 80%.
+  function killTurret(tr) {
+    if (tr.dead) return;
+    tr.dead = true;
+    Fx.burst(tr.x, tr.y, ['#c9a227', '#888', '#fff'], 18, { speed: 150, life: 0.5 });
+    Sfx.play('hitHeavy');
+    g.player.turretRecharge.push(10); // a downed turret starts recharging a charge (~10s)
+  }
+  function updateTurrets(dt) {
+    const p = g.player;
+    const mx = p.turretMax ? p.turretMax() : 1;
+    if (mx > (p.turretMaxSeen || 1)) { p.turretCharges += mx - (p.turretMaxSeen || 1); p.turretMaxSeen = mx; } // +1 charge per 5 levels
+    if (p.turretCharges > mx) p.turretCharges = mx;
+    if (p.turretRecharge) for (let i = p.turretRecharge.length - 1; i >= 0; i--) {
+      p.turretRecharge[i] -= dt;
+      if (p.turretRecharge[i] <= 0) { p.turretRecharge.splice(i, 1); if (p.turretCharges < mx) p.turretCharges++; }
+    }
+    for (const tr of g.turrets) {
+      if (tr.dead) continue;
+      tr.t += dt;
+      if (tr.atkCd > 0) tr.atkCd -= dt;
+      if (tr.flash > 0) tr.flash -= dt;
+      if (tr.hurtCd > 0) tr.hurtCd -= dt;
+      if (tr.recoil > 0) tr.recoil -= dt;
+      if (tr.hurtCd <= 0) for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0 || m.airborne) continue;
+        if (Math.hypot(m.x - tr.x, m.y - tr.y) < m.r + 12) { tr.hp -= m.dmg; tr.hurtCd = 0.5; tr.flash = 0.12; break; }
+      }
+      if (tr.hp <= 0) { killTurret(tr); continue; }
+      let target = null, td = 1e9;
+      for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; const d = Math.hypot(m.x - tr.x, m.y - tr.y); if (d < td) { td = d; target = m; } }
+      if (target && td < tr.range) {
+        tr.facing = Math.atan2(target.y - tr.y, target.x - tr.x);
+        if (tr.atkCd <= 0) {
+          const a = tr.facing;
+          g.projectiles.push({ x: tr.x + Math.cos(a) * 12, y: tr.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 4, dmg: tr.dmg, from: 'player', color: '#ffd24c', life: 1.2, arrow: true, hitSet: new Set(), crit: false });
+          tr.atkCd = tr.atkRate; tr.recoil = 0.12; Sfx.play('bowfire');
+        }
+      }
+    }
+    for (let i = g.turrets.length - 1; i >= 0; i--) if (g.turrets[i].dead) g.turrets.splice(i, 1);
+  }
+  function drawTurret(c, tr) {
+    c.save(); c.translate(tr.x, tr.y);
+    c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 8, 12, 4, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#5a4a2a'; c.lineWidth = 2.5;                          // tripod legs
+    for (const ang of [-2.4, -0.7, 1.6]) { c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * 11, 6 + Math.abs(Math.sin(ang)) * 4); c.stroke(); }
+    c.save(); c.rotate(tr.facing); c.fillStyle = '#3a3f48';                // barrel toward target (recoils)
+    c.fillRect(3 - (tr.recoil > 0 ? 3 : 0), -3, 13, 6); c.restore();
+    c.fillStyle = tr.flash > 0 ? '#fff' : '#8a7a4a'; c.beginPath(); c.arc(0, -3, 8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#c9a227'; c.beginPath(); c.arc(0, -3, 4, 0, Math.PI * 2); c.fill();
+    if (tr.hp < tr.maxHp) { const w = 20; c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(-w / 2, -18, w, 3); c.fillStyle = tr.hp / tr.maxHp > 0.4 ? '#5cd65c' : '#e05555'; c.fillRect(-w / 2, -18, w * Math.max(0, tr.hp / tr.maxHp), 3); }
+    c.restore();
   }
   function drawMerc(c, merc) {
     c.save();
@@ -2212,6 +2289,7 @@
     updateProjectiles(dt);
     updatePickups(dt);
     updateMines(dt);
+    updateTurrets(dt);
     updateUltFx(dt);
     if (g.playerTaunt.t > 0) { g.playerTaunt.t -= dt; if (g.playerTaunt.src && g.playerTaunt.src.dead) g.playerTaunt.t = 0; }
 
@@ -2839,6 +2917,7 @@
     // actors
     for (const m of g.monsters) if (!m.dead) m.draw(c, g);
     for (const merc of g.mercs) if (!merc.dead) drawMerc(c, merc);
+    for (const tr of g.turrets) if (!tr.dead) drawTurret(c, tr);
     if (g.coop) drawRemotePlayers(c);
     g.player.draw(c, g);
 

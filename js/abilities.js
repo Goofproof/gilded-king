@@ -137,6 +137,8 @@ const Abilities = (() => {
                  desc: 'Heal 30% and raise a holy shield that blocks the next hit' },
     cleric:    { name: 'Mend',         color: '#8effc0', kind: 'heal', heal: 0.40, radius: 240, cdMax: 8,
                  desc: 'Channel light - heal yourself and every ally near you' },
+    engineer:  { name: 'Deploy Turret', color: '#c9a227', kind: 'turret', cdMax: 1.5,
+                 desc: 'Build an auto-turret at your feet - more charges as you level (up to 5)' },
   };
   function classAbility(classId) {
     const spec = CLASS_Q[classId] || CLASS_Q[''];

@@ -33,6 +33,9 @@ const PlayerDef = (() => {
     { id: 'cleric',    name: 'Cleric',    color: '#8effc0', icon: '✷', arch: 'wand',
       desc: 'Starts with a wand. Magic 2, +40% healing done.', magic: 2, fx: { healMult: 0.4 },
       q: 'Mend',         qDesc: 'Channel light - heal yourself and every ally near you.' },
+    { id: 'engineer',  name: 'Engineer',  color: '#c9a227', icon: '⚙', arch: 'bow',
+      desc: 'Starts with a bow. +6% move speed. Deploys auto-turrets.', fx: { spd: 0.06 },
+      q: 'Deploy Turret', qDesc: 'Build an auto-turret at your feet. More charges as you level (up to 5); turrets scale with Agility.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -104,7 +107,7 @@ const PlayerDef = (() => {
   // (cx,cy) is the head centre; s is the head radius.
   function drawClassPortrait(c, cls, cx, cy, s) {
     const id = cls.id || '';
-    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a' }[id] || '#5b6884';
+    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a' }[id] || '#5b6884';
     c.save();
     c.translate(cx, cy);
     // shoulders / torso
@@ -167,6 +170,12 @@ const PlayerDef = (() => {
       c.quadraticCurveTo(s * 0.5, -s * 0.12, 0, -s * 0.18);
       c.quadraticCurveTo(-s * 0.5, -s * 0.12, -s * 0.9, s * 0.2); c.closePath(); c.fill();
       c.fillStyle = '#ffd24c'; c.fillRect(-s * 0.09, -s * 0.92, s * 0.18, s * 0.4); c.fillRect(-s * 0.22, -s * 0.8, s * 0.44, s * 0.15); // gold cross
+    } else if (id === 'engineer') {
+      c.fillStyle = '#e0a91e'; c.beginPath(); c.arc(0, -s * 0.16, s * 0.8, Math.PI, 0); c.fill();          // yellow hard hat
+      c.fillStyle = '#c9931a'; c.fillRect(-s * 0.86, -s * 0.2, s * 1.72, s * 0.12);                        // brim
+      c.fillStyle = '#b8841a'; c.fillRect(-s * 0.08, -s * 0.92, s * 0.16, s * 0.5);                        // ridge
+      c.fillStyle = '#3a3f48'; c.fillRect(-s * 0.5, s * 0.02, s * 1.0, s * 0.2);                           // goggles strap
+      c.fillStyle = '#8fd0ff'; c.beginPath(); c.arc(-s * 0.26, s * 0.12, s * 0.16, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(s * 0.26, s * 0.12, s * 0.16, 0, Math.PI * 2); c.fill(); // goggle lenses
     } else {
       c.fillStyle = '#6a5a44'; c.beginPath(); c.arc(0, -s * 0.34, s * 0.66, Math.PI, 0); c.fill();        // adventurer: simple hair
     }
@@ -227,6 +236,9 @@ const PlayerDef = (() => {
       this.abilityR = null;       // the R ability, forged from the 3rd + 4th evolutions
       this.abilityUlt = null;     // the chosen ultimate (left-click), forged from Q + R
       this.ultChoices = null;     // 3 ultimate options, offered when the 4th evolution lands
+      this.turretCharges = 1;     // #78 Engineer: turret charges (grow with level, up to 5)
+      this.turretRecharge = [];   // remaining seconds for each charge that's recharging
+      this.turretMaxSeen = 1;     // last max we granted charges for (to add +1 per 5 levels)
       this.lifelineUsed = 0;
       this.frenzy = { s: 0, t: 0 };
 
@@ -295,6 +307,9 @@ const PlayerDef = (() => {
     get weapon() { return this.weapons[this.slot] || this.weapons.a || this.weapons.b; }
 
     xpToNext() { return 18 + (this.level - 1) * 14; } // leveling curve
+
+    // #78 Engineer: max turret charges = 1 at L1, +1 at each of L5/L10/L15/L20, cap 5
+    turretMax() { return Math.min(5, 1 + Math.floor(this.level / 5)); }
 
     // --- evolution / armor helpers ------------------------------------------
     mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0) + (this.petMods[key] || 0); }
@@ -1140,6 +1155,11 @@ const PlayerDef = (() => {
         c.closePath(); c.fill();
         c.fillStyle = '#ffd24c';
         c.fillRect(-r * 0.09, -r * 1.05, r * 0.18, r * 0.42); c.fillRect(-r * 0.24, -r * 0.92, r * 0.48, r * 0.16);
+      } else if (id === 'engineer') {
+        // a yellow hard hat with a brim
+        c.fillStyle = '#e0a91e'; c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
+        c.fillStyle = '#c9931a'; c.fillRect(-r * 0.78, -r * 0.55, r * 1.56, r * 0.12);
+        c.fillStyle = '#b8841a'; c.fillRect(-r * 0.07, -r * 1.15, r * 0.14, r * 0.55);
       }
       // adventurer: no signature look (plain champion)
     }
