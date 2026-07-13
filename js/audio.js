@@ -82,6 +82,11 @@ const Sfx = (() => {
     door:     () => { tone('square', 90, 55, 0.01, 0.3, 0.3); noise(0.25, 0.15, 'lowpass', 500, 80); },
     unlock:   () => { tone('triangle', 350, 700, 0.01, 0.15, 0.2); tone('triangle', 520, 1050, 0.01, 0.15, 0.16, 0.1); },
     levelup:  () => { [440, 554, 659, 880].forEach((f, i) => tone('triangle', f, f, 0.01, 0.22, 0.2, i * 0.09)); },
+    mythic:   () => { // #123 a grand ascending fanfare for a mythic drop
+      [523, 659, 784, 1047, 1319].forEach((f, i) => tone('triangle', f, f, 0.01, 0.4, 0.22, i * 0.09));
+      tone('sine', 262, 262, 0.03, 1.1, 0.12);            // sustained root under it
+      tone('square', 784, 1568, 0.01, 0.5, 0.08, 0.42);   // a bright rising sparkle at the top
+    },
     buy:      () => { tone('sine', 900, 1400, 0.005, 0.1, 0.2); tone('sine', 1400, 2000, 0.005, 0.12, 0.15, 0.08); },
     error:    () => { tone('square', 160, 120, 0.01, 0.15, 0.2); },
     explode:  () => { noise(0.4, 0.5, 'lowpass', 2000, 60); tone('square', 90, 30, 0.01, 0.35, 0.3); },

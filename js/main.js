@@ -192,6 +192,7 @@
     player: null,
     monsters: [], projectiles: [], pickups: [], mercs: [], mines: [], turrets: [], summon: null,
     boss: null, bossIntroT: 0, winTimer: -1, portal: null,
+    mythicFx: null, // #123 active mythic-drop fanfare {t,dur,name,color}
     // --- Descent (endless mode) ---
     kingSlain: false,        // slew the floor-3 Gilded King (scoreboard crown)
     circleBossSeen: 0,       // recurring-boss counter (drives recolor + anger)
@@ -258,6 +259,42 @@
     Fx.burst(g.player.x, g.player.y, [item.color, '#fff', '#ffd24c'], 30, { speed: 220, life: 0.9, glow: true });
   }
 
+  // #123 MYTHIC DROP FANFARE: when a Warden coughs up a mythic, the moment earns real
+  // weight - a hit-stop punch, a gold eruption at the drop, and a screen flash + banner.
+  function mythicFanfare(x, y, item) {
+    Fx.hitstop(0.12);
+    Fx.shake(9, 0.55);
+    Fx.burst(x, y, ['#ffd24c', '#fff2a0', '#e8b52f'], 44, { speed: 250, life: 0.95, glow: true });
+    Fx.burst(x, y, ['#ffffff', '#ffe9a8'], 26, { speed: 120, life: 1.4, glow: true });
+    Sfx.play('mythic');
+    const name = (Weapons.displayName ? Weapons.displayName(item) : (item.name || 'MYTHIC'));
+    g.mythicFx = { t: 0, dur: 2.6, name, color: item.color || '#ffd24c' };
+  }
+  function drawMythicFanfare(c) {
+    const f = g.mythicFx; if (!f) return;
+    const k = f.t / f.dur;
+    c.save();
+    // a golden screen flash, brightest at the instant of the drop then gone fast
+    const flash = Math.max(0, 0.42 * (1 - f.t / 0.5));
+    if (flash > 0) { c.globalAlpha = flash; c.fillStyle = '#ffe9a8'; c.fillRect(0, 0, W, H); }
+    // expanding gold rings from centre
+    c.globalAlpha = Math.max(0, 1 - k) * 0.55; c.strokeStyle = '#ffd24c'; c.lineWidth = 3;
+    for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(W / 2, H / 2, f.t * 520 + i * 72, 0, Math.PI * 2); c.stroke(); }
+    // banner: scales in, holds, fades out at the end
+    const appear = Math.min(1, f.t / 0.25);
+    const fade = f.t > f.dur - 0.5 ? Math.max(0, (f.dur - f.t) / 0.5) : 1;
+    c.globalAlpha = fade; c.textAlign = 'center';
+    c.save();
+    c.translate(W / 2, H / 2 - 40);
+    c.scale(0.6 + appear * 0.4, 0.6 + appear * 0.4);
+    c.font = 'bold 34px monospace'; c.fillStyle = '#241a08'; c.fillText('✦ MYTHIC ✦', 3, 3);
+    c.fillStyle = '#ffd24c'; c.fillText('✦ MYTHIC ✦', 0, 0);
+    c.restore();
+    c.font = 'bold 20px monospace'; c.fillStyle = f.color; c.fillText(f.name, W / 2, H / 2 + 6);
+    c.globalAlpha = 1;
+    c.restore();
+  }
+
   // bank a pet type to the home-screen stable (permanent across runs)
   function recordPetUnlock(type) {
     if (!type) return false;
@@ -291,6 +328,7 @@
     g.rerollCount = 0; g.rerollDenyT = 0; // #20 paid-reroll counter
     g.winTimer = -1;
     g.deathTimer = -1;
+    g.mythicFx = null; // #123 clear any lingering fanfare
     g.runEnded = false;
     g.retired = false;
     g.boss = null;
@@ -599,7 +637,7 @@
         const item = Weapons.rollMythic(undefined, { exclude: g.meta.mythics, tier });
         if (item.isArmor) dropGear('armorItem', item, m.x - 40, m.y);
         else dropGear('weapon', item, m.x, m.y + 24);
-        Fx.text(m.x, m.y - 50, 'A MYTHIC STIRS IN THE ASH...', item.color, 15);
+        mythicFanfare(m.x, m.y, item); // #123 a real celebration, not a whisper of text
       }
       if (!m.isDescentBoss) { g.kingSlain = true; p.essenceRun += 20; } // King's victory bonus
       g.winTimer = 2.6;                             // savor the kill; doors stay locked
@@ -1977,6 +2015,8 @@
       for (const t of g.achToasts) t.t -= dt;
       g.achToasts = g.achToasts.filter(t => t.t > 0);
     }
+    // #123 advance the mythic-drop fanfare regardless of state/hit-stop
+    if (g.mythicFx) { g.mythicFx.t += dt; if (g.mythicFx.t >= g.mythicFx.dur) g.mythicFx = null; }
 
     switch (g.state) {
       case 'title': updateTitle(); break;
@@ -3746,6 +3786,9 @@
 
     // #100 co-op chat log + input box (under the accolade toasts)
     if (g.coop) drawChat(c);
+
+    // #123 mythic-drop fanfare (flash + banner) over the field, under the toasts
+    if (g.mythicFx) drawMythicFanfare(c);
 
     // #86 accolade unlock toasts render on top of everything, in any play state
     UI.drawToasts(c, g);
