@@ -1410,9 +1410,16 @@
     if (g.meta.essence < cost) { Sfx.play('error'); g.prestigeConfirm = 0; return; }
     // first click arms a confirm (this wipes your account); second click commits
     if (!g.prestigeConfirm) { g.prestigeConfirm = 4; Sfx.play('ui'); return; }
+    // wipe EVERYTHING except the prestige level (Sam): essence, all upgrade ranks,
+    // the mythic collection, befriended pets, and the chosen pet/class all reset.
+    const keptPrestige = (g.meta.prestige || 0) + 1;
     g.meta.essence = 0;
     g.meta.ranks = {};
-    g.meta.prestige = (g.meta.prestige || 0) + 1;
+    g.meta.mythics = [];
+    g.meta.petsUnlocked = [];
+    g.meta.selectedPet = '';
+    g.meta.selectedClass = '';
+    g.meta.prestige = keptPrestige;
     g.prestigeConfirm = 0;
     saveMeta();
     Sfx.play('levelup');

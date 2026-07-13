@@ -671,7 +671,7 @@ const UI = (() => {
       c.font = 'bold 12px monospace'; c.fillStyle = '#e8b52f';
       c.fillText(`♛ PRESTIGE ${lvl}`, pr.x + 10, pr.y + 16);
       c.font = '9px monospace'; c.fillStyle = armed ? '#ff9a9a' : '#8fa3bf';
-      c.fillText(armed ? 'CLICK AGAIN: wipes ALL essence + upgrades' : 'reset everything for a grander cape', pr.x + 10, pr.y + 31);
+      c.fillText(armed ? 'CLICK AGAIN: wipes essence, upgrades, mythics, pets' : 'reset your whole account for a grander cape', pr.x + 10, pr.y + 31);
       c.textAlign = 'right';
       c.font = 'bold 10px monospace'; c.fillStyle = afford ? '#ffd24c' : '#556';
       c.fillText(afford ? `◆ ${cost}` : `need ◆ ${cost}`, pr.x + pr.w - 10, pr.y + 16);
