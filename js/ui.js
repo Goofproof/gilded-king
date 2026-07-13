@@ -865,8 +865,9 @@ const UI = (() => {
       c.globalAlpha = 1;
     }
 
-    // scoreboard overlay
+    // scoreboard overlay (+ #102 death-snapshot popup on top of it)
     if (g.showScores) drawScoreboard(c, g);
+    if (g.showScores && g.snapView) drawScoreSnap(c, g);
     // patch-notes overlay
     if (g.showPatch) drawPatchNotes(c, g);
     // #38: mythic collection gallery
@@ -1184,15 +1185,26 @@ const UI = (() => {
       c.fillText('no runs on the board yet - go make history', W / 2, py + 180);
     }
     c.font = 'bold 16px monospace';
+    g.scoreRects = []; // #102 rows with a death-snapshot become clickable
+    let anyClickable = false;
     scores.slice(0, 10).forEach((s, i) => {
       const y = py + 95 + i * 29;
       const isNew = g.newScoreRank === i + 1;
+      const hasSnap = !!(s.snap && s.snap.avatar);
+      if (hasSnap) { g.scoreRects.push({ x: px + 80, y: y - 16, w: 200, h: 24, snap: s.snap, initials: s.initials }); anyClickable = true; }
       c.fillStyle = isNew ? '#ffd24c' : i === 0 ? '#e8b52f' : '#c8d2e0';
       c.textAlign = 'right';
       c.fillText(`${i + 1}.`, px + 70, y);
       c.textAlign = 'left';
       c.fillText(s.initials, px + 95, y);
+      if (hasSnap) { // underline + magnifier so the name reads as clickable
+        const w = c.measureText(s.initials).width;
+        c.strokeStyle = 'rgba(255,210,76,0.5)'; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(px + 95, y + 3); c.lineTo(px + 95 + w, y + 3); c.stroke();
+        c.font = '12px monospace'; c.fillStyle = '#8a7340'; c.fillText('🔍', px + 100 + w, y - 1); c.font = 'bold 16px monospace';
+      }
       c.textAlign = 'right';
+      c.fillStyle = isNew ? '#ffd24c' : i === 0 ? '#e8b52f' : '#c8d2e0';
       c.fillText(`${s.score} ◆`, px + 300, y);
       c.textAlign = 'left';
       c.fillStyle = '#8fa3bf';
@@ -1201,7 +1213,73 @@ const UI = (() => {
     });
     c.textAlign = 'center';
     c.font = '12px monospace'; c.fillStyle = '#667';
-    c.fillText('click anywhere or Esc to close', W / 2, py + ph - 14);
+    c.fillText(anyClickable ? 'click an underlined name to see their fallen hero · Esc to close'
+                           : 'click anywhere or Esc to close', W / 2, py + ph - 14);
+  }
+
+  // #102 DEATH SNAPSHOT: the fallen hero's visage + character sheet, frozen at death.
+  function drawScoreSnap(c, g) {
+    const s = g.snapView; if (!s) return;
+    const pw = 460, ph = 430, px = (W - pw) / 2, py = 55;
+    c.fillStyle = 'rgba(4,4,10,0.96)'; c.fillRect(0, 0, W, H);
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 20px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText(`${s.initials} · the fallen`, W / 2, py + 32);
+
+    // visage (rendered PNG captured at death), framed
+    const av = 110, ax = px + 28, ay = py + 52;
+    c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(ax, ay, av, av);
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
+    if (s._img && s._img.complete && s._img.naturalWidth) c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
+
+    // headline facts beside the portrait
+    c.textAlign = 'left';
+    const hx = ax + av + 22; let hy = ay + 20;
+    c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
+    c.fillText(`${s.className}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 22;
+    c.font = '13px monospace'; c.fillStyle = '#c8d2e0';
+    c.fillText(`Level ${s.level}  ·  fell on floor ${s.floor}`, hx, hy); hy += 20;
+    c.fillStyle = '#ffd24c'; c.fillText(`${s.essence} essence banked`, hx, hy); hy += 20;
+    c.fillStyle = '#9fb0c8';
+    c.fillText(`${s.kills} kills  ·  ${s.coins} gold`, hx, hy); hy += 20;
+    c.fillText(`${s.maxHp} max HP`, hx, hy);
+
+    // stat line
+    let y = ay + av + 30;
+    c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227'; c.fillText('STATS', px + 28, y); y += 18;
+    c.font = '12px monospace'; c.fillStyle = '#b7c2d4';
+    const dmgPct = Math.round((s.dmgMul - 1) * 100), spdPct = Math.round((s.spdMul - 1) * 100), coinPct = Math.round((s.coinMul - 1) * 100);
+    c.fillText(`+${dmgPct}% dmg   +${spdPct}% move   ${s.crit}% crit   +${coinPct}% coins   magic ${s.magic}`, px + 28, y); y += 24;
+
+    // evolutions
+    c.font = 'bold 12px monospace'; c.fillStyle = '#b06bff'; c.fillText('EVOLUTIONS', px + 28, y); y += 18;
+    c.font = '11px monospace'; c.fillStyle = '#cbb7e6';
+    const evoText = (s.evos && s.evos.length) ? s.evos.join(' · ') : 'none taken';
+    wrapText(c, evoText, px + 28, y, pw - 56, 15); y += Math.max(15, Math.ceil(evoText.length / 60) * 15) + 12;
+
+    // gear + abilities
+    c.font = 'bold 12px monospace'; c.fillStyle = '#8fd0a0'; c.fillText('GEAR & ABILITIES', px + 28, y); y += 18;
+    c.font = '11px monospace'; c.fillStyle = '#c8d2e0';
+    (s.weapons || []).forEach(w => { c.fillText('⚔ ' + w, px + 28, y); y += 15; });
+    if (s.armor) { c.fillText('🛡 ' + s.armor, px + 28, y); y += 15; }
+    c.fillStyle = '#9ecbff';
+    const ab = [s.q && 'Q: ' + s.q, s.r && 'R: ' + s.r, s.ult && '★: ' + s.ult].filter(Boolean).join('   ');
+    if (ab) { c.fillText(ab, px + 28, y); y += 15; }
+
+    c.textAlign = 'center'; c.font = '12px monospace'; c.fillStyle = '#667';
+    c.fillText('click or Esc to go back', W / 2, py + ph - 12);
+  }
+
+  // simple word-wrap helper (used by the snapshot evolutions line)
+  function wrapText(c, text, x, y, maxW, lh) {
+    const words = String(text).split(' '); let line = '', yy = y;
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (c.measureText(test).width > maxW && line) { c.fillText(line, x, yy); line = w; yy += lh; }
+      else line = test;
+    }
+    if (line) c.fillText(line, x, yy);
   }
 
   // arcade three-letter initials entry
@@ -1698,5 +1776,5 @@ const UI = (() => {
     return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap };
 })();

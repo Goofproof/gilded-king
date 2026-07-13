@@ -771,10 +771,42 @@
     }
   }
 
+  // #102 capture a compact "who died here" snapshot for the leaderboard: the rendered
+  // visage (a small PNG) plus the character-sheet facts, frozen at the moment of death.
+  function buildDeathSnap() {
+    const p = g.player; if (!p) return null;
+    let avatar = '';
+    try {
+      const S = 76, oc = document.createElement('canvas'); oc.width = S; oc.height = S;
+      const octx = oc.getContext('2d');
+      octx.translate(S / 2, S / 2 + 4);
+      const sx = p.x, sy = p.y, srt = p.rollT, sfl = p.flash; // draw() translates by (x,y); center it, static, unflashed
+      p.x = 0; p.y = 0; p.rollT = -1; p.flash = 0;
+      p.draw(octx, g);
+      p.x = sx; p.y = sy; p.rollT = srt; p.flash = sfl;
+      avatar = oc.toDataURL('image/png');
+    } catch (e) { avatar = ''; }
+    const st = p.stats || {};
+    const nm = it => it ? Weapons.displayName(it) : null;
+    return {
+      avatar,
+      cls: (p.class && p.class.id) || '', className: (p.class && p.class.name) || 'Adventurer',
+      level: p.level, floor: g.floorNum, kills: p.kills || 0, coins: p.coins || 0, essence: g.essenceEarned,
+      maxHp: Math.round(p.maxHp), prestige: (g.meta && g.meta.prestige) || 0,
+      dmgMul: +(st.dmgMul || 1).toFixed(2), spdMul: +(st.speedMul || 1).toFixed(2),
+      crit: Math.round((st.crit || 0) * 100), coinMul: +(st.coinMul || 1).toFixed(2), magic: st.magic || 1,
+      statPoints: Object.assign({}, p.statPoints),
+      evos: (p.evoTaken || []).map(e => e.name).slice(0, 8),
+      weapons: [nm(p.weapons && p.weapons.a), nm(p.weapons && p.weapons.b)].filter(Boolean),
+      armor: nm(p.armor),
+      q: p.ability && p.ability.name, r: p.abilityR && p.abilityR.name, ult: p.abilityUlt && p.abilityUlt.name,
+    };
+  }
+
   function commitInitials(skip) {
     if (!skip) {
       const name = g.initials.letters.map(c => String.fromCharCode(c)).join('');
-      const entry = { initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain };
+      const entry = { initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain, snap: buildDeathSnap() };
       const scores = loadScores();
       scores.push(entry);
       scores.sort((a, b) => b.score - a.score);
@@ -1856,8 +1888,24 @@
       return;
     }
     if (g.showScores) {
-      // scoreboard overlay: any click or Esc closes it
-      if (input.mouse.clicked || input.pressed('Escape')) g.showScores = false;
+      // #102 death-snapshot popup sits on top of the scoreboard
+      if (g.snapView) {
+        if (input.mouse.clicked || input.pressed('Escape')) g.snapView = null;
+        return;
+      }
+      if (input.pressed('Escape')) { g.showScores = false; return; }
+      if (input.mouse.clicked) {
+        // click an underlined name -> open that fallen hero's snapshot
+        for (const r of (g.scoreRects || [])) {
+          if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+            const img = new Image(); img.src = r.snap.avatar;
+            g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap);
+            Sfx.play('ui');
+            return;
+          }
+        }
+        g.showScores = false; // click elsewhere closes the board
+      }
       return;
     }
     if (g.showMythics) {
