@@ -3313,14 +3313,23 @@
     if (g.coop) drawRemotePlayers(c);
     g.player.draw(c, g);
 
-    // projectiles on top
+    // projectiles on top. #106 ENEMY fire (pr.from==='enemy') gets a dark outline and
+    // a white core pip so it can NEVER be confused with the player's own shots or the
+    // floor - this is what disambiguates the gold King coins from gold crit arrows, and
+    // the ember-Warden bullets from the fire background.
     for (const pr of g.projectiles) {
       c.save();
+      const enemy = pr.from === 'enemy';
       if (pr.glow) { c.shadowColor = pr.color; c.shadowBlur = 10; }
       c.fillStyle = pr.color;
       if (pr.arrow) {
         c.translate(pr.x, pr.y);
         c.rotate(Math.atan2(pr.vy, pr.vx));
+        if (enemy) { // dark backing arrow behind the colored one
+          c.shadowBlur = 0; c.fillStyle = 'rgba(18,9,4,0.95)';
+          c.fillRect(-9, -2.6, 16, 5.2); c.beginPath(); c.moveTo(6, -5.2); c.lineTo(12.4, 0); c.lineTo(6, 5.2); c.fill();
+          c.fillStyle = pr.color;
+        }
         c.fillRect(-8, -1.5, 14, 3);
         c.beginPath(); c.moveTo(6, -4); c.lineTo(11, 0); c.lineTo(6, 4); c.fill();
       } else if (pr.spin) {
@@ -3329,8 +3338,19 @@
         c.beginPath(); c.ellipse(0, 0, pr.r, pr.r * 0.6, 0, 0, Math.PI * 2); c.fill();
         c.fillStyle = '#b8912f';
         c.beginPath(); c.ellipse(0, 0, pr.r * 0.55, pr.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+        if (enemy) {
+          c.shadowBlur = 0; c.strokeStyle = 'rgba(18,9,4,0.95)'; c.lineWidth = 2;
+          c.beginPath(); c.ellipse(0, 0, pr.r, pr.r * 0.6, 0, 0, Math.PI * 2); c.stroke();
+        }
       } else {
         c.beginPath(); c.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2); c.fill();
+        if (enemy) {
+          c.shadowBlur = 0;
+          c.strokeStyle = 'rgba(18,9,4,0.95)'; c.lineWidth = 2;
+          c.beginPath(); c.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2); c.stroke();
+          c.fillStyle = 'rgba(255,255,255,0.85)'; // bright core pip = "this is a threat"
+          c.beginPath(); c.arc(pr.x, pr.y, Math.max(1, pr.r * 0.34), 0, Math.PI * 2); c.fill();
+        }
       }
       c.restore();
     }
