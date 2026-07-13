@@ -23,7 +23,7 @@ const Abilities = (() => {
     roll:   { verb: 'Vault',     kind: 'dash',   color: '#b8f0ff', dmg: 75,  dist: 320, iframe: 0.60, refundRoll: true },
     crit:   { verb: 'Execute',   kind: 'strike', color: '#ff5a7a', dmg: 150, radius: 115, critAll: true },
     coin:   { verb: 'Coin Storm',kind: 'nova',   color: '#ffd24c', dmg: 45,  radius: 175, knock: 180, coinScale: true, coinBurst: 8 },
-    regen:  { verb: 'Bloom',     kind: 'buff',   color: '#6ee7a0', heal: 0.35, castShield: true },
+    regen:  { verb: 'Bloom',     kind: 'heal',   color: '#6ee7a0', heal: 0.4, radius: 220, castShield: true }, // #93 a real heal pulse (distinct from atkspd's buff), so R fusions vary
     atkspd: { verb: 'Overclock', kind: 'buff',   color: '#ffe08a', rageAfter: 6, hasteAfter: 6 },
     magic:  { verb: 'Arcane Surge', kind: 'nova', color: '#b06bff', dmg: 95, radius: 190, knock: 150 }, // #stat-redesign: ARCANE action (closes the "undefined" fusion bug)
   };
@@ -82,6 +82,10 @@ const Abilities = (() => {
       if (a.heal) bits.push(`Heal ${Math.round(a.heal * 100)}% max HP`);
       if (a.rageAfter) bits.push('rage (+damage)');
       if (a.hasteAfter) bits.push('haste (+speed)');
+    } else if (a.kind === 'heal') {
+      bits.push(`Heal ${Math.round((a.heal || 0.4) * 100)}% max HP and nearby allies`);
+    } else if (a.kind === 'fear') {
+      bits.push(`Terrify nearby enemies - they flee for ${a.dur || 5}s`);
     }
     if (a.castShield) bits.push('grants a shield');
     if (a.healOnCast) bits.push(`heals ${Math.round(a.healOnCast * 100)}%`);
@@ -185,18 +189,32 @@ const Abilities = (() => {
   // #84 three DISTINCT R candidates forged from your first two evolution picks: the
   // two orderings (action from one, modifier from the other) plus Prime variants, then
   // filled with pairings against common stats so you always get three real choices.
+  // #84/#93 three R candidates forged from the first two evolution picks. Sam's
+  // complaint: they all played the same, because [A,B]/[B,A]/[A,A]/[B,B] usually
+  // share ONE kind (e.g. all novas). Now we deliberately spread the offer across
+  // DISTINCT kinds (nova / dash / strike / buff / heal) so every choice feels
+  // different - A and B still seed every option as its action or its modifier.
   function rOptions(hist) {
     const A = hist[0], B = hist[1];
-    const seeds = [[A, B], [B, A], [A, A], [B, B]];
-    for (const k of ['dmg', 'crit', 'hp', 'spd', 'magic', 'roll', 'coin', 'regen', 'atkspd']) { seeds.push([A, k]); seeds.push([k, B]); }
-    const out = [], seen = new Set();
-    for (const [x, y] of seeds) {
-      if (!x || !y) continue;
+    // action-varying seeds first (the action = first stat sets the KIND), so the
+    // picker can find different kinds; each still pairs against one of the player's
+    // own picks so the R stays "forged from your evolutions".
+    const varyAction = ['crit', 'spd', 'regen', 'dmg', 'atkspd', 'roll', 'coin', 'magic', 'hp'];
+    const seeds = [[A, B], [B, A]];
+    for (const k of varyAction) { seeds.push([k, A]); seeds.push([k, B]); }
+    seeds.push([A, A], [B, B]);
+    for (const k of varyAction) seeds.push([A, k]);
+
+    const out = [], seenName = new Set(), seenKind = new Set();
+    const take = (x, y, requireNewKind) => {
+      if (!x || !y || out.length >= 3) return;
       const r = build(x, y);
-      if (seen.has(r.name)) continue;
-      seen.add(r.name); out.push(r);
-      if (out.length >= 3) break;
-    }
+      if (seenName.has(r.name)) return;
+      if (requireNewKind && seenKind.has(r.kind)) return;
+      seenName.add(r.name); seenKind.add(r.kind); out.push(r);
+    };
+    for (const [x, y] of seeds) take(x, y, true);   // pass 1: distinct kinds
+    for (const [x, y] of seeds) take(x, y, false);  // pass 2: fill any remaining slots
     return out;
   }
 
