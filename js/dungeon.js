@@ -223,16 +223,70 @@ const Dungeon = (() => {
           for (let i = 0; i < n; i++) push(X + 90 + rnd() * (W - 180), Y + 90 + rnd() * (H - 180), 16 + rnd() * 12);
         }
 
-        // #74 PITS: some rooms get floor holes. Solid to anyone walking, but arrows
-        // and spells sail over them, and an enemy knocked in falls to its death.
-        if (rnd() < 0.42) {
-          const nPits = 1 + ((rnd() * 3) | 0);
-          for (let i = 0, tries = 0; i < nPits && tries < 30; tries++) {
-            const px = X + 110 + rnd() * (W - 220), py = Y + 90 + rnd() * (H - 180), pr = 26 + rnd() * 16;
-            if (!spotOk(px, py, pr + 8)) continue;
-            if (r.obstacles.some(o => Math.hypot(o.x - px, o.y - py) < o.r + pr + 20)) continue; // don't overlap rocks
-            r.obstacles.push({ x: px, y: py, r: pr, kind: 'pit' });
-            i++;
+        // #74/#82 PITS: some rooms get floor holes. Solid to anyone walking, but
+        // arrows and spells sail over them, and an enemy knocked in falls to its
+        // death. #82: instead of only lone circles, a pit can be a big COMPOSITE
+        // shape built from overlapping circles that render as one hole - a donut
+        // (walkable island in the middle), a whole missing corner, or two large
+        // sections split by a walkable bridge. Each circle stays a solid-circle
+        // obstacle, so all pit mechanics work unchanged; a shared `group` id just
+        // tells the renderer to merge them into one seamless void.
+        if (rnd() < 0.46) {
+          // drop a pit circle if it clears the spawn box, door lanes, walls, and
+          // any ROCK (pit-on-pit overlap is wanted - that's how shapes merge)
+          const pit = (x, y, pr, group) => {
+            if (!spotOk(x, y, pr + 6)) return false;
+            if (r.obstacles.some(o => o.kind !== 'pit' && Math.hypot(o.x - x, o.y - y) < o.r + pr + 18)) return false;
+            r.obstacles.push({ x, y, r: pr, kind: 'pit', group });
+            return true;
+          };
+          const gid = 'g' + (r.gx * 97 + r.gy * 131 + ((rnd() * 1000) | 0)); // stable-ish per room
+          const shape = ['blob', 'blob', 'donut', 'corner', 'bridge'][(rnd() * 5) | 0];
+          if (shape === 'donut') {
+            // a solid ring around the clear centre spawn box: the middle is a
+            // walkable island. Circles are packed tight (spacing < diameter) so
+            // they merge into one continuous ring; the connectivity guard nibbles
+            // one open doorway into it so the island stays reachable.
+            const RR = Math.min(W, H) * (0.24 + rnd() * 0.03), n = 18, r0 = 30 + rnd() * 4;
+            const a0 = rnd() * Math.PI * 2;
+            for (let i = 0; i < n; i++) { const a = a0 + i / n * Math.PI * 2; pit(cx + Math.cos(a) * RR, cy + Math.sin(a) * RR * 0.92, r0, gid); }
+          } else if (shape === 'corner') {
+            // fill one corner with an overlapping cluster - that corner is just gone
+            const sx = rnd() < 0.5 ? 1 : -1, sy = rnd() < 0.5 ? 1 : -1;
+            const ox = sx > 0 ? X + W - 66 : X + 66, oy = sy > 0 ? Y + H - 66 : Y + 66;
+            for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) {
+              if (a + b > 3) continue;                                     // quarter-disc, not a full square
+              pit(ox - sx * a * 38, oy - sy * b * 38, 30 + ((a + b) === 0 ? 6 : 0), gid);
+            }
+          } else if (shape === 'bridge') {
+            // two LARGE holes (2 columns each) split by a walkable strip down the
+            // middle - the bridge. Circles pack tight so each side reads as one
+            // solid section rather than a row of dots.
+            const vertical = rnd() < 0.5;
+            const r0 = 32 + rnd() * 4, half = 120;                         // strip half-width
+            if (vertical) {
+              for (let sx = -1; sx <= 1; sx += 2) {
+                for (let cxi = 0; cxi < 2; cxi++) {
+                  const bx = cx + sx * (half + r0 + cxi * (r0 * 1.4));
+                  for (let k = -2; k <= 2; k++) pit(bx, cy + k * (r0 * 1.3), r0, gid);
+                }
+              }
+            } else {
+              for (let sy = -1; sy <= 1; sy += 2) {
+                for (let cyi = 0; cyi < 2; cyi++) {
+                  const by = cy + sy * (half + r0 + cyi * (r0 * 1.4));
+                  for (let k = -3; k <= 3; k++) pit(cx + k * (r0 * 1.3), by, r0, gid);
+                }
+              }
+            }
+          } else {
+            // classic: 1-3 lone circles scattered (rendered with full rim detail)
+            const nPits = 1 + ((rnd() * 3) | 0);
+            for (let i = 0, tries = 0; i < nPits && tries < 30; tries++) {
+              const px = X + 110 + rnd() * (W - 220), py = Y + 90 + rnd() * (H - 180), pr = 26 + rnd() * 16;
+              if (r.obstacles.some(o => Math.hypot(o.x - px, o.y - py) < o.r + pr + 20)) continue;
+              if (pit(px, py, pr)) i++;
+            }
           }
         }
 

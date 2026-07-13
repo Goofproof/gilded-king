@@ -3373,23 +3373,35 @@
       }
     }
 
-    // obstacles, dressed for the floor's theme
-    for (const o of room.obstacles) {
-      if (o.kind === 'pit') {
-        // #74 a hole in the floor: dark sunken well with a lit near-rim. Arrows and
-        // spells fly over it; enemies shoved in fall to their death.
-        c.fillStyle = 'rgba(0,0,0,0.32)';                        // soft outer lip shadow
-        c.beginPath(); c.ellipse(o.x, o.y + 2, o.r + 5, (o.r + 5) * 0.82, 0, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#090a0c';                                 // the void
-        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, Math.PI * 2); c.fill();
+    // #74/#82 PITS drawn first, in merge-friendly passes so a COMPOSITE pit (a
+    // group of overlapping circles - donut / missing corner / bridge) reads as one
+    // seamless hole instead of lumpy circles. Pass 1 lays all the soft lip shadows,
+    // pass 2 paints every void opaque (covering the interior overlap-darkening), so
+    // only the true outer edge keeps its shadow. Lone pits (no group) additionally
+    // get the pretty radial gradient + lit near-rim; grouped circles skip the rim
+    // (its arcs would cut across the middle of the merged shape).
+    const pits = room.obstacles.filter(o => o.kind === 'pit');
+    if (pits.length) {
+      c.fillStyle = 'rgba(0,0,0,0.32)';
+      for (const o of pits) { c.beginPath(); c.ellipse(o.x, o.y + 2, o.r + 5, (o.r + 5) * 0.82, 0, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = '#090a0c';
+      for (const o of pits) { c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, Math.PI * 2); c.fill(); }
+      for (const o of pits) {
         const gr = c.createRadialGradient(o.x, o.y - o.r * 0.2, o.r * 0.15, o.x, o.y + o.r * 0.2, o.r);
         gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(26,20,12,0.85)');
         c.fillStyle = gr;
         c.beginPath(); c.ellipse(o.x, o.y, o.r * 0.9, o.r * 0.72, 0, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = 'rgba(150,138,110,0.4)'; c.lineWidth = 2; // near rim catches the light
-        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
-        continue;
       }
+      c.strokeStyle = 'rgba(150,138,110,0.4)'; c.lineWidth = 2;
+      for (const o of pits) {
+        if (o.group) continue;                                   // merged shapes: no internal rim seams
+        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
+      }
+    }
+
+    // obstacles, dressed for the floor's theme
+    for (const o of room.obstacles) {
+      if (o.kind === 'pit') continue;
       c.fillStyle = 'rgba(0,0,0,0.3)';
       c.beginPath(); c.ellipse(o.x + 3, o.y + 4, o.r, o.r * 0.7, 0, 0, Math.PI * 2); c.fill();
       if (theme.obstacle === 'tree') {
