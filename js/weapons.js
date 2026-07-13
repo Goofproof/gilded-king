@@ -335,10 +335,14 @@ const Weapons = (() => {
 
   function buildMythicWeapon(e, tier = 6) {
     const arch = ARCHETYPES[e.archetype];
+    // #127 mythics were a FLAT base dmg while every rolled weapon scaled +8%/tier, so a
+    // deep-floor legendary caught right up. Give mythics the same tier scaling PLUS a
+    // clear premium so a mythic always reads a full tier above its legendary counterpart.
+    const tierMul = 1 + (tier - 1) * 0.08;
     const w = {
       archetype: e.archetype, rarity: 'mythic', rarityName: 'Mythic', color: e.color, rarIdx: 5,
       name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
-      dmg: e.dmg, cooldown: arch.cooldown, windup: arch.windup,
+      dmg: Math.round(e.dmg * 1.15 * tierMul), cooldown: arch.cooldown, windup: arch.windup,
       range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0, stagger: arch.stagger || 0,
       magic: arch.magic || null,                       // wand='bolt' / staff='fireball' -> fireSpell()
       magicReq: arch.magic ? (e.magicReq || 4) : 0,    // magic mythics ask for real Magic investment
@@ -352,10 +356,11 @@ const Weapons = (() => {
   }
 
   function buildMythicArmor(e, tier = 6) {
+    const tierMul = 1 + (tier - 1) * 0.08; // #127 match weapon scaling + premium
     const a = {
       isArmor: true, rarity: 'mythic', rarityName: 'Mythic', color: e.color, rarIdx: 5,
       name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
-      defense: e.defense, enchants: mythicEnchants(e.enchants, ARMOR_ENCHANTS),
+      defense: Math.round(e.defense * 1.15 * tierMul), enchants: mythicEnchants(e.enchants, ARMOR_ENCHANTS),
       price: 400 + tier * 5,
     };
     a.price += a.enchants.reduce((s, en) => s + en.tier * 8 + (en.level || 0) * 4, 0);
