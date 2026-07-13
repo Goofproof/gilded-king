@@ -27,11 +27,11 @@ const Weapons = (() => {
   // 'Vampiric' and 'Momentum' are ORIGINAL additions (not from Minecraft).
   const ENCHANTS = [
     // bow pool
-    { key: 'flame',     name: 'Flame',         pool: 'bow',   tier: 2, desc: 'Arrows ignite: burn damage over time' },
-    { key: 'piercing',  name: 'Piercing',      pool: 'bow',   tier: 2, desc: 'Arrows pass through enemies' },
+    { key: 'flame',     name: 'Flame',         pool: 'bow',   tier: 2, desc: 'Shots ignite: burn damage over time' },
+    { key: 'piercing',  name: 'Piercing',      pool: 'bow',   tier: 2, desc: 'Shots pass through enemies' },
     { key: 'power',     name: 'Power',         pool: 'bow',   tier: 1, leveled: true, desc: '+damage per level' },
-    { key: 'punch',     name: 'Punch',         pool: 'bow',   tier: 1, desc: 'Arrows knock enemies back' },
-    { key: 'multishot', name: 'Multishot',     pool: 'bow',   tier: 3, desc: 'Fires 3 arrows in a spread' },
+    { key: 'punch',     name: 'Punch',         pool: 'bow',   tier: 1, desc: 'Shots knock enemies back' },
+    { key: 'multishot', name: 'Multishot',     pool: 'bow',   tier: 3, desc: 'Fires 3 shots in a spread' },
     { key: 'infinity',  name: 'Infinity',      pool: 'bow',   tier: 3, desc: 'Greatly increased fire rate' }, // bows have no ammo, so Infinity = fire rate (allowed by the design doc)
     // melee pool
     { key: 'fireaspect',name: 'Fire Aspect',   pool: 'melee', tier: 2, desc: 'Hits ignite the target' },
