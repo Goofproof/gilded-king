@@ -132,10 +132,19 @@
   const input = {
     keys: new Set(), just: new Set(),
     mouse: { x: W / 2, y: H / 2, down: false, clicked: false, moved: false },
+    textCapture: false, textBuf: '', // #100 chat: harvest real typed chars while open
     key(code) { return this.keys.has(code); },
     pressed(code) { return this.just.has(code); },
   };
   window.addEventListener('keydown', e => {
+    // #100 while the chat box is open, swallow game keys and collect real characters
+    // (e.key, so punctuation + lowercase work) instead of driving movement/abilities.
+    if (input.textCapture) {
+      if (e.key && e.key.length === 1) { input.textBuf += e.key; e.preventDefault(); }
+      // still record Enter/Escape/Backspace as just-pressed so the handler can act
+      if (['Enter', 'Escape', 'Backspace'].includes(e.code)) { input.just.add(e.code); }
+      return;
+    }
     if (['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     if (!e.repeat) { input.keys.add(e.code); input.just.add(e.code); }
     Sfx.ensure();
@@ -206,6 +215,7 @@
     netGearId: 0,                // #96 shared ids for kill-drop gear so grabbing one despawns it for the whole party
     mobSendT: 0,                 // monster-snapshot broadcast throttle
     lobby: null,                 // {mode,entry,status} while on the lobby screen
+    chat: { open: false, buffer: '', log: [] }, // #100 co-op text chat (log: {name,text,t,mine})
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
     netReady: false,             // Net handlers wired once
     posSendT: 0,                 // position-broadcast throttle
@@ -1868,6 +1878,11 @@
     // global keys
     if (input.pressed('KeyM')) Sfx.toggleMute();
 
+    // #100 safety: never let the chat text-capture leak out of play (e.g. you died
+    // mid-sentence). If we're not in play but the box is still open, force it shut so
+    // menu/initials typing works normally again.
+    if (g.chat.open && g.state !== 'play') closeChat();
+
     // #86 accolade toasts fade regardless of game state
     if (g.achToasts && g.achToasts.length) {
       for (const t of g.achToasts) t.t -= dt;
@@ -2074,6 +2089,8 @@
       if (m.u) for (const [k, other] of g.remotePlayers) { if (k !== m.from && other.u === m.u) g.remotePlayers.delete(k); }
     });
     Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
+    // #100 a teammate's chat line
+    Net.on('chat', m => { if (!g.coop) return; pushChat((m.nm && m.nm.trim()) || m.from || 'peer', m.text || '', false); });
     // P1-C: downed / revive / party-wipe game-over
     Net.on('downed', m => { const rp = g.remotePlayers.get(m.id); if (rp) rp.downed = true; dropFromLevelGate(m.id); });
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
@@ -2650,7 +2667,46 @@
     }
   }
 
+  // #100 co-op text chat helpers ------------------------------------------------
+  function openChat() {
+    g.chat.open = true; g.chat.buffer = '';
+    input.textCapture = true; input.textBuf = ''; input.keys.clear(); // drop held movement
+    Sfx.play('ui');
+  }
+  function closeChat() {
+    g.chat.open = false; g.chat.buffer = '';
+    input.textCapture = false; input.textBuf = '';
+  }
+  function pushChat(name, text, mine) {
+    g.chat.log.push({ name: String(name).slice(0, 16), text: String(text).slice(0, 120), t: g.time, mine: !!mine });
+    if (g.chat.log.length > 30) g.chat.log.shift();
+  }
+  function sendChat() {
+    const text = g.chat.buffer.trim();
+    if (!text) return;
+    const name = g.playerName || 'you';
+    pushChat(name, text, true);
+    if (typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'chat', text, nm: name });
+  }
+  function updateChat() {
+    const ch = g.chat;
+    if (!ch.open) {
+      if (input.pressed('Enter')) { openChat(); input.just.delete('Enter'); }
+      return;
+    }
+    // pull the real characters harvested by the keydown handler
+    if (input.textBuf) { ch.buffer = (ch.buffer + input.textBuf).slice(0, 120); input.textBuf = ''; }
+    if (input.pressed('Backspace')) { ch.buffer = ch.buffer.slice(0, -1); input.just.delete('Backspace'); }
+    if (input.pressed('Enter')) { sendChat(); closeChat(); input.just.delete('Enter'); }
+    else if (input.pressed('Escape')) { closeChat(); input.just.delete('Escape'); } // consume so it doesn't open pause
+  }
+
   function updatePlay(dt) {
+    // #100 co-op text chat. Deliberately does NOT pause the world (the host is
+    // authoritative over monsters - freezing here would freeze the guests). It only
+    // captures typing; movement/ability keys are already swallowed by the keydown
+    // handler while the box is open, so the player just stands and auto-fights.
+    if (g.coop) updateChat();
     if (input.pressed('KeyP') || input.pressed('Escape')) {
       g.state = 'pause'; g.overlayT = 0;
       g.player.drawT = -1; // a held bow draw must not survive pause and fire on resume
@@ -3578,8 +3634,52 @@
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
     if (g.state === 'initials') g.uiRects = UI.drawInitials(c, g);
 
+    // #100 co-op chat log + input box (under the accolade toasts)
+    if (g.coop) drawChat(c);
+
     // #86 accolade unlock toasts render on top of everything, in any play state
     UI.drawToasts(c, g);
+  }
+
+  // #100 render the co-op chat: recent lines fade after a while, and an input box
+  // shows while you're typing. Bottom-left, above the weapon/ability HUD row.
+  function drawChat(c) {
+    const ch = g.chat;
+    const boxX = 14, boxW = 340, lineH = 16;
+    const baseY = ch.open ? H - 92 : H - 74; // sit above the input box when open
+    // show the last few lines; when closed, drop lines older than 9s
+    const recent = ch.log.filter(m => ch.open || (g.time - m.t) < 9).slice(-6);
+    c.save();
+    c.textAlign = 'left';
+    c.font = '12px monospace';
+    for (let i = 0; i < recent.length; i++) {
+      const m = recent[i];
+      const y = baseY - (recent.length - 1 - i) * lineH;
+      const age = g.time - m.t;
+      const fade = (!ch.open && age > 7) ? Math.max(0, 1 - (age - 7) / 2) : 1;
+      const line = `${m.name}: ${m.text}`;
+      c.globalAlpha = 0.55 * fade;
+      c.fillStyle = '#05070d'; c.fillRect(boxX - 4, y - 12, Math.min(boxW, c.measureText(line).width + 8), lineH);
+      c.globalAlpha = fade;
+      c.fillStyle = m.mine ? '#ffd24c' : '#7fd4ff';
+      c.fillText(m.name + ':', boxX, y);
+      c.fillStyle = '#e6ebf5';
+      c.fillText(' ' + m.text, boxX + c.measureText(m.name + ':').width, y);
+    }
+    c.globalAlpha = 1;
+    if (ch.open) {
+      const iy = H - 70;
+      c.fillStyle = 'rgba(5,8,16,0.85)'; c.fillRect(boxX - 4, iy - 14, boxW, 22);
+      c.strokeStyle = '#7fd4ff'; c.lineWidth = 1; c.strokeRect(boxX - 4, iy - 14, boxW, 22);
+      c.fillStyle = '#8fb6d8'; c.font = '11px monospace';
+      c.fillText('say:', boxX, iy - 1);
+      c.fillStyle = '#e6ebf5'; c.font = '12px monospace';
+      const caret = (Math.floor(Date.now() / 400) % 2) ? '_' : ' ';
+      c.fillText(ch.buffer + caret, boxX + 30, iy);
+      c.fillStyle = '#5a6b82'; c.font = '10px monospace'; c.textAlign = 'right';
+      c.fillText('Enter send · Esc cancel', boxX + boxW - 8, iy - 1);
+    }
+    c.restore();
   }
 
   // deterministic per-room decoration random
