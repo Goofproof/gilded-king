@@ -372,6 +372,15 @@ const UI = (() => {
     let mapAlpha = 0.82;
     if (g.monsters && g.monsters.some(m => !m.dead && m.x > ox - 10 && m.y < oy + rows * (cell + gap) + 10)) mapAlpha = 0.5;
     c.globalAlpha = mapAlpha;
+    // #61 live run SCORE (what you'll post to the leaderboard = essence earned so far
+    // + 10% of unspent coins), above the floor name so you can track it mid-run
+    const p = g.player;
+    if (p) {
+      const score = (p.essenceRun || 0) + Math.floor((p.coins || 0) * 0.1);
+      c.textAlign = 'right';
+      c.font = 'bold 13px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`★ ${score}`, W - pad, oy - 27);
+    }
     // level name above the minimap, right-aligned to its edge
     const theme = Dungeon.themeFor(g.floorNum);
     c.textAlign = 'right';
