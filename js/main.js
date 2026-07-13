@@ -362,8 +362,10 @@
       if (enterFrom === 'S') { p.x = PF.x + PF.w / 2; p.y = PF.y + PF.h - p.r - 12; }
       if (enterFrom === 'W') { p.x = PF.x + p.r + 12; p.y = PF.y + PF.h / 2; }
       if (enterFrom === 'E') { p.x = PF.x + PF.w - p.r - 12; p.y = PF.y + PF.h / 2; }
+      g.enterFrom = enterFrom; // #68 which side the player entered on (formations stage opposite)
     } else {
       p.x = PF.x + PF.w / 2; p.y = PF.y + PF.h / 2;
+      g.enterFrom = null;
     }
 
     // hired mercenaries travel with you: drop them in beside the player

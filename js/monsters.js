@@ -209,6 +209,21 @@ const Monsters = (() => {
       }
     }
 
+    // #68 FORMATION HOLD: while the unit braces, each mob sits in its assigned spot
+    // facing the player and does NOT attack - until the timer runs out OR the player
+    // closes in, then it breaks to normal AI (the whole line engages together).
+    if (m.holdT > 0) {
+      m.holdT -= dt;
+      const t = nearestTarget(m, g);
+      if (Math.hypot(t.x - m.x, t.y - m.y) < 135) { m.holdT = 0; }
+      else {
+        if (m.formationX != null) { m.x += (m.formationX - m.x) * Math.min(1, dt * 4); m.y += (m.formationY - m.y) * Math.min(1, dt * 4); }
+        m.facing = Math.atan2(t.y - m.y, t.x - m.x);
+        clampToField(m);
+        return;
+      }
+    }
+
     const p = nearestTarget(m, g), dist = Math.hypot(p.x - m.x, p.y - m.y); // PR-1: chase the closest player
 
     switch (m.type) {
@@ -773,7 +788,39 @@ const Monsters = (() => {
       while ((Math.hypot(x - p.x, y - p.y) < 240 || blocked(x, y)) && tries < 30);
       out.push(make('goblin', x, y, tier));
     }
+    // #68 FORMATION room: some rooms stage the mob as a prepared UNIT opposite the door
+    // you entered - shields/tanks front, ranged/casters back, the rest flanking - and
+    // they HOLD the line for a beat before breaking to engage. More common at high alarm.
+    if (g.enterFrom && out.length >= 3 && Math.random() < Math.min(0.6, 0.24 + 0.05 * (g.alarm || 0))) {
+      repositionFormation(out, g.enterFrom, p);
+      room.formation = true;
+    }
     return out;
+  }
+
+  // arrange the mob into ranks opposite the entry side (the player enters on `side`)
+  function repositionFormation(out, side, p) {
+    const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2;
+    let ax, ay, fx, fy; // anchor (opposite the entry) + front unit vector (toward player)
+    if (side === 'W') { ax = PF.x + PF.w * 0.72; ay = cy; fx = -1; fy = 0; }
+    else if (side === 'E') { ax = PF.x + PF.w * 0.28; ay = cy; fx = 1; fy = 0; }
+    else if (side === 'N') { ax = cx; ay = PF.y + PF.h * 0.72; fx = 0; fy = -1; }
+    else { ax = cx; ay = PF.y + PF.h * 0.28; fx = 0; fy = 1; } // 'S'
+    const px = -fy, py = fx; // lateral axis
+    const FRONT = ['shielded', 'tank', 'chaser'], BACK = ['archer', 'glass', 'summoner', 'lobber', 'pulser', 'seeker', 'miner'];
+    const rank = { front: [], mid: [], back: [] };
+    for (const m of out) { if (m.type === 'goblin') continue; rank[FRONT.includes(m.type) ? 'front' : BACK.includes(m.type) ? 'back' : 'mid'].push(m); }
+    const lay = (arr, depth) => {
+      arr.forEach((m, i) => {
+        const lat = (i - (arr.length - 1) / 2) * 36;
+        m.x = Math.max(PF.x + 24, Math.min(PF.x + PF.w - 24, ax + fx * depth + px * lat));
+        m.y = Math.max(PF.y + 24, Math.min(PF.y + PF.h - 24, ay + fy * depth + py * lat));
+        m.facing = Math.atan2(-fy, -fx);   // face the player's entry side
+        m.holdT = 2.8 + Math.random() * 1.4; // hold the line ~2.8-4.2s (or until the player closes)
+        m.formationX = m.x; m.formationY = m.y;
+      });
+    };
+    lay(rank.front, 46); lay(rank.mid, 0); lay(rank.back, -60);
   }
 
   // --- rendering ------------------------------------------------------------------
