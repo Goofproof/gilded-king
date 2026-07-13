@@ -1056,21 +1056,7 @@
     // #60 ENCHANT TABLE: spend gold + shards to disenchant + re-roll your active
     // weapon's enchants (a gamble to improve your gear). Cost climbs each use.
     if (t.kind === 'enchantTable') {
-      const stock = g.room.shopStock, et = t.et, w = p.weapon;
-      const gCost = 30 + 15 * stock.enchUses, sCost = 3 + stock.enchUses;
-      if (!w) { g.shopMsg = { text: 'No weapon to enchant', t: 1.4 }; Sfx.play('error'); return; }
-      if (p.coins < gCost || p.shards < sCost) {
-        g.shopMsg = { text: `Need ${gCost} gold + ${sCost} shards to enchant`, t: 1.8 };
-        Sfx.play('error'); return;
-      }
-      p.coins -= gCost; p.shards -= sCost; stock.enchUses++;
-      Weapons.reEnchant(w);
-      Sfx.play('upgrade');
-      Fx.burst(et.x, et.y, ['#b06bff', '#ffd24c', '#fff'], 26, { speed: 180, life: 0.7, glow: true });
-      Fx.text(et.x, et.y - 34, 'RE-ENCHANTED!', '#b06bff', 14);
-      const names = (w.enchants || []).map(e => e.name).join(', ') || 'no enchants';
-      g.shopMsg = { text: `${w.name}: ${names}`, t: 2.6 };
-      if (typeof Ach !== 'undefined') Ach.flag('enchanted', g); // #86
+      openEnchantTable(t.et);
     }
 
     // #75 TRAINING BARRACKS: spend gold at a station for a run-only stat boost
@@ -1820,6 +1806,7 @@
       case 'evolution': g.overlayT += dt; if (peekCharSheet()) break; updateEvolution(); break;
       case 'ultpick': g.overlayT += dt; if (peekCharSheet()) break; updateUltPick(); break;
       case 'rpick': g.overlayT += dt; if (peekCharSheet()) break; updateRPick(); break;
+      case 'enchantpick': g.overlayT += dt; updateEnchantPick(); break;
       case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
       case 'pause':
         g.overlayT += dt;
@@ -2910,6 +2897,80 @@
     }
   }
 
+  // #89 ENCHANT TABLE (reworked): a popup offering 3 random enchants; the player
+  // REPLACES one of the equipped weapon's existing enchants with a chosen offer.
+  // Cost scales with the offer's quality (tier/level). Each attempt carries a 0.5%
+  // chance the weapon SHATTERS - a deliberately dramatic, unlucky moment.
+  function enchantCost(offer) {
+    return { gold: 40 + 35 * offer.tier + 10 * (offer.level || 0), shards: 1 + offer.tier };
+  }
+  function openEnchantTable(et) {
+    const p = g.player, w = p.weapon;
+    if (!w || w.isArmor) { g.shopMsg = { text: 'No weapon to enchant', t: 1.4 }; Sfx.play('error'); return; }
+    if (!w.enchants || w.enchants.length === 0) { g.shopMsg = { text: 'This weapon has no enchant slots to replace', t: 2 }; Sfx.play('error'); return; }
+    const offers = Weapons.rollEnchantOffers(w, 3);
+    if (!offers.length) { g.shopMsg = { text: 'No new enchants suit this weapon', t: 2 }; Sfx.play('error'); return; }
+    g.enchant = { et, offers, slotSel: -1, offerSel: -1, msg: '', breakT: 0, broke: false };
+    g.state = 'enchantpick'; g.overlayT = 0; p.drawT = -1; Sfx.play('ui');
+  }
+  function updateEnchantPick() {
+    const e = g.enchant;
+    if (!e) { g.state = 'play'; return; }
+    if (e.breakT > 0) { // the shatter drama plays out, then we bail to the room
+      e.breakT -= 1 / 60;
+      if (e.breakT <= 0) { g.enchant = null; g.state = 'play'; }
+      return;
+    }
+    if (input.pressed('Escape') || input.pressed('KeyE')) { g.enchant = null; g.state = 'play'; Sfx.play('ui'); return; }
+    if (input.mouse.clicked) {
+      for (const r of g.uiRects) {
+        if (!(input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h)) continue;
+        if (r.action === 'ench-offer') { e.offerSel = r.idx; e.msg = ''; Sfx.play('ui'); }
+        else if (r.action === 'ench-slot') { e.slotSel = r.idx; e.msg = ''; Sfx.play('ui'); }
+        else if (r.action === 'ench-confirm') enchantAttempt();
+        else if (r.action === 'ench-exit') { g.enchant = null; g.state = 'play'; Sfx.play('ui'); }
+        return;
+      }
+    }
+  }
+  function enchantAttempt() {
+    const e = g.enchant, p = g.player, w = p.weapon;
+    if (!w || e.offerSel < 0 || e.slotSel < 0) { e.msg = 'Pick an enchant AND a slot to replace'; Sfx.play('error'); return; }
+    const offer = e.offers[e.offerSel];
+    const cost = enchantCost(offer);
+    if (p.coins < cost.gold || p.shards < cost.shards) { e.msg = `Need ${cost.gold}g + ${cost.shards} shards`; Sfx.play('error'); return; }
+    p.coins -= cost.gold; p.shards -= cost.shards;
+    // 0.5% catastrophic failure: the weapon shatters on the table
+    if (Math.random() < 0.005) { breakWeapon(w); return; }
+    // success: overwrite the chosen slot with the offered enchant
+    w.enchants[e.slotSel] = { key: offer.key, name: offer.name, tier: offer.tier, desc: offer.desc, level: offer.level || 0 };
+    Weapons.applyEnchantStats(w);
+    Sfx.play('upgrade');
+    Fx.burst(p.x, p.y, ['#b06bff', '#ffd24c', '#fff'], 24, { speed: 180, life: 0.6, glow: true });
+    Fx.text(p.x, p.y - 30, offer.name.toUpperCase() + ' APPLIED', '#b06bff', 14);
+    if (typeof Ach !== 'undefined') Ach.flag('enchanted', g);
+    // fresh offers for another go (same weapon, now with one fewer free enchant)
+    e.offers = Weapons.rollEnchantOffers(w, 3);
+    e.offerSel = -1;
+    e.msg = e.offers.length ? 'Enchanted! ' + Weapons.displayName(w) : 'No more new enchants suit this weapon';
+  }
+  function breakWeapon(w) {
+    const e = g.enchant, p = g.player;
+    // remove the shattered weapon; keep the player armed (other slot, or a crude backup)
+    if (p.weapons.a === w) p.weapons.a = null;
+    if (p.weapons.b === w) p.weapons.b = null;
+    if (!p.weapons[p.slot]) p.slot = p.weapons.a ? 'a' : 'b';
+    if (!p.weapons.a && !p.weapons.b) {
+      p.weapons.a = Weapons.rollWeapon(Math.max(1, g.floorNum), { exactRarity: 0, archetype: w.archetype });
+      p.slot = 'a';
+    }
+    e.breakT = 2.8; e.broke = true; e.brokeName = Weapons.displayName(w);
+    Fx.shake(16, 0.7); Fx.hitstop(0.12);
+    Sfx.play('explode'); Sfx.play('error');
+    Fx.burst(p.x, p.y, ['#1a1a1a', '#3a3a3a', '#e05555', '#000'], 70, { speed: 380, life: 1.1, grav: 180 });
+    Fx.text(p.x, p.y - 40, 'SHATTERED', '#e05555', 26);
+  }
+
   function updateBossIntro(dt) {
     g.bossIntroT += dt;
     if (g.bossIntroT >= 2.1) {
@@ -3356,6 +3417,7 @@
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
     if (g.state === 'rpick') g.uiRects = UI.drawRPick(c, g);
+    if (g.state === 'enchantpick') g.uiRects = UI.drawEnchantPick(c, g);
     if (g.state === 'levelwait') drawLevelWait(c);
     if (g.state === 'pause') g.uiRects = UI.drawPause(c, g);
     if (g.state === 'charsheet') g.uiRects = UI.drawCharSheet(c, g);
@@ -4005,7 +4067,7 @@
     if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
-    if (t.kind === 'enchantTable') { const st = g.room.shopStock; x = t.et.x; y = t.et.y - 34; label = `E - re-enchant weapon (${30 + 15 * st.enchUses}g + ${3 + st.enchUses}◈)`; }
+    if (t.kind === 'enchantTable') { x = t.et.x; y = t.et.y - 34; label = 'E - enchant weapon (swap an enchant)'; }
     if (t.kind === 'trainStation') { x = t.st.x; y = t.st.y - 46; label = `E - train ${t.st.stat} ${t.st.label} (${30 + 20 * t.st.uses}g)`; }
     if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
     if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }

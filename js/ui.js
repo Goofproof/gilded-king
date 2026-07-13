@@ -920,6 +920,97 @@ const UI = (() => {
     c.restore();
   }
 
+  // #89 ENCHANT TABLE popup: pick one of 3 offered enchants + one of the weapon's
+  // current enchants to overwrite. Cost scales with the offer's tier/level; each
+  // attempt risks a 0.5% shatter (its own drama overlay).
+  const ETIER_C = { 1: '#a8b0bf', 2: '#a78bfa', 3: '#fbbf24' };
+  const EROMAN = ['', 'I', 'II', 'III'];
+  function eCost(of) { return { gold: 40 + 35 * of.tier + 10 * (of.level || 0), shards: 1 + of.tier }; }
+  function drawEnchantPick(c, g) {
+    const e = g.enchant; if (!e) return [];
+    const rects = [];
+    const p = g.player, w = p.weapon;
+    c.save();
+    c.fillStyle = 'rgba(6,6,12,0.9)'; c.fillRect(0, 0, W, H);
+    if (e.breakT > 0) { drawEnchantBreak(c, e); c.restore(); return rects; }
+    if (!w) { c.restore(); return rects; }
+
+    c.textAlign = 'center';
+    c.fillStyle = '#b06bff'; c.font = 'bold 26px monospace';
+    c.fillText('ENCHANTING TABLE', W / 2, 54);
+    c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('replace one enchant on your weapon · each attempt risks a 0.5% shatter', W / 2, 76);
+    c.font = 'bold 15px monospace'; c.fillStyle = w.color || '#ddd';
+    c.fillText(Weapons.displayName(w).split(' [')[0], W / 2, 104);
+
+    const colW = 380, colGap = 56;
+    const leftX = W / 2 - colW - colGap / 2, rightX = W / 2 + colGap / 2;
+    const y0 = 142, rowH = 50, rowGap = 10;
+    const row = (x, i, item, sel, action, extra) => {
+      const y = y0 + i * (rowH + rowGap);
+      c.fillStyle = sel ? 'rgba(176,107,255,0.16)' : 'rgba(255,255,255,0.03)';
+      c.fillRect(x, y, colW, rowH);
+      c.strokeStyle = sel ? '#b06bff' : '#3a4050'; c.lineWidth = sel ? 2.5 : 1; c.strokeRect(x, y, colW, rowH);
+      c.textAlign = 'left'; c.font = 'bold 13px monospace'; c.fillStyle = ETIER_C[item.tier] || '#ccc';
+      c.fillText(item.name + (item.level ? ' ' + EROMAN[item.level] : ''), x + 12, y + 20);
+      c.fillStyle = '#9fb0c8'; c.font = '10px monospace';
+      c.fillText(item.desc, x + 12, y + 38);
+      if (extra) extra(x, y);
+      rects.push({ x, y, w: colW, h: rowH, action, idx: i });
+    };
+
+    c.textAlign = 'left'; c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227';
+    c.fillText('YOUR ENCHANTS — click one to replace', leftX, y0 - 12);
+    (w.enchants || []).forEach((en, i) => row(leftX, i, en, e.slotSel === i, 'ench-slot'));
+
+    c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227';
+    c.fillText('OFFERED — click one to apply', rightX, y0 - 12);
+    e.offers.forEach((of, i) => row(rightX, i, of, e.offerSel === i, 'ench-offer', (x, y) => {
+      const cost = eCost(of), afford = p.coins >= cost.gold && p.shards >= cost.shards;
+      c.textAlign = 'right'; c.font = 'bold 11px monospace'; c.fillStyle = afford ? '#ffd24c' : '#e05555';
+      c.fillText(`${cost.gold}g · ${cost.shards}◈`, x + colW - 12, y + 20);
+    }));
+
+    const nRows = Math.max((w.enchants || []).length, e.offers.length);
+    const by = y0 + nRows * (rowH + rowGap) + 18;
+    const ready = e.offerSel >= 0 && e.slotSel >= 0;
+    const cb = { x: W / 2 - 150, y: by, w: 180, h: 40, action: 'ench-confirm' };
+    c.fillStyle = ready ? 'rgba(176,107,255,0.2)' : 'rgba(255,255,255,0.03)';
+    c.fillRect(cb.x, cb.y, cb.w, cb.h);
+    c.strokeStyle = ready ? '#b06bff' : '#3a4050'; c.lineWidth = 2; c.strokeRect(cb.x, cb.y, cb.w, cb.h);
+    c.textAlign = 'center'; c.font = 'bold 14px monospace'; c.fillStyle = ready ? '#d9b3ff' : '#556';
+    c.fillText('ENCHANT', cb.x + cb.w / 2, cb.y + 25);
+    if (ready) rects.push(cb);
+    const xb = { x: W / 2 + 40, y: by, w: 110, h: 40, action: 'ench-exit' };
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1.5; c.strokeRect(xb.x, xb.y, xb.w, xb.h);
+    c.fillStyle = '#8fa3bf'; c.font = 'bold 14px monospace'; c.fillText('LEAVE  (E)', xb.x + xb.w / 2, xb.y + 25);
+    rects.push(xb);
+
+    c.font = '12px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText(`${p.coins} gold   ·   ${p.shards} shards`, W / 2, by + 60);
+    if (e.msg) { c.fillStyle = '#8fd0a0'; c.font = '11px monospace'; c.fillText(e.msg, W / 2, by + 80); }
+    c.font = '10px monospace'; c.fillStyle = '#c07070';
+    c.fillText('⚠ a 0.5% chance the weapon SHATTERS on any attempt', W / 2, by + 98);
+    c.restore();
+    return rects;
+  }
+  function drawEnchantBreak(c, e) {
+    c.fillStyle = `rgba(70,0,0,${0.4 * Math.min(1, e.breakT)})`; c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    const shake = Math.sin(Date.now() / 38) * (e.breakT > 1.6 ? 9 : 2);
+    c.save(); c.translate(shake, 0);
+    c.font = 'bold 54px monospace';
+    c.fillStyle = '#1a0000'; c.fillText('SHATTERED', W / 2 + 3, H / 2 - 6 + 3);
+    c.fillStyle = '#ff3b3b'; c.fillText('SHATTERED', W / 2, H / 2 - 6);
+    c.font = 'bold 16px monospace'; c.fillStyle = '#ffb0b0';
+    c.fillText((e.brokeName || 'Your weapon') + ' broke apart on the table', W / 2, H / 2 + 32);
+    c.font = '14px monospace'; c.fillStyle = '#e08a8a';
+    c.fillText('A 1-in-200 catastrophe — and it found YOU.', W / 2, H / 2 + 58);
+    c.font = 'italic 13px monospace'; c.fillStyle = '#8a5a5a';
+    c.fillText('the forge kept your gold. unlucky.', W / 2, H / 2 + 82);
+    c.restore();
+  }
+
   // #86 accolade unlock toasts: gold banners that slide in bottom-centre and fade
   function drawToasts(c, g) {
     if (!g.achToasts || !g.achToasts.length) return;
@@ -1596,5 +1687,5 @@ const UI = (() => {
     return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick };
 })();

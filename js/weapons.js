@@ -179,6 +179,30 @@ const Weapons = (() => {
     w.price += w.enchants.reduce((s, e) => s + e.tier * 8 + (e.level || 0) * 4, 0);
   }
 
+  // #89 enchant table rework: roll N distinct candidate enchants VALID for this
+  // weapon (right pool + rarity tier), excluding ones it already carries. Each
+  // carries its rolled level so the cost/preview can reflect its quality.
+  function rollEnchantOffers(w, n) {
+    if (!w || w.isArmor) return [];
+    const rar = RARITY.find(r => r.key === w.rarity) || RARITY[0];
+    const rarIdx = RARITY.indexOf(rar);
+    const poolKey = (w.archetype === 'bow' || w.archetype === 'wand' || w.archetype === 'staff') ? 'bow' : 'melee';
+    const have = new Set((w.enchants || []).map(e => e.key));
+    const avail = ENCHANTS.filter(e => (e.pool === poolKey || e.pool === 'any') && e.tier <= rar.maxTier && !have.has(e.key));
+    const out = [];
+    for (let i = 0; i < n && avail.length; i++) {
+      const e = avail.splice((Math.random() * avail.length) | 0, 1)[0];
+      const ench = { key: e.key, name: e.name, tier: e.tier, desc: e.desc, level: 0 };
+      if (e.leveled) {
+        const maxLv = rarIdx >= 3 ? 3 : rarIdx >= 2 ? 2 : 1;
+        const roll = Math.random();
+        ench.level = roll < 0.55 ? 1 : roll < 0.85 ? Math.min(2, maxLv) : maxLv;
+      }
+      out.push(ench);
+    }
+    return out;
+  }
+
   // #60 enchant table: disenchant + re-enchant a weapon (or armor) with a fresh roll
   function reEnchant(item) {
     if (!item) return null;
@@ -372,5 +396,5 @@ const Weapons = (() => {
   }
 
   return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette,
-           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL, reEnchant };
+           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL, reEnchant, rollEnchantOffers, applyEnchantStats };
 })();
