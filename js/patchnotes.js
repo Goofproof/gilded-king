@@ -8,9 +8,18 @@
 // NOTES[0].
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.12';
+  const VERSION = 'v2.13';
 
   const NOTES = [
+    {
+      v: 'v2.13', title: 'Classes, Controls & a Harder Dungeon', date: '2026-07-12',
+      items: [
+        'CLASS ABILITIES: Q is now your class\'s signature power from the very start - Warrior Shield Bash, Ranger Tumble Volley, Mage Arcane Nova, Rogue Eviscerate, Adventurer Adrenaline.',
+        'Your first two EVOLUTIONS now fuse into your R ability, and your ULTIMATE (class power + evolved power) fires on RIGHT-CLICK.',
+        'LEFT-CLICK attacks manually when you turn auto-attack off (F), so you\'re never left unable to fight.',
+        'HARDER DUNGEON: deeper floors have far more monsters and much tankier ones, the King has a lot more health, and shield-bearers now guard their ranged allies instead of charging you (but bash if you push up on them).',
+      ],
+    },
     {
       v: 'v2.12', title: 'Prestige', date: '2026-07-12',
       items: [

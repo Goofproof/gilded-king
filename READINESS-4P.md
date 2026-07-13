@@ -60,10 +60,11 @@ The four blockers found by the review are now FIXED and deployed (v-current):
    "connected - 4 in lobby." If a count never goes up, they mistyped: hit BACK and
    retry. Do NOT press START until all four are shown.
 3. **Controls:** WASD/arrows move, mouse aims, your character AUTO-ATTACKS whatever
-   is in range, SPACE dodge-rolls, E interacts, Tab swaps weapons, Q and R are
-   abilities, left-click is your ultimate.
-4. **Do not press F.** It toggles auto-attack OFF and you stop fighting (a loud
-   orange "AUTO-ATK OFF" appears; press F again to turn it back on).
+   is in range, SPACE dodge-rolls, E interacts, Tab swaps weapons. **Q = your class
+   ability, R = your evolved ability, RIGHT-CLICK = your ultimate.**
+4. **F toggles auto-attack.** With it OFF you attack manually with LEFT-CLICK
+   (aimed at your cursor). A loud orange "AUTO-ATK OFF" shows when it's off - press
+   F again to go back to auto.
 5. **Level-ups pause the party.** When cards pop, all four level at once and the
    game holds until everyone picks. Pick promptly - the others are waiting.
 6. **The King mostly chases the host.** Guests: help the host, watch the shared HP,
