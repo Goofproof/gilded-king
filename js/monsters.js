@@ -42,7 +42,7 @@ const Monsters = (() => {
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
-    1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded'], // #112 shielders on floor 1 (teaches flank-or-bait early); ~20% so they don't swamp it
+    1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
     3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber'],
     4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
@@ -903,22 +903,35 @@ const Monsters = (() => {
     else if (side === 'N') { ax = cx; ay = PF.y + PF.h * 0.72; fx = 0; fy = -1; }
     else { ax = cx; ay = PF.y + PF.h * 0.28; fx = 0; fy = 1; } // 'S'
     const px = -fy, py = fx; // lateral axis
-    const FRONT = ['shielded', 'tank', 'chaser'], BACK = ['archer', 'glass', 'summoner', 'lobber', 'pulser', 'seeker', 'miner'];
-    const rank = { front: [], mid: [], back: [] };
-    for (const m of out) { if (m.type === 'goblin') continue; rank[FRONT.includes(m.type) ? 'front' : BACK.includes(m.type) ? 'back' : 'mid'].push(m); }
-    const lay = (arr, depth) => {
-      arr.forEach((m, i) => {
-        const lat = (i - (arr.length - 1) / 2) * 36;
-        m.x = Math.max(PF.x + 24, Math.min(PF.x + PF.w - 24, ax + fx * depth + px * lat));
-        m.y = Math.max(PF.y + 24, Math.min(PF.y + PF.h - 24, ay + fy * depth + py * lat));
-        m.facing = Math.atan2(-fy, -fx);   // face the player's entry side
-        m.holdT = 2.8 + Math.random() * 1.4; // hold the line ~2.8-4.2s (or until the player closes)
-        m.formationX = m.x; m.formationY = m.y;
-        m.formFX = fx; m.formFY = fy;      // #94 shared forward axis: the whole line advances as ONE rigid block
-        m.suppressCd = 0.2 + Math.random() * 0.5; // #94 base-of-fire: ranged open up almost at once
-      });
+    // #103 ROLE-BASED RANKS (Sam): sturdy tanks/shielded hold the FRONT line closest to
+    // the player; the fuzzies (swarmers) picket a SCREEN just ahead of the ranged to body-
+    // block for them; chargers (chasers) FLANK wide to the sides instead of tanking the
+    // front; the ranged sit at the BACK.
+    const FRONT = ['tank', 'shielded'], FLANK = ['chaser'], SCREEN = ['swarmer', 'add'];
+    const BACK = ['archer', 'glass', 'summoner', 'lobber', 'pulser', 'seeker', 'miner'];
+    const rank = { front: [], flank: [], screen: [], mid: [], back: [] };
+    for (const m of out) {
+      if (m.type === 'goblin') continue;
+      const r = FRONT.includes(m.type) ? 'front' : FLANK.includes(m.type) ? 'flank'
+              : SCREEN.includes(m.type) ? 'screen' : BACK.includes(m.type) ? 'back' : 'mid';
+      rank[r].push(m);
+    }
+    const place = (m, depth, lat) => {
+      m.x = Math.max(PF.x + 24, Math.min(PF.x + PF.w - 24, ax + fx * depth + px * lat));
+      m.y = Math.max(PF.y + 24, Math.min(PF.y + PF.h - 24, ay + fy * depth + py * lat));
+      m.facing = Math.atan2(-fy, -fx);   // face the player's entry side
+      m.holdT = 2.8 + Math.random() * 1.4; // hold the line ~2.8-4.2s (or until the player closes)
+      m.formationX = m.x; m.formationY = m.y;
+      m.formFX = fx; m.formFY = fy;      // #94 shared forward axis: the whole line advances as ONE rigid block
+      m.suppressCd = 0.2 + Math.random() * 0.5; // #94 base-of-fire: ranged open up almost at once
     };
-    lay(rank.front, 46); lay(rank.mid, 0); lay(rank.back, -60);
+    const lay = (arr, depth) => arr.forEach((m, i) => place(m, depth, (i - (arr.length - 1) / 2) * 36));
+    lay(rank.front, 46);   // tanks/shielded: the wall closest to the player
+    lay(rank.screen, 20);  // fuzzies: a picket line in front of the ranged
+    lay(rank.mid, -12);
+    lay(rank.back, -60);   // ranged: safest, farthest from the player
+    // chargers flank: split to both sides, far out laterally, staggered slightly in depth
+    rank.flank.forEach((m, i) => { const side = i % 2 === 0 ? 1 : -1, idx = (i / 2) | 0; place(m, 6 - idx * 22, side * (150 + idx * 38)); });
   }
 
   // #94 BASE OF FIRE: while a prepared unit advances, its ranged mobs open fire on
