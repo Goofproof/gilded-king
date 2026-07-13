@@ -704,7 +704,9 @@ const Monsters = (() => {
     }
     if (opts.knock) {
       const ka = Math.atan2(m.y - opts.sy, m.x - opts.sx);
-      const kmul = m.type === 'tank' ? 0.3 : 1;
+      // #79 the worm is a serpent: knockback yanks its HEAD off its trail-sampled body
+      // (a visible detach), so it's knockback-immune. Tanks just resist heavily.
+      const kmul = m.type === 'worm' ? 0 : m.type === 'tank' ? 0.3 : 1;
       m.kvx += Math.cos(ka) * opts.knock * kmul;
       m.kvy += Math.sin(ka) * opts.knock * kmul;
     }
