@@ -577,12 +577,14 @@ const PlayerDef = (() => {
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.vx *= Math.pow(0.001, dt); this.vy *= Math.pow(0.001, dt);
 
-      // obstacles + walls
+      // obstacles + pits (both are solid to the player - you can't fall in a pit)
       for (const o of g.room.obstacles) {
         const dx = this.x - o.x, dy = this.y - o.y, d = Math.hypot(dx, dy);
         if (d < o.r + this.r && d > 0) { this.x = o.x + (dx / d) * (o.r + this.r); this.y = o.y + (dy / d) * (o.r + this.r); }
       }
-      // (walls/doors are handled by main.js so it can detect room exits)
+      // #67b solid wall rects that carve the room shape
+      if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w); if (q) { this.x = q.x; this.y = q.y; } }
+      // (room-boundary walls/doors are handled by main.js so it can detect room exits)
 
       // --- attacking -----------------------------------------------------------
       const w = this.weapon;

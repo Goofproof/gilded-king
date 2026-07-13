@@ -2494,9 +2494,14 @@
       let dead = pr.life <= 0 ||
         pr.x < PF.x - 10 || pr.x > PF.x + PF.w + 10 || pr.y < PF.y - 10 || pr.y > PF.y + PF.h + 10;
 
-      // obstacle hits
+      // obstacle hits (pits are just holes in the floor - projectiles sail over them)
       if (!dead) for (const o of g.room.obstacles) {
+        if (o.kind === 'pit') continue;
         if (Math.hypot(pr.x - o.x, pr.y - o.y) < o.r + pr.r) { dead = true; break; }
+      }
+      // #67b solid wall rects stop projectiles too
+      if (!dead && g.room.walls) for (const w of g.room.walls) {
+        if (pr.x > w.x - pr.r && pr.x < w.x + w.w + pr.r && pr.y > w.y - pr.r && pr.y < w.y + w.h + pr.r) { dead = true; break; }
       }
 
       if (!dead && pr.from === 'enemy') {
@@ -2888,6 +2893,24 @@
       const y = PF.y + roomRand(room, i + 50) * PF.h;
       c.fillRect(x, y, 3 + roomRand(room, i + 100) * 4, 2 + roomRand(room, i + 150) * 3);
     }
+    // #67b room-shape walls: solid raised stone that carves the room's outline
+    // (an L missing a corner, a plus, a chamfer, an interior divider). Drawn over
+    // the floor so the walled area reads as "not part of the room."
+    if (room.walls) for (const w of room.walls) {
+      c.fillStyle = 'rgba(0,0,0,0.4)';                          // drop shadow onto the floor
+      c.fillRect(w.x - 3, w.y - 3, w.w + 6, w.h + 7);
+      c.fillStyle = '#22262e';                                  // dark stone body
+      c.fillRect(w.x, w.y, w.w, w.h);
+      c.fillStyle = 'rgba(255,255,255,0.06)';                   // lit top bevel
+      c.fillRect(w.x, w.y, w.w, 5);
+      c.fillStyle = 'rgba(0,0,0,0.30)';                         // shaded base
+      c.fillRect(w.x, w.y + w.h - 6, w.w, 6);
+      c.fillStyle = (pal.accent || '#555') + '22';              // faint themed masonry seams
+      for (let sx = w.x + 24; sx < w.x + w.w - 6; sx += 30) c.fillRect(sx, w.y + 3, 1.5, w.h - 6);
+      for (let sy = w.y + 20; sy < w.y + w.h - 6; sy += 26) c.fillRect(w.x + 3, sy, w.w - 6, 1.5);
+      c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1.5;
+      c.strokeRect(w.x + 0.75, w.y + 0.75, w.w - 1.5, w.h - 1.5);
+    }
     // theme ambience: drifting particles that sell the place
     if (theme.ambient === 'forest' && Math.random() < 0.06) {
       Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h * 0.4,
@@ -2989,6 +3012,21 @@
 
     // obstacles, dressed for the floor's theme
     for (const o of room.obstacles) {
+      if (o.kind === 'pit') {
+        // #74 a hole in the floor: dark sunken well with a lit near-rim. Arrows and
+        // spells fly over it; enemies shoved in fall to their death.
+        c.fillStyle = 'rgba(0,0,0,0.32)';                        // soft outer lip shadow
+        c.beginPath(); c.ellipse(o.x, o.y + 2, o.r + 5, (o.r + 5) * 0.82, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#090a0c';                                 // the void
+        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, Math.PI * 2); c.fill();
+        const gr = c.createRadialGradient(o.x, o.y - o.r * 0.2, o.r * 0.15, o.x, o.y + o.r * 0.2, o.r);
+        gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(26,20,12,0.85)');
+        c.fillStyle = gr;
+        c.beginPath(); c.ellipse(o.x, o.y, o.r * 0.9, o.r * 0.72, 0, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = 'rgba(150,138,110,0.4)'; c.lineWidth = 2; // near rim catches the light
+        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
+        continue;
+      }
       c.fillStyle = 'rgba(0,0,0,0.3)';
       c.beginPath(); c.ellipse(o.x + 3, o.y + 4, o.r, o.r * 0.7, 0, 0, Math.PI * 2); c.fill();
       if (theme.obstacle === 'tree') {

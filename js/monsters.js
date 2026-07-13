@@ -482,11 +482,21 @@ const Monsters = (() => {
       }
     }
 
-    // rock collision (simple circle push-out)
+    // rock + pit collision (simple circle push-out). Pits are solid to a monster
+    // walking normally, but if it's under real knockback and gets shoved OUT over
+    // the lip (centre crosses into the hole), it falls to its death (#74).
     for (const o of g.room.obstacles) {
       const dx = m.x - o.x, dy = m.y - o.y, d = Math.hypot(dx, dy);
+      if (o.kind === 'pit') {
+        const knocked = (m.kvx * m.kvx + m.kvy * m.kvy) > 140 * 140 && !m.isBoss && m.type !== 'worm';
+        if (knocked) { if (d < o.r) { fallInPit(m, g); return; } }        // shoved over the edge - no push, let it fall
+        else if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
+        continue;
+      }
       if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
     }
+    // #67b solid wall rects
+    if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w); if (q) { m.x = q.x; m.y = q.y; } }
     clampToField(m);
   }
 
@@ -593,6 +603,16 @@ const Monsters = (() => {
     Sfx.play('stairs');
   }
 
+  // #74 an enemy shoved into a floor pit falls to its death - still counts as a
+  // kill (score + loot), but no elite death-blast (it's at the bottom of a hole).
+  function fallInPit(m, g) {
+    m.kvx = 0; m.kvy = 0; m.hp = 0; m.dead = true; m.fell = true;
+    Fx.burst(m.x, m.y, ['#000000', '#231a10', '#463a24'], 16, { speed: 70, life: 0.55 });
+    Fx.text(m.x, m.y - 8, 'FELL', '#c9a227', 13);
+    Sfx.play('hit');
+    g.onKill(m);
+  }
+
   function applyDamage(m, dmg, g, opts) {
     if (m.dead) return;
     // loot goblin spills a few coins every time it's struck (catch it for the jackpot)
@@ -657,6 +677,12 @@ const Monsters = (() => {
     if (th) n = Math.min(14, Math.round(n * th.count));
     const out = [];
     const p = g.player;
+    // #67b/#74 don't spawn a mob buried in a wall or standing in a pit
+    const blocked = (x, y) => {
+      for (const w of room.walls || []) if (x > w.x - 20 && x < w.x + w.w + 20 && y > w.y - 20 && y < w.y + w.h + 20) return true;
+      for (const o of room.obstacles) if (o.kind === 'pit' && Math.hypot(x - o.x, y - o.y) < o.r + 22) return true;
+      return false;
+    };
     // #27 THEMED ROOM: ~22% of combat rooms are a single enemy type (an all-archer
     // gauntlet, a bomb room, a nest of worms...). Cached on the room so it shows a
     // banner. A couple of types make miserable full rooms, so they're excluded.
@@ -677,7 +703,7 @@ const Monsters = (() => {
           x = PF.x + 60 + Math.random() * (PF.w - 120);
           y = PF.y + 60 + Math.random() * (PF.h - 120);
           tries++;
-        } while (Math.hypot(x - p.x, y - p.y) < 160 && tries < 30);
+        } while ((Math.hypot(x - p.x, y - p.y) < 160 || blocked(x, y)) && tries < 30);
         let mods = null;
         if (th) {
           mods = { hpMul: th.hp, dmgMul: th.dmg, speedMul: th.speed };
@@ -691,7 +717,7 @@ const Monsters = (() => {
     if (Math.random() < 0.11) {
       let x, y, tries = 0;
       do { x = PF.x + 90 + Math.random() * (PF.w - 180); y = PF.y + 90 + Math.random() * (PF.h - 180); tries++; }
-      while (Math.hypot(x - p.x, y - p.y) < 240 && tries < 30);
+      while ((Math.hypot(x - p.x, y - p.y) < 240 || blocked(x, y)) && tries < 30);
       out.push(make('goblin', x, y, tier));
     }
     return out;

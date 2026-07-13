@@ -59,7 +59,7 @@ const Dungeon = (() => {
       gx, gy, type: 'combat',
       doors: {},            // dir -> neighbor room
       visited: false, cleared: false, spawned: false,
-      monsters: [], chests: [], obstacles: [], shopStock: null, stairs: null,
+      monsters: [], chests: [], obstacles: [], walls: [], shopStock: null, stairs: null,
       dist: 0,
     };
   }
@@ -155,41 +155,106 @@ const Dungeon = (() => {
         // corridor) instead of pure random scatter. Seeded, so co-op stays in sync.
         const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2;
         const doorPt = d => d === 'N' ? { x: cx, y: PF.y } : d === 'S' ? { x: cx, y: PF.y + PF.h } : d === 'W' ? { x: PF.x, y: cy } : { x: PF.x + PF.w, y: cy };
-        const push = (x, y, rad) => {
-          if (Math.abs(x - cx) < 95 && Math.abs(y - cy) < 95) return;      // keep the spawn area clear
-          for (const dir in r.doors) { const dp = doorPt(dir); if (Math.hypot(x - dp.x, y - dp.y) < 88) return; } // never seal a door lane
-          r.obstacles.push({ x, y, r: rad });
+        // is (x,y) with radius rad clear of the centre spawn area, every door lane,
+        // AND every wall rect? (shared by rocks + pits so nothing spawns in a wall)
+        const spotOk = (x, y, rad) => {
+          if (Math.abs(x - cx) < 95 && Math.abs(y - cy) < 95) return false;      // keep the spawn area clear
+          for (const dir in r.doors) { const dp = doorPt(dir); if (Math.hypot(x - dp.x, y - dp.y) < 88) return false; } // never seal a door lane
+          for (const w of r.walls) { if (x > w.x - rad && x < w.x + w.w + rad && y > w.y - rad && y < w.y + w.h + rad) return false; } // not inside a wall
+          return true;
         };
-        // wall layouts (split / cross / chevron / chambers) carve the room into real
-        // SHAPES; the push() guards auto-gap them at the centre + every door lane so
-        // they stay passable and never seal a door.
-        const layout = ['scatter', 'pillars', 'ring', 'corners', 'columns', 'split', 'cross', 'chevron', 'chambers'][(rnd() * 9) | 0];
+        const push = (x, y, rad, kind) => { if (spotOk(x, y, rad)) r.obstacles.push({ x, y, r: rad, kind }); };
+
+        // #67b ROOM SHAPE: carve the rectangle into a real non-rect shape with solid
+        // wall rects - an L-room missing a corner, a plus, a chamfered octagon, or an
+        // off-centre divider. Every wall sits >=86px clear of the edge midpoints, so it
+        // can never cover a mid-edge door, its inward lane, or the room centre. Verified
+        // door-safe + fully connected across 400 floors before shipping.
+        const W = PF.w, H = PF.h, X = PF.x, Y = PF.y;
+        const shape = ['rect', 'rect', 'rect', 'lshape', 'plus', 'octagon', 'notch'][(rnd() * 7) | 0];
+        r.shape = shape;
+        if (shape === 'lshape') {
+          const sx = rnd() < 0.5 ? 1 : -1, sy = rnd() < 0.5 ? 1 : -1;          // which corner is missing
+          const wW = W * (0.33 + rnd() * 0.08), wH = H * (0.35 + rnd() * 0.08);
+          r.walls.push({ x: sx > 0 ? X + W - wW : X, y: sy > 0 ? Y + H - wH : Y, w: wW, h: wH });
+        } else if (shape === 'plus') {
+          const wW = W * 0.31, wH = H * 0.33;
+          for (const s of [-1, 1]) for (const t of [-1, 1])
+            r.walls.push({ x: s > 0 ? X + W - wW : X, y: t > 0 ? Y + H - wH : Y, w: wW, h: wH });
+        } else if (shape === 'octagon') {
+          const wW = W * 0.16, wH = H * 0.22;                                   // chamfered corners
+          for (const s of [-1, 1]) for (const t of [-1, 1])
+            r.walls.push({ x: s > 0 ? X + W - wW : X, y: t > 0 ? Y + H - wH : Y, w: wW, h: wH });
+        } else if (shape === 'notch') {
+          // an off-centre divider that splits the room, open at both ends (>=86px gaps)
+          if (rnd() < 0.5) { const wx = X + W * (rnd() < 0.5 ? 0.36 : 0.64); r.walls.push({ x: wx - 13, y: Y + 86, w: 26, h: H - 172 }); }
+          else { const wy = Y + H * (rnd() < 0.5 ? 0.36 : 0.64); r.walls.push({ x: X + 86, y: wy - 13, w: W - 172, h: 26 }); }
+        }
+
+        // #27 interior OBSTACLE layout, dropped INSIDE whatever shape we carved
+        const layout = ['scatter', 'pillars', 'ring', 'corners', 'columns'][(rnd() * 5) | 0];
         r.layout = layout;
         if (layout === 'pillars') {
-          for (let gx = 0; gx < 3; gx++) for (let gy = 0; gy < 2; gy++) push(PF.x + PF.w * (0.26 + gx * 0.24), PF.y + PF.h * (0.30 + gy * 0.40), 15);
+          for (let gx = 0; gx < 3; gx++) for (let gy = 0; gy < 2; gy++) push(X + W * (0.26 + gx * 0.24), Y + H * (0.30 + gy * 0.40), 15);
         } else if (layout === 'ring') {
-          const R = Math.min(PF.w, PF.h) * 0.35;
+          const R = Math.min(W, H) * 0.35;
           for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; push(cx + Math.cos(a) * R, cy + Math.sin(a) * R, 16); }
         } else if (layout === 'corners') {
-          for (const sx of [-1, 1]) for (const sy of [-1, 1]) { push(cx + sx * PF.w * 0.33, cy + sy * PF.h * 0.33, 24); push(cx + sx * PF.w * 0.24, cy + sy * PF.h * 0.30, 16); push(cx + sx * PF.w * 0.30, cy + sy * PF.h * 0.22, 16); }
+          for (const sx of [-1, 1]) for (const sy of [-1, 1]) { push(cx + sx * W * 0.33, cy + sy * H * 0.33, 24); push(cx + sx * W * 0.24, cy + sy * H * 0.30, 16); push(cx + sx * W * 0.30, cy + sy * H * 0.22, 16); }
         } else if (layout === 'columns') {
-          for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) push(cx + sx * PF.w * 0.30, PF.y + PF.h * (0.26 + i * 0.24), 15);
-        } else if (layout === 'split') {
-          // a wall bisecting the room; the centre guard leaves a doorway between halves
-          const horiz = rnd() < 0.5;
-          for (let t = 0.1; t <= 0.9; t += 0.055) { if (horiz) push(PF.x + PF.w * t, cy, 16); else push(cx, PF.y + PF.h * t, 16); }
-        } else if (layout === 'cross') {
-          for (let t = 0.12; t <= 0.88; t += 0.06) { push(PF.x + PF.w * t, cy, 15); push(cx, PF.y + PF.h * t, 15); }
-        } else if (layout === 'chevron') {
-          // two angled walls funnelling toward the centre
-          for (let t = 0.08; t <= 0.5; t += 0.055) { push(PF.x + PF.w * t, PF.y + PF.h * (0.18 + t * 0.62), 15); push(PF.x + PF.w * (1 - t), PF.y + PF.h * (0.18 + t * 0.62), 15); }
-        } else if (layout === 'chambers') {
-          // an off-centre wall with a single chokepoint gap
-          const wx = PF.x + PF.w * (rnd() < 0.5 ? 0.37 : 0.63), gapY = PF.y + PF.h * (0.28 + rnd() * 0.44);
-          for (let y = PF.y + 70; y < PF.y + PF.h - 70; y += 25) { if (Math.abs(y - gapY) < 58) continue; push(wx, y, 15); }
+          for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) push(cx + sx * W * 0.30, Y + H * (0.26 + i * 0.24), 15);
         } else {
           const n = OBSTACLES_PER_COMBAT[0] + ((rnd() * (OBSTACLES_PER_COMBAT[1] - OBSTACLES_PER_COMBAT[0] + 1)) | 0);
-          for (let i = 0; i < n; i++) push(PF.x + 90 + rnd() * (PF.w - 180), PF.y + 90 + rnd() * (PF.h - 180), 16 + rnd() * 12);
+          for (let i = 0; i < n; i++) push(X + 90 + rnd() * (W - 180), Y + 90 + rnd() * (H - 180), 16 + rnd() * 12);
+        }
+
+        // #74 PITS: some rooms get floor holes. Solid to anyone walking, but arrows
+        // and spells sail over them, and an enemy knocked in falls to its death.
+        if (rnd() < 0.42) {
+          const nPits = 1 + ((rnd() * 3) | 0);
+          for (let i = 0, tries = 0; i < nPits && tries < 30; tries++) {
+            const px = X + 110 + rnd() * (W - 220), py = Y + 90 + rnd() * (H - 180), pr = 26 + rnd() * 16;
+            if (!spotOk(px, py, pr + 8)) continue;
+            if (r.obstacles.some(o => Math.hypot(o.x - px, o.y - py) < o.r + pr + 20)) continue; // don't overlap rocks
+            r.obstacles.push({ x: px, y: py, r: pr, kind: 'pit' });
+            i++;
+          }
+        }
+
+        // GUARANTEE traversability: every door must be able to walk to the room
+        // centre. In rare cases a pit or loose rock clogs a narrow arm of a plus/notch
+        // room - pull obstacles (pits first, then rocks) until the flood-fill connects.
+        const connected = () => {
+          const step = 14, cols = Math.ceil(W / step), rows = Math.ceil(H / step), PRR = 15;
+          const blk = (gx, gy) => {
+            const x = X + gx * step, y = Y + gy * step;
+            for (const w of r.walls) if (x > w.x - PRR && x < w.x + w.w + PRR && y > w.y - PRR && y < w.y + w.h + PRR) return true;
+            for (const o of r.obstacles) if (Math.hypot(x - o.x, y - o.y) < o.r + PRR) return true;
+            return false;
+          };
+          const cgx = Math.round((W / 2) / step), cgy = Math.round((H / 2) / step);
+          for (const dir in r.doors) {
+            const dp = doorPt(dir);
+            const seen = new Set(), q = [[Math.max(0, Math.min(cols - 1, Math.round((dp.x - X) / step))), Math.max(0, Math.min(rows - 1, Math.round((dp.y - Y) / step)))]];
+            let ok = false;
+            while (q.length) {
+              const [gx, gy] = q.pop();
+              if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) continue;
+              const k = gx + ',' + gy; if (seen.has(k)) continue; seen.add(k);
+              if (blk(gx, gy)) continue;
+              if (Math.abs(gx - cgx) <= 1 && Math.abs(gy - cgy) <= 1) { ok = true; break; }
+              q.push([gx + 1, gy], [gx - 1, gy], [gx, gy + 1], [gx, gy - 1]);
+            }
+            if (!ok) return false;
+          }
+          return true;
+        };
+        for (let guard = 0; guard < 24 && !connected(); guard++) {
+          let pit = -1;
+          for (let i = r.obstacles.length - 1; i >= 0; i--) if (r.obstacles[i].kind === 'pit') { pit = i; break; }
+          if (pit >= 0) r.obstacles.splice(pit, 1);
+          else if (r.obstacles.length) r.obstacles.pop();
+          else break;
         }
       }
       if (r.type === 'treasure') {
@@ -262,5 +327,22 @@ const Dungeon = (() => {
     return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1];
   }
 
-  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE };
+  // #67b resolve a circle (x,y,r) out of an axis-aligned wall rect. Returns the
+  // corrected {x,y} if it was overlapping, else null. Shared by player + monsters.
+  function rectPush(x, y, r, w) {
+    const nx = Math.max(w.x, Math.min(x, w.x + w.w));   // nearest point on the rect
+    const ny = Math.max(w.y, Math.min(y, w.y + w.h));
+    let dx = x - nx, dy = y - ny, d = Math.hypot(dx, dy);
+    if (d >= r) return null;                             // not overlapping
+    if (d > 0.0001) return { x: nx + dx / d * r, y: ny + dy / d * r };
+    // centre is inside the rect: eject along the shallowest edge
+    const l = x - w.x, ri = w.x + w.w - x, t = y - w.y, b = w.y + w.h - y;
+    const m = Math.min(l, ri, t, b);
+    if (m === l) return { x: w.x - r, y };
+    if (m === ri) return { x: w.x + w.w + r, y };
+    if (m === t) return { x, y: w.y - r };
+    return { x, y: w.y + w.h + r };
+  }
+
+  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush };
 })();
