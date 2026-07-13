@@ -827,11 +827,18 @@ const UI = (() => {
     c.textAlign = 'left';
     c.font = 'bold 11px monospace'; c.fillStyle = '#c9a227';
     c.fillText('TOP RAIDERS', W - 162, 200);
-    (g.scores || []).slice(0, 5).forEach((s, i) => {
-      c.font = '11px monospace';
-      c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
-      c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, W - 162, 218 + i * 16);
-    });
+    // #116 hold the list until the global fetch settles, so a refresh doesn't flash the
+    // stale local board first. Once ready it's the global board (or local fallback offline).
+    if (!g.scoresReady) {
+      c.font = 'italic 11px monospace'; c.fillStyle = '#6a7484';
+      c.fillText('loading...', W - 162, 218);
+    } else {
+      (g.scores || []).slice(0, 5).forEach((s, i) => {
+        c.font = '11px monospace';
+        c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
+        c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, W - 162, 218 + i * 16);
+      });
+    }
     c.textAlign = 'center';
 
     // #86 ACCOLADES button (right column, under the top-raiders list)

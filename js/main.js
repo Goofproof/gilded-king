@@ -872,10 +872,14 @@
       .catch(() => { /* offline -> keep the local board */ });
   }
   function fetchGlobalScores() {
-    const url = leaderboardUrl(); if (!url) return;
+    // #116 the title board holds off rendering until this resolves (scoresReady), so a
+    // page refresh no longer flashes the stale local seed before the global board lands.
+    const url = leaderboardUrl();
+    if (!url) { g.scoresReady = true; return; } // no relay -> show the local fallback now
     fetch(url).then(r => r.json())
       .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = d.top; g.globalScores = true; } })
-      .catch(() => { /* offline -> keep the local board */ });
+      .catch(() => { /* offline -> keep the local board */ })
+      .finally(() => { g.scoresReady = true; });
   }
 
   function updateInitials() {
