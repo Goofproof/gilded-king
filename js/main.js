@@ -484,7 +484,7 @@
   const barracksCost = st => 30 + 20 * st.uses;
   function rollBarracksStock(room) {
     room.barracks = {
-      trainer: { x: PF.x + PF.w / 2, y: PF.y + 66 },
+      trainer: { x: PF.x + PF.w / 2, y: PF.y + 100 }, // #125 was +66: head overlapped the subtitle text
       stations: BARRACKS_STATS.map((s, i) => ({ stat: s.stat, color: s.color, label: s.label, apply: s.apply, x: PF.x + 132 + i * 150, y: PF.y + PF.h - 128, uses: 0 })),
     };
   }
