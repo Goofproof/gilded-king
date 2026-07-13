@@ -719,7 +719,7 @@ const Monsters = (() => {
         // dead-man's fuse: killing a bomber lights a SHORT telegraphed fuse instead
         // of detonating instantly (spec: death explosion must be dodgeable too)
         m.hp = 0;
-        m.fuse = m.fuse >= 0 ? Math.min(m.fuse, 0.45) : 0.45;
+        m.fuse = m.fuse >= 0 ? Math.min(m.fuse, 0.65) : 0.65; // #105 longer dead-man fuse (was 0.45) for a fair dodge window
         Sfx.play('burn');
         return;
       }
@@ -842,20 +842,28 @@ const Monsters = (() => {
   // using each type's own projectile so it reads the same as their normal attack.
   function formationSuppress(m, t, g, dt) {
     if (m.type !== 'archer' && m.type !== 'lobber' && m.type !== 'seeker') return;
+    const ang = Math.atan2(t.y - m.y, t.x - m.x);
+    // #105 AIM WINDUP: telegraph every suppressing shot so it stays dodgeable (it
+    // used to fire the instant the cooldown cleared, violating the "every attack is
+    // telegraphed" rule). m.telegraph in (0,1) draws the red windup ring (draw() @875).
+    if (m.suppressAimT > 0) {
+      m.suppressAimT -= dt;
+      m.facing = ang;
+      m.telegraph = Math.max(0.02, Math.min(0.99, m.suppressAimT));
+      if (m.suppressAimT <= 0) {
+        m.telegraph = 0;
+        if (m.type === 'archer') { fireProjectile(g, m, ang, 330, m.dmg, '#cfe8b0', 4); m.suppressCd = 1.5; Sfx.play('bowfire'); }
+        else if (m.type === 'seeker') { fireProjectile(g, m, ang, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 }); m.suppressCd = 2.4; Sfx.play('bowfire'); }
+        else { g.ultFx.push({ type: 'lob', x: t.x, y: t.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' }); m.suppressCd = 2.6; Sfx.play('bowfire'); }
+      }
+      return;
+    }
     m.suppressCd = (m.suppressCd || 0) - dt;
     if (m.suppressCd > 0) return;
-    const ang = Math.atan2(t.y - m.y, t.x - m.x);
+    // cooldown cleared: begin the aim windup (the lobber's arc is its own tell, so it
+    // gets a shorter one). The shot fires when the windup elapses, above.
     m.facing = ang;
-    if (m.type === 'archer') {
-      fireProjectile(g, m, ang, 330, m.dmg, '#cfe8b0', 4);
-      m.suppressCd = 1.5; Sfx.play('bowfire');
-    } else if (m.type === 'seeker') {
-      fireProjectile(g, m, ang, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 });
-      m.suppressCd = 2.4; Sfx.play('bowfire');
-    } else { // lobber: arc a bomb onto where the player stands
-      g.ultFx.push({ type: 'lob', x: t.x, y: t.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
-      m.suppressCd = 2.6; Sfx.play('bowfire');
-    }
+    m.suppressAimT = m.type === 'lobber' ? 0.4 : 0.55;
   }
 
   // --- rendering ------------------------------------------------------------------
@@ -1146,6 +1154,17 @@ const Monsters = (() => {
   function drawBomber(c, m, flash, ex, ey) {
     // round bomb body; blinks faster as the fuse burns
     const lit = m.fuse >= 0;
+    // #105 DANGER FOOTPRINT: while the fuse burns, show the TRUE 105px blast radius
+    // (matches explode()), brightening as detonation nears - the bomber used to have
+    // no danger ring at all, only a body blink.
+    if (lit) {
+      const R = 105, urgency = 1 - Math.min(1, m.fuse / 0.8);
+      c.fillStyle = `rgba(255,60,40,${0.05 + 0.12 * urgency})`;
+      c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = `rgba(255,${Math.round(90 - 60 * urgency)},${Math.round(60 - 40 * urgency)},${0.35 + 0.35 * urgency + Math.sin(Date.now() / 45) * 0.15})`;
+      c.lineWidth = 2 + 2 * urgency;
+      c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.stroke();
+    }
     const blink = lit && Math.sin(Date.now() / (30 + m.fuse * 120)) > 0;
     body(c, m, blink ? '#ff5533' : '#d35400', flash);
     eyes(c, ex, ey, 4, 2.2);
