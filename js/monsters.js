@@ -381,6 +381,15 @@ const Monsters = (() => {
             moveToward(m, bx, by, dt, m.speed * 0.9);
             m.facing = Math.atan2(p.y - m.y, p.x - m.x);
             tryContactHit(m, g, p, 0.7);
+            // #55 TAUNT: while guarding, it periodically FORCES you to aim/attack it (so you
+            // must chew through the shield before the ranged mob behind it). ~every 5.5s.
+            m.tauntCd = (m.tauntCd === undefined ? 3 : m.tauntCd) - dt;
+            if (m.tauntCd <= 0 && dist > 60 && dist < 430 && g.playerTaunt) {
+              m.tauntCd = 5.5; g.playerTaunt = { src: m, t: 2.2 };
+              Fx.text(m.x, m.y - 30, 'TAUNT!', '#e0894a', 13);
+              Fx.burst(m.x, m.y, ['#e0894a', '#fff'], 12, { speed: 130, life: 0.45, glow: true });
+              Sfx.play('roar');
+            }
             // it won't CHASE across the room, but if you push up on it, it bashes -
             // that drops its shield (recover = punish window), so it stays killable.
             if (dist < 88 && m.t > 1.0) { m.state = 'windup'; m.t = 0; }

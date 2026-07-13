@@ -165,6 +165,7 @@
     playerName: (() => { try { return (localStorage.getItem('drl_name') || '').slice(0, 12); } catch { return ''; } })(),
     evoQueue: [], evoChoices: null, ultChoices: null,
     ultFx: [], midasT: 0,        // active ultimate room-effects + double-gold window
+    playerTaunt: { src: null, t: 0 }, // #55 a shielder is forcing you to attack it
     levelChoices: [], levelUpQueue: 0, hoverChoice: -1,
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, showMythics: false, scores: loadScores(),
     // --- co-op (multiplayer) ---
@@ -320,6 +321,7 @@
     g.projectiles = [];
     g.mines = [];
     g.ultFx = [];
+    g.playerTaunt = { src: null, t: 0 }; // taunts don't carry between rooms
     g.pickups = room.savedPickups || [];
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
@@ -2093,6 +2095,7 @@
     updatePickups(dt);
     updateMines(dt);
     updateUltFx(dt);
+    if (g.playerTaunt.t > 0) { g.playerTaunt.t -= dt; if (g.playerTaunt.src && g.playerTaunt.src.dead) g.playerTaunt.t = 0; }
 
     // co-op: broadcast our position + smooth the other players; sync monsters;
     // revive downed teammates; end only on a full party wipe

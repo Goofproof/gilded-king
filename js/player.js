@@ -484,11 +484,18 @@ const PlayerDef = (() => {
         const dp = Math.hypot(m.x - this.x, m.y - this.y);
         if (dp < nearBest) { nearBest = dp; nearTarget = m; }
       }
-      const autoTarget = cursorTarget || nearTarget;
+      let autoTarget = cursorTarget || nearTarget;
       let autoDist = 1e9;
-      // #54 only auto-face a target while AUTO-ATTACK is on. With it off you aim purely
-      // with the cursor (facing set above), so a manual left-click strikes where you point.
-      if (this.autoAttack && autoTarget) {
+      // #55 shielder TAUNT: while taunted you're FORCED to face and attack the taunter
+      // (it doesn't block other damage - you just can't aim elsewhere for the duration)
+      if (g.playerTaunt && g.playerTaunt.t > 0 && g.playerTaunt.src && !g.playerTaunt.src.dead) {
+        const ts = g.playerTaunt.src;
+        autoTarget = ts; nearTarget = ts; cursorTarget = ts;
+        this.facing = Math.atan2(ts.y - this.y, ts.x - this.x);
+        autoDist = Math.hypot(ts.x - this.x, ts.y - this.y);
+      } else if (this.autoAttack && autoTarget) {
+        // #54 only auto-face a target while AUTO-ATTACK is on. With it off you aim purely
+        // with the cursor (facing set above), so a manual left-click strikes where you point.
         autoDist = Math.hypot(autoTarget.x - this.x, autoTarget.y - this.y);
         // #47: melee faces the NEAREST enemy (it hits what's adjacent); ranged (bow/
         // wand/staff) faces the cursor pick so you can aim distant targets (#17)
@@ -937,6 +944,15 @@ const PlayerDef = (() => {
 
       // weapon rendering (outside the roll transform)
       if (this.rollT < 0) this.drawWeapon(c);
+
+      // #55 TAUNTED indicator - bold blinking red over your head so it reads as a
+      // feature (a shielder is forcing your aim), not a bug
+      if (g.playerTaunt && g.playerTaunt.t > 0) {
+        c.save(); c.textAlign = 'center'; c.font = 'bold 12px monospace';
+        c.fillStyle = Math.sin(Date.now() / 110) > 0 ? '#ff2020' : '#ff6060';
+        c.fillText('TAUNTED!', this.x, this.y - this.r - 16);
+        c.restore();
+      }
     }
 
     // #43 the prestige cape - a draped royal mantle behind the champion, built as
