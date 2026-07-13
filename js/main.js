@@ -597,7 +597,7 @@
     checkRoomCleared();
   }
 
-  function spawnPickup(kind, x, y) {
+  function spawnPickup(kind, x, y, local) {
     const a = Math.random() * Math.PI * 2, d = Math.random() * 40;
     g.pickups.push({
       kind, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d,
@@ -607,7 +607,9 @@
     // P1-D: currency/buff drops are INSTANCED - the host mirrors each to the guest,
     // who spawns its OWN copy into its OWN wallet (both players progress economically).
     // Guard on Net.isHost so the guest's own spawns don't echo back.
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'pk', k: kind, x: Math.round(x), y: Math.round(y) });
+    // #97 `local` spawns (chest loot) do NOT mirror - the chest is opened per-player, so
+    // mirroring leaked the host's chest coins/heart onto the guest (who never opened it).
+    if (!local && g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'pk', k: kind, x: Math.round(x), y: Math.round(y) });
   }
 
   // drop a GEAR pickup (weapon/armor) and, in co-op, mirror it to guests as their
@@ -1000,11 +1002,11 @@
       Sfx.play('pickup');
       Fx.burst(ch.x, ch.y, ['#ffd24c', '#d4af37', '#fff'], 22, { speed: 200, life: 0.7, glow: true, grav: 150 });
       const nCoins = 8 + ((Math.random() * 7) | 0);
-      for (let i = 0; i < nCoins; i++) spawnPickup('coin', ch.x, ch.y - 10);
+      for (let i = 0; i < nCoins; i++) spawnPickup('coin', ch.x, ch.y - 10, true); // #97 chest loot is per-player: don't mirror
       const tier = Monsters.tierFor(g.floorNum, g.room.dist);
       g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35 }), x: ch.x, y: ch.y + 34, t: 0 });
       if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3 }), x: ch.x - 50, y: ch.y + 20, t: 0 });
-      if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y);
+      if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y, true); // #97 chest loot is per-player: don't mirror
       p.addXp(10, g);
     }
 
