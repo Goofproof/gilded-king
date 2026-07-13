@@ -16,7 +16,7 @@ const PlayerDef = (() => {
       q: 'Shield Bash',  qDesc: 'A shockwave that knocks enemies back and wraps you in a shield.' },
     { id: 'ranger',  name: 'Ranger',     color: '#6ee7a0', icon: '»', arch: 'bow',
       desc: 'Starts with a bow. +12% move speed and +5% crit chance.', fx: { spd: 0.12, critCh: 0.05 },
-      q: 'Tumble Volley', qDesc: 'An evasive roll with i-frames that refunds your dodge.' },
+      q: 'Tumble Volley', qDesc: 'An evasive roll you cannot be hit during, and it refunds your dodge.' },
     { id: 'mage',    name: 'Mage',       color: '#b06bff', icon: '✷', arch: 'wand',
       desc: 'Starts with a wand. Magic 3 and +15% spell power.', magic: 3, fx: { spellPower: 0.15 },
       q: 'Arcane Nova',  qDesc: 'A wide burst of arcane force that guts everything around you.' },

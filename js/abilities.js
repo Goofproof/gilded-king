@@ -76,7 +76,7 @@ const Abilities = (() => {
       if (a.knock) bits.push('knockback');
       if (a.coinScale) bits.push('scales with coins');
     } else if (a.kind === 'dash') {
-      bits.push(`Dash forward through enemies for ${dmg}, with i-frames`);
+      bits.push(`Dash through enemies for ${dmg} - you cannot be hit mid-dash`);
       if (a.refundRoll) bits.push('refunds your roll');
     } else if (a.kind === 'buff') {
       if (a.heal) bits.push(`Heal ${Math.round(a.heal * 100)}% max HP`);

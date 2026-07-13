@@ -172,22 +172,22 @@ const Evolutions = (() => {
     // -------------------------------------------------- ACROBAT (roll)
     roll: {
       3: [
-        { name: 'Saccadic Masking', desc: 'Your brain edits out the blur: +0.16s of i-frames on every roll', fx: { phantomStep: 0.16 } },
+        { name: 'Saccadic Masking', desc: 'Your brain edits out the blur: +0.16s longer invincible on every roll', fx: { phantomStep: 0.16 } },
         { name: 'Ukemi', desc: 'The judoka\'s art of falling: kills refund 0.25s of roll cooldown', fx: { rollReset: 0.25 } },
         { name: 'Crumple Zone', desc: 'Built to absorb the hit: take 9% less damage', fx: { reduce: 0.09 } },
       ],
       6: [
-        { name: 'Escapology', desc: 'Houdini\'s trade: +0.24s of i-frames on every roll', fx: { phantomStep: 0.24 } },
+        { name: 'Escapology', desc: 'Houdini\'s trade: +0.24s longer invincible on every roll', fx: { phantomStep: 0.24 } },
         { name: 'Flywheel Effect', desc: 'Kills refund 0.5s of roll cooldown', fx: { rollReset: 0.5 } },
         { name: 'Pangolin Gambit', desc: 'Roll like armor: rolling through enemies deals 40 damage', fx: { rollNova: 40 } },
       ],
       9: [
         { name: 'Vestibular Overclock', desc: 'Inner ear, outer limits: -25% roll cooldown', fx: { rollCd: 0.25 } },
         { name: 'Boulder of Sisyphus', desc: 'Let them feel the rock: rolling through enemies deals 70 damage', fx: { rollNova: 70 } },
-        { name: 'Matador\'s Veronica', desc: 'The slowest, closest pass: +0.3s roll i-frames, -14% cooldown', fx: { phantomStep: 0.3, rollCd: 0.14 } },
+        { name: 'Matador\'s Veronica', desc: 'The slowest, closest pass: +0.3s invincible roll, -14% cooldown', fx: { phantomStep: 0.3, rollCd: 0.14 } },
       ],
       12: [
-        { name: 'Heisenberg Uncertainty', desc: 'Position unknowable: +0.5s of i-frames on every roll', fx: { phantomStep: 0.5 } },
+        { name: 'Heisenberg Uncertainty', desc: 'Position unknowable: +0.5s longer invincible on every roll', fx: { phantomStep: 0.5 } },
         { name: 'Human Cannonball', desc: 'Rolling through enemies deals 120 damage', fx: { rollNova: 120 } },
         { name: 'Perpetuum Mobile', desc: 'The impossible machine: kills refund 0.8s, -25% roll cooldown', fx: { rollReset: 0.8, rollCd: 0.25 } },
       ],

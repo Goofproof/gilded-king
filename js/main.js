@@ -24,7 +24,7 @@
     // AGILITY - nimble / evasion
     { key: 'spd',      icon: '»', color: '#7fd4ff', name: 'Fleet',      desc: '+7% move speed',         stat: 'AGILITY' },
     { key: 'roll',     icon: '↻', color: '#7fd4ff', name: 'Acrobat',    desc: '-12% roll cooldown',     stat: 'AGILITY' },
-    { key: 'reflexes', icon: '➶', color: '#7fe0ff', name: 'Reflexes',   desc: '+0.05s roll i-frames',   stat: 'AGILITY', fx: { phantomStep: 0.05 } },
+    { key: 'reflexes', icon: '➶', color: '#7fe0ff', name: 'Reflexes',   desc: '+0.05s longer invincible roll',   stat: 'AGILITY', fx: { phantomStep: 0.05 } },
     // ARCANE - spellcasting
     { key: 'magic',    icon: '✷', color: '#b06bff', name: 'Attunement', desc: '+1 Magic (stronger wands/staffs)', stat: 'ARCANE' },
     { key: 'focus',    icon: '❋', color: '#b06bff', name: 'Focus',      desc: '+15% spell power',       stat: 'ARCANE',  fx: { spellPower: 0.15 } },
