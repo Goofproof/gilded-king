@@ -2893,6 +2893,18 @@
           for (const m of [...g.monsters]) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) m.takeHit(e.dmg, { sx: e.x, sy: e.y, knock: 260, crit: true, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
           g.ultFx.splice(i, 1);
         }
+      } else if (e.type === 'lob') {
+        // #66 an ENEMY lobbed bomb: on landing it blasts the PLAYER + allies, not monsters
+        if (e.t >= e.delay) {
+          Fx.shake(6, 0.25); Sfx.play('explode');
+          Fx.burst(e.x, e.y, ['#ff5a2c', '#ffcc44', '#fff'], 30, { speed: 280, life: 0.5, glow: true });
+          const p = g.player;
+          if (p && !p.dead && Math.hypot(p.x - e.x, p.y - e.y) < e.radius + p.r) p.damage(e.dmg, e.x, e.y, g);
+          for (const merc of g.mercs) if (!merc.dead && Math.hypot(merc.x - e.x, merc.y - e.y) < e.radius) damageMerc(merc, e.dmg);
+          for (const tr of g.turrets) if (!tr.dead && Math.hypot(tr.x - e.x, tr.y - e.y) < e.radius) { tr.hp -= e.dmg; tr.flash = 0.12; }
+          if (g.summon && !g.summon.dead && Math.hypot(g.summon.x - e.x, g.summon.y - e.y) < e.radius) g.summon.hp -= e.dmg;
+          g.ultFx.splice(i, 1);
+        }
       } else if (e.type === 'storm') {
         e.next -= dt;
         if (e.done < e.strikes && e.next <= 0 && e.t < e.dur) {
@@ -2929,6 +2941,15 @@
         const rockY = e.y - (1 - k) * 320;
         c.fillStyle = '#5a3520'; c.beginPath(); c.arc(e.x, rockY, 11, 0, Math.PI * 2); c.fill();
         c.fillStyle = '#ff8a3d'; c.beginPath(); c.arc(e.x, rockY, 5, 0, Math.PI * 2); c.fill();
+      } else if (e.type === 'lob') {
+        // #66 landing telegraph ring + the arcing bomb flying from the lobber to the spot
+        const k = Math.min(1, e.t / e.delay);
+        c.strokeStyle = `rgba(255,90,44,${0.45 + 0.4 * Math.abs(Math.sin(g.time * 16))})`; c.lineWidth = 2.5;
+        c.beginPath(); c.arc(e.x, e.y, e.radius * (0.55 + 0.45 * k), 0, Math.PI * 2); c.stroke();
+        const bx = (e.sx != null ? e.sx : e.x) + (e.x - (e.sx != null ? e.sx : e.x)) * k;
+        const by = (e.sy != null ? e.sy : e.y) + (e.y - (e.sy != null ? e.sy : e.y)) * k - Math.sin(k * Math.PI) * 90;
+        c.fillStyle = '#2a1810'; c.beginPath(); c.arc(bx, by, 5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#ffe08a'; c.beginPath(); c.arc(bx + 1.5, by - 5, 1.8 + Math.random(), 0, Math.PI * 2); c.fill(); // fuse spark
       } else if (e.type === 'poison') {
         c.save(); c.globalAlpha = 0.2 * Math.min(1, (e.dur - e.t) * 1.5); c.fillStyle = e.color;
         c.beginPath(); c.arc(e.x, e.y, 155, 0, Math.PI * 2); c.fill(); c.restore();

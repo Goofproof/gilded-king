@@ -35,15 +35,18 @@ const Monsters = (() => {
     worm:     { hp: 64, dmg: 11, speed: 112, r: 12, xp: 11, coins: [2, 5] },
     // a body segment set loose when a worm's head dies - small, fast, scatters
     wormling: { hp: 7,  dmg: 6,  speed: 165, r: 8,  xp: 1,  coins: [0, 1] },
+    // #66 lobber: ranged artillery that kites and LOBS arcing bombs over walls/obstacles,
+    // landing where you stand (telegraphed) - punishes standing still behind cover
+    lobber:   { hp: 48, dmg: 16, speed: 64,  r: 14, xp: 11, coins: [3, 6] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'swarmer'],
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -304,6 +307,22 @@ const Monsters = (() => {
             fireProjectile(g, m, m.facing, 330, m.dmg, '#cfe8b0', 4);
             Sfx.play('bowfire');
           }
+        }
+        break;
+      }
+      case 'lobber': {
+        // #66 artillery: kite to mid-range, then LOB an arcing bomb over any walls/
+        // obstacles that lands where you're standing (telegraphed ~1s, so keep moving)
+        const ideal = 230;
+        if (dist < ideal - 40) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
+        else if (dist > ideal + 70) moveToward(m, p.x, p.y, dt, m.speed * 0.8);
+        m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'draw') { m.telegraph = 0.5 - (m.t - m.lobStart); if (m.t - m.lobStart >= 0.5) m.state = 'idle'; }
+        m.lobT = (m.lobT || 0) + dt;
+        if (m.lobT > 2.6 && dist < 400 && m.state !== 'draw') {
+          m.lobT = 0; m.state = 'draw'; m.lobStart = m.t;
+          g.ultFx.push({ type: 'lob', x: p.x, y: p.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
+          Sfx.play('bowfire');
         }
         break;
       }
@@ -779,6 +798,7 @@ const Monsters = (() => {
     switch (m.type) {
       case 'chaser': drawChaser(c, m, flash, ex, ey); break;
       case 'archer': drawArcher(c, m, flash, ex, ey); break;
+      case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
       case 'wormling': drawWormling(c, m, flash, ex, ey); break;
@@ -904,6 +924,19 @@ const Monsters = (() => {
     c.beginPath(); c.moveTo(m.r * 0.7, m.r * 0.5); c.lineTo(m.r * 1.3, m.r * 0.7); c.stroke();
     c.restore();
     eyes(c, ex, ey, 3.4, 1.9, '#fff');
+  }
+  function drawLobber(c, m, flash, ex, ey) {
+    // #66 a squat mortar-gunner: dark body, an upward tube, and a lit bomb it hoists
+    // while winding up (m.state === 'draw')
+    body(c, m, flash ? '#fff' : '#6a4a2a', flash);
+    c.save(); c.rotate(m.facing);                       // stubby barrel toward the player
+    c.fillStyle = flash ? '#fff' : '#3a3f48'; c.fillRect(m.r * 0.2, -4, m.r * 1.05, 8);
+    c.restore();
+    const lit = m.state === 'draw';
+    c.fillStyle = lit ? '#ff7a2c' : '#2a1810';          // the bomb, hoisted overhead
+    c.beginPath(); c.arc(0, -m.r - 4, 4.6, 0, Math.PI * 2); c.fill();
+    if (lit) { c.fillStyle = '#ffe08a'; c.beginPath(); c.arc(2, -m.r - 8, 2 + Math.random() * 1.6, 0, Math.PI * 2); c.fill(); }
+    eyes(c, ex, ey, 4, 2.2, '#ffb060');
   }
   function drawPulser(c, m, flash, ex, ey) {
     // a throbbing violet core wrapped in concentric rings; swells while charging
