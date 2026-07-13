@@ -287,15 +287,9 @@ const PlayerDef = (() => {
     recordEvoPick(statKey) {
       this.evoHistory.push(statKey);
       this.evoCount++;
-      if (typeof Abilities === 'undefined') return;
-      // Q is the class ability (set at construct). Your first two EVOLUTIONS fuse into
-      // R, and once R exists the ULTIMATE (right-click) is class-Q + R.
-      if (this.evoHistory.length === 2 && !this.abilityR) {
-        this.abilityR = Abilities.build(this.evoHistory[0], this.evoHistory[1]);
-        // the ULTIMATE is offered a couple of character levels LATER (not the same
-        // moment R lands) so it isn't information overload - see updatePlay
-        this.ultAtLevel = this.level + 2;
-      }
+      // Q is the class ability. Your first two EVOLUTIONS forge R - but as a CHOICE of
+      // three (#84), opened from applyEvolutionChoice, not auto-built here. The ULTIMATE
+      // (right-click) is offered a couple levels after you pick R.
     }
 
     // the stat you've invested in most - drives the visual evolution's colour

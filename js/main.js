@@ -1438,6 +1438,7 @@
       case 'levelup': g.overlayT += dt; if (peekCharSheet()) break; updateLevelUp(dt); break;
       case 'evolution': g.overlayT += dt; if (peekCharSheet()) break; updateEvolution(); break;
       case 'ultpick': g.overlayT += dt; if (peekCharSheet()) break; updateUltPick(); break;
+      case 'rpick': g.overlayT += dt; if (peekCharSheet()) break; updateRPick(); break;
       case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
       case 'pause':
         g.overlayT += dt;
@@ -1610,7 +1611,7 @@
       if (m.to !== Net.id || !g.player || g.player.dead) return;
       // frozen on any menu/overlay -> shielded (can't dodge). Includes pause + the
       // character sheet, which a first-timer WILL open assuming it's safe.
-      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' ||
+      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'rpick' ||
           g.state === 'levelwait' || g.state === 'pause' || g.state === 'charsheet') return;
       g.player.damage(m.dmg, m.sx, m.sy, g);
     });
@@ -1747,7 +1748,7 @@
     if (!room || room === g.room) return;
     // #32: don't yank a player out of a level-up/evolution/ultimate/gate overlay
     // (that would discard their in-progress pick). Defer the follow until they resume.
-    if (!initiator && (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'levelwait')) {
+    if (!initiator && (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'rpick' || g.state === 'levelwait')) {
       g.pendingCoopRoom = { gx, gy, dir };
       return;
     }
@@ -2368,14 +2369,44 @@
     Sfx.play('levelup');
     Fx.text(p.x, p.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
     Fx.burst(p.x, p.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
-    // the moment the 2nd evolution lands, R is forged (Q is your class ability)
-    if (p.evoHistory.length === 2 && p.abilityR) {
-      Fx.text(p.x, p.y - 58, `R: ${p.abilityR.name.toUpperCase()}`, p.abilityR.color, 15);
-      Sfx.play('roar');
-    }
     g.evoChoices = null;
-    // (the ultimate is offered later, from updatePlay, a couple levels after R lands)
+    // #84 the 2nd evolution FORGES R - offer three candidates to choose from (like the
+    // ultimate) instead of auto-assigning. The ultimate is offered a couple levels later.
+    if (p.evoHistory.length === 2 && !p.abilityR) {
+      g.rChoices = Abilities.rOptions(p.evoHistory);
+      g.hoverChoice = -1; g.state = 'rpick'; g.overlayT = 0;
+      p.drawT = -1; Sfx.play('roar');
+      return;
+    }
     g.state = 'play';
+  }
+
+  function applyRChoice(r) {
+    const p = g.player;
+    p.abilityR = Object.assign({ cd: 0 }, r);
+    p.ultAtLevel = p.level + 2; // the ultimate is offered a couple levels after R lands
+    g.rChoices = null;
+    Sfx.play('levelup');
+    Fx.text(p.x, p.y - 40, `R: ${r.name.toUpperCase()}`, r.color, 15);
+    Fx.burst(p.x, p.y, [r.color, '#fff', '#ffd24c'], 30, { speed: 220, life: 0.8, glow: true });
+    g.state = 'play';
+  }
+
+  function updateRPick() {
+    const opts = g.rChoices, n = opts.length;
+    if (g.hoverChoice < 0) g.hoverChoice = 0;
+    if (input.pressed('KeyA') || input.pressed('ArrowLeft')) { g.hoverChoice = (g.hoverChoice + n - 1) % n; Sfx.play('ui'); }
+    if (input.pressed('KeyD') || input.pressed('ArrowRight')) { g.hoverChoice = (g.hoverChoice + 1) % n; Sfx.play('ui'); }
+    for (const r of g.uiRects) {
+      const over = input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h;
+      if (!over) continue;
+      if (input.mouse.moved) g.hoverChoice = r.idx;
+      if (input.mouse.clicked) { applyRChoice(opts[r.idx]); return; }
+    }
+    if ((input.pressed('Space') || input.pressed('Enter')) && opts[g.hoverChoice]) { applyRChoice(opts[g.hoverChoice]); return; }
+    if (input.pressed('Digit1') && opts[0]) { applyRChoice(opts[0]); return; }
+    if (input.pressed('Digit2') && opts[1]) { applyRChoice(opts[1]); return; }
+    if (input.pressed('Digit3') && opts[2]) { applyRChoice(opts[2]); return; }
   }
 
   function applyUltChoice(ult) {
@@ -2902,6 +2933,7 @@
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
+    if (g.state === 'rpick') g.uiRects = UI.drawRPick(c, g);
     if (g.state === 'levelwait') drawLevelWait(c);
     if (g.state === 'pause') g.uiRects = UI.drawPause(c, g);
     if (g.state === 'charsheet') g.uiRects = UI.drawCharSheet(c, g);

@@ -170,5 +170,23 @@ const Abilities = (() => {
     return out;
   }
 
-  return { build, buildUltimates, classAbility, rollUltimates, describe, ACTIONS, MODS, CLASS_Q, ULTIMATES };
+  // #84 three DISTINCT R candidates forged from your first two evolution picks: the
+  // two orderings (action from one, modifier from the other) plus Prime variants, then
+  // filled with pairings against common stats so you always get three real choices.
+  function rOptions(hist) {
+    const A = hist[0], B = hist[1];
+    const seeds = [[A, B], [B, A], [A, A], [B, B]];
+    for (const k of ['dmg', 'crit', 'hp', 'spd', 'magic', 'roll', 'coin', 'regen', 'atkspd']) { seeds.push([A, k]); seeds.push([k, B]); }
+    const out = [], seen = new Set();
+    for (const [x, y] of seeds) {
+      if (!x || !y) continue;
+      const r = build(x, y);
+      if (seen.has(r.name)) continue;
+      seen.add(r.name); out.push(r);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }
+
+  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, ACTIONS, MODS, CLASS_Q, ULTIMATES };
 })();

@@ -290,16 +290,23 @@ const UI = (() => {
   // --- EVOLUTION CHOICE (Sam's system: stack a stat to 3/6/9/12) --------------------
   // the ULTIMATE picker: choose 1 of 3 ultimates forged from your Q + R abilities
   function drawUltPick(c, g) {
-    const opts = g.ultChoices || [];
+    return drawPickPanel(c, g, g.ultChoices || [], 'CHOOSE YOUR ULTIMATE', 'pick one · RIGHT-CLICK unleashes it in battle', '#ff2fb0');
+  }
+  // #84 R is now a choice of three, forged from your first two evolutions
+  function drawRPick(c, g) {
+    return drawPickPanel(c, g, g.rChoices || [], 'FORGE YOUR R ABILITY', 'your first two evolutions fuse - pick one · press R to cast', '#b88aff');
+  }
+  // shared 3-card picker used by the ultimate + R selection screens
+  function drawPickPanel(c, g, opts, title, subtitle, accent) {
     const e = overlayEase(g);
     c.save();
     c.globalAlpha = e;
     c.fillStyle = 'rgba(5,5,12,0.86)'; c.fillRect(0, 0, W, H);
     c.textAlign = 'center';
-    c.font = 'bold 24px monospace'; c.fillStyle = '#ff2fb0';
-    c.fillText('CHOOSE YOUR ULTIMATE', W / 2, 92);
+    c.font = 'bold 24px monospace'; c.fillStyle = accent;
+    c.fillText(title, W / 2, 92);
     c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('pick one · RIGHT-CLICK unleashes it in battle', W / 2, 116);
+    c.fillText(subtitle, W / 2, 116);
     const cardW = 250, cardH = 210, gap = 22, y = 168;
     const totalW = opts.length * cardW + (opts.length - 1) * gap;
     let cx = (W - totalW) / 2;
@@ -1486,5 +1493,5 @@ const UI = (() => {
     return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette };
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette };
 })();
