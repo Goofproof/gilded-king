@@ -1073,30 +1073,54 @@ const UI = (() => {
     c.fillText('A/D move · SPACE pick · (or click / 1-2-3)', W / 2, 158);
 
     const n = g.levelChoices.length;
-    const cardW = 210, cardH = 150, gap = 24;
+    const cardW = 210, cardH = 172, gap = 24;
     const totalW = n * cardW + (n - 1) * gap;
     const rects = [];
+    const stacksOf = k => (g.player.upgradeStacks && g.player.upgradeStacks[k]) || 0;
     for (let i = 0; i < n; i++) {
       const ch = g.levelChoices[i];
-      const x = (W - totalW) / 2 + i * (cardW + gap), y = 200;
+      const x = (W - totalW) / 2 + i * (cardW + gap), y = 190;
       const hov = g.hoverChoice === i;
       c.fillStyle = hov ? 'rgba(255,210,76,0.12)' : 'rgba(255,255,255,0.05)';
       c.fillRect(x, y, cardW, cardH);
       c.strokeStyle = hov ? '#ffd24c' : '#5a6478';
       c.lineWidth = hov ? 2.5 : 1.5;
       c.strokeRect(x, y, cardW, cardH);
+      // keybind hint tucked in the top-left corner (freed the bottom for evo progress)
+      c.textAlign = 'left'; c.font = 'bold 12px monospace'; c.fillStyle = '#5a6478';
+      c.fillText(`${i + 1}`, x + 10, y + 18);
+      c.textAlign = 'center';
       c.font = 'bold 30px monospace';
       c.fillStyle = ch.color;
-      c.fillText(ch.icon, x + cardW / 2, y + 52);
+      c.fillText(ch.icon, x + cardW / 2, y + 50);
       c.font = 'bold 14px monospace';
       c.fillStyle = '#fff';
-      c.fillText(ch.name, x + cardW / 2, y + 84);
+      c.fillText(ch.name, x + cardW / 2, y + 80);
       c.font = '12px monospace';
       c.fillStyle = '#9fb0c8';
-      wrapText(c, ch.desc, x + cardW / 2, y + 106, cardW - 20, 15);
-      c.font = 'bold 13px monospace';
-      c.fillStyle = '#5a6478';
-      c.fillText(`${i + 1}`, x + cardW / 2, y + cardH - 10);
+      wrapText(c, ch.desc, x + cardW / 2, y + 102, cardW - 20, 15);
+      // #64 evolution progress: every 3 picks of a stat forge a new evolution tier.
+      // Show how many you've banked toward the next one, and flag the pick that trips it.
+      if (ch.key) {
+        const stacks = stacksOf(ch.key), inTier = stacks % 3, owned = Math.floor(stacks / 3);
+        const evolves = inTier === 2;                          // this pick completes a set of 3
+        const py = y + cardH - 34;
+        for (let p = 0; p < 3; p++) {
+          const on = p < inTier;
+          c.fillStyle = on ? ch.color : 'rgba(255,255,255,0.16)';
+          c.beginPath(); c.arc(x + cardW / 2 - 16 + p * 16, py, 4.2, 0, Math.PI * 2); c.fill();
+          if (!on) { c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 1; c.stroke(); }
+        }
+        c.font = 'bold 10px monospace';
+        if (evolves) {
+          c.fillStyle = '#ffd24c';
+          c.fillText('EVOLVES ON THIS PICK', x + cardW / 2, py + 20);
+        } else {
+          c.fillStyle = '#7a8698';
+          const romans = ['', ' I', ' II', ' III', ' IV'];
+          c.fillText(`${inTier}/3 to next evolution${owned > 0 ? ' ·' + romans[Math.min(4, owned)] + ' owned' : ''}`, x + cardW / 2, py + 20);
+        }
+      }
       rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i }); // hitbox tracks the drift
     }
     // continuous paid reroll (10g, then +1g each time this run)
@@ -1104,7 +1128,7 @@ const UI = (() => {
       const cost = 10 + (g.rerollCount || 0);
       const afford = g.player && g.player.coins >= cost;
       const deny = (g.rerollDenyT || 0) > 0;
-      const rr = { x: W / 2 - 120, y: 385, w: 240, h: 34, reroll: true };
+      const rr = { x: W / 2 - 120, y: 392, w: 240, h: 34, reroll: true };
       const col = deny ? '#ff6b6b' : (afford ? '#7fd4ff' : '#556');
       c.strokeStyle = col; c.lineWidth = 1.5;
       c.strokeRect(rr.x, rr.y, rr.w, rr.h);
