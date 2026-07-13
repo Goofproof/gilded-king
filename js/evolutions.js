@@ -293,5 +293,44 @@ const Evolutions = (() => {
     return (TABLE[statKey] && TABLE[statKey][stacks]) || null;
   }
 
-  return { TABLE, STAT_NAMES, STAT_SCHOOL, SCHOOL_COLOR, TIER_LABEL, optionsFor };
+  // ============================================================================
+  // #stat-redesign (Sam, 2026-07-12): FIVE base stats. Each is fed by several
+  // level-up "skill" cards; picking ANY of a stat's cards advances that ONE stat,
+  // and at 3/6/9/12 points its evolution opens - drawn from the evolution trees of
+  // the sub-stats it owns. So three different MIGHT picks (damage, crit, atk-speed)
+  // in any order forge the MIGHT evolution; you never re-pick the same card.
+  // ============================================================================
+  const STATS = ['MIGHT', 'VIGOR', 'AGILITY', 'ARCANE', 'FORTUNE'];
+  const STAT_TREES = {
+    MIGHT:   ['dmg', 'crit', 'atkspd'], // kill fast
+    VIGOR:   ['hp', 'regen'],           // stay alive
+    AGILITY: ['spd', 'roll'],           // nimble / evasion
+    ARCANE:  ['magic'],                 // spellcasting
+    FORTUNE: ['coin'],                  // luck / economy
+  };
+  const STAT_COLOR = { MIGHT: '#ffd24c', VIGOR: '#6ee7a0', AGILITY: '#7fd4ff', ARCANE: '#b06bff', FORTUNE: '#ffce54' };
+  const STAT_BLURB = { MIGHT: 'kill fast', VIGOR: 'stay alive', AGILITY: 'nimble & evasive', ARCANE: 'spellcasting', FORTUNE: 'luck & economy' };
+  // reverse map: sub-stat evolution-tree key -> its base stat (for the char sheet)
+  const STAT_OF = {};
+  for (const s in STAT_TREES) for (const k of STAT_TREES[s]) STAT_OF[k] = s;
+
+  // the evolution menu for a base stat: guarantee one option from each sub-tree it
+  // owns (so you always see the flavors you invested in), then fill up to 3.
+  function optionsForStat(stat, stacks) {
+    const trees = STAT_TREES[stat];
+    if (!trees) return null;
+    const byTree = trees.map(tk => ((TABLE[tk] && TABLE[tk][stacks]) || []).map(o => ({ ...o, statKey: tk })));
+    if (byTree.every(a => a.length === 0)) return null; // past tier IV: no more evolutions
+    const out = [], rest = [];
+    for (const arr of byTree) {
+      if (!arr.length) continue;
+      const i = (Math.random() * arr.length) | 0;
+      out.push(arr[i]);
+      arr.forEach((o, j) => { if (j !== i) rest.push(o); });
+    }
+    while (out.length < 3 && rest.length) out.push(rest.splice((Math.random() * rest.length) | 0, 1)[0]);
+    return out.slice(0, 3);
+  }
+
+  return { TABLE, STAT_NAMES, STAT_SCHOOL, SCHOOL_COLOR, TIER_LABEL, optionsFor, STATS, STAT_TREES, STAT_COLOR, STAT_BLURB, STAT_OF, optionsForStat };
 })();

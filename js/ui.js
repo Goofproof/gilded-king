@@ -341,8 +341,8 @@ const UI = (() => {
     c.fillRect(0, -30, W, H + 60);
     c.textAlign = 'center';
     c.font = 'bold 30px monospace';
-    c.fillStyle = '#b88aff';
-    c.fillText(`${Evolutions.STAT_NAMES[ev.key]} EVOLUTION ${Evolutions.TIER_LABEL[ev.stacks]}`, W / 2, 118);
+    c.fillStyle = Evolutions.STAT_COLOR[ev.stat] || '#b88aff';
+    c.fillText(`${ev.stat} EVOLUTION ${Evolutions.TIER_LABEL[ev.stacks]}`, W / 2, 118);
     c.font = '13px monospace';
     c.fillStyle = '#8fa3bf';
     c.fillText('your training crystallizes into something stranger - choose', W / 2, 146);
@@ -363,6 +363,11 @@ const UI = (() => {
       c.font = 'bold 15px monospace';
       c.fillStyle = '#e8d5ff';
       wrapText(c, opt.name, x + cardW / 2, y + 34, cardW - 24, 19);
+      // which sub-stat lineage this option comes from (e.g. DEADLY within a MIGHT menu)
+      if (opt.statKey && Evolutions.STAT_NAMES[opt.statKey]) {
+        c.font = '10px monospace'; c.fillStyle = (Evolutions.STAT_COLOR[ev.stat] || '#b88aff') + 'cc';
+        c.fillText(Evolutions.STAT_NAMES[opt.statKey], x + cardW / 2, y + 62);
+      }
       c.font = '12px monospace';
       c.fillStyle = '#9fb0c8';
       wrapText(c, opt.desc, x + cardW / 2, y + 92, cardW - 26, 16);
@@ -1099,26 +1104,32 @@ const UI = (() => {
       c.font = '12px monospace';
       c.fillStyle = '#9fb0c8';
       wrapText(c, ch.desc, x + cardW / 2, y + 102, cardW - 20, 15);
-      // #64 evolution progress: every 3 picks of a stat forge a new evolution tier.
-      // Show how many you've banked toward the next one, and flag the pick that trips it.
-      if (ch.key) {
-        const stacks = stacksOf(ch.key), inTier = stacks % 3, owned = Math.floor(stacks / 3);
+      // #64/#stat-redesign evolution progress: this card feeds a base STAT; every 3
+      // points in that stat (from ANY of its cards) forge a new evolution tier.
+      const stat = ch.stat || (typeof Evolutions !== 'undefined' && Evolutions.STAT_SCHOOL[ch.key]);
+      if (stat) {
+        const scol = (typeof Evolutions !== 'undefined' && Evolutions.STAT_COLOR[stat]) || ch.color;
+        const stacks = (g.player.statPoints && g.player.statPoints[stat]) || 0;
+        const inTier = stacks % 3, owned = Math.floor(stacks / 3);
         const evolves = inTier === 2;                          // this pick completes a set of 3
-        const py = y + cardH - 34;
+        // "STAT +1" tag so you see the stat point you're banking
+        c.font = 'bold 10px monospace'; c.fillStyle = scol;
+        c.fillText(stat + ' +1', x + cardW / 2, y + cardH - 44);
+        const py = y + cardH - 30;
         for (let p = 0; p < 3; p++) {
           const on = p < inTier;
-          c.fillStyle = on ? ch.color : 'rgba(255,255,255,0.16)';
+          c.fillStyle = on ? scol : 'rgba(255,255,255,0.16)';
           c.beginPath(); c.arc(x + cardW / 2 - 16 + p * 16, py, 4.2, 0, Math.PI * 2); c.fill();
           if (!on) { c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 1; c.stroke(); }
         }
         c.font = 'bold 10px monospace';
         if (evolves) {
           c.fillStyle = '#ffd24c';
-          c.fillText('EVOLVES ON THIS PICK', x + cardW / 2, py + 20);
+          c.fillText('EVOLVES ON THIS PICK', x + cardW / 2, py + 18);
         } else {
           c.fillStyle = '#7a8698';
           const romans = ['', ' I', ' II', ' III', ' IV'];
-          c.fillText(`${inTier}/3 to next evolution${owned > 0 ? ' ·' + romans[Math.min(4, owned)] + ' owned' : ''}`, x + cardW / 2, py + 20);
+          c.fillText(`${inTier}/3 to ${stat} evo${owned > 0 ? ' ·' + romans[Math.min(4, owned)] : ''}`, x + cardW / 2, py + 18);
         }
       }
       rects.push({ x, y: y + dy, w: cardW, h: cardH, idx: i }); // hitbox tracks the drift
@@ -1250,22 +1261,25 @@ const UI = (() => {
     crit: '#ff5a7a', coin: '#ffd24c', regen: '#6ee7a0', atkspd: '#ffe08a',
     magic: '#b06bff',
   };
-  // #46 one-line note on how each stat reaches into another school (the "web" bridges)
+  // one-line note on how each stat reaches into another (the "web" bridges)
   const STAT_BRIDGE = {
-    dmg: 'Cursorial Hunter also grants move speed  (-> FLOW)',
+    dmg: 'Cursorial Hunter also grants move speed  (-> AGILITY)',
     crit: 'crit heal & bleed keep you alive  (-> VIGOR)',
-    atkspd: 'also speeds bow draws & staff casts  (-> ranged/FLOW)',
+    atkspd: 'also speeds bow draws & staff casts  (-> ranged)',
     hp: 'thorns & retaliation turn defense into damage  (-> MIGHT)',
     regen: 'Tardigrade & Lamprey also cut damage / boost low-HP',
     roll: 'roll-through damage (roll-nova) turns evasion into offense  (-> MIGHT)',
-    spd: 'the pickup magnet pulls coins to you  (-> FLOW economy)',
+    spd: 'roll wake & slipstream carry your speed  (AGILITY tempo)',
     coin: 'Midas turns hoarded coins into raw damage  (-> MIGHT)',
-    magic: 'every spell scales with the Magic stat  (FLOW arcane)',
+    magic: 'every spell scales with the Magic stat  (ARCANE)',
   };
+  // #stat-redesign: the char sheet groups the evolution sub-stats under the 5 base stats
   const CS_SCHOOLS = [
-    ['MIGHT', ['dmg', 'crit', 'atkspd']],
-    ['VIGOR', ['hp', 'regen', 'roll']],
-    ['FLOW',  ['spd', 'coin', 'magic']],
+    ['MIGHT',   ['dmg', 'crit', 'atkspd']],
+    ['VIGOR',   ['hp', 'regen']],
+    ['AGILITY', ['spd', 'roll']],
+    ['ARCANE',  ['magic']],
+    ['FORTUNE', ['coin']],
   ];
   // per-stat live derived value shown on its row
   function statValueStr(p, k) {
@@ -1297,11 +1311,10 @@ const UI = (() => {
     c.textAlign = 'center';
     c.font = 'bold 20px monospace'; c.fillStyle = '#dde3ee';
     c.fillText('CHARACTER', W / 2, py + 26);
-    // school legend under the title
+    // base-stat legend under the title (all 5)
     c.font = 'bold 11px monospace';
-    const legends = [['MIGHT', Evolutions.SCHOOL_COLOR.MIGHT], ['VIGOR', Evolutions.SCHOOL_COLOR.VIGOR], ['FLOW', Evolutions.SCHOOL_COLOR.FLOW]];
-    let lgx = W / 2 - 150;
-    for (const [nm, col] of legends) { c.fillStyle = col; c.textAlign = 'left'; c.fillText('■ ' + nm, lgx, py + 44); lgx += 100; }
+    let lgx = W / 2 - 250;
+    for (const s of Evolutions.STATS) { c.fillStyle = Evolutions.STAT_COLOR[s]; c.textAlign = 'left'; c.fillText('■ ' + s, lgx, py + 44); lgx += 100; }
 
     // which stat is drilled into (default: your most-stacked stat, else dmg)
     if (!g.charDetail || !Evolutions.STAT_NAMES[g.charDetail]) g.charDetail = (p.dominantStat && p.dominantStat()) || 'dmg';
@@ -1313,8 +1326,15 @@ const UI = (() => {
     let ly = py + 70;
     for (const [school, keys] of CS_SCHOOLS) {
       c.textAlign = 'left'; c.font = 'bold 12px monospace';
-      c.fillStyle = Evolutions.SCHOOL_COLOR[school];
-      c.fillText(school, colX, ly); ly += 20;
+      c.fillStyle = Evolutions.STAT_COLOR[school] || '#8fa3bf';
+      c.fillText(school, colX, ly);
+      // the base stat's evolution progress - ANY of its cards advances this
+      const sp = (p.statPoints && p.statPoints[school]) || 0;
+      const nextT = THRESH.find(t => t > sp);
+      c.font = 'bold 10px monospace'; c.fillStyle = '#9fb0c8'; c.textAlign = 'right';
+      c.fillText(nextT ? `evo ${sp}/${nextT}` : `evo ${sp} MAX`, colX + colW, ly);
+      c.textAlign = 'left';
+      ly += 20;
       for (const k of keys) {
         const n = (p.upgradeStacks && p.upgradeStacks[k]) || 0;
         const next = THRESH.find(t => t > n);
@@ -1354,15 +1374,16 @@ const UI = (() => {
     c.beginPath(); c.moveTo(dx, py + 60); c.lineTo(dx, py + ph - 20); c.stroke();
 
     // ===== RIGHT: drill-down on the selected stat's evolution tree =====
-    const k = g.charDetail, tree = Evolutions.TABLE[k], school = Evolutions.STAT_SCHOOL[k];
+    const k = g.charDetail, tree = Evolutions.TABLE[k], school = Evolutions.STAT_OF[k];
     const rx = dx + 26; let ry = py + 74;
-    const scol = Evolutions.SCHOOL_COLOR[school] || '#b88aff';
+    const scol = Evolutions.STAT_COLOR[school] || '#b88aff';
     const taken = new Set((p.evoTaken || []).filter(ev => ev.key === k).map(ev => ev.name));
-    const stacks = (p.upgradeStacks && p.upgradeStacks[k]) || 0;
+    // tiers unlock on the BASE STAT's points now (any of its cards), not per-key
+    const stacks = (p.statPoints && p.statPoints[school]) || 0;
     c.textAlign = 'left'; c.font = 'bold 15px monospace'; c.fillStyle = STAT_COL[k] || '#dde3ee';
     c.fillText(Evolutions.STAT_NAMES[k], rx, ry);
     c.font = 'bold 10px monospace'; c.fillStyle = scol;
-    c.fillText(school + ' SCHOOL', rx + 150, ry);
+    c.fillText(school + ' STAT', rx + 150, ry);
     ry += 18;
     c.font = 'italic 10px monospace'; c.fillStyle = '#8090a8';
     c.fillText(STAT_BRIDGE[k] || '', rx, ry); ry += 20;

@@ -8,16 +8,31 @@
   const ctx = canvas.getContext('2d');
 
   // --- LEVEL-UP UPGRADE POOL (in-run, resets each run) --------------------------
+  // #stat-redesign (Sam, 2026-07-12): every card is a SKILL tagged with the base
+  // STAT it governs. Picking any of a stat's cards adds a point to that stat, and
+  // at 3/6/9/12 stat points its evolution opens. Cards with an `fx` route through
+  // applyEvolution (engine-consumed fields); the rest use the switch in applyUpgrade.
   const UPGRADE_POOL = [
-    { key: 'hp',     icon: '♥', color: '#e05555', name: 'Tough',   desc: '+15 max health, heal 15' },
-    { key: 'dmg',    icon: '⚔', color: '#ffd24c', name: 'Brutal',  desc: '+10% damage' },
-    { key: 'spd',    icon: '»', color: '#7fd4ff', name: 'Fleet',   desc: '+7% move speed' },
-    { key: 'roll',   icon: '↻', color: '#7fd4ff', name: 'Acrobat', desc: '-12% roll cooldown' },
-    { key: 'crit',   icon: '✦', color: '#ffd24c', name: 'Deadly',  desc: '+6% crit chance' },
-    { key: 'coin',   icon: '●', color: '#ffd24c', name: 'Greedy',  desc: '+20% coins from kills' },
-    { key: 'regen',  icon: '✚', color: '#6ee7a0', name: 'Mending', desc: 'Regenerate 0.6 HP/s' },
-    { key: 'atkspd', icon: '≫', color: '#ff9a3d', name: 'Frenzy',  desc: '+10% attack speed' },
-    { key: 'magic',  icon: '✷', color: '#b06bff', name: 'Attunement', desc: '+1 Magic (wield stronger wands/staffs)' },
+    // MIGHT - kill fast
+    { key: 'dmg',      icon: '⚔', color: '#ffd24c', name: 'Brutal',     desc: '+10% damage',            stat: 'MIGHT' },
+    { key: 'crit',     icon: '✦', color: '#ffd24c', name: 'Deadly',     desc: '+6% crit chance',        stat: 'MIGHT' },
+    { key: 'atkspd',   icon: '≫', color: '#ff9a3d', name: 'Frenzy',     desc: '+10% attack speed',      stat: 'MIGHT' },
+    // VIGOR - stay alive
+    { key: 'hp',       icon: '♥', color: '#e05555', name: 'Tough',      desc: '+15 max health, heal 15', stat: 'VIGOR' },
+    { key: 'regen',    icon: '✚', color: '#6ee7a0', name: 'Mending',    desc: 'Regenerate 0.6 HP/s',    stat: 'VIGOR' },
+    { key: 'bulwark',  icon: '⛊', color: '#8fd0ff', name: 'Bulwark',    desc: 'Take 5% less damage',    stat: 'VIGOR',   fx: { reduce: 0.05 } },
+    // AGILITY - nimble / evasion
+    { key: 'spd',      icon: '»', color: '#7fd4ff', name: 'Fleet',      desc: '+7% move speed',         stat: 'AGILITY' },
+    { key: 'roll',     icon: '↻', color: '#7fd4ff', name: 'Acrobat',    desc: '-12% roll cooldown',     stat: 'AGILITY' },
+    { key: 'reflexes', icon: '➶', color: '#7fe0ff', name: 'Reflexes',   desc: '+0.05s roll i-frames',   stat: 'AGILITY', fx: { phantomStep: 0.05 } },
+    // ARCANE - spellcasting
+    { key: 'magic',    icon: '✷', color: '#b06bff', name: 'Attunement', desc: '+1 Magic (stronger wands/staffs)', stat: 'ARCANE' },
+    { key: 'focus',    icon: '❋', color: '#b06bff', name: 'Focus',      desc: '+15% spell power',       stat: 'ARCANE',  fx: { spellPower: 0.15 } },
+    { key: 'resonance',icon: '◎', color: '#c88bff', name: 'Resonance',  desc: '+25 spell blast radius', stat: 'ARCANE',  fx: { blastBonus: 25 } },
+    // FORTUNE - luck / economy
+    { key: 'coin',     icon: '●', color: '#ffce54', name: 'Greedy',     desc: '+20% coins from kills',  stat: 'FORTUNE' },
+    { key: 'bounty',   icon: '⦿', color: '#ffce54', name: 'Bounty',     desc: 'Elites drop +3 coins',   stat: 'FORTUNE', fx: { eliteCoins: 3 } },
+    { key: 'midas',    icon: '⟐', color: '#ffd24c', name: 'Midas',      desc: '+1 damage per 60 coins held', stat: 'FORTUNE', fx: { midasPer: 60, midasCap: 16 } },
   ];
 
   // --- SHOP TUNING ---------------------------------------------------------------
@@ -2193,10 +2208,10 @@
     // triggered the evolution should resolve before the next level-up card)
     if (g.evoQueue.length > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       const evo = g.evoQueue.shift();
-      const options = Evolutions.optionsFor(evo.key, evo.stacks);
+      const options = Evolutions.optionsForStat(evo.stat, evo.stacks);
       if (options) { // guard: an invalid queue entry (dbg typo) must never soft-lock
         beginLevelCycle();
-        g.evoChoices = { key: evo.key, stacks: evo.stacks, options };
+        g.evoChoices = { stat: evo.stat, stacks: evo.stacks, options };
         g.hoverChoice = -1;
         g.state = 'evolution';
         g.overlayT = 0;
@@ -2296,7 +2311,9 @@
 
   function applyUpgrade(ch) {
     const p = g.player, s = p.stats;
-    switch (ch.key) {
+    if (ch.fx) {
+      p.applyEvolution(ch.fx); // new feeder cards use engine-consumed fx fields
+    } else switch (ch.key) {
       case 'hp': p.maxHp += 15; p.hp = Math.min(p.maxHp, p.hp + 15); break;
       case 'dmg': s.dmgMul += 0.10; break;
       case 'spd': s.speedMul += 0.07; break;
@@ -2307,11 +2324,13 @@
       case 'atkspd': s.atkSpeedMul += 0.10; break;
       case 'magic': s.magic = (s.magic || 0) + 1; break; // #16 raise Magic to wield stronger wands/staffs
     }
-    // EVOLUTIONS (Sam's design): the 3rd/6th/9th/12th stack of a stat opens
-    // an evolution menu for it, immediately
-    p.upgradeStacks[ch.key] = (p.upgradeStacks[ch.key] || 0) + 1;
-    const stacks = p.upgradeStacks[ch.key];
-    if (Evolutions.optionsFor(ch.key, stacks)) g.evoQueue.push({ key: ch.key, stacks });
+    p.upgradeStacks[ch.key] = (p.upgradeStacks[ch.key] || 0) + 1; // per-card (body-part visuals)
+    // #stat-redesign: EVOLUTION triggers on the base STAT this card governs, so any
+    // mix of a stat's feeder cards (3/6/9/12 total) opens that stat's evolution.
+    const stat = ch.stat || Evolutions.STAT_SCHOOL[ch.key];
+    p.statPoints[stat] = (p.statPoints[stat] || 0) + 1;
+    const sp = p.statPoints[stat];
+    if (Evolutions.TIER_LABEL[sp]) g.evoQueue.push({ stat, stacks: sp });
     Sfx.play('upgrade');
     g.state = 'play';
   }
@@ -2319,8 +2338,10 @@
   function applyEvolutionChoice(opt) {
     const p = g.player;
     p.applyEvolution(opt.fx);
-    p.evoTaken.push({ key: g.evoChoices.key, name: opt.name, tier: Evolutions.TIER_LABEL[g.evoChoices.stacks] });
-    p.recordEvoPick(g.evoChoices.key); // first two picks fuse into the R ability
+    // #stat-redesign: the chosen option carries statKey = its origin sub-stat tree,
+    // so evoTaken + R-fusion keep receiving valid fine-grained keys (dmg/crit/...).
+    p.evoTaken.push({ key: opt.statKey, name: opt.name, tier: Evolutions.TIER_LABEL[g.evoChoices.stacks] });
+    p.recordEvoPick(opt.statKey); // first two picks fuse into the R ability
     Sfx.play('levelup');
     Fx.text(p.x, p.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
     Fx.burst(p.x, p.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });

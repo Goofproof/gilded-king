@@ -190,7 +190,8 @@ const PlayerDef = (() => {
       this.buffs = { shield: 0, rageT: 0, hasteT: 0 };
 
       // evolution system: stacks per upgrade key + accumulated fx primitives
-      this.upgradeStacks = {};
+      this.upgradeStacks = {};    // per-CARD count (drives body-part visuals)
+      this.statPoints = {};       // #stat-redesign: per-BASE-STAT count (drives evolution triggers)
       this.evo = {};              // summed fx (see evolutions.js legend)
       this.evoHistory = [];       // stat keys of evolutions in pick order
       this.evoTaken = [];         // {key,name,tier} of every evolution taken (character sheet)

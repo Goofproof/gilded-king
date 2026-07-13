@@ -25,6 +25,7 @@ const Abilities = (() => {
     coin:   { verb: 'Coin Storm',kind: 'nova',   color: '#ffd24c', dmg: 45,  radius: 175, knock: 180, coinScale: true, coinBurst: 8 },
     regen:  { verb: 'Bloom',     kind: 'buff',   color: '#6ee7a0', heal: 0.35, castShield: true },
     atkspd: { verb: 'Overclock', kind: 'buff',   color: '#ffe08a', rageAfter: 6, hasteAfter: 6 },
+    magic:  { verb: 'Arcane Surge', kind: 'nova', color: '#b06bff', dmg: 95, radius: 190, knock: 150 }, // #stat-redesign: ARCANE action (closes the "undefined" fusion bug)
   };
 
   // SECONDARY: the second evolution's stat picks the twist.
@@ -38,6 +39,7 @@ const Abilities = (() => {
     coin:   { tag: 'Gilded',   apply: a => { a.coinBurst = (a.coinBurst || 0) + 14; } },
     regen:  { tag: 'Vital',    apply: a => { a.healOnCast = (a.healOnCast || 0) + 0.18; } },
     atkspd: { tag: 'Frenzied', apply: a => { a.rageAfter = (a.rageAfter || 0) + 4; a.hasteAfter = (a.hasteAfter || 0) + 2; } },
+    magic:  { tag: 'Arcane',   apply: a => { a.dmgMul = (a.dmgMul || 1) * 1.3; a.radius = Math.round((a.radius || 0) * 1.15); } },
   };
 
   // same stat twice = a purified, amplified version of the pure action
