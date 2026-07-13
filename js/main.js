@@ -1169,8 +1169,15 @@
       g.shopMsg = { text: (p.turretCharges | 0) <= 0 ? 'No turret charges' : 'Turret limit reached', t: 1.2 };
       Sfx.play('error'); return;
     }
-    // #78 Summoner: can't resummon while the elemental is alive (its cd starts on death)
-    if (a.kind === 'summon' && g.summon && !g.summon.dead) { g.shopMsg = { text: 'Elemental still active', t: 1.2 }; Sfx.play('error'); return; }
+    // #78/#92 Summoner: while the elemental is alive Q no longer errors - once it's
+    // been out a moment, Q EMPOWERS the current elemental (earth=stone shield,
+    // fire=nova, lightning=chain storm, poison=toxic cloud) on its own cooldown.
+    if (a.kind === 'summon' && g.summon && !g.summon.dead) {
+      const s = g.summon;
+      if ((s.empowerCd || 0) > 0) { g.shopMsg = { text: `Empower charging (${Math.ceil(s.empowerCd)}s)`, t: 1.2 }; Sfx.play('error'); return; }
+      empowerSummon(s, p);
+      return;
+    }
     const dmgMul = a.dmgMul || 1;
     if (typeof Ach !== 'undefined') Ach.cast(a.ult ? 'ult' : (a === p.abilityR ? 'R' : 'Q'), g); // #86
     Sfx.play(a.ult ? 'roar' : 'heavy');
@@ -1510,7 +1517,49 @@
   function makeElemental(elem, x, y, scale) {
     const b = ELEM_BASE[elem] || ELEM_BASE.earth;
     const hp = Math.round(b.hp * scale);
-    return { elem, x, y, hp, maxHp: hp, dmg: Math.round(b.dmg * scale), speed: b.speed, r: b.r, range: b.range, atkRate: b.rate, atkCd: 0, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0 };
+    // #92 empowerCd: Q can re-empower the elemental only after it's been out a
+    // beat (6s), then on an 8s cooldown. shieldT: earth's stone-shield window.
+    return { elem, x, y, hp, maxHp: hp, dmg: Math.round(b.dmg * scale), speed: b.speed, r: b.r, range: b.range, atkRate: b.rate, atkCd: 0, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0, empowerCd: 6, empowerT: 0, shieldT: 0 };
+  }
+
+  // #92 Q re-empower: a distinct burst per element, then an 8s recharge. Damage
+  // reuses the elemental's own dmg (which scaled with ARCANE at summon time).
+  function empowerSummon(s, p) {
+    s.empowerCd = 8;
+    s.empowerT = 0.6;                    // brief empowered-flash for the sprite
+    const col = ELEM_COLOR[s.elem];
+    Fx.shake(5, 0.22); Sfx.play('roar');
+    Fx.burst(s.x, s.y, [col, '#fff'], 26, { speed: 220, life: 0.6, glow: true });
+    if (s.elem === 'earth') {
+      // STONE SHIELD: the golem hunkers behind rock - immune for a window, and it
+      // shares a shield charm with the summoner if they're close by
+      s.shieldT = 6;
+      Fx.text(s.x, s.y - s.r - 10, 'STONE SHIELD', '#a07a4a', 13);
+      if (p && Math.hypot(p.x - s.x, p.y - s.y) < 160) { p.buffs.shield = Math.max(p.buffs.shield || 0, 1); Fx.text(p.x, p.y - 28, 'SHIELDED', '#7fd4ff', 12); }
+    } else if (s.elem === 'fire') {
+      // FIRE NOVA: an expanding ring of flame around the elemental
+      const R = 150, dmg = Math.round(s.dmg * 2.2);
+      Fx.burst(s.x, s.y, ['#ff7a2c', '#ffcc44', '#fff'], 34, { speed: 320, life: 0.55, glow: true });
+      for (const m of g.monsters) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - s.x, m.y - s.y) < R + m.r) m.takeHit(dmg, { sx: s.x, sy: s.y, knock: 160, flame: 2, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
+      Fx.text(s.x, s.y - s.r - 10, 'FIRE NOVA', '#ff7a2c', 13);
+      Sfx.play('explode');
+    } else if (s.elem === 'lightning') {
+      // CHAIN STORM: a bolt lashes each of the nearest enemies
+      const dmg = Math.round(s.dmg * 1.8);
+      const near = g.monsters.filter(m => !m.dead && !m.airborne && m.spawnT <= 0 && Math.hypot(m.x - s.x, m.y - s.y) < 320)
+        .sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y)).slice(0, 6);
+      for (const m of near) {
+        m.takeHit(dmg, { sx: s.x, sy: s.y, chain: 1, fromPlayer: true, hitSfx: 'crit' }, g);
+        Fx.burst(m.x, m.y, ['#ffe27a', '#fff'], 12, { speed: 180, life: 0.35, glow: true });
+      }
+      Fx.text(s.x, s.y - s.r - 10, 'CHAIN STORM', '#ffe27a', 13);
+      Sfx.play('crit');
+    } else { // poison
+      // TOXIC CLOUD: a lingering poison field (reuses the player poison ultFx)
+      g.ultFx.push({ type: 'poison', x: s.x, y: s.y, t: 0, dur: 5, tick: 0, dps: Math.round(s.dmg * 1.4), color: '#8ef06e' });
+      Fx.text(s.x, s.y - s.r - 10, 'TOXIC CLOUD', '#8ef06e', 13);
+      Sfx.play('burn');
+    }
   }
   function killSummon(s) {
     if (s.dead) return;
@@ -1534,7 +1583,11 @@
     if (s.atkCd > 0) s.atkCd -= dt;
     if (s.flash > 0) s.flash -= dt;
     if (s.hurtCd > 0) s.hurtCd -= dt;
-    if (s.hurtCd <= 0) for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; if (Math.hypot(m.x - s.x, m.y - s.y) < m.r + s.r) { s.hp -= m.dmg; s.hurtCd = 0.5; s.flash = 0.12; break; } }
+    if (s.empowerCd > 0) s.empowerCd -= dt; // #92 Q re-empower recharge
+    if (s.empowerT > 0) s.empowerT -= dt;
+    if (s.shieldT > 0) s.shieldT -= dt;     // earth stone-shield: immune while up
+    // #92 the stone shield eats contact damage entirely
+    if (s.shieldT <= 0 && s.hurtCd <= 0) for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; if (Math.hypot(m.x - s.x, m.y - s.y) < m.r + s.r) { s.hp -= m.dmg; s.hurtCd = 0.5; s.flash = 0.12; break; } }
     if (s.hp <= 0) { killSummon(s); return; }
     let target = null, td = 1e9;
     for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; const d = Math.hypot(m.x - s.x, m.y - s.y); if (d < td) { td = d; target = m; } }
@@ -1566,7 +1619,9 @@
     const col = ELEM_COLOR[s.elem];
     c.save(); c.translate(s.x, s.y);
     c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, s.r * 0.8, s.r * 0.9, s.r * 0.35, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = s.flash > 0 ? '#fff' : col;
+    // #92 empower burst flash (a quick bright halo right after Q re-empowers)
+    if (s.empowerT > 0) { c.save(); c.globalAlpha = Math.min(1, s.empowerT * 1.6); c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, s.r + 6 + (0.6 - s.empowerT) * 40, 0, Math.PI * 2); c.stroke(); c.restore(); }
+    c.fillStyle = (s.flash > 0 || s.empowerT > 0) ? '#fff' : col;
     if (s.elem === 'earth') {
       // #91 a proper little EARTH ELEMENTAL: a hunched golem of stacked boulders
       // with mossy tops, cracked plating, stubby rock arms and glowing gem eyes.
@@ -1624,6 +1679,21 @@
     else if (s.elem === 'poison') { c.fillStyle = '#cfffb0'; c.beginPath(); c.arc(0, 0, s.r * 0.5, 0, Math.PI * 2); c.fill(); }
     c.restore();
     if (s.hp < s.maxHp) { const w = 22; c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(-w / 2, -s.r - 8, w, 3); c.fillStyle = s.hp / s.maxHp > 0.4 ? '#5cd65c' : '#e05555'; c.fillRect(-w / 2, -s.r - 8, w * Math.max(0, s.hp / s.maxHp), 3); }
+    // #92 stone-shield: a rotating ring of rock shards while the shield is up
+    if (s.shieldT > 0) {
+      c.save();
+      c.globalAlpha = 0.5 + Math.sin(Date.now() / 120) * 0.2;
+      c.rotate(s.t * 1.5);
+      c.fillStyle = '#8f6b45'; c.strokeStyle = '#5b4128'; c.lineWidth = 1;
+      const rr = s.r + 8;
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        c.save(); c.translate(Math.cos(a) * rr, Math.sin(a) * rr); c.rotate(a);
+        c.beginPath(); c.moveTo(-3, -3); c.lineTo(3, -4); c.lineTo(4, 3); c.lineTo(-3, 4); c.closePath();
+        c.fill(); c.stroke(); c.restore();
+      }
+      c.restore();
+    }
     c.restore();
   }
   function drawMerc(c, merc) {
