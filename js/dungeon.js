@@ -160,7 +160,10 @@ const Dungeon = (() => {
           for (const dir in r.doors) { const dp = doorPt(dir); if (Math.hypot(x - dp.x, y - dp.y) < 88) return; } // never seal a door lane
           r.obstacles.push({ x, y, r: rad });
         };
-        const layout = ['scatter', 'scatter', 'pillars', 'ring', 'corners', 'columns'][(rnd() * 6) | 0];
+        // wall layouts (split / cross / chevron / chambers) carve the room into real
+        // SHAPES; the push() guards auto-gap them at the centre + every door lane so
+        // they stay passable and never seal a door.
+        const layout = ['scatter', 'pillars', 'ring', 'corners', 'columns', 'split', 'cross', 'chevron', 'chambers'][(rnd() * 9) | 0];
         r.layout = layout;
         if (layout === 'pillars') {
           for (let gx = 0; gx < 3; gx++) for (let gy = 0; gy < 2; gy++) push(PF.x + PF.w * (0.26 + gx * 0.24), PF.y + PF.h * (0.30 + gy * 0.40), 15);
@@ -171,6 +174,19 @@ const Dungeon = (() => {
           for (const sx of [-1, 1]) for (const sy of [-1, 1]) { push(cx + sx * PF.w * 0.33, cy + sy * PF.h * 0.33, 24); push(cx + sx * PF.w * 0.24, cy + sy * PF.h * 0.30, 16); push(cx + sx * PF.w * 0.30, cy + sy * PF.h * 0.22, 16); }
         } else if (layout === 'columns') {
           for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) push(cx + sx * PF.w * 0.30, PF.y + PF.h * (0.26 + i * 0.24), 15);
+        } else if (layout === 'split') {
+          // a wall bisecting the room; the centre guard leaves a doorway between halves
+          const horiz = rnd() < 0.5;
+          for (let t = 0.1; t <= 0.9; t += 0.055) { if (horiz) push(PF.x + PF.w * t, cy, 16); else push(cx, PF.y + PF.h * t, 16); }
+        } else if (layout === 'cross') {
+          for (let t = 0.12; t <= 0.88; t += 0.06) { push(PF.x + PF.w * t, cy, 15); push(cx, PF.y + PF.h * t, 15); }
+        } else if (layout === 'chevron') {
+          // two angled walls funnelling toward the centre
+          for (let t = 0.08; t <= 0.5; t += 0.055) { push(PF.x + PF.w * t, PF.y + PF.h * (0.18 + t * 0.62), 15); push(PF.x + PF.w * (1 - t), PF.y + PF.h * (0.18 + t * 0.62), 15); }
+        } else if (layout === 'chambers') {
+          // an off-centre wall with a single chokepoint gap
+          const wx = PF.x + PF.w * (rnd() < 0.5 ? 0.37 : 0.63), gapY = PF.y + PF.h * (0.28 + rnd() * 0.44);
+          for (let y = PF.y + 70; y < PF.y + PF.h - 70; y += 25) { if (Math.abs(y - gapY) < 58) continue; push(wx, y, 15); }
         } else {
           const n = OBSTACLES_PER_COMBAT[0] + ((rnd() * (OBSTACLES_PER_COMBAT[1] - OBSTACLES_PER_COMBAT[0] + 1)) | 0);
           for (let i = 0; i < n; i++) push(PF.x + 90 + rnd() * (PF.w - 180), PF.y + 90 + rnd() * (PF.h - 180), 16 + rnd() * 12);
