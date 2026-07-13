@@ -105,6 +105,104 @@ const PlayerDef = (() => {
     c.restore();
   }
 
+  // #98 the class's signature headgear, drawn at the origin (caller has already
+  // translated to the head centre). Module-level so REMOTE players render it too,
+  // not just the local body. r is the head radius (13 for peers, this.r locally).
+  function classFeature(c, id, r) {
+    if (id === 'warrior') {
+      // a steel helm: domed skull, raised comb crest, a nasal guard down the face
+      c.fillStyle = '#8b929c';                                   // steel dome
+      c.beginPath(); c.arc(0, -r * 0.62, r * 0.72, Math.PI, 0); c.fill();
+      c.fillStyle = '#aab2bd';                                   // lit top-left highlight
+      c.beginPath(); c.arc(-r * 0.16, -r * 0.72, r * 0.42, Math.PI, Math.PI * 1.7); c.fill();
+      c.fillStyle = '#5c626c';                                   // brow band
+      c.fillRect(-r * 0.72, -r * 0.66, r * 1.44, r * 0.2);
+      c.fillStyle = '#c9a227';                                   // gold crest comb
+      c.beginPath();
+      c.moveTo(-r * 0.5, -r * 1.05); c.quadraticCurveTo(0, -r * 1.5, r * 0.5, -r * 1.05);
+      c.lineTo(r * 0.32, -r * 0.98); c.quadraticCurveTo(0, -r * 1.28, -r * 0.32, -r * 0.98);
+      c.closePath(); c.fill();
+      c.fillStyle = '#7a828d'; c.fillRect(-r * 0.09, -r * 0.66, r * 0.18, r * 0.72); // nasal guard
+      c.strokeStyle = '#3f444c'; c.lineWidth = 1.2;
+      c.beginPath(); c.arc(0, -r * 0.62, r * 0.72, Math.PI, 0); c.stroke();
+    } else if (id === 'ranger') {
+      // green cap + a feather sweeping up and back
+      c.fillStyle = '#2f6b46';
+      c.beginPath(); c.arc(0, -r * 0.72, r * 0.6, Math.PI * 1.04, -Math.PI * 0.04); c.fill();
+      c.fillStyle = '#26543a';
+      c.beginPath(); c.ellipse(0, -r * 0.7, r * 0.72, r * 0.18, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#8ef0a8'; c.lineWidth = 2.4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-r * 0.2, -r * 1.0); c.quadraticCurveTo(-r * 0.95, -r * 1.5, -r * 0.7, -r * 1.98); c.stroke();
+    } else if (id === 'mage') {
+      // a full pointed wizard hat: wide brim, tall bent cone, a band and a gold star
+      c.fillStyle = '#2a1840';
+      c.beginPath(); c.ellipse(0, -r * 0.55, r * 1.05, r * 0.26, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#4a2d70';
+      c.beginPath();
+      c.moveTo(-r * 0.72, -r * 0.6);
+      c.quadraticCurveTo(-r * 0.35, -r * 1.6, r * 0.55, -r * 2.2); // up to a bent tip
+      c.quadraticCurveTo(-r * 0.05, -r * 1.25, r * 0.72, -r * 0.6);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#2a1840'; c.lineWidth = 1; c.stroke();
+      c.fillStyle = '#6b48a0'; c.fillRect(-r * 0.6, -r * 0.78, r * 1.2, r * 0.16); // hatband
+      c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-r * 0.05, -r * 1.15, 2.1, 0, Math.PI * 2); c.fill();
+    } else if (id === 'rogue') {
+      // a dark cowl hooding the head, open at the face, with a faint gold trim
+      c.fillStyle = '#221d13';
+      c.beginPath();
+      c.moveTo(-r * 0.95, r * 0.15);
+      c.quadraticCurveTo(-r * 1.05, -r * 1.15, 0, -r * 1.18);
+      c.quadraticCurveTo(r * 1.05, -r * 1.15, r * 0.95, r * 0.15);
+      c.quadraticCurveTo(r * 0.55, -r * 0.15, 0, -r * 0.2);
+      c.quadraticCurveTo(-r * 0.55, -r * 0.15, -r * 0.95, r * 0.15);
+      c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(201,162,39,0.6)'; c.lineWidth = 1; c.stroke();
+    } else if (id === 'barbarian') {
+      // a fur cap crowned with two curved bone horns
+      c.fillStyle = '#5a3a22';
+      c.beginPath(); c.arc(0, -r * 0.55, r * 0.66, Math.PI, 0); c.fill();
+      c.fillStyle = '#7a5233';
+      c.beginPath(); c.ellipse(0, -r * 0.5, r * 0.72, r * 0.2, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#e8e0cf';
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * r * 0.5, -r * 0.7); c.quadraticCurveTo(s * r * 1.1, -r * 1.1, s * r * 0.8, -r * 1.6); c.quadraticCurveTo(s * r * 0.7, -r * 1.1, s * r * 0.35, -r * 0.75); c.closePath(); c.fill(); }
+    } else if (id === 'paladin') {
+      // a crested helm with a floating halo
+      c.fillStyle = '#c9cdd6';
+      c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
+      c.fillStyle = '#ffd24c';
+      c.beginPath(); c.moveTo(-r * 0.12, -r * 1.0); c.lineTo(0, -r * 1.5); c.lineTo(r * 0.12, -r * 1.0); c.closePath(); c.fill();
+      c.strokeStyle = '#ffe08a'; c.lineWidth = 2; c.globalAlpha = 0.9;
+      c.beginPath(); c.ellipse(0, -r * 1.35, r * 0.6, r * 0.2, 0, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1;
+    } else if (id === 'cleric') {
+      // a white-and-gold hood with a small holy cross
+      c.fillStyle = '#e8eef0';
+      c.beginPath();
+      c.moveTo(-r * 0.9, r * 0.1); c.quadraticCurveTo(-r * 1.0, -r * 1.1, 0, -r * 1.12);
+      c.quadraticCurveTo(r * 1.0, -r * 1.1, r * 0.9, r * 0.1);
+      c.quadraticCurveTo(r * 0.5, -r * 0.18, 0, -r * 0.22);
+      c.quadraticCurveTo(-r * 0.5, -r * 0.18, -r * 0.9, r * 0.1);
+      c.closePath(); c.fill();
+      c.fillStyle = '#ffd24c';
+      c.fillRect(-r * 0.09, -r * 1.05, r * 0.18, r * 0.42); c.fillRect(-r * 0.24, -r * 0.92, r * 0.48, r * 0.16);
+    } else if (id === 'engineer') {
+      // a yellow hard hat with a brim
+      c.fillStyle = '#e0a91e'; c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
+      c.fillStyle = '#c9931a'; c.fillRect(-r * 0.78, -r * 0.55, r * 1.56, r * 0.12);
+      c.fillStyle = '#b8841a'; c.fillRect(-r * 0.07, -r * 1.15, r * 0.14, r * 0.55);
+    } else if (id === 'summoner') {
+      // a deep-blue hood + a small floating orb above
+      c.fillStyle = '#2a4a70';
+      c.beginPath();
+      c.moveTo(-r * 0.92, r * 0.12); c.quadraticCurveTo(-r * 1.02, -r * 1.05, 0, -r * 1.08);
+      c.quadraticCurveTo(r * 1.02, -r * 1.05, r * 0.92, r * 0.12);
+      c.quadraticCurveTo(r * 0.5, -r * 0.15, 0, -r * 0.2);
+      c.quadraticCurveTo(-r * 0.5, -r * 0.15, -r * 0.92, r * 0.12); c.closePath(); c.fill();
+      c.fillStyle = '#9ad0ff'; c.globalAlpha = 0.5 + Math.sin(Date.now() / 300) * 0.3;
+      c.beginPath(); c.arc(0, -r * 1.7, r * 0.28, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+    }
+    // adventurer: no signature look (plain champion)
+  }
+
   // #71 a class portrait for the character-select screen: a little bust wearing the
   // class's signature headgear, so players pick by picture instead of a cryptic glyph.
   // (cx,cy) is the head centre; s is the head radius.
@@ -1091,109 +1189,7 @@ const PlayerDef = (() => {
 
     // #52 the class's signature headwear/armor, in the fixed body frame
     drawClassFeature(c) {
-      const r = this.r;
-      const id = (this.class && this.class.id) || '';
-      if (id === 'warrior') {
-        // a steel helm: domed skull, raised comb crest, a nasal guard down the face
-        c.fillStyle = '#8b929c';                                   // steel dome
-        c.beginPath(); c.arc(0, -r * 0.62, r * 0.72, Math.PI, 0); c.fill();
-        c.fillStyle = '#aab2bd';                                   // lit top-left highlight
-        c.beginPath(); c.arc(-r * 0.16, -r * 0.72, r * 0.42, Math.PI, Math.PI * 1.7); c.fill();
-        c.fillStyle = '#5c626c';                                   // brow band
-        c.fillRect(-r * 0.72, -r * 0.66, r * 1.44, r * 0.2);
-        c.fillStyle = '#c9a227';                                   // gold crest comb
-        c.beginPath();
-        c.moveTo(-r * 0.5, -r * 1.05); c.quadraticCurveTo(0, -r * 1.5, r * 0.5, -r * 1.05);
-        c.lineTo(r * 0.32, -r * 0.98); c.quadraticCurveTo(0, -r * 1.28, -r * 0.32, -r * 0.98);
-        c.closePath(); c.fill();
-        c.fillStyle = '#7a828d'; c.fillRect(-r * 0.09, -r * 0.66, r * 0.18, r * 0.72); // nasal guard
-        c.strokeStyle = '#3f444c'; c.lineWidth = 1.2;
-        c.beginPath(); c.arc(0, -r * 0.62, r * 0.72, Math.PI, 0); c.stroke();
-        // (legacy pauldron code kept below but disabled via the false guard)
-        if (false) for (const s of [-1, 1]) {
-          c.save(); c.scale(s, 1);
-          c.fillStyle = '#b06a28';
-          c.beginPath(); c.ellipse(r * 0.8, 1, r * 0.42, r * 0.3, -0.35, 0, Math.PI * 2); c.fill();
-          c.strokeStyle = '#6e3f14'; c.lineWidth = 1.5; c.stroke();
-          c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(r * 0.8, 1, 1.6, 0, Math.PI * 2); c.fill();
-          c.restore();
-        }
-      } else if (id === 'ranger') {
-        // green cap + a feather sweeping up and back
-        c.fillStyle = '#2f6b46';
-        c.beginPath(); c.arc(0, -r * 0.72, r * 0.6, Math.PI * 1.04, -Math.PI * 0.04); c.fill();
-        c.fillStyle = '#26543a';
-        c.beginPath(); c.ellipse(0, -r * 0.7, r * 0.72, r * 0.18, 0, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = '#8ef0a8'; c.lineWidth = 2.4; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(-r * 0.2, -r * 1.0); c.quadraticCurveTo(-r * 0.95, -r * 1.5, -r * 0.7, -r * 1.98); c.stroke();
-      } else if (id === 'mage') {
-        // a full pointed wizard hat: wide brim, tall bent cone, a band and a gold star
-        c.fillStyle = '#2a1840';
-        c.beginPath(); c.ellipse(0, -r * 0.55, r * 1.05, r * 0.26, 0, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#4a2d70';
-        c.beginPath();
-        c.moveTo(-r * 0.72, -r * 0.6);
-        c.quadraticCurveTo(-r * 0.35, -r * 1.6, r * 0.55, -r * 2.2); // up to a bent tip
-        c.quadraticCurveTo(-r * 0.05, -r * 1.25, r * 0.72, -r * 0.6);
-        c.closePath(); c.fill();
-        c.strokeStyle = '#2a1840'; c.lineWidth = 1; c.stroke();
-        c.fillStyle = '#6b48a0'; c.fillRect(-r * 0.6, -r * 0.78, r * 1.2, r * 0.16); // hatband
-        c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-r * 0.05, -r * 1.15, 2.1, 0, Math.PI * 2); c.fill();
-      } else if (id === 'rogue') {
-        // a dark cowl hooding the head, open at the face, with a faint gold trim
-        c.fillStyle = '#221d13';
-        c.beginPath();
-        c.moveTo(-r * 0.95, r * 0.15);
-        c.quadraticCurveTo(-r * 1.05, -r * 1.15, 0, -r * 1.18);
-        c.quadraticCurveTo(r * 1.05, -r * 1.15, r * 0.95, r * 0.15);
-        c.quadraticCurveTo(r * 0.55, -r * 0.15, 0, -r * 0.2);
-        c.quadraticCurveTo(-r * 0.55, -r * 0.15, -r * 0.95, r * 0.15);
-        c.closePath(); c.fill();
-        c.strokeStyle = 'rgba(201,162,39,0.6)'; c.lineWidth = 1; c.stroke();
-      } else if (id === 'barbarian') {
-        // a fur cap crowned with two curved bone horns
-        c.fillStyle = '#5a3a22';
-        c.beginPath(); c.arc(0, -r * 0.55, r * 0.66, Math.PI, 0); c.fill();
-        c.fillStyle = '#7a5233';
-        c.beginPath(); c.ellipse(0, -r * 0.5, r * 0.72, r * 0.2, 0, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#e8e0cf';
-        for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * r * 0.5, -r * 0.7); c.quadraticCurveTo(s * r * 1.1, -r * 1.1, s * r * 0.8, -r * 1.6); c.quadraticCurveTo(s * r * 0.7, -r * 1.1, s * r * 0.35, -r * 0.75); c.closePath(); c.fill(); }
-      } else if (id === 'paladin') {
-        // a crested helm with a floating halo
-        c.fillStyle = '#c9cdd6';
-        c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
-        c.fillStyle = '#ffd24c';
-        c.beginPath(); c.moveTo(-r * 0.12, -r * 1.0); c.lineTo(0, -r * 1.5); c.lineTo(r * 0.12, -r * 1.0); c.closePath(); c.fill();
-        c.strokeStyle = '#ffe08a'; c.lineWidth = 2; c.globalAlpha = 0.9;
-        c.beginPath(); c.ellipse(0, -r * 1.35, r * 0.6, r * 0.2, 0, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1;
-      } else if (id === 'cleric') {
-        // a white-and-gold hood with a small holy cross
-        c.fillStyle = '#e8eef0';
-        c.beginPath();
-        c.moveTo(-r * 0.9, r * 0.1); c.quadraticCurveTo(-r * 1.0, -r * 1.1, 0, -r * 1.12);
-        c.quadraticCurveTo(r * 1.0, -r * 1.1, r * 0.9, r * 0.1);
-        c.quadraticCurveTo(r * 0.5, -r * 0.18, 0, -r * 0.22);
-        c.quadraticCurveTo(-r * 0.5, -r * 0.18, -r * 0.9, r * 0.1);
-        c.closePath(); c.fill();
-        c.fillStyle = '#ffd24c';
-        c.fillRect(-r * 0.09, -r * 1.05, r * 0.18, r * 0.42); c.fillRect(-r * 0.24, -r * 0.92, r * 0.48, r * 0.16);
-      } else if (id === 'engineer') {
-        // a yellow hard hat with a brim
-        c.fillStyle = '#e0a91e'; c.beginPath(); c.arc(0, -r * 0.5, r * 0.7, Math.PI, 0); c.fill();
-        c.fillStyle = '#c9931a'; c.fillRect(-r * 0.78, -r * 0.55, r * 1.56, r * 0.12);
-        c.fillStyle = '#b8841a'; c.fillRect(-r * 0.07, -r * 1.15, r * 0.14, r * 0.55);
-      } else if (id === 'summoner') {
-        // a deep-blue hood + a small floating orb above
-        c.fillStyle = '#2a4a70';
-        c.beginPath();
-        c.moveTo(-r * 0.92, r * 0.12); c.quadraticCurveTo(-r * 1.02, -r * 1.05, 0, -r * 1.08);
-        c.quadraticCurveTo(r * 1.02, -r * 1.05, r * 0.92, r * 0.12);
-        c.quadraticCurveTo(r * 0.5, -r * 0.15, 0, -r * 0.2);
-        c.quadraticCurveTo(-r * 0.5, -r * 0.15, -r * 0.92, r * 0.12); c.closePath(); c.fill();
-        c.fillStyle = '#9ad0ff'; c.globalAlpha = 0.5 + Math.sin(Date.now() / 300) * 0.3;
-        c.beginPath(); c.arc(0, -r * 1.7, r * 0.28, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
-      }
-      // adventurer: no signature look (plain champion)
+      classFeature(c, (this.class && this.class.id) || '', this.r);
     }
 
     // #22: physical evolution features. Each stat you've evolved (>=3 stacks, i.e.
@@ -1472,5 +1468,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById, capeAt, peerWeapon, drawClassPortrait };
+  return { Player, T, CLASSES, classById, capeAt, peerWeapon, classFeature, drawClassPortrait };
 })();

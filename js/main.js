@@ -73,6 +73,19 @@
   ];
   const SCORE_CAP = 50;
   const validScore = e => e && typeof e.score === 'number' && isFinite(e.score);
+  // #99 a stable per-device id that survives reconnects. The relay hands out a new
+  // peer id each time you rejoin, which is what spawns clone ghosts; this uid lets
+  // the 'p' handler recognize "same player, new connection" and evict the stale copy.
+  function coopClientId() {
+    // sessionStorage (not localStorage): survives a reload/reconnect in THIS tab, but
+    // stays distinct per tab - so two players sharing one browser profile never
+    // false-merge, and a reconnecting player still evicts its own stale ghost.
+    try {
+      let id = sessionStorage.getItem('drl_cid');
+      if (!id) { id = 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); sessionStorage.setItem('drl_cid', id); }
+      return id;
+    } catch { return 'c' + Math.random().toString(36).slice(2, 10); }
+  }
   function loadScores() {
     let stored = [];
     try { const s = JSON.parse(localStorage.getItem('drl_scores')); if (Array.isArray(s)) stored = s.filter(validScore); } catch { }
@@ -187,6 +200,7 @@
     initials: null, afterInitials: 'dead', newScoreRank: 0, showScores: false, showPatch: false, showMythics: false, scores: loadScores(),
     // --- co-op (multiplayer) ---
     coop: false,                 // true during a networked run
+    clientId: coopClientId(),    // #99 stable per-device id, survives reconnect (dedups clone ghosts)
     coopSeed: 0,                 // shared floor seed for the co-op party
     netMobId: 0,                 // host-assigned monster ids (for co-op sync)
     netGearId: 0,                // #96 shared ids for kill-drop gear so grabbing one despawns it for the whole party
@@ -2053,7 +2067,11 @@
       rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
+      rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
       rp.last = g.time;
+      // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
+      // lingers. Evict any OTHER entry that shares this stable uid so it can't clone.
+      if (m.u) for (const [k, other] of g.remotePlayers) { if (k !== m.from && other.u === m.u) g.remotePlayers.delete(k); }
     });
     Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
     // P1-C: downed / revive / party-wipe game-over
@@ -2278,13 +2296,18 @@
       wa: p.weapon ? p.weapon.archetype : 'light',  // so peers can draw your weapon
       pr: (g.meta.prestige || 0),                     // so peers can draw your prestige cape
       mv: p.moving ? 1 : 0,                            // so your cape waves for others too
+      cl: (p.class && p.class.id) || '',              // #98 so peers render your class headgear
+      u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
     });
   }
 
   // smooth remote players toward their last reported position
   function interpRemotes(dt) {
     const k = Math.min(1, dt * 12);
-    for (const rp of g.remotePlayers.values()) {
+    for (const [id, rp] of g.remotePlayers) {
+      // #99 hard backstop: a peer that stops sending 'p' for 5s is gone - evict it so
+      // a stale ghost can never persist as a clone (peer-leave usually beats this).
+      if (g.time - (rp.last || 0) > 5) { g.remotePlayers.delete(id); dropFromLevelGate(id); continue; }
       if (rp.tx !== undefined) { rp.x += (rp.tx - rp.x) * k; rp.y += (rp.ty - rp.y) * k; }
       if (rp.swing) { rp.swing.t += dt; if (rp.swing.t >= rp.swing.dur) rp.swing = null; }
     }
@@ -2320,6 +2343,8 @@
       c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
       c.fillStyle = '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
       c.restore();
+      // #98 class headgear - so teammates see each other's class cosmetics
+      if (rp.cl && PlayerDef.classFeature) PlayerDef.classFeature(c, rp.cl, 13);
       // held weapon (aimed where they're facing) - so teammates see each other's weapons
       if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, 13);
       c.restore();
