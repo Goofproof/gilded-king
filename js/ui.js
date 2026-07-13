@@ -1075,7 +1075,7 @@ const UI = (() => {
     c.fillText(`LEVEL ${g.player.level}!`, W / 2, 130);
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('A/D move · SPACE pick · (or click / 1-2-3)', W / 2, 158);
+    c.fillText('A/D move · SPACE pick · click / 1-2-3 · C: character', W / 2, 158);
 
     const n = g.levelChoices.length;
     const cardW = 210, cardH = 172, gap = 24;

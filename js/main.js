@@ -1417,9 +1417,10 @@
       case 'title': updateTitle(); break;
       case 'lobby': updateLobby(); break;
       case 'play': updatePlay(dt); break;
-      case 'levelup': g.overlayT += dt; updateLevelUp(dt); break;
-      case 'evolution': g.overlayT += dt; updateEvolution(); break;
-      case 'ultpick': g.overlayT += dt; updateUltPick(); break;
+      // #85 press C during any pick to peek the character sheet, then return to the pick
+      case 'levelup': g.overlayT += dt; if (peekCharSheet()) break; updateLevelUp(dt); break;
+      case 'evolution': g.overlayT += dt; if (peekCharSheet()) break; updateEvolution(); break;
+      case 'ultpick': g.overlayT += dt; if (peekCharSheet()) break; updateUltPick(); break;
       case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
       case 'pause':
         g.overlayT += dt;
@@ -1440,7 +1441,9 @@
             }
           }
         }
-        if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) g.state = 'play';
+        // #85 close: return to whatever we peeked FROM (a level-up/evolution/ultimate
+        // pick), else back to play
+        if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) { g.state = g.charReturn || 'play'; g.charReturn = null; }
         break;
       case 'transition': updateTransition(dt); break;
       case 'bossintro': updateBossIntro(dt); break;
@@ -2363,6 +2366,13 @@
     Fx.text(p.x, p.y - 40, `ULTIMATE: ${ult.name}`, ult.color, 16);
     Fx.burst(p.x, p.y, [ult.color, '#fff', '#ffd24c'], 36, { speed: 240, life: 0.9, glow: true });
     g.state = 'play';
+  }
+
+  // #85 peek the character sheet from a level-up / evolution / ultimate pick; the
+  // charsheet close handler restores g.charReturn so you land back on the same pick
+  function peekCharSheet() {
+    if (input.pressed('KeyC')) { g.charReturn = g.state; g.state = 'charsheet'; g.overlayT = 0; return true; }
+    return false;
   }
 
   function updateUltPick() {
