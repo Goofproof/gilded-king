@@ -9,15 +9,20 @@ const PlayerDef = (() => {
   // so returning players lose nothing. The perk (fx) folds into evo -> mod().
   const CLASSES = [
     { id: '',        name: 'Adventurer', color: '#cdd4e2', icon: '?', arch: 'light',
-      desc: 'A balanced start. No bias, no perk - pure potential.' },
+      desc: 'A balanced start. No bias, no perk - pure potential.',
+      q: 'Adrenaline',   qDesc: 'A rush of rage and haste - hit harder and faster for a few seconds.' },
     { id: 'warrior', name: 'Warrior',    color: '#e0894a', icon: '⚔', arch: 'heavy',
-      desc: 'Starts with a heavy weapon. +20 max HP and takes 8% less damage.', hp: 20, fx: { reduce: 0.08 } },
+      desc: 'Starts with a heavy weapon. +20 max HP and takes 8% less damage.', hp: 20, fx: { reduce: 0.08 },
+      q: 'Shield Bash',  qDesc: 'A shockwave that knocks enemies back and wraps you in a shield.' },
     { id: 'ranger',  name: 'Ranger',     color: '#6ee7a0', icon: '»', arch: 'bow',
-      desc: 'Starts with a bow. +12% move speed and +5% crit chance.', fx: { spd: 0.12, critCh: 0.05 } },
+      desc: 'Starts with a bow. +12% move speed and +5% crit chance.', fx: { spd: 0.12, critCh: 0.05 },
+      q: 'Tumble Volley', qDesc: 'An evasive roll with i-frames that refunds your dodge.' },
     { id: 'mage',    name: 'Mage',       color: '#b06bff', icon: '✷', arch: 'wand',
-      desc: 'Starts with a wand. Magic 3 and +15% spell power.', magic: 3, fx: { spellPower: 0.15 } },
+      desc: 'Starts with a wand. Magic 3 and +15% spell power.', magic: 3, fx: { spellPower: 0.15 },
+      q: 'Arcane Nova',  qDesc: 'A wide burst of arcane force that guts everything around you.' },
     { id: 'rogue',   name: 'Rogue',      color: '#ffd24c', icon: '✦', arch: 'light',
-      desc: 'Starts with a dagger. +10% crit and rolls recharge 12% faster.', fx: { critCh: 0.10, rollCd: 0.12 } },
+      desc: 'Starts with a dagger. +10% crit and rolls recharge 12% faster.', fx: { critCh: 0.10, rollCd: 0.12 },
+      q: 'Eviscerate',   qDesc: 'A point-blank strike that always lands a critical hit.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -80,6 +85,63 @@ const PlayerDef = (() => {
       c.lineWidth = 4; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 1.15, 0); c.stroke();
     } else { // light
       c.lineWidth = 2.5; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 0.95, 0); c.stroke();
+    }
+    c.restore();
+  }
+
+  // #71 a class portrait for the character-select screen: a little bust wearing the
+  // class's signature headgear, so players pick by picture instead of a cryptic glyph.
+  // (cx,cy) is the head centre; s is the head radius.
+  function drawClassPortrait(c, cls, cx, cy, s) {
+    const id = cls.id || '';
+    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f' }[id] || '#5b6884';
+    c.save();
+    c.translate(cx, cy);
+    // shoulders / torso
+    c.fillStyle = bodyCol;
+    c.beginPath(); c.moveTo(-s * 1.25, s * 1.7); c.quadraticCurveTo(0, s * 0.28, s * 1.25, s * 1.7); c.closePath(); c.fill();
+    // head
+    c.fillStyle = '#e8d3b0';
+    c.beginPath(); c.arc(0, 0, s * 0.74, 0, Math.PI * 2); c.fill();
+    // eyes (a cowl hides these behind a shadow instead)
+    if (id !== 'rogue') {
+      c.fillStyle = '#33507a';
+      c.beginPath(); c.arc(-s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
+    }
+    if (id === 'warrior') {
+      c.fillStyle = '#8b929c'; c.beginPath(); c.arc(0, -s * 0.12, s * 0.82, Math.PI, 0); c.fill();       // dome
+      c.fillStyle = '#aab2bd'; c.beginPath(); c.arc(-s * 0.2, -s * 0.2, s * 0.46, Math.PI, Math.PI * 1.7); c.fill();
+      c.fillStyle = '#5c626c'; c.fillRect(-s * 0.82, -s * 0.2, s * 1.64, s * 0.24);                       // brow band
+      c.fillStyle = '#c9a227';                                                                            // gold crest
+      c.beginPath(); c.moveTo(-s * 0.5, -s * 0.72); c.quadraticCurveTo(0, -s * 1.28, s * 0.5, -s * 0.72);
+      c.lineTo(s * 0.3, -s * 0.64); c.quadraticCurveTo(0, -s * 1.04, -s * 0.3, -s * 0.64); c.closePath(); c.fill();
+      c.fillStyle = '#7a828d'; c.fillRect(-s * 0.1, -s * 0.16, s * 0.2, s * 0.7);                         // nasal guard
+    } else if (id === 'ranger') {
+      c.fillStyle = '#2f6b46'; c.beginPath(); c.arc(0, -s * 0.28, s * 0.7, Math.PI * 1.04, -Math.PI * 0.04); c.fill();
+      c.fillStyle = '#26543a'; c.beginPath(); c.ellipse(0, -s * 0.26, s * 0.82, s * 0.2, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#8ef0a8'; c.lineWidth = 2.4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-s * 0.2, -s * 0.58); c.quadraticCurveTo(-s * 0.95, -s * 1.1, -s * 0.68, -s * 1.55); c.stroke();
+    } else if (id === 'mage') {
+      c.fillStyle = '#2a1840'; c.beginPath(); c.ellipse(0, -s * 0.18, s * 1.06, s * 0.26, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#4a2d70'; c.beginPath();
+      c.moveTo(-s * 0.7, -s * 0.22); c.quadraticCurveTo(-s * 0.3, -s * 1.2, s * 0.5, -s * 1.72);
+      c.quadraticCurveTo(-s * 0.05, -s * 0.9, s * 0.72, -s * 0.22); c.closePath(); c.fill();
+      c.fillStyle = '#6b48a0'; c.fillRect(-s * 0.6, -s * 0.4, s * 1.2, s * 0.16);
+      c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-s * 0.04, -s * 0.82, s * 0.13, 0, Math.PI * 2); c.fill();
+    } else if (id === 'rogue') {
+      c.fillStyle = '#221d13'; c.beginPath();
+      c.moveTo(-s * 0.92, s * 0.2); c.quadraticCurveTo(-s * 1.02, -s * 0.98, 0, -s * 1.02);
+      c.quadraticCurveTo(s * 1.02, -s * 0.98, s * 0.92, s * 0.2);
+      c.quadraticCurveTo(s * 0.5, -s * 0.1, 0, -s * 0.16);
+      c.quadraticCurveTo(-s * 0.5, -s * 0.1, -s * 0.92, s * 0.2); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(201,162,39,0.6)'; c.lineWidth = 1; c.stroke();
+      c.fillStyle = '#ffd24c'; c.globalAlpha = 0.85;                                                      // glinting eyes in the hood
+      c.beginPath(); c.arc(-s * 0.24, -s * 0.06, s * 0.09, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.24, -s * 0.06, s * 0.09, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1;
+    } else {
+      c.fillStyle = '#6a5a44'; c.beginPath(); c.arc(0, -s * 0.34, s * 0.66, Math.PI, 0); c.fill();        // adventurer: simple hair
     }
     c.restore();
   }
@@ -970,8 +1032,23 @@ const PlayerDef = (() => {
       const r = this.r;
       const id = (this.class && this.class.id) || '';
       if (id === 'warrior') {
-        // bronze pauldrons on both shoulders with a gold rivet
-        for (const s of [-1, 1]) {
+        // a steel helm: domed skull, raised comb crest, a nasal guard down the face
+        c.fillStyle = '#8b929c';                                   // steel dome
+        c.beginPath(); c.arc(0, -r * 0.62, r * 0.72, Math.PI, 0); c.fill();
+        c.fillStyle = '#aab2bd';                                   // lit top-left highlight
+        c.beginPath(); c.arc(-r * 0.16, -r * 0.72, r * 0.42, Math.PI, Math.PI * 1.7); c.fill();
+        c.fillStyle = '#5c626c';                                   // brow band
+        c.fillRect(-r * 0.72, -r * 0.66, r * 1.44, r * 0.2);
+        c.fillStyle = '#c9a227';                                   // gold crest comb
+        c.beginPath();
+        c.moveTo(-r * 0.5, -r * 1.05); c.quadraticCurveTo(0, -r * 1.5, r * 0.5, -r * 1.05);
+        c.lineTo(r * 0.32, -r * 0.98); c.quadraticCurveTo(0, -r * 1.28, -r * 0.32, -r * 0.98);
+        c.closePath(); c.fill();
+        c.fillStyle = '#7a828d'; c.fillRect(-r * 0.09, -r * 0.66, r * 0.18, r * 0.72); // nasal guard
+        c.strokeStyle = '#3f444c'; c.lineWidth = 1.2;
+        c.beginPath(); c.arc(0, -r * 0.62, r * 0.72, Math.PI, 0); c.stroke();
+        // (legacy pauldron code kept below but disabled via the false guard)
+        if (false) for (const s of [-1, 1]) {
           c.save(); c.scale(s, 1);
           c.fillStyle = '#b06a28';
           c.beginPath(); c.ellipse(r * 0.8, 1, r * 0.42, r * 0.3, -0.35, 0, Math.PI * 2); c.fill();
@@ -1291,5 +1368,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById, capeAt, peerWeapon };
+  return { Player, T, CLASSES, classById, capeAt, peerWeapon, drawClassPortrait };
 })();
