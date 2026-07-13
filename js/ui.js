@@ -146,20 +146,21 @@ const UI = (() => {
   }
 
   // layout of the present ability key-caps, shared by the HUD + the hover tooltip
+  const ABILITY_S = 34; // #63 smaller badges, tucked bottom-right so they don't cover the south door/stairs
   function abilityBadges(p) {
-    const s = 46, gap = 10, list = [];
+    const s = ABILITY_S, gap = 8, list = [];
     if (p.ability) list.push({ a: p.ability, key: 'Q' });
     if (p.abilityR) list.push({ a: p.abilityR, key: 'R' });
     if (p.abilityUlt) list.push({ a: p.abilityUlt, key: '★' });
     const total = list.length * s + (list.length - 1) * gap;
-    let x = W / 2 - total / 2;
+    let x = W - total - 14; // bottom-RIGHT corner, out of the play area's centre
     for (const b of list) { b.x = x; b.y = H - s - 12; b.s = s; x += s + gap; }
     return list;
   }
 
-  // one ability key-cap: cooldown sweep + the key letter (Q/R/★ = left-click ult)
+  // one ability key-cap: cooldown sweep + the key letter (Q/R/★ = right-click ult)
   function drawAbility(c, a, key, x) {
-    const s = 46, y = H - s - 12;
+    const s = ABILITY_S, y = H - s - 12;
     const ready = a.cd <= 0;
     const k = a.cdMax > 0 ? Math.max(0, a.cd / a.cdMax) : 0;
     c.save();
