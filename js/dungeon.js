@@ -70,7 +70,12 @@ const Dungeon = (() => {
   // after, so solo play stays random.
   function generateFloor(floorNum, seed) {
     rnd = (seed === undefined || seed === null) ? Math.random : mulberry32((seed * 2654435761 + floorNum * 40503) | 0);
-    const target = BASE_ROOMS + PER_FLOOR * floorNum + ((rnd() * (RAND_ROOMS + 1)) | 0);
+    // Descent floors were sprawling (10 + 2*floor grows unbounded). They're meant to
+    // be tight, quick descents, so give them a small fixed count; cap the base floors.
+    const descent = typeof Descent !== 'undefined' && Descent.isDescent(floorNum);
+    const target = descent
+      ? 8 + ((rnd() * 3) | 0)                                                   // 8-10, tight
+      : Math.min(18, BASE_ROOMS + PER_FLOOR * floorNum + ((rnd() * (RAND_ROOMS + 1)) | 0));
     const grid = new Map();
     const start = makeRoom(0, 0);
     start.type = 'start';
