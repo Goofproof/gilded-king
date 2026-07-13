@@ -853,32 +853,55 @@ const PlayerDef = (() => {
       if (this.rollT < 0) this.drawWeapon(c);
     }
 
-    // #43 the prestige cape - a flowing royal mantle behind the champion. Its
-    // length, gold trim and glow escalate with prestige level (visual richness caps
-    // at ~tier 6 so it stays readable; the prestige NUMBER keeps climbing).
+    // #43 the prestige cape - a draped royal mantle behind the champion, built as
+    // two fold panels (a darker left, lighter right) with a scalloped hem, gold trim
+    // and a gold collar clasp, so it reads as real cloth instead of a blob. Length,
+    // richness and colour deepen with prestige (caps ~tier 6; the number keeps climbing).
     drawPrestigeCape(c, prestige) {
       const r = this.r;
       const t = Math.min(6, prestige);
-      const len = 1.15 + t * 0.12;                 // grows longer with prestige
-      // gentle billow, stronger while moving
-      const sway = Math.sin(Date.now() / 360 + this.x * 0.04) * (this.moving ? 0.22 : 0.09);
+      // #43 the cape catches the wind when you RUN: a bigger, faster, phase-shifted
+      // ripple while moving so it flaps and streams out; a gentle idle sway when still.
+      const now = Date.now();
+      const running = this.moving;
+      const amp = running ? 11 : 2.5;              // billow amplitude
+      const freq = running ? 200 : 430;            // faster flap when running
+      const ph = now / freq + this.x * 0.05;
+      const swayL = Math.sin(ph) * amp;            // left hem
+      const swayR = Math.sin(ph + 1.2) * amp;      // right hem, offset -> a travelling ripple
+      const midW = Math.sin(ph + 0.6) * amp * 0.6; // hem centre notch waggles too
+      const L = r * (2.1 + t * 0.14) + (running ? r * 0.5 : 0); // streams longer when running
+      const tw = r * 0.5;                           // half-width at the collar
+      const bw = r * (1.05 + t * 0.05);             // half-width at the hem
+      const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
+      const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
       c.save();
-      c.globalAlpha = 0.92;
-      // deepening royal cloth (crimson -> deep violet at high prestige)
-      c.fillStyle = t >= 5 ? '#3a1150' : t >= 3 ? '#4a1030' : '#5a132e';
+      // left fold (darker)
+      c.fillStyle = dark;
       c.beginPath();
-      c.moveTo(-r * 0.72, -r * 0.3);
-      c.quadraticCurveTo(-r * (1.15 + len) * (1 + sway), r * (0.4 + len * 0.6), -r * 0.55, r * (1.45 + len));
-      c.quadraticCurveTo(0, r * (1.7 + len), r * 0.55, r * (1.45 + len));
-      c.quadraticCurveTo(r * (1.15 + len) * (1 - sway), r * (0.4 + len * 0.6), r * 0.72, -r * 0.3);
+      c.moveTo(0, -r * 0.2); c.lineTo(-tw, -r * 0.16);
+      c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
+      c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
       c.closePath(); c.fill();
-      // gold trim, thicker with prestige
-      c.strokeStyle = '#e8b52f'; c.lineWidth = 1.2 + t * 0.35;
+      // right fold (lighter, catches the light)
+      c.fillStyle = lite;
+      c.beginPath();
+      c.moveTo(0, -r * 0.2); c.lineTo(tw, -r * 0.16);
+      c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, bw + swayR, L);
+      c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+      c.closePath(); c.fill();
+      // gold trim around the outer silhouette + the scalloped hem notch
+      c.strokeStyle = '#e8b52f'; c.lineWidth = 1.3 + t * 0.3; c.lineJoin = 'round';
+      c.beginPath();
+      c.moveTo(-tw, -r * 0.16);
+      c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
+      c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+      c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, bw + swayR, L);
+      c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, tw, -r * 0.16);
       c.stroke();
-      // a faint gold sheen down the centre fold
-      c.globalAlpha = 0.35 + t * 0.05;
-      c.strokeStyle = '#ffd24c'; c.lineWidth = 1;
-      c.beginPath(); c.moveTo(0, -r * 0.2); c.lineTo(0, r * (1.4 + len)); c.stroke();
+      // gold collar clasp at the shoulders
+      c.fillStyle = '#ffd24c';
+      c.beginPath(); c.ellipse(0, -r * 0.18, tw * 0.9, 2.6 + t * 0.2, 0, 0, Math.PI * 2); c.fill();
       c.restore();
     }
 

@@ -380,7 +380,10 @@ const Monsters = (() => {
             const bx = ward.x + (p.x - ward.x) * 0.5, by = ward.y + (p.y - ward.y) * 0.5;
             moveToward(m, bx, by, dt, m.speed * 0.9);
             m.facing = Math.atan2(p.y - m.y, p.x - m.x);
-            tryContactHit(m, g, p, 0.7); // still hurts to run into it; no bash while guarding
+            tryContactHit(m, g, p, 0.7);
+            // it won't CHASE across the room, but if you push up on it, it bashes -
+            // that drops its shield (recover = punish window), so it stays killable.
+            if (dist < 88 && m.t > 1.0) { m.state = 'windup'; m.t = 0; }
           } else {
             // no one to guard: creep forward behind the shield, bash only point-blank
             moveToward(m, p.x, p.y, dt, m.speed * 0.55);
