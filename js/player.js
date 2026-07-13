@@ -146,15 +146,21 @@ const PlayerDef = (() => {
       c.fillStyle = '#6b48a0'; c.fillRect(-s * 0.6, -s * 0.4, s * 1.2, s * 0.16);
       c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-s * 0.04, -s * 0.82, s * 0.13, 0, Math.PI * 2); c.fill();
     } else if (id === 'rogue') {
-      c.fillStyle = '#221d13'; c.beginPath();
-      c.moveTo(-s * 0.92, s * 0.2); c.quadraticCurveTo(-s * 1.02, -s * 0.98, 0, -s * 1.02);
-      c.quadraticCurveTo(s * 1.02, -s * 0.98, s * 0.92, s * 0.2);
-      c.quadraticCurveTo(s * 0.5, -s * 0.1, 0, -s * 0.16);
-      c.quadraticCurveTo(-s * 0.5, -s * 0.1, -s * 0.92, s * 0.2); c.closePath(); c.fill();
-      c.strokeStyle = 'rgba(201,162,39,0.6)'; c.lineWidth = 1; c.stroke();
-      c.fillStyle = '#ffd24c'; c.globalAlpha = 0.85;                                                      // glinting eyes in the hood
-      c.beginPath(); c.arc(-s * 0.24, -s * 0.06, s * 0.09, 0, Math.PI * 2); c.fill();
-      c.beginPath(); c.arc(s * 0.24, -s * 0.06, s * 0.09, 0, Math.PI * 2); c.fill();
+      // #95 a full assassin cowl: it wraps the ENTIRE head and face, leaving only a
+      // narrow eye-slit. The bottom edge bulges down past the chin so no skin shows.
+      c.fillStyle = '#1c1811'; c.beginPath();
+      c.moveTo(-s * 0.98, s * 0.55);
+      c.quadraticCurveTo(-s * 1.14, -s * 1.02, 0, -s * 1.06);       // up the left, over the crown
+      c.quadraticCurveTo(s * 1.14, -s * 1.02, s * 0.98, s * 0.55);  // down the right
+      c.quadraticCurveTo(0, s * 1.02, -s * 0.98, s * 0.55);         // bulge DOWN across the chin
+      c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(201,162,39,0.55)'; c.lineWidth = 1; c.stroke();
+      // recessed eye-slit (dark band) with glinting eyes - the only opening
+      c.fillStyle = '#0c0a06';
+      c.beginPath(); c.ellipse(0, -s * 0.04, s * 0.6, s * 0.16, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#ffd24c'; c.globalAlpha = 0.9;
+      c.beginPath(); c.arc(-s * 0.26, -s * 0.04, s * 0.1, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.26, -s * 0.04, s * 0.1, 0, Math.PI * 2); c.fill();
       c.globalAlpha = 1;
     } else if (id === 'barbarian') {
       c.fillStyle = '#5a3a22'; c.beginPath(); c.arc(0, -s * 0.2, s * 0.72, Math.PI, 0); c.fill();          // fur cap
