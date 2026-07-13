@@ -737,15 +737,25 @@ const Monsters = (() => {
   // --- damage ---------------------------------------------------------------
   function takeHit(m, dmg, opts, g) {
     if (m.dead || m.spawnT > 0) return false;
-    // Shielded: blocks hits arriving from its front 120-degree arc while shield is up
+    // Shielded: a hit from its front 120-degree arc (shield up) is USUALLY stopped cold,
+    // but #120 not always - 85% full block, 15% a glancing blow that lets ~40% through,
+    // so a shielder is a hard wall you can still chip rather than a total dead end.
     if (m.type === 'shielded' && m.shieldUp && opts.sx !== undefined) {
       const hitAngle = Math.atan2(opts.sy - m.y, opts.sx - m.x);
       let diff = Math.abs(((hitAngle - m.facing + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
       if (diff < Math.PI / 3) {
-        Fx.burst(m.x + Math.cos(hitAngle) * m.r, m.y + Math.sin(hitAngle) * m.r, '#aaddff', 6, { speed: 120, life: 0.3 });
-        Fx.text(m.x, m.y - m.r - 8, 'BLOCKED', '#aaddff', 11);
-        Sfx.play('hit');
-        return false; // blocked hits earn no frenzy stacks or crit lifesteal
+        const impX = m.x + Math.cos(hitAngle) * m.r, impY = m.y + Math.sin(hitAngle) * m.r;
+        if (Math.random() < 0.85) {
+          Fx.burst(impX, impY, '#aaddff', 6, { speed: 120, life: 0.3 });
+          Fx.text(m.x, m.y - m.r - 8, 'BLOCKED', '#aaddff', 11);
+          Sfx.play('hit');
+          return false; // full block: no frenzy stacks or crit lifesteal
+        }
+        // glancing blow: a chunk slips past the shield (min 1 so it always registers)
+        dmg = Math.max(1, Math.round(dmg * 0.4));
+        Fx.burst(impX, impY, '#cfe8ff', 4, { speed: 90, life: 0.25 });
+        Fx.text(m.x, m.y - m.r - 8, 'GLANCING', '#cfe8ff', 11);
+        opts = Object.assign({}, opts, { crit: false }); // a graze can't crit
       }
     }
     if (opts.knock) {
