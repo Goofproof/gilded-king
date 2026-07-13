@@ -221,10 +221,24 @@ const Monsters = (() => {
         break;
       }
       case 'wormling': {
-        // a loosed body segment: it scatters out (initial knockback), then hunts fast
-        const jx = Math.sin(m.t * 11 + m.x) * 30;
-        moveToward(m, p.x + jx, p.y + Math.cos(m.t * 8) * 24, dt, m.speed);
-        tryContactHit(m, g, p);
+        // #80 a loosed body segment moves through three beats: SCATTER (flung outward,
+        // harmless) -> SWARM (regroup and rush the player as a pack) -> ATTACK (jittery
+        // chase that bites). Gives the player a readable window before the swarm lands.
+        if (!m.wlPhase) { m.wlPhase = 'scatter'; m.wlT = 0; }
+        m.wlT += dt;
+        if (m.wlPhase === 'scatter') {
+          const away = Math.atan2(m.y - p.y, m.x - p.x) + Math.sin(m.x) * 0.5;
+          moveToward(m, m.x + Math.cos(away) * 60, m.y + Math.sin(away) * 60, dt, m.speed * 0.55);
+          if (m.wlT > 0.7) { m.wlPhase = 'swarm'; m.wlT = 0; }
+        } else if (m.wlPhase === 'swarm') {
+          const jx = Math.sin(m.t * 11 + m.x) * 18;
+          moveToward(m, p.x + jx, p.y, dt, m.speed * 1.15);
+          if (m.wlT > 0.6) m.wlPhase = 'attack';
+        } else {
+          const jx = Math.sin(m.t * 11 + m.x) * 30;
+          moveToward(m, p.x + jx, p.y + Math.cos(m.t * 8) * 24, dt, m.speed);
+          tryContactHit(m, g, p);
+        }
         break;
       }
       case 'swarmer': {
@@ -750,7 +764,8 @@ const Monsters = (() => {
       case 'chaser': drawChaser(c, m, flash, ex, ey); break;
       case 'archer': drawArcher(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
-      case 'swarmer': case 'add': case 'wormling': drawSwarmer(c, m, flash, ex, ey); break;
+      case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
+      case 'wormling': drawWormling(c, m, flash, ex, ey); break;
       case 'glass': drawGlass(c, m, flash, ex, ey); break;
       case 'shielded': drawShielded(c, m, flash, ex, ey); break;
       case 'bomber': drawBomber(c, m, flash, ex, ey); break;
@@ -932,6 +947,21 @@ const Monsters = (() => {
       c.beginPath(); c.arc(-m.r - 4, -k * 14, 7, 0, Math.PI * 2); c.fill();
       c.beginPath(); c.arc(m.r + 4, -k * 14, 7, 0, Math.PI * 2); c.fill();
     }
+  }
+  // #80 a little GREEN wormling (a loosed worm segment): rounded body, darker banding,
+  // a lighter belly and tiny eyes - visibly a baby worm, not a fuzzy swarmer. It
+  // wriggles while it scatters/swarms.
+  function drawWormling(c, m, flash, ex, ey) {
+    const wr = m.r, wig = Math.sin((m.t || 0) * 14 + m.x) * 0.25;
+    c.save(); c.rotate(wig);
+    c.fillStyle = flash ? '#fff' : '#5aa84a';                 // green body
+    c.beginPath(); c.ellipse(0, 0, wr * 1.1, wr * 0.86, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = flash ? '#dfffcf' : '#3e7a33'; c.lineWidth = 1.4; // segment bands
+    for (const bx of [-wr * 0.45, 0, wr * 0.45]) { c.beginPath(); c.moveTo(bx, -wr * 0.7); c.quadraticCurveTo(bx + 2, 0, bx, wr * 0.7); c.stroke(); }
+    c.fillStyle = flash ? '#fff' : '#7ac06a';                 // lighter belly
+    c.beginPath(); c.ellipse(0, wr * 0.32, wr * 0.72, wr * 0.4, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+    eyes(c, ex, ey, 3.4, 1.9, '#eaffd8');
   }
   function drawSwarmer(c, m, flash, ex, ey) {
     const col = m.type === 'add' ? '#57c26b' : '#8e5bb8';
