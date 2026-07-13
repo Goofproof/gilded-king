@@ -42,19 +42,31 @@ const PlayerDef = (() => {
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
-  // #43 the prestige cape, drawn at the current translate origin. Shared by the local
-  // player AND remote peers (main.js drawRemotePlayers) so everyone sees each other's
-  // capes. Two fold panels + gold trim + collar; waves harder while moving.
-  function capeAt(c, r, prestige, moving, seedX) {
+  // #43/#117 the prestige cape, drawn at the current translate origin. Shared by the
+  // local player AND remote peers (main.js drawRemotePlayers) so everyone sees each
+  // other's capes. Two fold panels + gold trim + collar. #117: (velX,velY) is the
+  // player's smoothed travel vector - the cape streams OPPOSITE it (apparent wind),
+  // flaps harder + faster with speed, and whips out on a roll, so it reads as fabric
+  // billowing behind you rather than a symmetric idle wobble.
+  function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
-    const amp = moving ? 11 : 2.5;
-    const freq = moving ? 200 : 430;
+    velX = velX || 0; velY = velY || 0;
+    const speed = Math.hypot(velX, velY);
+    const sp01 = Math.min(1.9, speed / 205);            // ~1.0 at a run, ~2.1 mid-roll
+    const trailX = -velX / 205 * r * 1.25;              // hem leans behind your travel
+    const amp = 2.5 + sp01 * 11;                        // flap amplitude scales with speed
+    const freq = Math.max(150, 430 - sp01 * 150);       // and the flutter quickens
     const ph = now / freq + (seedX || 0) * 0.05;
-    const swayL = Math.sin(ph) * amp;
-    const swayR = Math.sin(ph + 1.2) * amp;
-    const midW = Math.sin(ph + 0.6) * amp * 0.6;
-    const L = r * (2.1 + t * 0.14) + (moving ? r * 0.5 : 0);
+    // a traveling wave down the cape: the hem (bottom) whips more than the shoulders
+    const flapHem = Math.sin(ph + 2.0) * amp * 0.5;
+    const swayL = Math.sin(ph) * amp + trailX + flapHem;
+    const swayR = Math.sin(ph + 1.15) * amp + trailX + flapHem;
+    const midW = Math.sin(ph + 0.6) * amp * 0.6 + trailX * 0.55;
+    // length billows with speed; running UP (velY<0) streams it long behind you, DOWN
+    // bunches it shorter (top-down: you move into vs away from the draped cloth)
+    const base = r * (2.1 + t * 0.14) + (moving ? r * 0.5 : 0);
+    const L = Math.max(r * 1.6, base + sp01 * r * 0.4 - velY / 205 * r * 0.5);
     const tw = r * 0.5, bw = r * (1.05 + t * 0.05);
     const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
     const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
@@ -405,6 +417,7 @@ const PlayerDef = (() => {
       this.facing = 0;           // aim angle (mouse)
       this.moveAngle = 0;        // last movement direction (roll uses this)
       this.moving = false;
+      this.capeWind = { x: 0, y: 0 }; // #117 smoothed travel vector that drives the cape
 
       this.rollT = -1;           // >=0 while rolling
       this.rollCd = 0;
@@ -797,6 +810,15 @@ const PlayerDef = (() => {
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.vx *= Math.pow(0.001, dt); this.vy *= Math.pow(0.001, dt);
 
+      // #117 cape wind: target the current travel vector (roll >> run >> idle) and
+      // ease toward it so the cloth lags and trails like real fabric with inertia
+      let tvx = 0, tvy = 0;
+      if (this.rollT >= 0) { tvx = Math.cos(this.rollAngle) * T.rollSpeed; tvy = Math.sin(this.rollAngle) * T.rollSpeed; }
+      else if (this.moving) { tvx = Math.cos(this.moveAngle) * T.speed; tvy = Math.sin(this.moveAngle) * T.speed; }
+      const cwk = Math.min(1, dt * 9);
+      this.capeWind.x += (tvx - this.capeWind.x) * cwk;
+      this.capeWind.y += (tvy - this.capeWind.y) * cwk;
+
       // obstacles + pits (both are solid to the player - you can't fall in a pit)
       for (const o of g.room.obstacles) {
         const dx = this.x - o.x, dy = this.y - o.y, d = Math.hypot(dx, dy);
@@ -1184,7 +1206,7 @@ const PlayerDef = (() => {
     // and a gold collar clasp, so it reads as real cloth instead of a blob. Length,
     // richness and colour deepen with prestige (caps ~tier 6; the number keeps climbing).
     drawPrestigeCape(c, prestige) {
-      capeAt(c, this.r, prestige, this.moving, this.x);
+      capeAt(c, this.r, prestige, this.moving, this.x, this.capeWind.x, this.capeWind.y);
     }
 
     // #52 the class's signature headwear/armor, in the fixed body frame

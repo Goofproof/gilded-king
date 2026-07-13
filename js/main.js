@@ -2150,6 +2150,7 @@
       rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
+      rp.cw = Array.isArray(m.cw) ? m.cw : null;                  // #117 cape wind vector
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
       rp.last = g.time;
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
@@ -2389,6 +2390,7 @@
       wa: p.weapon ? p.weapon.archetype : 'light',  // so peers can draw your weapon
       pr: (g.meta.prestige || 0),                     // so peers can draw your prestige cape
       mv: p.moving ? 1 : 0,                            // so your cape waves for others too
+      cw: [Math.round(p.capeWind.x), Math.round(p.capeWind.y)], // #117 cape wind vector for peers
       cl: (p.class && p.class.id) || '',              // #98 so peers render your class headgear
       u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
     });
@@ -2427,7 +2429,7 @@
       c.save();
       c.translate(rp.x, rp.y);
       // prestige cape (behind the body) - so teammates see each other's capes
-      if (rp.pr > 0 && PlayerDef.capeAt) PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x);
+      if (rp.pr > 0 && PlayerDef.capeAt) PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x, rp.cw ? rp.cw[0] : 0, rp.cw ? rp.cw[1] : 0);
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = '#2c3e60'; c.beginPath(); c.arc(0, 2, 13, 0, Math.PI * 2); c.fill();
