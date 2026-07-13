@@ -3232,6 +3232,14 @@
           for (const merc of g.mercs) if (!merc.dead && Math.hypot(merc.x - e.x, merc.y - e.y) < e.radius) damageMerc(merc, e.dmg);
           for (const tr of g.turrets) if (!tr.dead && Math.hypot(tr.x - e.x, tr.y - e.y) < e.radius) { tr.hp -= e.dmg; tr.flash = 0.12; }
           if (g.summon && !g.summon.dead && Math.hypot(g.summon.x - e.x, g.summon.y - e.y) < e.radius) g.summon.hp -= e.dmg;
+          // #113 shrapnel bombs also spray a ring of fragments from the impact point
+          if (e.shrapnel) {
+            const n = 9;
+            for (let k = 0; k < n; k++) {
+              const a = k / n * Math.PI * 2 + Math.random() * 0.2;
+              g.projectiles.push({ x: e.x, y: e.y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, r: 4, dmg: e.shrapDmg || Math.round(e.dmg * 0.6), from: 'enemy', color: '#ff9a3d', life: 1.4, glow: true, hitSet: null });
+            }
+          }
           g.ultFx.splice(i, 1);
         }
       } else if (e.type === 'storm') {
@@ -3275,6 +3283,12 @@
         const k = Math.min(1, e.t / e.delay);
         c.strokeStyle = `rgba(255,90,44,${0.45 + 0.4 * Math.abs(Math.sin(g.time * 16))})`; c.lineWidth = 2.5;
         c.beginPath(); c.arc(e.x, e.y, e.radius * (0.55 + 0.45 * k), 0, Math.PI * 2); c.stroke();
+        // #113 shrapnel bombs show spikes on the landing ring so the player reads the extra threat
+        if (e.shrapnel) {
+          const rr = e.radius * (0.55 + 0.45 * k);
+          c.strokeStyle = `rgba(255,180,80,${0.5 + 0.4 * Math.abs(Math.sin(g.time * 16))})`; c.lineWidth = 2;
+          for (let s = 0; s < 9; s++) { const a = s / 9 * Math.PI * 2; c.beginPath(); c.moveTo(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr); c.lineTo(e.x + Math.cos(a) * (rr + 8), e.y + Math.sin(a) * (rr + 8)); c.stroke(); }
+        }
         const bx = (e.sx != null ? e.sx : e.x) + (e.x - (e.sx != null ? e.sx : e.x)) * k;
         const by = (e.sy != null ? e.sy : e.y) + (e.y - (e.sy != null ? e.sy : e.y)) * k - Math.sin(k * Math.PI) * 90;
         c.fillStyle = '#2a1810'; c.beginPath(); c.arc(bx, by, 5, 0, Math.PI * 2); c.fill();

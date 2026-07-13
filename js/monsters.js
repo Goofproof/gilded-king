@@ -398,10 +398,12 @@ const Monsters = (() => {
         m.lobT = (m.lobT || 0) + dt;
         if (m.lobT > 2.6 && dist < 400 && m.state !== 'draw') {
           m.lobT = 0; m.state = 'draw'; m.lobStart = m.t;
+          // #113 every OTHER bomb bursts into shrapnel on landing (parity toggles per bomb)
+          const lob = (x, y, delay) => { m.lobParity = (m.lobParity || 0) + 1; g.ultFx.push({ type: 'lob', x, y, sx: m.x, sy: m.y, t: 0, delay, dmg: m.dmg, radius: 68, color: '#ff5a2c', shrapnel: m.lobParity % 2 === 0, shrapDmg: Math.round(m.dmg * 0.6) }); };
           if (m.emp) { // #110 EMPOWERED: a three-bomb BARRAGE straddling the player
-            for (const off of [[0, 0], [-70, -30], [70, 40]]) g.ultFx.push({ type: 'lob', x: p.x + off[0], y: p.y + off[1], sx: m.x, sy: m.y, t: 0, delay: 1.05, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
+            for (const off of [[0, 0], [-70, -30], [70, 40]]) lob(p.x + off[0], p.y + off[1], 1.05);
             m.emp = false;
-          } else g.ultFx.push({ type: 'lob', x: p.x, y: p.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' });
+          } else lob(p.x, p.y, 1.0);
           Sfx.play('bowfire');
         }
         break;
