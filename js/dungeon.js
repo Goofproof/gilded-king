@@ -74,7 +74,7 @@ const Dungeon = (() => {
     // be tight, quick descents, so give them a small fixed count; cap the base floors.
     const descent = typeof Descent !== 'undefined' && Descent.isDescent(floorNum);
     const target = descent
-      ? 8 + ((rnd() * 3) | 0)                                                   // 8-10, tight
+      ? 11 + ((rnd() * 4) | 0)                                                  // #124 11-14 (was 8-10, felt too small) - roomier but still a tight descent, not the old sprawl
       : Math.min(18, BASE_ROOMS + PER_FLOOR * floorNum + ((rnd() * (RAND_ROOMS + 1)) | 0));
     const grid = new Map();
     const start = makeRoom(0, 0);
