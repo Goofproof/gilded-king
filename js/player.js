@@ -517,6 +517,7 @@ const PlayerDef = (() => {
     update(dt, g, input) {
       if (this.dead) return;
       const stats = this.stats;
+      this.px = this.x; this.py = this.y; // #81 pre-move position, for anti-tunnel wall resolution
 
       if (this.iframes > 0) this.iframes -= dt;
       if (this.invisT > 0) this.invisT -= dt; // Vanish ultimate: untargetable window
@@ -645,8 +646,8 @@ const PlayerDef = (() => {
         const dx = this.x - o.x, dy = this.y - o.y, d = Math.hypot(dx, dy);
         if (d < o.r + this.r && d > 0) { this.x = o.x + (dx / d) * (o.r + this.r); this.y = o.y + (dy / d) * (o.r + this.r); }
       }
-      // #67b solid wall rects that carve the room shape
-      if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w); if (q) { this.x = q.x; this.y = q.y; } }
+      // #67b solid wall rects that carve the room shape (anti-tunnel via pre-move pos)
+      if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w, this.px, this.py); if (q) { this.x = q.x; this.y = q.y; } }
       // (room-boundary walls/doors are handled by main.js so it can detect room exits)
 
       // --- attacking -----------------------------------------------------------
@@ -779,6 +780,8 @@ const PlayerDef = (() => {
           if (d > w.range + m.r) continue;
           let diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
           if (diff > w.arc / 2) continue;
+          // #83 a wall between you and the target blocks the swing (no hitting through walls)
+          if (g.room.walls && g.room.walls.length && Dungeon.segBlocked(this.x, this.y, m.x, m.y, g.room.walls)) continue;
           const { dmg, crit } = this.computeDmg(w.dmg * dmgScale, m, g);
           const landed = m.takeHit(dmg, {
             sx: this.x, sy: this.y,

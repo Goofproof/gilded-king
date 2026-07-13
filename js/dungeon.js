@@ -186,9 +186,21 @@ const Dungeon = (() => {
           for (const s of [-1, 1]) for (const t of [-1, 1])
             r.walls.push({ x: s > 0 ? X + W - wW : X, y: t > 0 ? Y + H - wH : Y, w: wW, h: wH });
         } else if (shape === 'notch') {
-          // an off-centre divider that splits the room, open at both ends (>=86px gaps)
-          if (rnd() < 0.5) { const wx = X + W * (rnd() < 0.5 ? 0.36 : 0.64); r.walls.push({ x: wx - 13, y: Y + 86, w: 26, h: H - 172 }); }
-          else { const wy = Y + H * (rnd() < 0.5 ? 0.36 : 0.64); r.walls.push({ x: X + 86, y: wy - 13, w: W - 172, h: 26 }); }
+          // an off-centre divider that splits the room - open at BOTH ends (>=86px) AND
+          // a wide gap through the MIDDLE (Sam: encourage flow, no full-width barrier),
+          // so it reads as two short stub-walls with a doorway between them.
+          const GAP = 100;
+          if (rnd() < 0.5) {
+            const wx = X + W * (rnd() < 0.5 ? 0.36 : 0.64), cy = Y + H / 2;
+            const topH = (cy - GAP / 2) - (Y + 86), botY = cy + GAP / 2, botH = (Y + H - 86) - botY;
+            if (topH > 24) r.walls.push({ x: wx - 13, y: Y + 86, w: 26, h: topH });
+            if (botH > 24) r.walls.push({ x: wx - 13, y: botY, w: 26, h: botH });
+          } else {
+            const wy = Y + H * (rnd() < 0.5 ? 0.36 : 0.64), cx = X + W / 2;
+            const leftW = (cx - GAP / 2) - (X + 86), rightX = cx + GAP / 2, rightW = (X + W - 86) - rightX;
+            if (leftW > 24) r.walls.push({ x: X + 86, y: wy - 13, w: leftW, h: 26 });
+            if (rightW > 24) r.walls.push({ x: rightX, y: wy - 13, w: rightW, h: 26 });
+          }
         }
 
         // #27 interior OBSTACLE layout, dropped INSIDE whatever shape we carved
@@ -329,13 +341,26 @@ const Dungeon = (() => {
 
   // #67b resolve a circle (x,y,r) out of an axis-aligned wall rect. Returns the
   // corrected {x,y} if it was overlapping, else null. Shared by player + monsters.
-  function rectPush(x, y, r, w) {
-    const nx = Math.max(w.x, Math.min(x, w.x + w.w));   // nearest point on the rect
+  // (px,py) = the entity's position BEFORE this frame's movement; when given, the
+  // circle is pushed back out the side it APPROACHED from, so a fast knockback can
+  // never punch through a thin wall and pop out the far side (#81 anti-tunnel).
+  function rectPush(x, y, r, w, px, py) {
+    // overlap test against the inflated rect
+    if (!(x > w.x - r && x < w.x + w.w + r && y > w.y - r && y < w.y + w.h + r)) return null;
+    if (px !== undefined) {
+      // if last frame the centre was clear on one side of the inflated rect, that's the
+      // side it came from - clamp it back there (never resolve to the opposite face)
+      if (px <= w.x - r + 0.5)        return { x: w.x - r, y };
+      if (px >= w.x + w.w + r - 0.5)  return { x: w.x + w.w + r, y };
+      if (py <= w.y - r + 0.5)        return { x, y: w.y - r };
+      if (py >= w.y + w.h + r - 0.5)  return { x, y: w.y + w.h + r };
+    }
+    // no clear approach (spawned inside / grazing a corner): nearest-edge resolution
+    const nx = Math.max(w.x, Math.min(x, w.x + w.w));
     const ny = Math.max(w.y, Math.min(y, w.y + w.h));
     let dx = x - nx, dy = y - ny, d = Math.hypot(dx, dy);
-    if (d >= r) return null;                             // not overlapping
+    if (d >= r) return null;
     if (d > 0.0001) return { x: nx + dx / d * r, y: ny + dy / d * r };
-    // centre is inside the rect: eject along the shallowest edge
     const l = x - w.x, ri = w.x + w.w - x, t = y - w.y, b = w.y + w.h - y;
     const m = Math.min(l, ri, t, b);
     if (m === l) return { x: w.x - r, y };
@@ -344,5 +369,25 @@ const Dungeon = (() => {
     return { x, y: w.y + w.h + r };
   }
 
-  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush };
+  // #83 does the segment (x1,y1)->(x2,y2) cross any wall rect? (melee/LoS blocking)
+  function segBlocked(x1, y1, x2, y2, walls) {
+    if (!walls) return false;
+    const crs = (ox, oy, px, py) => ox * py - oy * px;
+    const segSeg = (ax, ay, bx, by, cx, cy, dx, dy) => {
+      const d1 = crs(dx - cx, dy - cy, ax - cx, ay - cy), d2 = crs(dx - cx, dy - cy, bx - cx, by - cy);
+      const d3 = crs(bx - ax, by - ay, cx - ax, cy - ay), d4 = crs(bx - ax, by - ay, dx - ax, dy - ay);
+      return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+    };
+    for (const w of walls) {
+      const inside = (x, y) => x >= w.x && x <= w.x + w.w && y >= w.y && y <= w.y + w.h;
+      if (inside(x2, y2)) return true; // target buried in the wall
+      if (segSeg(x1, y1, x2, y2, w.x, w.y, w.x + w.w, w.y) ||
+          segSeg(x1, y1, x2, y2, w.x + w.w, w.y, w.x + w.w, w.y + w.h) ||
+          segSeg(x1, y1, x2, y2, w.x + w.w, w.y + w.h, w.x, w.y + w.h) ||
+          segSeg(x1, y1, x2, y2, w.x, w.y + w.h, w.x, w.y)) return true;
+    }
+    return false;
+  }
+
+  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush, segBlocked };
 })();

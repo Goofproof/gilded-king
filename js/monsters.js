@@ -149,6 +149,7 @@ const Monsters = (() => {
   function update(m, dt, g) {
     if (m.spawnT > 0) { m.spawnT -= dt; return; }
     m.t += dt;
+    m.px = m.x; m.py = m.y; // #81 pre-move position, for anti-tunnel wall resolution
     if (m.contactCd > 0) m.contactCd -= dt;
     if (m.flash > 0) m.flash -= dt;
 
@@ -495,8 +496,8 @@ const Monsters = (() => {
       }
       if (d < o.r + m.r && d > 0) { m.x = o.x + (dx / d) * (o.r + m.r); m.y = o.y + (dy / d) * (o.r + m.r); }
     }
-    // #67b solid wall rects
-    if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w); if (q) { m.x = q.x; m.y = q.y; } }
+    // #67b solid wall rects (anti-tunnel via pre-move pos)
+    if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w, m.px, m.py); if (q) { m.x = q.x; m.y = q.y; } }
     clampToField(m);
   }
 

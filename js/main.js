@@ -2920,22 +2920,31 @@
       const y = PF.y + roomRand(room, i + 50) * PF.h;
       c.fillRect(x, y, 3 + roomRand(room, i + 100) * 4, 2 + roomRand(room, i + 150) * 3);
     }
-    // #67b room-shape walls: solid raised stone that carves the room's outline
-    // (an L missing a corner, a plus, a chamfer, an interior divider). Drawn over
-    // the floor so the walled area reads as "not part of the room."
+    // #67b room-shape walls: a raised natural stone mass, tinted to the floor theme
+    // so it reads as part of the room (a rock outcrop / cliff wall) rather than a flat
+    // panel that doesn't belong. Cast shadow + lit top slab + rough speckle sell depth.
     if (room.walls) for (const w of room.walls) {
-      c.fillStyle = 'rgba(0,0,0,0.4)';                          // drop shadow onto the floor
-      c.fillRect(w.x - 3, w.y - 3, w.w + 6, w.h + 7);
-      c.fillStyle = '#22262e';                                  // dark stone body
+      c.fillStyle = 'rgba(0,0,0,0.4)';                          // soft cast shadow, down
+      c.fillRect(w.x - 2, w.y + 5, w.w + 5, w.h + 3);
+      c.fillStyle = '#2b3038';                                  // neutral dark rock base
       c.fillRect(w.x, w.y, w.w, w.h);
-      c.fillStyle = 'rgba(255,255,255,0.06)';                   // lit top bevel
-      c.fillRect(w.x, w.y, w.w, 5);
-      c.fillStyle = 'rgba(0,0,0,0.30)';                         // shaded base
-      c.fillRect(w.x, w.y + w.h - 6, w.w, 6);
-      c.fillStyle = (pal.accent || '#555') + '22';              // faint themed masonry seams
-      for (let sx = w.x + 24; sx < w.x + w.w - 6; sx += 30) c.fillRect(sx, w.y + 3, 1.5, w.h - 6);
-      for (let sy = w.y + 20; sy < w.y + w.h - 6; sy += 26) c.fillRect(w.x + 3, sy, w.w - 6, 1.5);
-      c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1.5;
+      c.fillStyle = (pal.accent || '#556677') + '1c';           // theme colour wash so it matches the room
+      c.fillRect(w.x, w.y, w.w, w.h);
+      c.fillStyle = 'rgba(0,0,0,0.22)';                         // sunken inner core (depth)
+      c.fillRect(w.x + 3, w.y + 11, w.w - 6, w.h - 15);
+      c.fillStyle = '#3b434f';                                  // lit top slab (seen from above)
+      c.fillRect(w.x, w.y, w.w, Math.min(11, w.h));
+      c.fillStyle = (pal.accent || '#7788aa') + '30';
+      c.fillRect(w.x, w.y, w.w, 3);
+      // deterministic speckle: rough stone, not a smooth face
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      const specks = Math.min(80, (w.w * w.h / 700) | 0);
+      for (let i = 0; i < specks; i++) {
+        const rx = w.x + 5 + roomRand(room, (i * 7 + w.x) | 0) * (w.w - 10);
+        const ry = w.y + 13 + roomRand(room, (i * 13 + w.y + 91) | 0) * (w.h - 18);
+        c.fillRect(rx, ry, 2, 2);
+      }
+      c.strokeStyle = 'rgba(0,0,0,0.55)'; c.lineWidth = 1.5;
       c.strokeRect(w.x + 0.75, w.y + 0.75, w.w - 1.5, w.h - 1.5);
     }
     // theme ambience: drifting particles that sell the place
