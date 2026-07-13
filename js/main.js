@@ -1567,7 +1567,56 @@
     c.save(); c.translate(s.x, s.y);
     c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, s.r * 0.8, s.r * 0.9, s.r * 0.35, 0, 0, Math.PI * 2); c.fill();
     c.fillStyle = s.flash > 0 ? '#fff' : col;
-    if (s.elem === 'earth') { c.fillRect(-s.r * 0.8, -s.r * 0.8, s.r * 1.6, s.r * 1.6); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(-s.r * 0.45, -s.r * 0.45, s.r * 0.5, s.r * 0.5); }
+    if (s.elem === 'earth') {
+      // #91 a proper little EARTH ELEMENTAL: a hunched golem of stacked boulders
+      // with mossy tops, cracked plating, stubby rock arms and glowing gem eyes.
+      const flash = s.flash > 0;
+      const rock = flash ? '#fff' : '#7a5a38';
+      const rockLo = flash ? '#eee' : '#5b4128';
+      const rockHi = flash ? '#fff' : '#8f6b45';
+      c.save();
+      const bob = Math.sin(s.t * 3) * 1.2;
+      c.translate(0, bob);
+      // stubby boulder arms
+      c.fillStyle = rockLo;
+      c.beginPath(); c.arc(-s.r * 1.05, s.r * 0.2, s.r * 0.42, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s.r * 1.05, s.r * 0.2, s.r * 0.42, 0, Math.PI * 2); c.fill();
+      // main body: a chunky lumpy boulder (overlapping rounded rects)
+      c.fillStyle = rock;
+      c.beginPath();
+      c.moveTo(-s.r, s.r * 0.7);
+      c.lineTo(-s.r * 1.05, -s.r * 0.15);
+      c.lineTo(-s.r * 0.5, -s.r * 0.85);
+      c.lineTo(s.r * 0.5, -s.r * 0.9);
+      c.lineTo(s.r * 1.05, -s.r * 0.1);
+      c.lineTo(s.r, s.r * 0.75);
+      c.closePath(); c.fill();
+      // lighter top-left facet (top-down light)
+      c.fillStyle = rockHi;
+      c.beginPath();
+      c.moveTo(-s.r * 0.5, -s.r * 0.85); c.lineTo(s.r * 0.2, -s.r * 0.9);
+      c.lineTo(s.r * 0.1, -s.r * 0.25); c.lineTo(-s.r * 0.55, -s.r * 0.2);
+      c.closePath(); c.fill();
+      // moss patches on the crown
+      c.fillStyle = flash ? '#dfe' : '#4e7034';
+      c.beginPath(); c.ellipse(-s.r * 0.2, -s.r * 0.78, s.r * 0.34, s.r * 0.18, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(s.r * 0.45, -s.r * 0.7, s.r * 0.2, s.r * 0.12, 0, 0, Math.PI * 2); c.fill();
+      // crack lines across the plating
+      c.strokeStyle = rockLo; c.lineWidth = 1.4;
+      c.beginPath();
+      c.moveTo(-s.r * 0.4, -s.r * 0.3); c.lineTo(-s.r * 0.1, s.r * 0.1); c.lineTo(-s.r * 0.35, s.r * 0.5);
+      c.moveTo(s.r * 0.5, -s.r * 0.1); c.lineTo(s.r * 0.2, s.r * 0.25);
+      c.stroke();
+      // glowing gem eyes set into the rock
+      const eg = 0.6 + Math.sin(Date.now() / 240) * 0.35;
+      c.fillStyle = `rgba(150,220,120,${eg})`;
+      c.beginPath(); c.arc(-s.r * 0.32, -s.r * 0.15, s.r * 0.16, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s.r * 0.32, -s.r * 0.15, s.r * 0.16, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#eaffd8';
+      c.beginPath(); c.arc(-s.r * 0.3, -s.r * 0.18, s.r * 0.06, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s.r * 0.34, -s.r * 0.18, s.r * 0.06, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
     else { c.beginPath(); c.arc(0, 0, s.r, 0, Math.PI * 2); c.fill(); }
     c.save(); c.globalAlpha = 0.6 + Math.sin(Date.now() / 120) * 0.3;
     if (s.elem === 'fire') { c.fillStyle = '#ffd24c'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(Math.sin(Date.now() / 80 + i) * s.r * 0.4, -s.r - 2 - i * 2, 2, 0, Math.PI * 2); c.fill(); } }
