@@ -932,9 +932,49 @@
     return (n.type === 'boss' || n.type === 'stairs') && Dungeon.uncleared(g.dungeon) > 0;
   }
 
+  // #101 co-op door-plates: the standing square just inside each doorway. A door
+  // opens only when a MAJORITY of the party stands on its plate together, so nobody
+  // gets dragged off alone / left behind. Solo play keeps the walk-through door.
+  function platePos(dir) {
+    const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2;
+    if (dir === 'N') return { x: cx, y: PF.y + 42 };
+    if (dir === 'S') return { x: cx, y: PF.y + PF.h - 42 };
+    if (dir === 'W') return { x: PF.x + 42, y: cy };
+    return { x: PF.x + PF.w - 42, y: cy }; // E
+  }
+  const PLATE_R = 36;
+  function plateOccupancy(dir) {
+    const pp = platePos(dir); let n = 0;
+    const p = g.player;
+    if (!p.dead && !p.downed && Math.hypot(p.x - pp.x, p.y - pp.y) < PLATE_R) n++;
+    for (const rp of g.remotePlayers.values()) {
+      if (g.time - (rp.last || 0) > 3 || rp.downed) continue;
+      if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+      if (Math.hypot(rp.x - pp.x, rp.y - pp.y) < PLATE_R) n++;
+    }
+    return n;
+  }
+  function plateNeeded() { return Math.floor(coopPlayers() / 2) + 1; } // majority
+
   function tryRoomExit() {
     const p = g.player;
     if (doorsLocked()) { clampPlayer(); return; }
+    // #101 co-op: leave via the majority-occupied door-plate, not by walking out
+    if (g.coop) {
+      const need = plateNeeded();
+      for (const d of doorRects(g.room)) {
+        if (doorSealed(g.room, d.dir)) continue;
+        if (plateOccupancy(d.dir) >= need) {
+          const next = g.room.doors[d.dir];
+          if (typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir });
+          g.transition = { dir: d.dir, next, t: 0 };
+          g.state = 'transition';
+          return;
+        }
+      }
+      clampPlayer(); // the plate is the only way out; walls stay solid
+      return;
+    }
     for (const d of doorRects(g.room)) {
       const inLane =
         (d.dir === 'N' && p.y < PF.y + p.r && p.x > d.x && p.x < d.x + d.w) ||
@@ -962,6 +1002,34 @@
       return; // in the lane, not past yet: allow walking into the doorway
     }
     clampPlayer();
+  }
+
+  // #101 render each unsealed door's gather-plate with a live occupancy count so the
+  // party knows where to stand and how many more teammates are needed to open it.
+  function drawDoorPlates(c) {
+    if (doorsLocked()) return; // nothing to gather for while monsters are alive
+    const need = plateNeeded();
+    const half = 22;
+    for (const d of doorRects(g.room)) {
+      if (doorSealed(g.room, d.dir)) continue;
+      const pp = platePos(d.dir);
+      const on = plateOccupancy(d.dir);
+      const ready = on >= need;
+      const pulse = 0.4 + Math.sin(g.time * 4) * 0.18;
+      c.save();
+      c.translate(pp.x, pp.y);
+      // plate square: gold-lit when the majority is standing, cool blue otherwise
+      c.fillStyle = ready ? `rgba(201,162,39,${0.28 + pulse * 0.3})` : 'rgba(127,212,255,0.16)';
+      c.fillRect(-half, -half, half * 2, half * 2);
+      c.strokeStyle = ready ? '#ffd24c' : '#7fd4ff';
+      c.lineWidth = 2;
+      c.strokeRect(-half, -half, half * 2, half * 2);
+      // occupancy label e.g. "1/2" -> "2/2"
+      c.textAlign = 'center'; c.font = 'bold 11px monospace';
+      c.fillStyle = ready ? '#ffe9a8' : '#bfe3ff';
+      c.fillText(`${on}/${need}`, 0, -half - 6);
+      c.restore();
+    }
   }
 
   function clampPlayer() {
@@ -3487,6 +3555,7 @@
     c.translate(shake.x, shake.y);
 
     drawRoom(c, g.room);
+    if (g.coop) drawDoorPlates(c); // #101 majority-gather plates (on the floor, under actors)
     Fx.drawGhosts(c);
 
     // pickups under actors
