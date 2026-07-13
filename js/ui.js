@@ -1164,13 +1164,20 @@ const UI = (() => {
     c.fillText('PAUSED', W / 2, H / 2 - 40);
     c.font = '14px monospace'; c.fillStyle = '#8fa3bf';
     c.fillText('P / Esc to resume · C sheet · M mute', W / 2, H / 2 - 8);
-    // quit-to-title button (abandons the run; essence already banked is kept)
-    const r = { x: W / 2 - 110, y: H / 2 + 24, w: 220, h: 42, action: 'menu' };
-    c.strokeStyle = '#7fd4ff'; c.lineWidth = 2; c.strokeRect(r.x, r.y, r.w, r.h);
-    c.font = 'bold 16px monospace'; c.fillStyle = '#7fd4ff';
-    c.fillText('MAIN MENU', W / 2, r.y + 27);
+    // #87 END RUN: retire on your terms - banks ALL your essence (carried + coins) and
+    // posts your score, then the results screen. The graceful alternative to force-dying.
+    const er = { x: W / 2 - 120, y: H / 2 + 20, w: 240, h: 42, action: 'retire' };
+    c.fillStyle = 'rgba(255,210,76,0.10)'; c.fillRect(er.x, er.y, er.w, er.h);
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(er.x, er.y, er.w, er.h);
+    c.font = 'bold 15px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText('END RUN · bank essence + score', W / 2, er.y + 26);
+    // abandon to title (only essence already banked at checkpoints is kept; no score)
+    const r = { x: W / 2 - 120, y: H / 2 + 72, w: 240, h: 34, action: 'menu' };
+    c.strokeStyle = '#6a7688'; c.lineWidth = 1.5; c.strokeRect(r.x, r.y, r.w, r.h);
+    c.font = 'bold 13px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('abandon to menu', W / 2, r.y + 22);
     c.restore();
-    return [r];
+    return [er, r];
   }
 
   // --- CO-OP LOBBY -----------------------------------------------------------
@@ -1432,8 +1439,12 @@ const UI = (() => {
     c.fillRect(0, -24, W, H + 48);
     c.textAlign = 'center';
     c.font = 'bold 52px monospace';
-    c.fillStyle = won ? '#ffd24c' : '#c02040';
-    c.fillText(won ? 'THE HOARD IS YOURS' : 'YOU DIED', W / 2, 150);
+    c.fillStyle = won ? '#ffd24c' : (g.retired ? '#8fd0ff' : '#c02040');
+    c.fillText(won ? 'THE HOARD IS YOURS' : (g.retired ? 'RUN ENDED' : 'YOU DIED'), W / 2, 150);
+    if (!won && g.retired) {
+      c.font = '15px monospace'; c.fillStyle = '#7fd4ff';
+      c.fillText('You retired with your essence banked.', W / 2, 185);
+    }
     if (won) {
       c.font = '15px monospace'; c.fillStyle = '#c9a227';
       c.fillText('The Mimic King is slain. The gold was real after all.', W / 2, 185);

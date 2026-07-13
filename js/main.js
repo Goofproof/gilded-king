@@ -265,6 +265,7 @@
     g.winTimer = -1;
     g.deathTimer = -1;
     g.runEnded = false;
+    g.retired = false;
     g.boss = null;
     g.transition = null;
     g.gateMsg = 0;
@@ -675,6 +676,22 @@
     Fx.shake(10, 0.5);
     Sfx.play('explode');
     g.deathTimer = 0.9; // brief beat before the screen (game time, so pause behaves)
+  }
+
+  // #87 retire the run gracefully from the pause menu: bank ALL essence (carried +
+  // 10% of coins) and post the score, same as a death, but on your terms. Achievements
+  // earned during the run persist (they save as they unlock, independent of this).
+  function retireRun() {
+    if (g.runEnded) return;
+    g.runEnded = true;
+    g.retired = true;
+    const fromCoins = Math.floor(g.player.coins * 0.10);
+    g.essenceEarned = g.player.essenceRun + fromCoins;
+    g.meta.essence += (g.player.essenceRun - g.essenceCheckpoint) + fromCoins;
+    saveMeta();
+    g.levelUpQueue = 0; g.evoQueue = []; g.ultChoices = null;
+    Sfx.setAmbient(null);
+    endToScreen('dead'); // routes through arcade initials if it placed, then results
   }
 
   function onVictory() {
@@ -1427,7 +1444,10 @@
         if (input.pressed('KeyP') || input.pressed('Escape')) g.state = 'play';
         else if (input.mouse.clicked) {
           for (const r of g.uiRects) {
-            if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h && r.action === 'menu') quitToTitle();
+            if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+              if (r.action === 'menu') quitToTitle();
+              else if (r.action === 'retire') retireRun();
+            }
           }
         }
         break;
