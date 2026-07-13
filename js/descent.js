@@ -84,8 +84,16 @@ const Descent = (() => {
     { body: '#1a4a2a', lidLo: '#0f3018', lid: '#245a34', trim: '#4cff9a', crown: '#3cff8a', jewel: [60, 255, 140] }, // venom
     { body: '#1a1416', lidLo: '#0c0809', lid: '#2a1c20', trim: '#ff3030', crown: '#ff2020', jewel: [255, 20, 20] },  // obsidian rage
   ];
-  const BOSS_TITLES = ['THE ASHEN KING', 'THE HOLLOW KING', 'THE DROWNED KING',
-                       'THE VENOM KING', 'THE OBSIDIAN KING'];
+  // palette adjective + archetype noun -> a themed title. Deeper Wardens rotate
+  // the archetype so no two Descent bosses are the same creature.
+  const PAL_ADJ = ['ASHEN', 'HOLLOW', 'DROWNED', 'VENOM', 'OBSIDIAN'];
+  const BOSS_VARIANTS = ['king', 'colossus', 'matriarch'];
+  const VARIANT_NOUN = { king: 'KING', colossus: 'COLOSSUS', matriarch: 'MATRIARCH' };
+  const VARIANT_SUB = {
+    king: 'the King claws his way back, angrier',
+    colossus: 'a mountain of stone stirs and rises',
+    matriarch: 'the brood-mother descends, fangs bared',
+  };
 
   // Called when a descent boss is created. Reads/advances g.circleBossSeen and
   // returns the config boss.js needs. hp/dmg muls fold in the depth threat too.
@@ -94,11 +102,13 @@ const Descent = (() => {
     g.circleBossSeen = anger + 1;
     const t = threat(g.floorNum);
     const idx = anger % BOSS_PALS.length;
+    const variant = BOSS_VARIANTS[anger % BOSS_VARIANTS.length];
     return {
       anger,
+      variant,
       pal: BOSS_PALS[idx],
-      name: BOSS_TITLES[idx],
-      subtitle: 'the King claws his way back, angrier',
+      name: 'THE ' + PAL_ADJ[idx] + ' ' + VARIANT_NOUN[variant],
+      subtitle: VARIANT_SUB[variant],
       hpMul: t.hp * (1 + 0.12 * anger),   // beefier each appearance, on top of depth
       dmgMul: t.dmg,
     };

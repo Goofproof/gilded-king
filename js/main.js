@@ -1897,7 +1897,7 @@
       let b = g.boss;
       if (!b || !b.proxy || b.netId !== m.i) {
         if (b && b.proxy) { const i = g.monsters.indexOf(b); if (i >= 0) g.monsters.splice(i, 1); }
-        const opts = m.db ? { descent: { name: m.name, pal: m.pal, anger: m.an, hpMul: 1, dmgMul: 1 } } : undefined;
+        const opts = m.db ? { descent: { name: m.name, pal: m.pal, anger: m.an, hpMul: 1, dmgMul: 1, variant: m.vr || 'king' } } : { variant: m.vr || 'king' };
         b = Boss.make(opts);
         b.proxy = true; b.netId = m.i; b.dm = m.dm;
         b.update = function () { this.t += 1 / 60; if (this.flash > 0) this.flash -= 1 / 60; };
@@ -2278,7 +2278,7 @@
     // P1-E: the boss rides its own message (crown/jaw/hop/shadow draw fields)
     const b = g.boss;
     if (b && !b.dead && b.netId) {
-      Net.send({ t: 'boss', i: b.netId, name: b.name, pal: b.pal, an: b.anger || 0, db: b.isDescentBoss ? 1 : 0, dm: b.dmg || 16,
+      Net.send({ t: 'boss', i: b.netId, name: b.name, pal: b.pal, an: b.anger || 0, db: b.isDescentBoss ? 1 : 0, dm: b.dmg || 16, vr: b.variant || 'king',
         x: Math.round(b.x), y: Math.round(b.y), f: +(b.facing || 0).toFixed(2), hp: Math.round(b.hp), mh: Math.round(b.maxHp),
         st: b.state, tg: +(b.telegraph || 0).toFixed(2), jaw: Math.round(b.jaw || 0), hop: Math.round(b.hop || 0),
         sx: Math.round(b.shadowX || 0), sy: Math.round(b.shadowY || 0) });
