@@ -17,7 +17,7 @@ const Boss = (() => {
   const PF = Dungeon.PF;
 
   const STATS = {
-    hp: 520,           // scaled up by meta difficulty if ever needed
+    hp: 2200,          // playtest: the King died in ~4-5 hits; ~4.2x HP for a real fight
     contactDmg: 16,
     lungeDmg: 22,
     coinDmg: 10,

@@ -42,7 +42,9 @@ const Monsters = (() => {
     4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm'],
     5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm'],
   };
-  const COUNT = t => Math.min(8, 2 + t + ((Math.random() * 3) | 0)); // monsters per combat room
+  // playtest: rooms were too sparse for how strong players get. Far more bodies on
+  // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
+  const COUNT = t => Math.min(14, 2 + Math.round(t * 1.8) + ((Math.random() * 3) | 0)); // monsters per combat room
 
   function tierFor(floor, dist) { return Math.max(1, Math.min(5, floor + Math.floor(dist / 3))); }
 
@@ -51,9 +53,11 @@ const Monsters = (() => {
   // an optional elite affix. null on the base 3 floors, so those are untouched.
   function make(type, x, y, tier = 1, mods = null) {
     const b = BASE[type];
-    // #28: deeper tiers hit noticeably harder (dmg +24%/tier, was +15%) so late
-    // floors and the Descent stay dangerous instead of trivial once you're geared
-    const hpMul = 1 + 0.34 * (tier - 1), dmgMul = 1 + 0.24 * (tier - 1);
+    // #28 + playtest tune: players out-scale mobs badly by floor 2-3, so deeper
+    // tiers are now MUCH tankier (+100%/tier HP, was +34%): tier 3 = 3x, tier 5 = 5x.
+    // Floor 1 (tier 1) is unchanged since (tier-1)=0. Damage ramp left at +24%/tier -
+    // the problem was mobs dying too fast, not hitting too soft.
+    const hpMul = 1 + 1.0 * (tier - 1), dmgMul = 1 + 0.24 * (tier - 1);
     const m = {
       type, x, y, r: b.r,
       hp: Math.round(b.hp * hpMul), maxHp: Math.round(b.hp * hpMul),
@@ -363,21 +367,27 @@ const Monsters = (() => {
       }
       case 'shielded': {
         // shield blocks frontal damage; bash leaves it open - flank or bait.
-        // #48 bulwark: if it's guarding a ranged ally, it plants itself between the
-        // player and that ally (shield toward the threat) instead of closing; it only
-        // breaks formation to bash once the player pushes into it.
+        // BULWARK (Sam): shield guys do NOT rush the player. If there's ANY ranged
+        // mob in the room they plant themselves between it and the player and hold
+        // the line, shield toward the threat, never leaving formation to charge. With
+        // nobody to guard they advance SLOWLY behind the shield and only bash if the
+        // player is right on top of them.
         if (m.state === 'idle') {
           m.shieldUp = true;
           const ward = nearestRangedAlly(m, g);
-          if (ward && dist > 95) {
-            const bx = ward.x + (p.x - ward.x) * 0.42, by = ward.y + (p.y - ward.y) * 0.42;
-            moveToward(m, bx, by, dt, m.speed);
-            m.facing = Math.atan2(p.y - m.y, p.x - m.x); // keep the shield facing the player
+          if (ward) {
+            // screen the ranged ally: sit ~halfway between it and the player, tracking
+            const bx = ward.x + (p.x - ward.x) * 0.5, by = ward.y + (p.y - ward.y) * 0.5;
+            moveToward(m, bx, by, dt, m.speed * 0.9);
+            m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+            tryContactHit(m, g, p, 0.7); // still hurts to run into it; no bash while guarding
           } else {
-            moveToward(m, p.x, p.y, dt, m.speed);
+            // no one to guard: creep forward behind the shield, bash only point-blank
+            moveToward(m, p.x, p.y, dt, m.speed * 0.55);
+            m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+            tryContactHit(m, g, p, 0.7);
+            if (dist < 62 && m.t > 1.6) { m.state = 'windup'; m.t = 0; }
           }
-          if (dist < 110 && m.t > 1.2) { m.state = 'windup'; m.t = 0; }
-          tryContactHit(m, g, p, 0.7);
         } else if (m.state === 'windup') {
           m.telegraph = 0.45 - m.t;
           m.facing = Math.atan2(p.y - m.y, p.x - m.x);
