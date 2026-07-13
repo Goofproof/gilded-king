@@ -731,7 +731,7 @@ const PlayerDef = (() => {
           // otherwise atkspd barely helped bows (the fixed 0.8s draw dominated)
           const asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
           if (this.drawT >= 0) this.drawT += dt * asf;
-          if (this.drawT >= 0.72) { // auto-release near full draw
+          if (this.drawT >= 0.45) { // #108 auto-release near full draw (was 0.72; the long draw dominated the cycle and gutted bow DPS)
             this.fireBow(g);
             this.drawT = -1;
           }
@@ -793,7 +793,7 @@ const PlayerDef = (() => {
       if (this.dead || this.rollT >= 0 || this.attackCd > 0) return;
       const w = this.weapon; if (!w) return;
       this.facing = Math.atan2(my - this.y, mx - this.x);
-      if (w.archetype === 'bow') { this.drawT = 0.72; this.fireBow(g); this.drawT = -1; }
+      if (w.archetype === 'bow') { this.drawT = 0.45; this.fireBow(g); this.drawT = -1; } // #108 match the faster auto-release
       else if (w.archetype === 'wand' || w.archetype === 'staff') { if (this.canWield(w)) this.fireSpell(g); }
       else this.startSwing(g);
     }
@@ -874,7 +874,7 @@ const PlayerDef = (() => {
 
     fireBow(g) {
       const w = this.weapon, stats = this.stats;
-      const draw = Math.min(1, this.drawT / 0.8); // full power at 0.8s draw
+      const draw = Math.min(1, this.drawT / 0.5); // full power at 0.8s draw
       if (this.drawT < 0.08) { this.attackCd = 0.1; return; } // tap = dry-fire nothing
       const n = Weapons.has(w, 'multishot') ? 3 : 1;
       const spread = 0.14;
@@ -1357,7 +1357,7 @@ const PlayerDef = (() => {
       c.translate(this.x, this.y);
       c.rotate(this.facing);
       if (w.archetype === 'bow') {
-        const pull = this.drawT >= 0 ? Math.min(1, this.drawT / 0.8) : 0;
+        const pull = this.drawT >= 0 ? Math.min(1, this.drawT / 0.5) : 0;
         c.strokeStyle = w.color; c.lineWidth = 3;
         c.beginPath(); c.arc(this.r + 7, 0, 11, -Math.PI / 2.1, Math.PI / 2.1); c.stroke();
         c.strokeStyle = '#ccc'; c.lineWidth = 1;

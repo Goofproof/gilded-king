@@ -54,10 +54,10 @@ const Weapons = (() => {
   const ARCHETYPES = {
     heavy: { dmg: 26, cooldown: 0.95, windup: 0.30, range: 82, arc: 2.4, stagger: 0.55,
              names: ['Cleaver', 'Warhammer', 'Greataxe', 'Maul'] },
-    light: { dmg: 9,  cooldown: 0.22, windup: 0.0,  range: 54, arc: 1.15, stagger: 0.0,
-             names: ['Dagger', 'Shortsword', 'Rapier', 'Twinfang'] },
-    bow:   { dmg: 14, cooldown: 0.45, windup: 0.0,  range: 0,  arc: 0, projSpeed: 540,
-             names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'] },
+    light: { dmg: 9,  cooldown: 0.30, windup: 0.0,  range: 54, arc: 1.15, stagger: 0.0,
+             names: ['Dagger', 'Shortsword', 'Rapier', 'Twinfang'] }, // #108 cd 0.22->0.30: ~30 DPS, near heavy (was a runaway 41)
+    bow:   { dmg: 18, cooldown: 0.45, windup: 0.0,  range: 0,  arc: 0, projSpeed: 540,
+             names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'] }, // #108 base 14->18 + faster draw (player.js) to rescue bow/Ranger
     // #16 MAGIC: wand = fast single-target bolts; staff = slow charged fireball (AOE + burn)
     // #49 balance: base wand DPS (11/0.46 ~= 24) sits near a bow's; the Magic stat
     // scales it up from there (fireSpell), so a wand is only strong if you invest.
@@ -171,8 +171,10 @@ const Weapons = (() => {
     if (!w._base) w._base = { dmg: w.dmg, cooldown: w.cooldown, range: w.range, arc: w.arc, price: w.price };
     else { w.dmg = w._base.dmg; w.cooldown = w._base.cooldown; w.range = w._base.range; w.arc = w._base.arc; w.price = w._base.price; }
     const lv = k => { const e = w.enchants.find(e => e.key === k); return e ? (e.level || 1) : 0; };
-    if (lv('sharpness')) w.dmg += 3 * lv('sharpness');
-    if (lv('power'))     w.dmg += 3 * lv('power');
+    // #108 PROPORTIONAL: +12% of the weapon's base damage per level, so Sharpness/Power
+    // read equal on every weapon (flat +3 was +100% on a dagger but +26% on a staff).
+    if (lv('sharpness')) w.dmg += Math.round(w._base.dmg * 0.12 * lv('sharpness'));
+    if (lv('power'))     w.dmg += Math.round(w._base.dmg * 0.12 * lv('power'));
     if (lv('sweeping')) { w.range *= 1.3; w.arc = Math.min(Math.PI * 1.9, w.arc * 1.35); }
     if (lv('infinity'))  w.cooldown *= 0.6;
     // price bump for enchants
