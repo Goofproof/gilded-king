@@ -2057,6 +2057,23 @@
       g.overlayT += 1 / 60;
       return;
     }
+    if (g.showUpgrades) {
+      // permanent-boosts popup: clicking a boost/prestige row BUYS it (popup stays open
+      // so you can keep spending); a click on empty space or Esc closes it.
+      if (input.pressed('Escape')) { g.showUpgrades = false; return; }
+      if (input.mouse.clicked && g.overlayT > 0.2) {
+        for (const r of (g.upgradeRects || [])) {
+          if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+            if (r.action === 'upgrade') buyMetaUpgrade(r.key);
+            else if (r.action === 'prestige') doPrestige();
+            return; // stay open after a purchase
+          }
+        }
+        g.showUpgrades = false; // clicked away from any row -> close
+      }
+      g.overlayT += 1 / 60;
+      return;
+    }
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
@@ -2069,6 +2086,7 @@
           if (r.action === 'patchnotes') { g.showPatch = true; g.patchScroll = 0; Sfx.play('ui'); }
           if (r.action === 'mythics') { g.showMythics = true; Sfx.play('ui'); }
           if (r.action === 'achievements') { g.showAchievements = true; g.achScroll = 0; g.overlayT = 0; Sfx.play('ui'); }
+          if (r.action === 'upgrades') { g.showUpgrades = true; g.overlayT = 0; Sfx.play('ui'); }
           if (r.action === 'selectPet') { // toggle the stable pet chosen for the next run
             g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
             saveMeta(); Sfx.play('ui');

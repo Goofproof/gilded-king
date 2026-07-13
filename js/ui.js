@@ -692,75 +692,26 @@ const UI = (() => {
       }
     }
 
-    // --- ESSENCE upgrades: a compact character-sheet panel down the LEFT edge ---
-    c.textAlign = 'left';
-    c.font = 'bold 15px monospace'; c.fillStyle = '#b88aff';
-    c.fillText(`◆ ESSENCE  ${meta.essence}`, 18, 150);
-    c.font = '10px monospace'; c.fillStyle = '#667';
-    c.fillText('permanent boosts - they survive death', 18, 167);
-    const rowW = 246, rowH = 40; // stays left of the centre ENTER DUNGEON button
-    let ry = 178;
-    for (const u of META_UPGRADES) {
-      const rank = meta.ranks[u.key] || 0;
-      const cost = metaCost(u, rank);
-      const maxed = cost === null;                    // only capped upgrades ever max
-      const afford = cost !== null && meta.essence >= cost;
-      const past = rank >= u.maxRank;                 // into the endless tiers
-      const tint = STAT_TINT[u.stat] || '#b88aff';    // #88 the stat this boost feeds
-      const r = { x: 14, y: ry, w: rowW, h: rowH, action: 'upgrade', key: u.key };
-      c.fillStyle = maxed ? 'rgba(184,138,255,0.10)' : afford ? 'rgba(184,138,255,0.06)' : 'rgba(255,255,255,0.02)';
-      c.fillRect(r.x, r.y, r.w, r.h);
-      c.strokeStyle = maxed ? '#b88aff' : afford ? '#6a5a8a' : '#2c3040';
-      c.lineWidth = 1; c.strokeRect(r.x, r.y, r.w, r.h);
-      // #88 stat-colored accent strip down the left edge - ties the boost to its stat
-      c.fillStyle = tint; c.fillRect(r.x, r.y, 3, rowH);
-      // name (in its stat tint) + effect
-      c.textAlign = 'left';
-      c.font = 'bold 12px monospace'; c.fillStyle = tint;
-      c.fillText(u.name + (u.stat ? '' : ''), r.x + 12, r.y + 16);
-      c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-      c.fillText(u.desc, r.x + 12, r.y + 31);
-      // cost (top-right) + rank pips / Lv (bottom-right)
-      c.textAlign = 'right';
-      c.font = 'bold 11px monospace';
-      c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#555';
-      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, r.x + rowW - 10, r.y + 16);
-      if (past && u.endless) {
-        c.font = 'bold 10px monospace'; c.fillStyle = tint;
-        c.fillText(`Lv ${rank}`, r.x + rowW - 10, r.y + 32);
-      } else {
-        for (let i = 0; i < u.maxRank; i++) {
-          c.fillStyle = i < rank ? tint : '#2c3040';
-          c.beginPath(); c.arc(r.x + rowW - 12 - (u.maxRank - 1 - i) * 11, r.y + 28, 3, 0, Math.PI * 2); c.fill();
-        }
-      }
-      rects.push(r);
-      ry += rowH + 4;
-    }
-
-    // --- #43 PRESTIGE: wipe the whole essence account for a cosmetic prestige level ---
+    // --- PERMANENT BOOSTS: a button (like ACCOLADES) that opens the essence popup.
+    // The old always-on left panel crowded the home screen; the shop now lives in a
+    // modal so the title stays clean and the boosts get room to breathe. ---
     {
-      const lvl = meta.prestige || 0;
-      const cost = 500 * (lvl + 1);
-      const afford = meta.essence >= cost;
-      const armed = (g.prestigeConfirm || 0) > 0;
-      const pr = { x: 14, y: ry + 2, w: rowW, h: 40, action: 'prestige' };
-      c.fillStyle = armed ? 'rgba(224,85,85,0.16)' : afford ? 'rgba(232,181,47,0.08)' : 'rgba(255,255,255,0.02)';
-      c.fillRect(pr.x, pr.y, pr.w, pr.h);
-      c.strokeStyle = armed ? '#e05555' : afford ? '#e8b52f' : '#2c3040';
-      c.lineWidth = armed ? 2 : 1; c.strokeRect(pr.x, pr.y, pr.w, pr.h);
+      const bought = META_UPGRADES.reduce((n, u) => n + (meta.ranks[u.key] || 0), 0);
+      const anyAfford = META_UPGRADES.some(u => { const cst = metaCost(u, meta.ranks[u.key] || 0); return cst !== null && meta.essence >= cst; });
+      const upR = { x: 14, y: 150, w: 246, h: 50, action: 'upgrades' };
+      const pulse = anyAfford ? (Math.sin(Date.now() / 320) * 0.06 + 0.12) : 0.06;
+      c.fillStyle = `rgba(184,138,255,${pulse})`;
+      c.fillRect(upR.x, upR.y, upR.w, upR.h);
+      c.strokeStyle = anyAfford ? '#b88aff' : '#6a5a8a'; c.lineWidth = anyAfford ? 2 : 1.5;
+      c.strokeRect(upR.x, upR.y, upR.w, upR.h);
       c.textAlign = 'left';
-      c.font = 'bold 12px monospace'; c.fillStyle = '#e8b52f';
-      c.fillText(`♛ PRESTIGE ${lvl}`, pr.x + 10, pr.y + 16);
-      c.font = '9px monospace'; c.fillStyle = armed ? '#ff9a9a' : '#8fa3bf';
-      c.fillText(armed ? 'CLICK AGAIN: wipes essence, upgrades, mythics, pets' : 'reset your whole account for a grander cape', pr.x + 10, pr.y + 31);
-      c.textAlign = 'right';
-      c.font = 'bold 10px monospace'; c.fillStyle = afford ? '#ffd24c' : '#556';
-      c.fillText(afford ? `◆ ${cost}` : `need ◆ ${cost}`, pr.x + pr.w - 10, pr.y + 16);
-      rects.push(pr);
-      ry += 48;
+      c.font = 'bold 14px monospace'; c.fillStyle = '#b88aff';
+      c.fillText('◆ PERMANENT BOOSTS', upR.x + 12, upR.y + 21);
+      c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText(`◆ ${meta.essence} essence · ${bought} bought${anyAfford ? ' · can afford one!' : ''}`, upR.x + 12, upR.y + 38);
+      rects.push(upR);
+      c.textAlign = 'center';
     }
-    c.textAlign = 'center';
 
     // --- STABLE: pets you've befriended; pick one to start the next run with ---
     const roster = (typeof Descent !== 'undefined' && Descent.PETS) || [];
@@ -881,9 +832,89 @@ const UI = (() => {
     if (g.showMythics) drawMythicGallery(c, g);
     // #86: accolades gallery
     if (g.showAchievements) drawAchievements(c, g);
+    // permanent-boosts (essence upgrades) popup
+    if (g.showUpgrades) drawUpgrades(c, g);
 
     c.restore();
     return rects;
+  }
+
+  // PERMANENT BOOSTS popup: the essence shop, moved off the title into a modal (like
+  // the accolades gallery). Rows are clickable to buy; g.upgradeRects feeds the click
+  // handler in updateTitle so a purchase keeps the popup open.
+  function drawUpgrades(c, g) {
+    const meta = g.meta;
+    c.save();
+    c.fillStyle = 'rgba(5,6,10,0.94)';
+    c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    c.font = 'bold 26px monospace'; c.fillStyle = '#b88aff';
+    c.fillText('PERMANENT BOOSTS', W / 2, 58);
+    c.font = '14px monospace'; c.fillStyle = '#c9a227';
+    c.fillText(`◆ ${meta.essence} essence`, W / 2, 82);
+    c.font = '11px monospace'; c.fillStyle = '#667';
+    c.fillText('they survive death · click a boost to buy · Esc or click away to close', W / 2, 100);
+
+    const rects = [];
+    const cols = 2, cardW = 340, cardH = 58, gapX = 28, gapY = 12;
+    const gridW = cols * cardW + (cols - 1) * gapX;
+    const x0 = (W - gridW) / 2, y0 = 124;
+    META_UPGRADES.forEach((u, i) => {
+      const col = i % cols, row = (i / cols) | 0;
+      const x = x0 + col * (cardW + gapX), y = y0 + row * (cardH + gapY);
+      const rank = meta.ranks[u.key] || 0;
+      const cost = metaCost(u, rank);
+      const maxed = cost === null;
+      const afford = cost !== null && meta.essence >= cost;
+      const past = rank >= u.maxRank;
+      const tint = STAT_TINT[u.stat] || '#b88aff';
+      c.fillStyle = maxed ? 'rgba(184,138,255,0.12)' : afford ? 'rgba(184,138,255,0.07)' : 'rgba(255,255,255,0.02)';
+      c.fillRect(x, y, cardW, cardH);
+      c.strokeStyle = maxed ? '#b88aff' : afford ? '#7a68a0' : '#2c3040'; c.lineWidth = afford ? 1.5 : 1;
+      c.strokeRect(x, y, cardW, cardH);
+      c.fillStyle = tint; c.fillRect(x, y, 4, cardH); // #88 stat-tint accent strip
+      c.textAlign = 'left';
+      c.font = 'bold 14px monospace'; c.fillStyle = tint;
+      c.fillText(u.name, x + 14, y + 22);
+      c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText(u.desc, x + 14, y + 40);
+      c.textAlign = 'right';
+      c.font = 'bold 12px monospace'; c.fillStyle = maxed ? '#b88aff' : afford ? '#ffd24c' : '#556';
+      c.fillText(maxed ? 'MAXED' : `◆ ${cost}`, x + cardW - 12, y + 22);
+      if (past && u.endless) {
+        c.font = 'bold 11px monospace'; c.fillStyle = tint;
+        c.fillText(`Lv ${rank}`, x + cardW - 12, y + 42);
+      } else {
+        for (let k = 0; k < u.maxRank; k++) {
+          c.fillStyle = k < rank ? tint : '#2c3040';
+          c.beginPath(); c.arc(x + cardW - 14 - (u.maxRank - 1 - k) * 12, y + 40, 3.5, 0, Math.PI * 2); c.fill();
+        }
+      }
+      rects.push({ x, y, w: cardW, h: cardH, action: 'upgrade', key: u.key });
+    });
+
+    // prestige bar spanning the grid width, below the cards
+    const gridRows = Math.ceil(META_UPGRADES.length / cols);
+    const py = y0 + gridRows * (cardH + gapY) + 10;
+    const lvl = meta.prestige || 0, pcost = 500 * (lvl + 1);
+    const pafford = meta.essence >= pcost, armed = (g.prestigeConfirm || 0) > 0;
+    const pr = { x: x0, y: py, w: gridW, h: 50, action: 'prestige' };
+    c.fillStyle = armed ? 'rgba(224,85,85,0.16)' : pafford ? 'rgba(232,181,47,0.08)' : 'rgba(255,255,255,0.02)';
+    c.fillRect(pr.x, pr.y, pr.w, pr.h);
+    c.strokeStyle = armed ? '#e05555' : pafford ? '#e8b52f' : '#2c3040'; c.lineWidth = armed ? 2 : 1;
+    c.strokeRect(pr.x, pr.y, pr.w, pr.h);
+    c.textAlign = 'left';
+    c.font = 'bold 14px monospace'; c.fillStyle = '#e8b52f';
+    c.fillText(`♛ PRESTIGE ${lvl}`, pr.x + 14, pr.y + 21);
+    c.font = '10px monospace'; c.fillStyle = armed ? '#ff9a9a' : '#8fa3bf';
+    c.fillText(armed ? 'CLICK AGAIN: wipes essence, upgrades, mythics, pets' : 'reset your whole account for a grander cape', pr.x + 14, pr.y + 39);
+    c.textAlign = 'right';
+    c.font = 'bold 11px monospace'; c.fillStyle = pafford ? '#ffd24c' : '#556';
+    c.fillText(pafford ? `◆ ${pcost}` : `need ◆ ${pcost}`, pr.x + pr.w - 12, pr.y + 21);
+    rects.push(pr);
+
+    g.upgradeRects = rects;
+    c.restore();
   }
 
   // #86 ACCOLADES gallery: a scrollable grid of every feat, earned ones lit gold,
