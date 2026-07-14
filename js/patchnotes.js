@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.33', title: 'Meteor is now colossal', date: '2026-07-14',
       sha: 'c2838d4',
       items: [
-        'Meteor: colossal blast, bigger radius and impact (Sam).',
+        'The METEOR ultimate is now colossal. The blast is much wider, the rock plunges from way up high wrapped in fire and trailing embers, and when it lands it throws out a huge shockwave ring and fireball with a heavy screen shake and flying debris. Way more enemies get caught, and it finally feels as big as it sounds.',
       ],
     },
     {
