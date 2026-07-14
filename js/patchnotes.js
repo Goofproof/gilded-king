@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.21', title: 'Your Totals', date: '2026-07-14',
       sha: '0369c5f',
       items: [
-        'Character sheet: bring back the raw stat totals (Sam).',
+        'YOUR TOTALS are back on the character sheet (press C). Down the left side you can now read your real numbers again: total crit chance, crit damage, attack speed, move speed, health regen, damage reduction, spell power and the rest.',
+        'Every number is the true in-combat value, with your trinket, evolutions, armour and pet all counted in. What it says is what actually fights.',
       ],
     },
     {
