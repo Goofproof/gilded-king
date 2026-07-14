@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.31', title: 'Ice floor now builds momentum when you commit to a direction', date: '2026-07-14',
       sha: 'daf3eb6',
       items: [
-        'Ice floor: sustained same-direction input builds momentum (Sam).',
+        'The frozen floor deep in the descent now feels like real ice. Hold one direction and you keep picking up speed like a skater, faster the longer you commit. Change direction and you lose the momentum and have to build it back up, so the trick is to pick a line and ride it.',
       ],
     },
     {
