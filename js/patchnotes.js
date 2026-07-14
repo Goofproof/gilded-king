@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.34', title: 'Hold E to keep training in the barracks', date: '2026-07-14',
       sha: '421af6c',
       items: [
-        'Barracks: hold E to auto-repeat purchases (Sam).',
+        'In the training barracks you can now HOLD the E key at a station to keep buying stat boosts over and over, instead of tapping it once per purchase. It stops on its own the moment you run out of gold, so you can dump a big pile of coins fast.',
       ],
     },
     {
