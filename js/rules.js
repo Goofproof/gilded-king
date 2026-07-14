@@ -160,7 +160,10 @@ const Rules = (() => {
         p._stillT = (p._stillT || 0) + dt;
         if (p._stillT > 1.6) {
           p._stillT = 1.6 - 0.55;              // tick roughly every half second stood still
-          p.damage(4, p.x, p.y - 1, g);
+          // #141 (Sam) a PERCENT of max HP, not a flat 4 - a flat 4 was nothing once you
+          // had thousands of HP deep in the run. 4% per tick (~8%/s stood still) is a real
+          // reason to keep moving at any depth, and never an instant death.
+          p.damage(Math.max(4, p.maxHp * 0.04), p.x, p.y - 1, g);
           if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - p.r - 16, 'MOVE!', '#9ad0a4', 13);
         }
       } },
