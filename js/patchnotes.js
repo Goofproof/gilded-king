@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.51', title: 'Every Hell boss now has a signature ultimate', date: '2026-07-14',
       sha: '5cf2ce9',
       items: [
-        'Hell bosses: each guardian casts a signature ultimate at fight start + every 5s (Sam, #156).',
+        'Every boss in Hell now has its own special attack that it unleashes the moment the fight starts, and again every 5 seconds, on top of everything else it does. Charon throws up a wall of bolts with one gap to slip through, Cerberus bites in three directions at once, Plutus erupts in rings of cursed gold, the Minotaur gores in a wide charge, and Lucifer freezes the whole room with a giant double ring. Each one is dodgeable, but you have to be paying attention, so the boss fights are never a moment of calm now.',
       ],
     },
     {
