@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.32', title: 'Thorns now punish enemies that shoot you from range', date: '2026-07-14',
       sha: '89eb520',
       items: [
-        'Thorns: bite ranged attackers, not just melee touchers (Sam).',
+        'Thorns armour used to only hurt enemies that walked into you. Now it fights back against archers and gunners too. Take a hit from a shot and the enemy who fired it takes thorns damage right back, even from all the way across the room, with a little green spark so you can see it land.',
       ],
     },
     {
