@@ -1214,7 +1214,12 @@ const PlayerDef = (() => {
         else if (Weapons.has(w, 'venom')) { col = '#8ef06e'; elem = 'poison'; extra = { venom: true }; }
         else if (Weapons.has(w, 'chain')) { col = '#ffe27a'; elem = 'storm';  extra = { chain: true }; }
         const blast = 64 + this.mod('blastBonus'); // #46 ARCANE Elemental-Reach branch widens the burst
-        mkProj(a, w.dmg, Object.assign({ r: 8, color: col, life: 2.0, blast, hitSfx: 'hitHeavy', spell: 'fireball', elem }, extra));
+        // #142 (Sam) Multishot works on the STAFF now, not just the wand - it fired one
+        // fireball and ignored the enchant. A multishot staff throws a 3-burst fan.
+        const n = Weapons.has(w, 'multishot') ? 3 : 1;
+        for (let i = 0; i < n; i++) {
+          mkProj(a + (i - (n - 1) / 2) * 0.16, w.dmg, Object.assign({ r: 8, color: col, life: 2.0, blast, hitSfx: 'hitHeavy', spell: 'fireball', elem }, extra));
+        }
         Fx.shake(3, 0.12); Sfx.play('heavy');
       } else { // wand bolt (Multishot -> a 3-bolt fan)
         const n = Weapons.has(w, 'multishot') ? 3 : 1;
