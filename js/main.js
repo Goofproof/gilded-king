@@ -3858,11 +3858,18 @@
       const e = g.ultFx[i];
       e.t += dt;
       if (e.type === 'meteor') {
-        if (e.t >= e.delay) {
-          Fx.shake(11, 0.4); Sfx.play('explode');
-          Fx.burst(e.x, e.y, ['#ff8a3d', '#ffcc44', '#fff'], 42, { speed: 340, life: 0.6, glow: true });
-          for (const m of [...g.monsters]) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) m.takeHit(e.dmg, { sx: e.x, sy: e.y, knock: 260, crit: true, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
-          g.ultFx.splice(i, 1);
+        // #145 (Sam) COLOSSAL meteor: on impact, land the blast once, then keep the fx
+        // alive a beat as an expanding shockwave ring + fireball (drawUltFx reads e.boom).
+        if (!e.boom && e.t >= e.delay) {
+          e.boom = 0;                                   // seconds since impact
+          Fx.shake(18, 0.55); Sfx.play('explode');
+          Fx.burst(e.x, e.y, ['#ff8a3d', '#ffcc44', '#fff'], 110, { speed: 460, life: 0.75, glow: true, size: 4 });
+          Fx.burst(e.x, e.y, ['#5a3520', '#7a4a28'], 30, { speed: 260, life: 0.9, grav: 420, size: 3 }); // debris
+          for (const m of [...g.monsters]) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) m.takeHit(e.dmg, { sx: e.x, sy: e.y, knock: 340, crit: true, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
+        }
+        if (e.boom !== undefined) {
+          e.boom += dt;
+          if (e.boom >= 0.5) g.ultFx.splice(i, 1);      // shockwave finishes, then clear
         }
       } else if (e.type === 'lob') {
         // #66 an ENEMY lobbed bomb: on landing it blasts the PLAYER + allies, not monsters
@@ -3914,12 +3921,33 @@
   function drawUltFx(c) {
     for (const e of g.ultFx) {
       if (e.type === 'meteor') {
-        const k = Math.min(1, e.t / e.delay);
-        c.strokeStyle = `rgba(255,138,61,${0.4 + 0.4 * Math.abs(Math.sin(g.time * 18))})`; c.lineWidth = 3;
-        c.beginPath(); c.arc(e.x, e.y, e.radius * (0.4 + 0.6 * k), 0, Math.PI * 2); c.stroke();
-        const rockY = e.y - (1 - k) * 320;
-        c.fillStyle = '#5a3520'; c.beginPath(); c.arc(e.x, rockY, 11, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#ff8a3d'; c.beginPath(); c.arc(e.x, rockY, 5, 0, Math.PI * 2); c.fill();
+        if (e.boom !== undefined) {
+          // #145 impact: an expanding shockwave ring + a fading fireball out to the full radius
+          const b = Math.min(1, e.boom / 0.5);
+          c.save();
+          c.strokeStyle = `rgba(255,190,90,${0.85 * (1 - b)})`; c.lineWidth = 8 * (1 - b) + 2;
+          c.beginPath(); c.arc(e.x, e.y, e.radius * (0.3 + 0.9 * b), 0, Math.PI * 2); c.stroke();
+          const grd = c.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.radius * (0.5 + 0.5 * b));
+          grd.addColorStop(0, `rgba(255,240,200,${0.6 * (1 - b)})`);
+          grd.addColorStop(0.5, `rgba(255,138,61,${0.45 * (1 - b)})`);
+          grd.addColorStop(1, 'rgba(255,90,44,0)');
+          c.fillStyle = grd; c.beginPath(); c.arc(e.x, e.y, e.radius * (0.5 + 0.5 * b), 0, Math.PI * 2); c.fill();
+          c.restore();
+        } else {
+          const k = Math.min(1, e.t / e.delay);
+          // telegraph: a pulsing target ring that fills to the true blast radius
+          c.strokeStyle = `rgba(255,138,61,${0.4 + 0.4 * Math.abs(Math.sin(g.time * 18))})`; c.lineWidth = 3;
+          c.beginPath(); c.arc(e.x, e.y, e.radius * (0.4 + 0.6 * k), 0, Math.PI * 2); c.stroke();
+          // a big rock plunging from high up, wrapped in a fiery glow, trailing embers
+          const rockY = e.y - (1 - k) * 460;
+          const rr = 20 + 8 * k;
+          const glow = c.createRadialGradient(e.x, rockY, 0, e.x, rockY, rr * 2.4);
+          glow.addColorStop(0, 'rgba(255,200,90,0.9)'); glow.addColorStop(1, 'rgba(255,90,44,0)');
+          c.fillStyle = glow; c.beginPath(); c.arc(e.x, rockY, rr * 2.4, 0, Math.PI * 2); c.fill();
+          c.fillStyle = '#5a3520'; c.beginPath(); c.arc(e.x, rockY, rr, 0, Math.PI * 2); c.fill();
+          c.fillStyle = '#ff8a3d'; c.beginPath(); c.arc(e.x - rr * 0.2, rockY - rr * 0.2, rr * 0.5, 0, Math.PI * 2); c.fill();
+          if (k > 0.15) Fx.burst(e.x, rockY + rr, ['#ff8a3d', '#ffcc44'], 2, { speed: 40, life: 0.4, glow: true, vy: -80, size: 3 });
+        }
       } else if (e.type === 'lob') {
         // #66 landing telegraph ring + the arcing bomb flying from the lobber to the spot
         const k = Math.min(1, e.t / e.delay);

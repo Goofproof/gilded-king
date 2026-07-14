@@ -181,7 +181,7 @@ const Abilities = (() => {
   // You're offered 3 random ones to choose from, so builds feel unique. Each maps to
   // a `kind` handled in main.js castAbility(); numbers are first-pass and tunable.
   const ULTIMATES = [
-    { id: 'meteor',    name: 'METEOR',          color: '#ff8a3d', kind: 'meteor',  dmg: 300, radius: 200, cdMax: 16, desc: 'Call down a meteor where you aim - a huge delayed blast' },
+    { id: 'meteor',    name: 'METEOR',          color: '#ff8a3d', kind: 'meteor',  dmg: 340, radius: 340, cdMax: 16, desc: 'Call down a colossal meteor where you aim - a massive delayed blast' },
     { id: 'inferno',   name: 'INFERNO',         color: '#ff5a2c', kind: 'inferno', dps: 55,  dur: 5,   cdMax: 15, desc: 'Every enemy in the room bursts into flame' },
     { id: 'timestop',  name: 'TIME STOP',       color: '#9ecbff', kind: 'sleep',   dur: 3.5, cdMax: 18, desc: 'Freeze every enemy in place for a few seconds' },
     { id: 'blizzard',  name: 'DEEP FREEZE',     color: '#7fe0ff', kind: 'freeze',  dmg: 70,  dur: 4.5, cdMax: 15, desc: 'The whole room ices over - enemies crawl and take frost damage' },
