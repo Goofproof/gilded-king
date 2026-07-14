@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.42', title: 'Fix black screen when looking at a trinket in a shop', date: '2026-07-14',
       sha: '0894853',
       items: [
-        'Fix black-screen crash when viewing a trinket for sale (Sam).',
+        'Fixed a nasty crash: walking up to a trinket for sale (or one dropped on the ground) turned the whole screen black. The little info card that pops up was choking on the price. It shows the price properly now, and the card can never crash the game like that again.',
       ],
     },
     {
