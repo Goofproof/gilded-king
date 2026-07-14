@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.50';
+  const VERSION = 'v2.51';
 
   const NOTES = [
+    {
+      v: 'v2.51', title: 'Every Hell boss now has a signature ultimate', date: '2026-07-14',
+      sha: '5cf2ce9',
+      items: [
+        'Hell bosses: each guardian casts a signature ultimate at fight start + every 5s (Sam, #156).',
+      ],
+    },
     {
       v: 'v2.50', title: 'The bear is a bigger target, and a tougher one', date: '2026-07-14',
       sha: 'f049a61',
