@@ -1447,7 +1447,7 @@ const UI = (() => {
   // #102 DEATH SNAPSHOT: the fallen hero's visage + character sheet, frozen at death.
   function drawScoreSnap(c, g) {
     const s = g.snapView; if (!s) return;
-    const pw = 460, ph = 430, px = (W - pw) / 2, py = 55;
+    const pw = 500, ph = 448, px = (W - pw) / 2, py = 55;
     c.fillStyle = 'rgba(4,4,10,0.96)'; c.fillRect(0, 0, W, H);
     c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
     c.textAlign = 'center';
@@ -1483,21 +1483,28 @@ const UI = (() => {
     // headline facts beside the portrait
     c.textAlign = 'left';
     const hx = ax + av + 22; let hy = ay + 20;
+    // #150 (Sam) OLDER global snapshots predate some of these fields (dmgMul/spdMul/
+    // crit/coinMul/magic and the headline counts). Default every one so a legacy entry
+    // shows a sane value instead of NaN% / "undefined".
+    const num = (v, d) => (Number.isFinite(+v) ? +v : d);
+    const level = s.level != null ? s.level : '?', floorN = s.floor != null ? s.floor : '?';
+    const maxHpTxt = s.maxHp != null ? s.maxHp : '?';
     c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
-    c.fillText(`${s.className}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 22;
+    c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 22;
     c.font = '13px monospace'; c.fillStyle = '#c8d2e0';
-    c.fillText(`Level ${s.level}  ·  fell on floor ${s.floor}`, hx, hy); hy += 20;
-    c.fillStyle = '#ffd24c'; c.fillText(`${s.essence} essence banked`, hx, hy); hy += 20;
+    c.fillText(`Level ${level}  ·  fell on floor ${floorN}`, hx, hy); hy += 20;
+    c.fillStyle = '#ffd24c'; c.fillText(`${num(s.essence, 0)} essence banked`, hx, hy); hy += 20;
     c.fillStyle = '#9fb0c8';
-    c.fillText(`${s.kills} kills  ·  ${s.coins} gold`, hx, hy); hy += 20;
-    c.fillText(`${s.maxHp} max HP`, hx, hy);
+    c.fillText(`${num(s.kills, 0)} kills  ·  ${num(s.coins, 0)} gold`, hx, hy); hy += 20;
+    c.fillText(`${maxHpTxt} max HP`, hx, hy);
 
-    // stat line
+    // stat line - split across two rows so a full build never runs off the panel
     let y = ay + av + 30;
     c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227'; c.fillText('STATS', px + 28, y); y += 18;
     c.font = '12px monospace'; c.fillStyle = '#b7c2d4';
-    const dmgPct = Math.round((s.dmgMul - 1) * 100), spdPct = Math.round((s.spdMul - 1) * 100), coinPct = Math.round((s.coinMul - 1) * 100);
-    c.fillText(`+${dmgPct}% dmg   +${spdPct}% move   ${s.crit}% crit   +${coinPct}% coins   magic ${s.magic}`, px + 28, y); y += 24;
+    const dmgPct = Math.round((num(s.dmgMul, 1) - 1) * 100), spdPct = Math.round((num(s.spdMul, 1) - 1) * 100), coinPct = Math.round((num(s.coinMul, 1) - 1) * 100);
+    c.fillText(`+${dmgPct}% dmg   +${spdPct}% move   ${num(s.crit, 0)}% crit`, px + 28, y); y += 16;
+    c.fillText(`+${coinPct}% coins   magic x${num(s.magic, 1)}`, px + 28, y); y += 22;
 
     // evolutions
     c.font = 'bold 12px monospace'; c.fillStyle = '#b06bff'; c.fillText('EVOLUTIONS', px + 28, y); y += 18;
