@@ -28,10 +28,28 @@
 const Ascent = (() => {
 
   // the nine circles are floors 4-12. Floor 13 is where you come out the other side.
+  // The mountain is FINITE, unlike Hell: shore, seven terraces, summit. It ends,
+  // because in the poem it ends - at the top of Purgatory is the Earthly Paradise,
+  // and above that there is no more mountain, only sky. Floors 22+ are the heavens
+  // (paradiso.js).
   const SHORE_FLOOR = 13;
   const FIRST_TERRACE = 14;
-  const isAscent = f => f >= SHORE_FLOOR;
+  const TERRACES_N = 7;
+  const SUMMIT_FLOOR = FIRST_TERRACE + TERRACES_N;   // 21 - the Earthly Paradise
+  const LAST_FLOOR = SUMMIT_FLOOR;
+  const isAscent = f => f >= SHORE_FLOOR && f <= LAST_FLOOR;
   const onShore = f => f === SHORE_FLOOR;
+  const onSummit = f => f === SUMMIT_FLOOR;
+
+  // --- THE SUMMIT -------------------------------------------------------------
+  // The Earthly Paradise: the garden at the top of the mountain, where the climb
+  // ends and the flight begins. Like the Shore, it carries no rule - the two floors
+  // that bracket the mountain are the two floors that let you breathe.
+  const SUMMIT = {
+    key: 'SUMMIT', name: 'THE EARTHLY PARADISE',
+    floor: '#3e5240', wall: '#16211a', accent: '#b7f0c0', detail: '#4f684f',
+    obstacle: 'blossom', ambient: 'eden', glow: 'rgba(200,255,210,0.34)', glowTop: true,
+  };
 
   // --- THE SHORE --------------------------------------------------------------
   // Ante-Purgatory: the beach at the foot of the mountain, before the climb. A
@@ -74,31 +92,35 @@ const Ascent = (() => {
 
   function placeName(f) {
     if (onShore(f)) return SHORE.name;
-    const t = TERRACES[terraceIndex(f)];
-    const lap = Math.floor((f - FIRST_TERRACE) / TERRACES.length);
-    const name = 'THE TERRACE OF ' + t.key;
-    return lap > 0 ? name + ' · HIGHER' : name;
+    if (onSummit(f)) return SUMMIT.name;
+    return 'THE TERRACE OF ' + TERRACES[terraceIndex(f)].key;
   }
 
   // Pure function of the floor number, like Descent.themeFor - so a co-op host and
   // guest land on the same mountain with no syncing.
   function themeFor(f) {
     if (onShore(f)) return { ...SHORE, name: SHORE.name };
+    if (onSummit(f)) return { ...SUMMIT, name: SUMMIT.name };
     return { ...TERRACES[terraceIndex(f)], name: placeName(f) };
   }
 
   // How high you have climbed. The HUD shows this instead of a depth: you are not
   // falling any more. Floor 13 (the shore) is altitude 0 - you are at the bottom
-  // of the mountain, having just come up out of the earth.
+  // of the mountain, having just come up out of the earth. Paradiso keeps counting
+  // from here, so the number never resets.
   const altitude = f => Math.max(0, f - SHORE_FLOOR);
 
   // --- THE LINES AT THE TURN --------------------------------------------------
   // Toad's joke has curdled all the way down. At the bottom of Hell it breaks, and
   // he says the only true thing he has ever said.
   const SHORE_LINE = 'there is no castle down here. you have to go UP.';
+  // And at the top of the mountain there is no more mountain.
+  const SUMMIT_LINE = 'the mountain is finished. the castle is not on it.';
 
   return {
-    SHORE_FLOOR, FIRST_TERRACE, isAscent, onShore, altitude,
-    themeFor, placeName, terraceIndex, TERRACES, SHORE, SHORE_LINE,
+    SHORE_FLOOR, FIRST_TERRACE, SUMMIT_FLOOR, LAST_FLOOR,
+    isAscent, onShore, onSummit, altitude,
+    themeFor, placeName, terraceIndex, TERRACES, SHORE, SUMMIT,
+    SHORE_LINE, SUMMIT_LINE,
   };
 })();

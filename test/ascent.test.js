@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { loadGame } from './harness.js';
 
-const { Ascent, Descent, Rules, Dungeon } = loadGame();
+const { Ascent, Descent, Paradiso, Rules, Dungeon } = loadGame();
 
 // Mount Purgatory sits INSIDE the Descent's floor range: everything past the King is
 // "the Descent" as far as the difficulty curve, the elites and the boss cadence are
@@ -30,12 +30,16 @@ describe('The turn: where Hell ends and the mountain begins', () => {
     expect(Descent.threat(30).hp).toBeGreaterThan(Descent.threat(14).hp);
   });
 
-  it('the seven terraces start at 14 and cycle, so the climb is endless', () => {
+  it('the seven terraces run 14-20, and then the mountain ENDS', () => {
     expect(Dungeon.themeFor(14).name).toContain('PRIDE');
     expect(Dungeon.themeFor(20).name).toContain('LUST');
-    expect(Dungeon.themeFor(21).name).toContain('PRIDE');   // round again
-    expect(Dungeon.themeFor(21).name).toContain('HIGHER');   // and it says so
-    expect(Ascent.terraceIndex(14)).toBe(Ascent.terraceIndex(21));
+    // The mountain is FINITE, unlike Hell. At the top of Purgatory is the Earthly
+    // Paradise and above that there is no more mountain - only sky. Floor 21 used to
+    // wrap back round to Pride; now it is the summit, and 22+ are the heavens.
+    expect(Ascent.onSummit(21)).toBe(true);
+    expect(Dungeon.themeFor(21).name).toContain('EARTHLY PARADISE');
+    expect(Ascent.isAscent(22)).toBe(false);                 // the mountain has ended
+    expect(Paradiso.isParadiso(22)).toBe(true);              // and the sky has begun
   });
 
   it('altitude rises with the floor (the readout is not a depth any more)', () => {
@@ -137,9 +141,21 @@ describe('The mountain keeps co-op honest', () => {
     expect(deep.list.length).toBe(1 + deep.mutators.length);
   });
 
-  it('the whole climb from 13 to 40 is distinct floors', () => {
+  it('the whole climb is distinct floors, apart from the QUIET ones', () => {
+    // Three floors carry no rules at all, on purpose: the Shore (13), the Earthly
+    // Paradise (21) and the Empyrean (31). They are the beats. Every OTHER floor from
+    // 13 to 40 must be a unique combination, or the run has started repeating itself.
+    const quiet = [13, 21, 31];
     const seen = new Set();
-    for (let f = 13; f <= 40; f++) seen.add(Rules.forFloor(f, 31337).list.map(r => r.key).join('|'));
-    expect(seen.size).toBe(28); // floors 13..40, no two alike
+    let n = 0;
+    for (let f = 13; f <= 40; f++) {
+      if (quiet.includes(f)) {
+        expect(Rules.forFloor(f, 31337).list, `floor ${f} should be quiet`).toHaveLength(0);
+        continue;
+      }
+      seen.add(Rules.forFloor(f, 31337).list.map(r => r.key).join('|'));
+      n++;
+    }
+    expect(seen.size).toBe(n);   // no two alike
   });
 });

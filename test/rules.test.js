@@ -84,9 +84,18 @@ describe('Floor rules: the mutators', () => {
   });
 
   it('the point of the whole thing: a long run is all distinct floors', () => {
+    // ...apart from the three QUIET floors, which carry no rules by design and are
+    // therefore identical to each other: the Shore (13), the Earthly Paradise (21)
+    // and the Empyrean (31). See ascent.test.js.
+    const quiet = [13, 21, 31];
     const seen = new Set();
-    for (let f = 4; f <= 40; f++) seen.add(Rules.forFloor(f, 777).list.map(r => r.key).join('|'));
-    expect(seen.size).toBe(37); // floors 4..40, no two alike
+    let n = 0;
+    for (let f = 4; f <= 40; f++) {
+      if (quiet.includes(f)) continue;
+      seen.add(Rules.forFloor(f, 777).list.map(r => r.key).join('|'));
+      n++;
+    }
+    expect(seen.size).toBe(n); // no two alike
   });
 
   it('multipliers from the circle and its mutators STACK', () => {

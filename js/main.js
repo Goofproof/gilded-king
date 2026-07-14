@@ -401,6 +401,37 @@
       Fx.burst(PF.x + PF.w / 2, PF.y + PF.h / 2, ['#7fd4ff', '#cfeeff', '#ffffff'], 48,
         { speed: 260, life: 1.3, glow: true, size: 2.6 });
     }
+
+    // ===================== THE SUMMIT, AND THE FLIGHT =======================
+    // The top of the mountain is the top of the WORLD. There is no more ground to
+    // climb, so from here you leave it.
+    if (typeof Ascent !== 'undefined' && Ascent.onSummit(g.floorNum)) {
+      g.floorBanner = { text: 'THE TOP OF THE WORLD', t: 5.0,
+                        sub: 'the mountain ends here. the sky does not.' };
+      g.toadMsg = { text: Ascent.SUMMIT_LINE, t: 6.5 };
+      Fx.burst(PF.x + PF.w / 2, PF.y + PF.h / 2, ['#b7f0c0', '#eaf7ea', '#ffd24c'], 40,
+        { speed: 190, life: 1.6, glow: true, size: 2.2, grav: -40 });
+    }
+    if (typeof Paradiso !== 'undefined' && g.floorNum === Paradiso.FIRST_SPHERE) {
+      g.floorBanner = { text: 'YOU RISE', t: 5.0, sub: 'the earth lets go of you.' };
+      g.toadMsg = { text: Paradiso.RISE_LINE, t: 6.5 };
+      Fx.burst(PF.x + PF.w / 2, PF.y + PF.h / 2, ['#ffffff', '#cfd8f0'], 50,
+        { speed: 230, life: 1.8, glow: true, size: 2.4, grav: -60 });
+    }
+
+    // ===================== THE EMPYREAN: THE END OF THE BOOK ================
+    // Thirty floors of Toad telling you the princess is in another castle. Here is
+    // another castle. It is the last one, and she is in it, and he was never lying.
+    if (typeof Paradiso !== 'undefined' && Paradiso.inEmpyrean(g.floorNum)) {
+      g.floorBanner = { text: 'THE EMPYREAN', t: 6.0, sub: 'the light that moves the sun and the other stars' };
+      g.toadMsg = { text: Paradiso.EMPYREAN_LINE, t: 9 };
+      Sfx.play('levelup');
+      Fx.shake(4, 0.5);
+      for (let i = 0; i < 3; i++) {
+        Fx.burst(PF.x + PF.w / 2, PF.y + PF.h / 2, ['#ffffff', '#ffe9a8', '#c9a227'], 40,
+          { speed: 120 + i * 90, life: 2.2, glow: true, size: 2.6, grav: -30 });
+      }
+    }
     Sfx.setAmbient(theme.ambient);
     // Bulwark armor: a shield charm greets you on every floor
     if (g.player.armorMods.bulwark) {
@@ -488,6 +519,21 @@
       // advances the anger counter) and consumed when the boss actually spawns.
       g.pendingBossCfg = (typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum))
         ? Descent.bossConfig(g) : null;
+      // THE EMPYREAN. Not another recoloured Warden - the ORIGINAL, the one from floor
+      // 3, gold again, waiting at the top of Heaven in the last castle. That is the
+      // whole joke and it only works if he looks like himself.
+      if (typeof Paradiso !== 'undefined' && Paradiso.inEmpyrean(g.floorNum) && g.pendingBossCfg) {
+        const t = Descent.threat(g.floorNum);
+        g.pendingBossCfg = {
+          anger: g.pendingBossCfg.anger,
+          variant: 'king',
+          pal: { body: '#8a6a1e', lidLo: '#6a5016', lid: '#a07d24', trim: '#ffd24c', crown: '#ffe08a', jewel: [255, 225, 120] },
+          name: 'THE GILDED KING',
+          subtitle: 'he has been waiting at the top the whole time',
+          hpMul: t.hp * 2.2,     // the last fight in the book. It should be the hardest.
+          dmgMul: t.dmg * 1.25,
+        };
+      }
       g.bossIntroName = g.pendingBossCfg ? g.pendingBossCfg.name : 'THE MIMIC KING';
       g.bossIntroSub = g.pendingBossCfg ? g.pendingBossCfg.subtitle : 'the dungeon was bait all along';
       Sfx.play('roar');
@@ -3947,17 +3993,26 @@
       c.save();
       c.globalAlpha = a;
       c.textAlign = 'center';
-      // on the mountain the toad's line is not a taunt from below any more, so the
-      // colour warms and the sub-line turns around with the rest of the game
+      // Toad's line follows the run. Falling: fire, and the pit below. Climbing: dawn,
+      // and the mountain above. At the END of the book it is gold, and it is the truth,
+      // and there is nothing below or above any more.
       const climbing = typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum);
+      const heaven = typeof Paradiso !== 'undefined' && Paradiso.isParadiso(g.floorNum);
+      const end = heaven && Paradiso.inEmpyrean(g.floorNum);
+      const col = end ? '#c9a227' : heaven ? '#dfe6ff' : climbing ? '#9fc6e8' : '#ff8a3d';
+      const subCol = end ? '#8a7320' : heaven ? '#ffffff' : climbing ? '#cfe6ff' : '#ffcc88';
+      const sub = end ? 'she always was'
+                : heaven ? 'the spheres turn around you'
+                : climbing ? 'the mountain rises above you'
+                : 'the Descent yawns open below';
       c.font = 'bold 26px monospace';
-      c.fillStyle = '#1a0a04';
+      c.fillStyle = end ? 'rgba(255,255,255,0.85)' : '#1a0a04';   // the Empyrean is WHITE: the shadow must invert
       c.fillText(g.toadMsg.text, W / 2 + 2, H / 2 - 58);
-      c.fillStyle = climbing ? '#9fc6e8' : '#ff8a3d';
+      c.fillStyle = col;
       c.fillText(g.toadMsg.text, W / 2, H / 2 - 60);
       c.font = '14px monospace';
-      c.fillStyle = climbing ? '#cfe6ff' : '#ffcc88';
-      c.fillText(climbing ? 'the mountain rises above you' : 'the Descent yawns open below', W / 2, H / 2 - 34);
+      c.fillStyle = subCol;
+      c.fillText(sub, W / 2, H / 2 - 34);
       c.restore();
     }
 
@@ -4192,6 +4247,37 @@
       // embers off the refining fire - they rise, and they are WARM, not cruel
       if (Math.random() < 0.5) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 30,
         ['#ffb27a', '#ffd24c', '#ff7a3c'], 1, { speed: 9, life: 2.2, grav: -30, glow: true, size: 1.9, drag: 0.998 });
+    }
+    // --- THE HEAVENS: everything here is made of light, and all of it RISES.
+    if (theme.ambient === 'eden') {
+      if (Math.random() < 0.35) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 40,
+        ['#b7f0c0', '#eaf7ea', '#ffd24c'], 1, { speed: 7, vx: 14, life: 3.4, grav: -8, glow: true, size: 1.6, drag: 0.998 }); // petals on the air
+    }
+    if (theme.ambient === 'celestial') {
+      if (Math.random() < 0.4) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 50,
+        [theme.accent, '#ffffff'], 1, { speed: 6, life: 3.2, grav: -18, glow: true, size: 1.5, drag: 0.999 });
+    }
+    if (theme.ambient === 'radiance') {
+      if (Math.random() < 0.5) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 40,
+        [theme.accent, '#fff8e0'], 1, { speed: 8, life: 2.6, grav: -26, glow: true, size: 2.0, drag: 0.998 });
+    }
+    if (theme.ambient === 'martial') {
+      if (Math.random() < 0.4) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 30,
+        ['#ff9a8a', '#ffd0c4'], 1, { speed: 10, life: 2.0, grav: -30, glow: true, size: 1.8, drag: 0.998 });
+    }
+    if (theme.ambient === 'silence') {
+      // almost nothing, very slowly. Saturn is the quiet heaven.
+      if (Math.random() < 0.12) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 40,
+        ['#e8dcc0', '#c9a227'], 1, { speed: 3, life: 5.0, grav: -6, glow: true, size: 1.4, drag: 0.999 });
+    }
+    if (theme.ambient === 'starlight') {
+      if (Math.random() < 0.55) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h,
+        ['#ffffff', '#dfe6ff'], 1, { speed: 2, life: 2.4, glow: true, size: 1.3, drag: 0.999 }); // stars, not dust
+    }
+    if (theme.ambient === 'empyrean') {
+      // the rose of light. It falls UP, and it never stops.
+      if (Math.random() < 0.8) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 60,
+        ['#ffffff', '#ffe9a8', '#c9a227'], 1, { speed: 8, life: 3.6, grav: -22, glow: true, size: 2.1, drag: 0.998 });
     }
 
     // molten rounded corners: mask the square corners so the arena reads oblong
@@ -4544,6 +4630,123 @@
         c.shadowBlur = 0;
         c.fillStyle = 'rgba(255,225,180,0.55)'; // the white heart of it
         c.beginPath(); c.ellipse(o.x, o.y + o.r * 0.35, o.r * 0.5, o.r * 0.22, 0, 0, Math.PI * 2); c.fill();
+        c.restore();
+      } else if (theme.obstacle === 'blossom') {
+        // THE EARTHLY PARADISE: the garden at the top of the mountain
+        c.fillStyle = '#2f4a34';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.85, 0, Math.PI * 2); c.fill();
+        for (let i = 0; i < 6; i++) {
+          const a = i * 1.047 + o.x * 0.01;
+          c.fillStyle = i % 2 ? '#eaf7ea' : '#b7f0c0';
+          c.beginPath();
+          c.ellipse(o.x + Math.cos(a) * o.r * 0.5, o.y + Math.sin(a) * o.r * 0.5, o.r * 0.3, o.r * 0.18, a, 0, Math.PI * 2);
+          c.fill();
+        }
+        c.fillStyle = '#ffd24c';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.24, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'crater') {
+        // THE MOON: even the rock here is pocked and unreliable
+        c.fillStyle = '#5a637f';
+        c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#464e66';
+        c.beginPath(); c.arc(o.x + o.r * 0.15, o.y + o.r * 0.1, o.r * 0.7, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#6d769a';
+        c.beginPath(); c.arc(o.x - o.r * 0.3, o.y - o.r * 0.3, o.r * 0.3, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'orrery') {
+        // MERCURY: rings inside rings, turning. The machinery of the heavens.
+        const t = Date.now() / 1100 + o.x * 0.02;
+        c.save(); c.translate(o.x, o.y);
+        for (let i = 0; i < 3; i++) {
+          c.save(); c.rotate(t * (i % 2 ? -1 : 1) * (1 + i * 0.4));
+          c.strokeStyle = '#a8d8e8'; c.globalAlpha = 0.5 + i * 0.15; c.lineWidth = 1.6;
+          c.beginPath(); c.ellipse(0, 0, o.r * (1 - i * 0.2), o.r * (0.4 - i * 0.08), 0, 0, Math.PI * 2); c.stroke();
+          c.restore();
+        }
+        c.globalAlpha = 1; c.fillStyle = '#e8f6ff';
+        c.beginPath(); c.arc(0, 0, o.r * 0.28, 0, Math.PI * 2); c.fill();
+        c.restore();
+      } else if (theme.obstacle === 'rose') {
+        // VENUS, and the Empyrean: the white rose of the blessed
+        const white = theme.ambient === 'empyrean';
+        for (let i = 4; i >= 1; i--) {
+          c.fillStyle = white ? (i % 2 ? '#ffffff' : '#f3ead0') : (i % 2 ? '#ffb0d8' : '#e089b8');
+          c.globalAlpha = 0.55 + i * 0.1;
+          c.beginPath(); c.arc(o.x, o.y, o.r * (i / 4), 0, Math.PI * 2); c.fill();
+        }
+        c.globalAlpha = 1;
+        c.fillStyle = '#c9a227';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.18, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'halo') {
+        // THE SUN: the wise, turning in a ring of light
+        c.save();
+        c.shadowColor = '#ffe08a'; c.shadowBlur = 16;
+        c.strokeStyle = '#ffe08a'; c.lineWidth = 3; c.globalAlpha = 0.85;
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.9, 0, Math.PI * 2); c.stroke();
+        c.globalAlpha = 0.4; c.lineWidth = 1.5;
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.55, 0, Math.PI * 2); c.stroke();
+        c.restore();
+        c.fillStyle = 'rgba(255,235,170,0.35)';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.42, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'sword') {
+        // MARS: the fallen soldiers, standing in a cross of light
+        c.save();
+        c.translate(o.x, o.y);
+        c.shadowColor = '#ff9a8a'; c.shadowBlur = 10;
+        c.strokeStyle = '#ffd0c4'; c.lineWidth = 3; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(0, -o.r); c.lineTo(0, o.r); c.stroke();
+        c.beginPath(); c.moveTo(-o.r * 0.55, -o.r * 0.35); c.lineTo(o.r * 0.55, -o.r * 0.35); c.stroke();
+        c.shadowBlur = 0;
+        c.fillStyle = '#ff9a8a';
+        c.beginPath(); c.arc(0, -o.r * 0.62, 3.2, 0, Math.PI * 2); c.fill();
+        c.restore();
+      } else if (theme.obstacle === 'scales') {
+        // JUPITER: the scales of the just, hanging exactly level
+        c.strokeStyle = '#a8c0ff'; c.lineWidth = 2; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(o.x, o.y - o.r * 0.8); c.lineTo(o.x, o.y + o.r * 0.7); c.stroke();
+        c.beginPath(); c.moveTo(o.x - o.r * 0.8, o.y - o.r * 0.5); c.lineTo(o.x + o.r * 0.8, o.y - o.r * 0.5); c.stroke();
+        for (const s of [-1, 1]) {
+          c.fillStyle = '#8fa8e8';
+          c.beginPath();
+          c.ellipse(o.x + s * o.r * 0.8, o.y - o.r * 0.16, o.r * 0.3, o.r * 0.14, 0, 0, Math.PI); c.fill();
+          c.strokeStyle = 'rgba(168,192,255,0.6)'; c.lineWidth = 1;
+          c.beginPath(); c.moveTo(o.x + s * o.r * 0.8, o.y - o.r * 0.5); c.lineTo(o.x + s * o.r * 0.8, o.y - o.r * 0.16); c.stroke();
+        }
+      } else if (theme.obstacle === 'ladder') {
+        // SATURN: the golden ladder, going up out of sight
+        c.strokeStyle = '#e8dcc0'; c.lineWidth = 2.4; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(o.x - o.r * 0.5, o.y - o.r); c.lineTo(o.x - o.r * 0.5, o.y + o.r); c.stroke();
+        c.beginPath(); c.moveTo(o.x + o.r * 0.5, o.y - o.r); c.lineTo(o.x + o.r * 0.5, o.y + o.r); c.stroke();
+        c.lineWidth = 1.8; c.strokeStyle = '#c9a227';
+        for (let i = 0; i < 4; i++) {
+          const ry = o.y - o.r + (i + 0.5) * (o.r * 2 / 4);
+          c.beginPath(); c.moveTo(o.x - o.r * 0.5, ry); c.lineTo(o.x + o.r * 0.5, ry); c.stroke();
+        }
+      } else if (theme.obstacle === 'star') {
+        // THE FIXED STARS
+        c.save();
+        c.translate(o.x, o.y);
+        c.shadowColor = '#dfe6ff'; c.shadowBlur = 14;
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const rr = i % 2 ? o.r * 0.4 : o.r;
+          const a = -Math.PI / 2 + i * Math.PI / 5;
+          if (i === 0) c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+          else c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        c.closePath(); c.fill();
+        c.restore();
+      } else if (theme.obstacle === 'wheel') {
+        // THE PRIMUM MOBILE: the sphere that turns all the others. It never stops.
+        const t = Date.now() / 700 + o.x * 0.03;
+        c.save(); c.translate(o.x, o.y); c.rotate(t);
+        c.shadowColor = '#ffffff'; c.shadowBlur = 12;
+        c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.globalAlpha = 0.9;
+        c.beginPath(); c.arc(0, 0, o.r * 0.9, 0, Math.PI * 2); c.stroke();
+        for (let i = 0; i < 6; i++) {
+          const a = i * Math.PI / 3;
+          c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * o.r * 0.9, Math.sin(a) * o.r * 0.9); c.stroke();
+        }
         c.restore();
       } else {
         // plain rock (special rooms keep the classic look)

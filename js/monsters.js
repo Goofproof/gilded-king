@@ -829,6 +829,32 @@ const Monsters = (() => {
   // --- damage ---------------------------------------------------------------
   function takeHit(m, dmg, opts, g) {
     if (m.dead || m.spawnT > 0) return false;
+    // PARADISO (rules.js SPHERE_RULES). Every blessing in Heaven costs something, and
+    // this is the one choke point every player hit passes through - weapon swings,
+    // spells, abilities, ultimates and thorns all land here - so all four hooks live
+    // here rather than being sprinkled across a dozen call sites.
+    if (opts && opts.fromPlayer && g && g.rules && g.player) {
+      const R = g.rules;
+      if (R.dmgMul !== 1) dmg *= R.dmgMul;                 // MARS: you hit harder too
+      if (typeof Rules !== 'undefined') dmg *= Rules.tide(g); // THE MOON: your strength waxes and wanes
+      const dealt = dmg;
+      if (R.lifesteal > 0) {                               // VENUS: what you give comes back
+        const heal = dealt * R.lifesteal;
+        if (g.player.hp < g.player.maxHp) {
+          g.player.hp = Math.min(g.player.maxHp, g.player.hp + heal);
+          if (typeof Fx !== 'undefined' && Math.random() < 0.25) Fx.burst(g.player.x, g.player.y, '#ffb0d8', 3, { speed: 60, life: 0.4, glow: true });
+        }
+      }
+      if (R.justice > 0) {                                 // JUPITER: what you deal, you are dealt
+        // deliberately bypasses i-frames: the scales do not care how recently you were
+        // hit, and a burst build has to actually reckon with the bill.
+        // (the player's own update() checks hp <= 0 and runs the death path, so we do
+        // not call it here - there is no die() method, and inventing one would give
+        // the Phoenix Plume revive two chances to fire)
+        g.player.hp -= dealt * R.justice;
+        if (typeof Fx !== 'undefined' && Math.random() < 0.3) Fx.burst(g.player.x, g.player.y - 8, '#a8c0ff', 3, { speed: 50, life: 0.35, glow: true });
+      }
+    }
     // Shielded: a hit from its front 120-degree arc (shield up) is USUALLY stopped cold,
     // but #120 not always - 85% full block, 15% a glancing blow that lets ~40% through,
     // so a shielder is a hard wall you can still chip rather than a total dead end.

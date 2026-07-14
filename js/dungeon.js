@@ -138,7 +138,10 @@ const Dungeon = (() => {
 
     // farthest special: a boss guards floor 3 (the Gilded King) and every Circle
     // Warden floor in the Descent; every other floor ends in stairs down.
+    // THE EMPYREAN (floor 31) is ALWAYS a boss floor, whatever the Warden cadence
+    // says: it is the last castle at the end of the book, and the King is in it.
     const bossFloor = floorNum === 3 ||
+      (typeof Paradiso !== 'undefined' && Paradiso.inEmpyrean(floorNum)) ||
       (typeof Descent !== 'undefined' && Descent.isBossFloor(floorNum));
     claim(bossFloor ? 'boss' : 'stairs');
     claim('shop');
@@ -413,9 +416,11 @@ const Dungeon = (() => {
   }
 
   function themeFor(floorNum) {
-    // Mount Purgatory (floor 13+) is checked FIRST: it sits inside the Descent's
-    // floor range (everything past the King is "the Descent" for difficulty
-    // purposes), but you are climbing now, and the mountain owns the scenery.
+    // The whole Comedy, checked from the top down. Everything past the King is still
+    // "the Descent" as far as the DIFFICULTY machinery is concerned (threat curve,
+    // elites, boss cadence) - these checks only decide WHERE you are.
+    // Heaven (22+), then the mountain (13-21), then Hell (4-12), then the castle.
+    if (typeof Paradiso !== 'undefined' && Paradiso.isParadiso(floorNum)) return Paradiso.themeFor(floorNum);
     if (typeof Ascent !== 'undefined' && Ascent.isAscent(floorNum)) return Ascent.themeFor(floorNum);
     // the nine circles of Hell (floors 4-12)
     if (typeof Descent !== 'undefined' && Descent.isDescent(floorNum)) return Descent.themeFor(floorNum);

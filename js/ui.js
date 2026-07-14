@@ -149,7 +149,9 @@ const UI = (() => {
     // THE FLIP: past the bottom of Hell you are not falling any more. Depth becomes
     // ALTITUDE and the arrow turns around. (Score is still g.floorNum, untouched, so
     // the leaderboard does not care that the direction changed.)
-    const tag = climbing ? `ASCENT ▲ ALTITUDE ${Ascent.altitude(g.floorNum)}`
+    const heaven = typeof Paradiso !== 'undefined' && Paradiso.isParadiso(g.floorNum);
+    const tag = heaven   ? (Paradiso.inEmpyrean(g.floorNum) ? 'THE EMPYREAN' : `PARADISO ▲ ALTITUDE ${Ascent.altitude(g.floorNum)}`)
+              : climbing ? `ASCENT ▲ ALTITUDE ${Ascent.altitude(g.floorNum)}`
               : inDescent ? `DESCENT ▼ FLOOR ${g.floorNum}`
               : `FLOOR ${g.floorNum}/3`;
     c.fillText(tag, hbX, H - 16);
@@ -475,8 +477,9 @@ const UI = (() => {
     c.font = 'bold 11px monospace';
     c.fillStyle = '#c9a86a';
     // "Floor 12", not "FL.12" (Sam). On the mountain it is an altitude, not a floor.
-    const climbingHere = typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum);
-    const label = climbingHere ? `Altitude ${Ascent.altitude(g.floorNum)}` : `Floor ${g.floorNum}`;
+    const upHere = (typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum))
+                || (typeof Paradiso !== 'undefined' && Paradiso.isParadiso(g.floorNum));
+    const label = upHere ? `Altitude ${Ascent.altitude(g.floorNum)}` : `Floor ${g.floorNum}`;
     c.fillText(`${label} · ${theme.name}`, W - pad, oy - 11);
     c.globalAlpha = 0.92;
     // backdrop

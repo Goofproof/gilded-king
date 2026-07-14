@@ -19,14 +19,14 @@ const JS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js');
 // rules.js after descent.js: it reads Descent.FIRST_FLOOR / CIRCLES at call time,
 // and dungeon.js consults Rules for the mimic odds, so it must be in the bundle or
 // the tests would silently exercise the no-rules fallback path.
-const MODULES = ['evolutions.js', 'abilities.js', 'dungeon.js', 'descent.js', 'ascent.js', 'rules.js', 'weapons.js', 'monsters.js', 'encounters.js'];
+const MODULES = ['evolutions.js', 'abilities.js', 'dungeon.js', 'descent.js', 'ascent.js', 'paradiso.js', 'rules.js', 'weapons.js', 'monsters.js', 'encounters.js'];
 
 let cached = null;
 export function loadGame() {
   if (cached) return cached;
   const parts = MODULES.map(f => fs.readFileSync(path.join(JS, f), 'utf8'));
   // footer: hoist the module globals onto the context so we can read them out
-  parts.push(`globalThis.__game = { Evolutions, Abilities, Dungeon, Descent, Ascent, Rules, Weapons, Monsters, Encounters };`);
+  parts.push(`globalThis.__game = { Evolutions, Abilities, Dungeon, Descent, Ascent, Paradiso, Rules, Weapons, Monsters, Encounters };`);
   const sandbox = {
     // call-time stubs the pure modules reference but never at load
     Fx: { burst() {}, text() {}, shake() {}, hitstop() {}, ghost() {}, clear() {} },

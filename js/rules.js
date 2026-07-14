@@ -196,6 +196,81 @@ const Rules = (() => {
   ];
 
   // ---------------------------------------------------------------------------
+  // THE NINE SPHERE RULES (Paradiso - paradiso.js).
+  //
+  // Hell's rules are TORMENTS, done to you and cruel. Purgatory's are PENANCES,
+  // burdens you carry up the mountain. Heaven's are BLESSINGS THAT COST SOMETHING:
+  // every one gives you a real gift and takes a real price. That is what the spheres
+  // do to Dante - each one lifts him and each one asks him a question he cannot dodge.
+  //
+  // A blessing with no price would just be a free floor, and a free floor is a boring
+  // floor. The gift is what makes you want to go up. The price is what makes it a game.
+  // ---------------------------------------------------------------------------
+  const SPHERE_RULES = [
+    { key: 'inconstant', name: 'THE INCONSTANT', color: '#cfd8f0',
+      desc: 'The Moon, and the souls who broke their vows. Your strength waxes and wanes, and will not hold still.',
+      // MOON: damage swings on a slow tide. Sometimes you are enormous, sometimes you
+      // are nothing, and you do not get to choose which.
+      monster(m, dt, g) { /* the tide is read by the player, not the mob */ },
+      player(p, dt, g) {
+        const t = (g.time || 0) * 0.5;
+        g.moonTide = 0.55 + 0.75 * (0.5 + 0.5 * Math.sin(t));  // 0.55x .. 1.30x
+      } },
+
+    { key: 'ambition', name: 'THE AMBITIOUS', color: '#a8d8e8',
+      desc: 'Mercury, and those who did good for glory. Kill quickly and be paid. Dawdle and be forgotten.',
+      // MERCURY: a kill streak that pays gold, and decays the moment you stop.
+      coinMul: 1.5, monHpMul: 0.85 },
+
+    { key: 'lovers', name: 'THE LOVERS', color: '#ffb0d8',
+      desc: 'Venus. What you give away comes back to you.',
+      // VENUS: you heal for a share of the damage you deal, but you are made of glass.
+      lifesteal: 0.10, monDmgMul: 1.35 },
+
+    { key: 'wise', name: 'THE WISE', color: '#ffe08a',
+      desc: 'The Sun, and the light of the wise. Nothing is hidden from you here. Nor are you hidden from anything.',
+      // SUN: no fog, no surprises - but the whole floor is awake and coming, and there
+      // are more of them.
+      countMul: 1.35, xpMul: 1.5, eliteAdd: 0.15 },
+
+    { key: 'warriors', name: 'THE WARRIORS', color: '#ff9a8a',
+      desc: 'Mars, where the fallen soldiers stand in a cross of light. Everything here hits harder. Including you.',
+      // MARS: the pure crucible. Everyone hits like a truck, both ways.
+      monDmgMul: 1.5, dmgMul: 1.5 },
+
+    { key: 'just', name: 'THE JUST', color: '#a8c0ff',
+      desc: 'Jupiter, and the just rulers. The scales are exact: what you deal, you are dealt.',
+      // JUPITER: justice, literally. A share of the damage you deal comes back at you.
+      // Enormous burst is punished; steady, careful play is not.
+      justice: 0.12, coinMul: 1.4 },
+
+    { key: 'contemplative', name: 'THE CONTEMPLATIVES', color: '#e8dcc0',
+      desc: 'Saturn, and the golden ladder. Stand still and be mended. Nothing else will mend you.',
+      // SATURN: the exact inversion of Sloth's terrace. Down there, standing still hurt
+      // you. Up here it is the only thing that heals you - and nothing else does.
+      noRegen: true, noHearts: true,
+      player(p, dt, g) {
+        if (p.moving || p.rollT >= 0) { p._stillHeal = 0; return; }
+        p._stillHeal = (p._stillHeal || 0) + dt;
+        if (p._stillHeal > 0.7 && p.hp < p.maxHp) {
+          p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.05 * dt);   // 5% max hp per second stood still
+        }
+      } },
+
+    { key: 'examined', name: 'THE EXAMINATION', color: '#dfe6ff',
+      desc: 'The Fixed Stars, where Dante was examined on faith, hope and love. You will be examined on all three.',
+      // FIXED STARS: elites everywhere, and they pay for themselves. The hardest normal
+      // floor in the game, and the richest.
+      eliteAdd: 0.55, coinMul: 1.8, xpMul: 1.4 },
+
+    { key: 'primemover', name: 'THE FIRST MOTION', color: '#ffffff',
+      desc: 'The Primum Mobile: the sphere that moves all the others. Everything here is faster. Everything.',
+      // PRIMUM MOBILE: pure speed, both ways. The last sphere before the end.
+      moveMul: 1.35,
+      spawn(m) { m.speed *= 1.45; } },
+  ];
+
+  // ---------------------------------------------------------------------------
   // LAYER 2 - THE MUTATORS.
   //
   // Nine circles is still only nine floors of content; after that it loops. What
@@ -245,10 +320,13 @@ const Rules = (() => {
 
   // how many mutators a floor carries. Depth is floors below the King.
   function mutatorCount(floorNum) {
-    // THE SHORE carries nothing at all. You have just come up through the bottom of
-    // Hell; it is the one floor in the whole endless region where the game lets you
-    // stand still and look at the sky. A mutator here would step on the beat.
-    if (typeof Ascent !== 'undefined' && Ascent.onShore(floorNum)) return 0;
+    // THE QUIET FLOORS carry nothing at all - no rule, and no mutator either. There
+    // are exactly three in the whole run and each one is a beat the game has earned:
+    // the SHORE (you just came up through the bottom of Hell), the EARTHLY PARADISE
+    // (the mountain is finished), and the EMPYREAN (the end of the book, where the
+    // only thing in the room is the King). A mutator on any of them steps on the beat.
+    if (typeof Ascent !== 'undefined' && (Ascent.onShore(floorNum) || Ascent.onSummit(floorNum))) return 0;
+    if (typeof Paradiso !== 'undefined' && Paradiso.inEmpyrean(floorNum)) return 0;
     const d = floorNum - (typeof Descent !== 'undefined' ? Descent.FIRST_FLOOR : 4);
     if (d < 2) return 0;    // the first two circles are clean - learn the place first
     if (d < 11) return 1;
@@ -283,11 +361,23 @@ const Rules = (() => {
   function forFloor(floorNum, seed) {
     const active = [];
     let circle = null, mutators = [];
+    const inHeaven = typeof Paradiso !== 'undefined' && Paradiso.isParadiso(floorNum);
     const ascending = typeof Ascent !== 'undefined' && Ascent.isAscent(floorNum);
-    if (ascending) {
-      // MOUNT PURGATORY. The shore (floor 13) carries no rule at all: you have just
-      // come up out of the bottom of Hell, and the game lets you breathe once.
-      if (!Ascent.onShore(floorNum)) {
+    if (inHeaven) {
+      // THE HEAVENS. The Empyrean carries no rule: it is the end of the book and the
+      // last castle, and the only thing on it is the King.
+      if (!Paradiso.inEmpyrean(floorNum)) {
+        circle = SPHERE_RULES[Paradiso.sphereIndex(floorNum)];
+        active.push(circle);
+      }
+      mutators = rollMutators(floorNum, seed, mutatorCount(floorNum));
+      active.push(...mutators);
+    } else if (ascending) {
+      // MOUNT PURGATORY. The two floors that BRACKET the mountain - the Shore (13) and
+      // the Earthly Paradise at the summit (21) - carry no rule at all. They are the
+      // arrival and the departure, and they are the only places on the whole climb
+      // where the game lets you stand still and look at it.
+      if (!Ascent.onShore(floorNum) && !Ascent.onSummit(floorNum)) {
         circle = TERRACE_RULES[Ascent.terraceIndex(floorNum)];
         active.push(circle);
       }
@@ -321,6 +411,10 @@ const Rules = (() => {
     r.monHpMul  = active.reduce((a, x) => a * (x.monHpMul  ?? 1), 1);
     r.countMul  = active.reduce((a, x) => a * (x.countMul  ?? 1), 1);
     r.xpMul     = active.reduce((a, x) => a * (x.xpMul     ?? 1), 1);
+    // PARADISO: the blessings, and their prices
+    r.dmgMul    = active.reduce((a, x) => a * (x.dmgMul    ?? 1), 1);  // Mars: you hit harder too
+    r.lifesteal = active.reduce((a, x) => a + (x.lifesteal ?? 0), 0);  // Venus: what you give comes back
+    r.justice   = active.reduce((a, x) => a + (x.justice   ?? 0), 0);  // Jupiter: what you deal, you are dealt
     r.eliteAdd  = active.reduce((a, x) => a + (x.eliteAdd  ?? 0), 0);
     r.mimicAdd  = active.reduce((a, x) => a + (x.mimicAdd  ?? 0), 0);
     r.noHearts  = active.some(x => x.noHearts);
@@ -343,5 +437,9 @@ const Rules = (() => {
     return remerge({ list: [], circle: null, mutators: [], ascending: false, windAngle: 0 });
   }
 
-  return { forFloor, none, remerge, rollMutators, mutatorCount, CIRCLE_RULES, TERRACE_RULES, MUTATORS };
+  // the Moon's tide (set by its player hook each frame; 1 = neutral)
+  const tide = g => (g && g.rules && g.rules.list.some(r => r.key === 'inconstant')) ? (g.moonTide || 1) : 1;
+
+  return { forFloor, none, remerge, tide, rollMutators, mutatorCount,
+           CIRCLE_RULES, TERRACE_RULES, SPHERE_RULES, MUTATORS };
 })();

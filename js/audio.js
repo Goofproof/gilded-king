@@ -452,6 +452,125 @@ const Sfx = (() => {
         }
         return t + 0.7;
       });
+
+    // ========================= THE HEAVENS ==================================
+    // Hell was a furnace: saw waves and roaring noise. The mountain was stone: open
+    // fifths and a climbing figure. Heaven is GLASS - pure sine tones, wide intervals,
+    // enormous space, and almost no low end at all, because there is nothing under you
+    // any more.
+    } else if (theme === 'eden') {
+      // THE EARTHLY PARADISE: a garden. Birds, water, and the first real rest.
+      noiseBed(900, 0.022);
+      drone('sine', 261.63, 0.020, 400);
+      every(2.5, 6, () => { const f = 1200 + Math.random() * 900; tone('sine', f, f * 1.25, 0.02, 0.16, 0.022); }); // birds
+      every(6, 13, () => noise(0.7, 0.02, 'bandpass', 2600, 1800, 0.4));                                            // a stream
+      phraseLoop(() => {   // MUSIC: a simple, contented major line
+        const scale = [261.63, 329.63, 392.00, 440.00, 523.25];
+        let t = 0;
+        for (let i = 0; i < 6; i++) {
+          const f = scale[(Math.random() * scale.length) | 0];
+          tone('triangle', f, f, 0.1, 1.0, 0.028, t);
+          t += 0.8;
+        }
+        return t;
+      });
+    } else if (theme === 'celestial') {
+      // THE MOON / MERCURY / VENUS: glass spheres, turning. Bell tones, no bass.
+      drone('sine', 523.25, 0.010, 500);
+      drone('sine', 659.25, 0.008, 500);   // a bare major third, ringing forever
+      every(3, 8, () => {                   // a struck bell, far off
+        const f = [523.25, 659.25, 783.99, 1046.50][(Math.random() * 4) | 0];
+        tone('sine', f, f, 0.01, 3.0, 0.026);
+        tone('sine', f * 2.01, f * 2, 0.01, 1.6, 0.006, 0.02);   // the shimmer
+      });
+      phraseLoop(() => {  // MUSIC: slow, wide, weightless
+        const scale = [392.00, 493.88, 587.33, 659.25, 783.99];
+        let t = 0;
+        for (let i = 0; i < 4; i++) {
+          const f = scale[(Math.random() * scale.length) | 0];
+          tone('sine', f, f, 0.5, 2.4, 0.022, t);
+          tone('sine', f * 1.5, f * 1.5, 0.6, 1.8, 0.007, t + 0.2);
+          t += 1.6;
+        }
+        return t;
+      });
+    } else if (theme === 'radiance') {
+      // THE SUN / JUPITER: the big bright ones. A full major chord, held, and warm.
+      drone('sine', 261.63, 0.020, 500);   // C
+      drone('sine', 329.63, 0.016, 500);   // E
+      drone('sine', 392.00, 0.016, 500);   // G - a plain major triad, no irony
+      noiseBed(1600, 0.014);
+      every(4, 9, () => { const f = 1046.50 * (Math.random() < 0.5 ? 1 : 1.25); tone('sine', f, f, 0.05, 1.8, 0.014); });
+      phraseLoop(() => {  // MUSIC: a hymn, rising, unhurried
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+        let t = 0, i0 = (Math.random() * 2) | 0;
+        for (let i = 0; i < 6; i++) {
+          const f = scale[Math.min(scale.length - 1, i0 + i)];
+          tone('triangle', f, f, 0.15, 1.1, 0.026, t);
+          tone('sine', f * 2, f * 2, 0.2, 0.9, 0.008, t + 0.1);
+          t += 0.9;
+        }
+        return t + 0.8;
+      });
+    } else if (theme === 'martial') {
+      // MARS: the warriors. Brass, a drum, and a fanfare that means it.
+      drone('sawtooth', 110, 0.020, 300);
+      drone('sawtooth', 164.81, 0.014, 300);   // a fifth: a war horn
+      every(1.6, 1.7, () => { tone('sine', 70, 55, 0.01, 0.20, 0.055); noise(0.08, 0.03, 'lowpass', 300, 120); }); // the drum, steady
+      phraseLoop(() => {  // MUSIC: a fanfare in D minor, hammered
+        const line = [293.66, 293.66, 349.23, 440.00, 392.00];
+        let t = 0;
+        line.forEach((f, i) => {
+          tone('sawtooth', f, f, 0.02, 0.42, 0.030, t);
+          tone('triangle', f * 0.5, f * 0.5, 0.02, 0.5, 0.020, t);
+          t += i === 1 ? 0.28 : 0.56;
+        });
+        return t + 0.8;
+      });
+    } else if (theme === 'silence') {
+      // SATURN: the contemplatives. In the poem this heaven is SILENT - the souls do
+      // not sing, because the song would destroy him. So this is nearly nothing.
+      drone('sine', 196.00, 0.014, 600);
+      every(9, 20, () => { tone('sine', 784, 784, 1.2, 3.5, 0.010); });    // one note, rarely, very high
+      every(14, 30, () => { tone('sine', 1046.5, 1046.5, 1.5, 4.0, 0.007); });
+      // no phraseLoop at all. The absence IS the sound of this floor.
+    } else if (theme === 'starlight') {
+      // THE FIXED STARS / THE PRIMUM MOBILE: vast, turning, and very high up.
+      drone('sine', 1046.50, 0.007, 600);
+      drone('sine', 1567.98, 0.005, 600);
+      noiseBed(4000, 0.010);               // the hiss of a very long way away
+      every(2, 5, () => { const f = 1400 + Math.random() * 1800; tone('sine', f, f, 0.02, 1.2, 0.010); }); // stars
+      phraseLoop(() => {  // MUSIC: glacial, enormous, almost not there
+        const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+        let t = 0;
+        for (let i = 0; i < 3; i++) {
+          const f = scale[(Math.random() * scale.length) | 0];
+          tone('sine', f, f, 1.0, 3.4, 0.016, t);
+          t += 2.4;
+        }
+        return t;
+      });
+    } else if (theme === 'empyrean') {
+      // THE END OF THE BOOK. Everything resolves. A full, bright, held major chord and
+      // a choir of sines, and nothing underneath it at all, because there is nothing
+      // underneath it at all.
+      drone('sine', 261.63, 0.024, 800);
+      drone('sine', 329.63, 0.020, 800);
+      drone('sine', 392.00, 0.020, 800);
+      drone('sine', 523.25, 0.016, 800);
+      drone('sine', 659.25, 0.012, 800);   // C major, four octaves of it, forever
+      noiseBed(3000, 0.012);
+      every(5, 11, () => { const f = [1046.5, 1318.5, 1568.0][(Math.random() * 3) | 0]; tone('sine', f, f, 0.6, 4.0, 0.012); });
+      phraseLoop(() => {   // MUSIC: a slow ascent that keeps arriving
+        const scale = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+        let t = 0;
+        for (let i = 0; i < scale.length; i++) {
+          tone('triangle', scale[i], scale[i], 0.4, 1.8, 0.020, t);
+          tone('sine', scale[i] * 2, scale[i] * 2, 0.5, 1.4, 0.006, t + 0.2);
+          t += 0.85;
+        }
+        return t + 1.2;
+      });
     }
   }
 
