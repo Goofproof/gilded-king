@@ -398,6 +398,7 @@ const PlayerDef = (() => {
       this.maxHp = T.maxHp + mHp;
       this.hp = this.maxHp;
       this.coins = 0; this.essenceRun = 0; this.shards = 0;
+      this.justiceDue = 0; // #139 accumulated Jupiter-justice recoil, applied capped per frame
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
@@ -739,32 +740,36 @@ const PlayerDef = (() => {
       // knock away from the source
       const a = Math.atan2(this.y - sy, this.x - sx);
       this.vx += Math.cos(a) * 180; this.vy += Math.sin(a) * 180;
-      if (this.hp <= 0) {
-        // #134 PASCAL'S WAGER: you bet everything on the upside, so there is no hedge -
-        // no Lazarus, no Phoenix, no second chance of any kind. If the wager is wrong,
-        // it is wrong all the way.
-        const noHedge = this.trinketFlag('noSecondChance');
-        // Lazarus Taxon (evolution), then Phoenix Plume (armor): cheat death
-        if (!noHedge && this.evo.lifeline > this.lifelineUsed) {
-          this.lifelineUsed++;
-          this.hp = 1;
-          this.iframes = 1.5;
-          Sfx.play('levelup');
-          Fx.text(this.x, this.y - 34, 'LAZARUS TAXON', '#6ee7a0', 16);
-          Fx.burst(this.x, this.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
-          return;
-        }
-        if (!noHedge && this.armorMods.phoenix && !this.phoenixUsed) {
-          this.phoenixUsed = true;
-          this.hp = Math.round(this.maxHp * 0.3);
-          this.iframes = 1.5;
-          Sfx.play('levelup');
-          Fx.text(this.x, this.y - 34, 'PHOENIX PLUME', '#ff9a3d', 16);
-          Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a', '#ff4422'], 40, { speed: 280, life: 0.9, glow: true });
-          return;
-        }
-        this.hp = 0; this.dead = true; g.onPlayerDeath();
+      if (this.hp <= 0) this.die(g);
+    }
+
+    // #139 the ONE death path, for ANY source that drops hp to 0 - a monster hit, a
+    // burning tomb, the Pyres, Jupiter's justice recoil. It used to live only inside
+    // damage(), so effects that subtract hp directly (justice) drove hp negative and
+    // NEVER died - Sam sat at -3671 HP still playing. Now a per-frame check in update()
+    // routes every lethal source through here.
+    die(g) {
+      if (this.dead || this.hp > 0) return;
+      // PASCAL'S WAGER (trinket): no hedge, no Lazarus, no Phoenix - if the bet is
+      // wrong it is wrong all the way.
+      const noHedge = this.trinketFlag('noSecondChance');
+      if (!noHedge && this.evo.lifeline > this.lifelineUsed) {   // Lazarus Taxon
+        this.lifelineUsed++;
+        this.hp = 1; this.iframes = 1.5;
+        Sfx.play('levelup');
+        Fx.text(this.x, this.y - 34, 'LAZARUS TAXON', '#6ee7a0', 16);
+        Fx.burst(this.x, this.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+        return;
       }
+      if (!noHedge && this.armorMods.phoenix && !this.phoenixUsed) { // Phoenix Plume
+        this.phoenixUsed = true;
+        this.hp = Math.round(this.maxHp * 0.3); this.iframes = 1.5;
+        Sfx.play('levelup');
+        Fx.text(this.x, this.y - 34, 'PHOENIX PLUME', '#ff9a3d', 16);
+        Fx.burst(this.x, this.y, ['#ff9a3d', '#ffe08a', '#ff4422'], 40, { speed: 280, life: 0.9, glow: true });
+        return;
+      }
+      this.hp = 0; this.dead = true; g.onPlayerDeath();
     }
 
     heal(n, quiet) {
@@ -810,6 +815,18 @@ const PlayerDef = (() => {
       // will feed you, and the health you finish the floor with is the health you had.
       const totalRegen = (g.rules && g.rules.noRegen) ? 0 : stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
+
+      // #139 apply accumulated JUPITER JUSTICE (rules.js), capped per frame. Justice
+      // fires once per enemy hit, so a cleave into a crowd used to stack thousands of
+      // recoil in a single swing and gib you (Sam, -3671 hp). Cap it to 10% of max HP
+      // per frame - a real tax on burst, never an instant death.
+      if (this.justiceDue > 0) {
+        this.hp -= Math.min(this.justiceDue, this.maxHp * 0.10);
+        this.justiceDue = 0;
+      }
+      // THE death backstop: any source that drops hp to 0 (justice, the Pyres, a DoT)
+      // dies here, not only a monster hit inside damage().
+      if (this.hp <= 0 && !this.dead) this.die(g);
 
       // auto-attack is always on (Sam). CURSOR-BASED targeting (#17): if you're
       // aiming the mouse at (or near) an enemy, THAT one is your target - so you can

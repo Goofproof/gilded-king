@@ -847,12 +847,12 @@ const Monsters = (() => {
         }
       }
       if (R.justice > 0) {                                 // JUPITER: what you deal, you are dealt
-        // deliberately bypasses i-frames: the scales do not care how recently you were
-        // hit, and a burst build has to actually reckon with the bill.
-        // (the player's own update() checks hp <= 0 and runs the death path, so we do
-        // not call it here - there is no die() method, and inventing one would give
-        // the Phoenix Plume revive two chances to fire)
-        g.player.hp -= dealt * R.justice;
+        // ACCUMULATE the recoil; the player applies it once per frame, CAPPED at 10% of
+        // max HP (player.js update). Justice fires per enemy hit, so a cleave into a
+        // crowd used to stack thousands at once and gib a high-damage build in a single
+        // swing (Sam sat at -3671 hp). The per-frame cap makes it a tax, not a suicide,
+        // and the per-frame death backstop means it can actually kill you when it should.
+        g.player.justiceDue = (g.player.justiceDue || 0) + dealt * R.justice;
         if (typeof Fx !== 'undefined' && Math.random() < 0.3) Fx.burst(g.player.x, g.player.y - 8, '#a8c0ff', 3, { speed: 50, life: 0.35, glow: true });
       }
     }
