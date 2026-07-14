@@ -330,12 +330,17 @@ const Dungeon = (() => {
         // each chest rolls its mimic chance INDEPENDENTLY - twins can both bite.
         // symmetric placement so position never reads as a tell.
         const nChests = rnd() < 0.35 ? 2 : 1;
+        // FLOOR RULES raise the odds a chest is lying to you (Greed's Hoard, and the
+        // Malebolge, where nothing is what it looks like). Rolled with the SEEDED rnd
+        // inside generateFloor, so co-op peers agree on which chests bite.
+        const mimicChance = MIMIC_CHANCE + (typeof Rules !== 'undefined'
+          ? Rules.forFloor(floorNum, seed).mimicAdd : 0);
         for (let i = 0; i < nChests; i++) {
           r.chests.push({
             x: PF.x + PF.w / 2 + (nChests === 1 ? 0 : (i === 0 ? -90 : 90)),
             y: PF.y + PF.h / 2,
             opened: false,
-            mimic: rnd() < MIMIC_CHANCE,
+            mimic: rnd() < mimicChance,
             wobble: rnd() * Math.PI * 2, // phase for the mimic's subtle idle tell
           });
         }

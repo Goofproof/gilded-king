@@ -233,6 +233,9 @@
     uiRects: [],
     backtrackRooms: 0,    // #34: hop-distance to nearest unexplored room (speed boost)
     essenceEarned: 0,
+    rules: null,          // FLOOR RULES in force (rules.js). Set by startFloor; never null in play.
+    floorRule: null,      // {name, desc, color, t} - the rule card on the floor banner
+    runSeed: 0,           // solo run seed; co-op uses coopSeed. Rules derive from it.
     gateMsg: 0,           // "sealed" toast timer
     shopMsg: null,        // {text, t}
     time: 0,
@@ -315,6 +318,8 @@
     g.coop = coop;
     if (!coop) g.remotePlayers.clear();
     g.floorNum = 1;
+    g.runSeed = (Math.random() * 1e9) | 0; // solo: seeds the per-floor RULE rolls
+    g.rules = Rules.none();                // floors 1-3 have no circle rules
     g.player = new PlayerDef.Player(g.meta);
     g.player.coinsTotal = 0;
     // reset ALL per-run state (a stale level-up queue once leaked into a fresh run)
@@ -363,7 +368,14 @@
     g.alarm = 0;     // #77 the dungeon's alertness resets each floor (rises per room cleared)
     if (typeof Ach !== 'undefined') Ach.floor(g.floorNum, g); // #86 depth + reset no-hit tracking
     const theme = Dungeon.themeFor(g.floorNum);
+    // the RULES in force on this floor (the circle's signature rule, plus mutators).
+    // Derived from floor + run seed only, so co-op peers agree without syncing it.
+    g.rules = Rules.forFloor(g.floorNum, g.coop ? g.coopSeed : g.runSeed);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
+    // the floor card names the rule you are about to play under, so it is never a
+    // mystery why you are suddenly sliding or on fire
+    const r0 = g.rules.list[0];
+    g.floorRule = r0 ? { name: r0.name, desc: r0.desc, color: r0.color, t: 5.0 } : null;
     Sfx.setAmbient(theme.ambient);
     // Bulwark armor: a shield charm greets you on every floor
     if (g.player.armorMods.bulwark) {
@@ -592,6 +604,7 @@
     let n = c0 + ((Math.random() * (c1 - c0 + 1)) | 0);
     if (looting) n = Math.round(n * (1 + 0.3 * looting));
     if (g.midasT > 0) n *= 2; // MIDAS WAVE ultimate: double gold while active
+    if (g.rules) n = Math.round(n * g.rules.coinMul); // the Hoard (Greed) doubles it
     for (let i = 0; i < n; i++) spawnPickup('coin', m.x, m.y);
 
     // hearts: small mercy drop
@@ -2940,6 +2953,7 @@
     if (g.gateMsg > 0) g.gateMsg -= dt;
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
     if (g.floorBanner && g.floorBanner.t > 0) g.floorBanner.t -= dt;
+    if (g.floorRule && g.floorRule.t > 0) g.floorRule.t -= dt;
     if (g.toadMsg && g.toadMsg.t > 0) g.toadMsg.t -= dt;
 
     // evolution menus take priority over further level-ups (the pick that
@@ -3734,6 +3748,22 @@
         c.font = '12px monospace'; c.fillStyle = '#9a8f7a';
         c.fillText(g.floorBanner.sub, W / 2, 110);
       }
+      c.restore();
+    }
+
+    // THE FLOOR RULE card: names the rule in force, in the circle's own colour, and
+    // says what it does. A player should never be left wondering why they suddenly
+    // slide, or burn on the scenery.
+    if (g.floorRule && g.floorRule.t > 0 && g.state === 'play') {
+      const a = Math.min(1, g.floorRule.t) * Math.min(1, (5.0 - g.floorRule.t) * 1.6);
+      c.save();
+      c.globalAlpha = a;
+      c.textAlign = 'center';
+      c.font = 'bold 15px monospace';
+      c.fillStyle = '#0a0a0a'; c.fillText(g.floorRule.name, W / 2 + 1, 129);
+      c.fillStyle = g.floorRule.color; c.fillText(g.floorRule.name, W / 2, 128);
+      c.font = 'italic 11px monospace'; c.fillStyle = '#9a8f7a';
+      c.fillText(g.floorRule.desc, W / 2, 146);
       c.restore();
     }
 

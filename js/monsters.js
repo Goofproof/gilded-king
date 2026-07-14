@@ -1019,11 +1019,17 @@ const Monsters = (() => {
           tries++;
         } while ((Math.hypot(x - p.x, y - p.y) < 160 || blocked(x, y)) && tries < 30);
         let mods = null;
+        const R = g.rules; // FLOOR RULES (rules.js): the circle's rule + any mutators
         if (th) {
           mods = { hpMul: th.hp, dmgMul: th.dmg, speedMul: th.speed };
-          if (Math.random() < Descent.eliteChance(floor)) mods.elite = Descent.rollAffix();
+          if (R) { mods.hpMul *= R.monHpMul; mods.dmgMul *= R.monDmgMul; }
+          // eliteAdd of -1 (Limbo's Stillness) drives the chance to zero outright
+          const ec = Descent.eliteChance(floor) + (R ? R.eliteAdd : 0);
+          if (Math.random() < ec) mods.elite = Descent.rollAffix();
         }
-        out.push(make(type, x, y, tier, mods));
+        const m = make(type, x, y, tier, mods);
+        if (R && R.spawn) R.spawn(m, g); // the Fury enrages every soul on arrival
+        out.push(m);
       }
     }
     // loot goblin: a rare visitor (~11% of combat rooms). Spawns away from the player

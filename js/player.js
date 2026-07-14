@@ -807,7 +807,11 @@ const PlayerDef = (() => {
         // rooms) from the nearest unexplored room, so long treks back are snappy (#34)
         const clear = !g.monsters.some(m => !m.dead);
         const traversal = !clear ? 1 : ((g.backtrackRooms || 0) > 3 ? 1.7 : 1.28);
-        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal;
+        // FLOOR RULES: the Mire slows you; the Ice sets moveMul to 0 and takes over
+        // movement entirely in its player() hook below (momentum, no sharp stops).
+        const rules = (g.rules || (typeof Rules !== 'undefined' ? Rules.none() : null));
+        const ruleMul = rules ? rules.moveMul : 1;
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger
@@ -823,6 +827,12 @@ const PlayerDef = (() => {
           Fx.burst(this.x, this.y, '#7fd4ff', 6, { speed: 80, life: 0.3 });
         }
       }
+
+      // FLOOR RULES per-frame hook: the Gale shoves you, the Ice slides you, the
+      // Pyres burn you for touching cover. Deliberately placed AFTER movement and
+      // BEFORE the obstacle/wall resolution below, so a rule can push the player
+      // and the walls still stop them (you can slide into a wall on the ice).
+      if (g.rules && g.rules.player) g.rules.player(this, dt, g);
 
       // hit knockback decay
       this.x += this.vx * dt; this.y += this.vy * dt;
