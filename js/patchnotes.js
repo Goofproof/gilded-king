@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.40';
+  const VERSION = 'v2.41';
 
   const NOTES = [
+    {
+      v: 'v2.41', title: 'Eulogy sits beside the portrait and names the place they fell', date: '2026-07-14',
+      sha: 'ed6cad6',
+      items: [
+        'Eulogy: show it WITH the portrait, size the box to fit, clean weapon + named floor (Sam).',
+      ],
+    },
     {
       v: 'v2.40', title: 'Fallen raiders get a Homeric eulogy', date: '2026-07-14',
       sha: '27c67ce',
