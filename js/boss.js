@@ -53,6 +53,10 @@ const Boss = (() => {
       dead: false, spawnT: 0, isBoss: true,
       jaw: 4, hop: 0, crownGlint: 0,
       attackQueue: 0, // rotates attacks so it doesn't repeat one forever
+      // #156 (Sam) each Hell guardian has a signature ULTIMATE, cast right at the start of
+      // the fight and every 5s after, ON TOP of its normal attacks. ultKind comes from the
+      // circle's config (descent.js); non-Hell bosses have none.
+      ultKind: d ? d.ult : null, ultCd: 0.35,
       shadowX: 0, shadowY: 0, // slam landing indicator
       volley: 0, wobble: 0,   // colossus boulder count / matriarch leg animation
       update(dt, g) { update(this, dt, g); },
@@ -80,6 +84,64 @@ const Boss = (() => {
                    : ['lungeTele', 'coinTele'];
   }
 
+  // #156 (Sam) SIGNATURE ULTIMATES - one per Hell guardian, each a distinct, dodgeable
+  // projectile pattern in the circle's colour. Fired on a 5s clock ON TOP of the normal
+  // attacks, so a boss fight is never idle. All spawn 'enemy' bolts into g.projectiles
+  // exactly like the coin barrage, so nothing new is wired outside this file.
+  const ULT_NAME = {
+    crossing: 'THE CROSSING', judgment: 'JUDGMENT', triplebite: 'THREE JAWS', goldstorm: 'THE HOARD',
+    wrath: 'WRATH', gaze: 'THE GAZE', gore: 'THE CHARGE', deceit: 'DECEIT', cocytus: 'COCYTUS',
+  };
+  function bolt(g, x, y, ang, speed, dmg, color, o) {
+    o = o || {};
+    g.projectiles.push({
+      x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
+      r: o.r || 6, dmg, from: 'enemy', color, life: o.life || 3.4, glow: o.glow !== false, spin: o.spin,
+    });
+  }
+  function castUlt(b, g) {
+    const p = g.player;
+    const dmg = Math.max(6, Math.round((b.st.contactDmg || 16) * b.dmgMul * 0.9));
+    const col = b.pal.crown, toP = Math.atan2(p.y - b.y, p.x - b.x);
+    const ox = b.x + Math.cos(toP) * (b.r + 6), oy = b.y + Math.sin(toP) * (b.r + 6);
+    const ring = (n, speed, off, o) => { for (let i = 0; i < n; i++) bolt(g, b.x + Math.cos(i / n * 6.283) * (b.r + 6), b.y + Math.sin(i / n * 6.283) * (b.r + 6), (i / n) * 6.283 + (off || 0), speed, dmg, col, o); };
+    // universal ULTIMATE tell so the player reads it coming
+    Fx.shake(7, 0.4); Sfx.play('roar');
+    Fx.text(b.x, b.y - b.r - 22, ULT_NAME[b.ultKind] || 'ULTIMATE', b.pal.trim, 15);
+    Fx.burst(b.x, b.y, [b.pal.trim, col, '#fff'], 26, { speed: 210, life: 0.5, glow: true });
+    switch (b.ultKind) {
+      case 'triplebite': // Cerberus: three fanned bites at you
+        for (let h = -1; h <= 1; h++) { const base = toP + h * 0.5; for (let i = -2; i <= 2; i++) bolt(g, ox, oy, base + i * 0.12, 300, dmg, col); }
+        break;
+      case 'goldstorm': // Plutus: two full rings of cursed coin
+        ring(18, 200, 0, { spin: true }); ring(18, 260, Math.PI / 18, { spin: true });
+        break;
+      case 'judgment': // Minos: a rotating spiral, offset by his coil
+        for (let i = 0; i < 28; i++) bolt(g, ox, oy, (i / 28) * 6.283 + b.t * 3, 230, dmg, col);
+        break;
+      case 'gaze': // Medusa: a dense radial stare, alternating speeds
+        for (let i = 0; i < 32; i++) bolt(g, b.x, b.y, (i / 32) * 6.283, 170 + (i % 2) * 90, dmg, col, { r: 7 });
+        break;
+      case 'gore': // the Minotaur: a wide, fast goring cone
+        for (let i = -4; i <= 4; i++) bolt(g, ox, oy, toP + i * 0.14, 430, dmg, col, { r: 7 });
+        break;
+      case 'deceit': // Geryon: an erratic spread, no two bolts the same speed
+        for (let i = -5; i <= 5; i++) bolt(g, ox, oy, toP + i * 0.16, 190 + ((i * 53) % 3 + 3) % 3 * 120, dmg, col);
+        break;
+      case 'wrath': // Phlegyas: a fast, dense ring of temple-fire
+        ring(24, 300, 0, { r: 7, life: 2.9 });
+        break;
+      case 'crossing': { // Charon: a wall of slow bolts sweeping down, one gap to slip through
+        const cols = 12, gap = 2 + (b.attackQueue % (cols - 4));
+        for (let i = 0; i < cols; i++) { if (i === gap || i === gap + 1) continue; const x = PF.x + 30 + i * ((PF.w - 60) / (cols - 1)); bolt(g, x, PF.y + 18, Math.PI / 2, 150, dmg, col, { r: 8, life: 4.2 }); }
+        break; }
+      case 'cocytus': // Lucifer: a colossal double ring, the frozen blast at the bottom of Hell
+        ring(26, 210, 0, { r: 8, spin: true }); ring(26, 285, Math.PI / 26, { r: 8, spin: true });
+        Fx.shake(12, 0.6);
+        break;
+    }
+  }
+
   function update(b, dt, g) {
     b.t += dt;
     if (b.contactCd > 0) b.contactCd -= dt;
@@ -99,6 +161,13 @@ const Boss = (() => {
       if (b.burn.t <= 0) b.burn = null;
     }
     if (b.dead) return;
+
+    // #156 the signature ULTIMATE: fires ~immediately on the first update (fight start),
+    // then every 5s, independent of the normal attack state machine.
+    if (b.ultKind && b.spawnT <= 0) {
+      b.ultCd -= dt;
+      if (b.ultCd <= 0) { castUlt(b, g); b.ultCd = 5; }
+    }
 
     const p = g.player;
     const dist = Math.hypot(p.x - b.x, p.y - b.y);
