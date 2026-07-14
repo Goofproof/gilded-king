@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.37', title: 'Meet your Shadow: the Doppelganger is now a mini-boss', date: '2026-07-14',
       sha: 'cf0790b',
       items: [
-        'Doppelganger: elevate the shade to a seed-placed mini-boss (Sam).',
+        'The Doppelganger is a real mini-boss now. It used to just be one more enemy in the crowd deep in the dungeon. Now, every so often on the deeper floors, you will find a room with a single shadow of yourself waiting. It wears your face, copies your weapon, has a big pile of health that scales with yours, and fights you one on one. Beat your own shadow for a fat reward. It shows up in the same spot for everyone in co-op.',
       ],
     },
     {
