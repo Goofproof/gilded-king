@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.33';
+  const VERSION = 'v2.34';
 
   const NOTES = [
+    {
+      v: 'v2.34', title: 'Hold E to keep training in the barracks', date: '2026-07-14',
+      sha: '421af6c',
+      items: [
+        'Barracks: hold E to auto-repeat purchases (Sam).',
+      ],
+    },
     {
       v: 'v2.33', title: 'Meteor is now colossal', date: '2026-07-14',
       sha: 'c2838d4',
