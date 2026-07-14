@@ -6,6 +6,38 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #155 A NAMED BOSS AT EVERY CIRCLE OF HELL (2026-07-14)
+Sam: "add a unique boss to each level of hell. The boss should be associated with the level."
+
+**The calls I made.**
+- **Every Hell floor (4-12) is now a boss floor.** Before, a recurring Warden guarded only
+  every third floor (6/9/12). Now each of the nine circles ends with its own guardian.
+  The ascent/Paradiso Warden cadence (floors 15/18/21/...) and the floor-3 Gilded King are
+  untouched, and the Empyrean is still the original King.
+- **Nine real Dante guardians.** Charon (Limbo), Minos (Lust), Cerberus (Gluttony), Plutus
+  (Greed), Phlegyas (Wrath), Medusa (Heresy), the Minotaur (Violence), Geryon (Fraud),
+  Lucifer (Treachery). Every one is a googleable figure from the Inferno, and each wears its
+  circle's colours.
+- **Reuse the engine, not nine bespoke AIs.** Each guardian maps to one of the three existing
+  boss archetypes (king / colossus / matriarch), chosen to fit: charging brutes (Charon,
+  Phlegyas, Minotaur) are the colossus; ranged/coiling judges (Minos, Medusa, Geryon) the
+  matriarch; the maws (Cerberus, Plutus, Lucifer) the king. Identity (name, lore, palette,
+  size) is unique per circle; the moveset is one of the three proven patterns. This is the
+  same reuse philosophy as the Warden and the Doppelganger. Determinism: the guardian is
+  fixed by the FLOOR (not the old anger counter), so a co-op host and guest meet the same
+  boss and it always matches the circle.
+
+**Honest limitation** (easy-ish follow-up if Sam wants it): three of the nine share a
+fight pattern with two others (three king-type, three colossus-type, three matriarch-type).
+They LOOK and read totally distinct, but Cerberus/Plutus/Lucifer fight alike mechanically,
+etc. Giving each a bespoke signature move tied to its circle's rule (Medusa's petrifying
+gaze, Geryon's flight, the Minotaur's maze-charge) is a real content project on top of this.
+
+**Pacing note for Sam.** A boss at every Hell floor, stacked on the new descent-scaling wall
+and the nightmare portals, makes the Inferno very boss-heavy and hard - which lines up with
+the "only the top 5 reach the bottom" goal, but it is a big shift from the old ~3-boss
+descent. Worth a playtest to feel whether nine-in-a-row is right or wants thinning.
+
 ## #12 DESCENT SCALING - the Inferno as a filter (2026-07-14)
 Sam took this off the parked list and, mid-build, gave the real goal: "only the top 5
 players will ever get to the end of Dante's Inferno." So this is not a gentle
