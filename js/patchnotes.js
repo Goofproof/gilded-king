@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.28';
+  const VERSION = 'v2.29';
 
   const NOTES = [
+    {
+      v: 'v2.29', title: 'Chest Vacuum, Sloth, Multishot', date: '2026-07-14',
+      sha: '2424718',
+      items: [
+        'Chests: opening one vacuums the coins to you (Sam).',
+        'Sloth: standing-still damage scales with max HP (Sam).',
+        'Multishot now works on the staff, not just the wand (Sam).',
+      ],
+    },
     {
       v: 'v2.28', title: 'Leaderboard Loadouts Clickable', date: '2026-07-14',
       sha: 'ae67d93',
