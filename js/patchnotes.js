@@ -26,8 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.23', title: 'Co-op: Rooms and Doors', date: '2026-07-14',
       sha: '46d60e5',
       items: [
-        'Co-op: fix the plate teleport-back, the walk-off-the-map, and a stranded follower.',
-        'Co-op: room-clear self-heals via the room snapshot.',
+        'CO-OP: no more getting yanked back to the room you just left. You used to spawn standing on the door-plate and bounce straight back; now the plate you arrived on will not fire until you step off it.',
+        'CO-OP: you can no longer walk out through a doorway and off the edge of the map. In co-op the walls are solid and the only way onward is the shared door-plate.',
+        'CO-OP: if the game ever leaves one player behind in the wrong room, they now catch up to the party on their own. And a room you have cleared stays cleared for everyone, even if a message got lost, so nobody gets trapped behind sealed doors.',
       ],
     },
     {
