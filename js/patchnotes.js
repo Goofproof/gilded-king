@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.41', title: 'Eulogy sits beside the portrait and names the place they fell', date: '2026-07-14',
       sha: 'ed6cad6',
       items: [
-        'Eulogy: show it WITH the portrait, size the box to fit, clean weapon + named floor (Sam).',
+        'The hero eulogy now shows UNDER the portrait, not instead of it, so you get both the picture and the poem. The card grows to fit so the whole thing always stays inside the box. The poem also names the weapon plainly (no plus-levels or enchant tags) and names the actual place they fell, like the Whispering Forest or the Fraud Circle, instead of just a floor number.',
       ],
     },
     {
