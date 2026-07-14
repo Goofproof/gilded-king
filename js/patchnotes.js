@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.40', title: 'Fallen raiders get a Homeric eulogy', date: '2026-07-14',
       sha: '27c67ce',
       items: [
-        'Fallen-hero card: a Homeric eulogy where the portrait is blank (Sam).',
+        'The top players on the global leaderboard do not have a saved picture, so their card used to have a blank spot where the face goes. Now the game writes each of them their own little poem instead, in the old epic style, like something Homer would read at a hero\'s funeral. It names their class, their best stat, the weapon they carried, the ultimate they unleashed, and the floor they fell on. Every player always gets the same poem, so it is truly theirs.',
       ],
     },
     {
