@@ -63,6 +63,9 @@ const UI = (() => {
     c.fillStyle = '#fff';
     c.textAlign = 'center';
     c.fillText(`${Math.ceil(p.hp)} / ${p.maxHp}`, hbX + hbW / 2, hbY + 13);
+    // #147 (Sam) subtle labels so a new player knows what each bar is
+    c.textAlign = 'left'; c.font = '9px monospace'; c.fillStyle = 'rgba(255,255,255,0.42)';
+    c.fillText('HP', hbX + hbW + 10, hbY + 12);
 
     // xp bar + level
     c.fillStyle = 'rgba(0,0,0,0.55)';
@@ -70,8 +73,10 @@ const UI = (() => {
     c.fillStyle = '#8a6fd1';
     c.fillRect(hbX, hbY + hbH + 6, hbW * Math.min(1, p.xp / p.xpToNext()), 4);
     c.textAlign = 'left';
-    c.fillStyle = '#cbb8ff';
-    c.fillText(`Lv ${p.level}`, hbX + hbW + 10, hbY + hbH + 11);
+    c.font = '9px monospace'; c.fillStyle = 'rgba(203,184,255,0.55)';   // #147 XP label
+    c.fillText('XP', hbX + hbW + 10, hbY + hbH + 11);
+    c.font = '12px monospace'; c.fillStyle = '#cbb8ff';
+    c.fillText(`Lv ${p.level}`, hbX + hbW + 32, hbY + hbH + 11);
 
     // #77 ALARM meter: rises per room cleared this floor. Higher = tougher rooms but
     // richer loot + XP. A thin bar under the XP bar with a warning count.
@@ -81,7 +86,12 @@ const UI = (() => {
       c.fillStyle = '#2a1810'; c.fillRect(hbX, amY, hbW, amH);
       c.fillStyle = al >= 6 ? '#ff3020' : al >= 4 ? '#ff8a3d' : '#ffc64c';
       c.fillRect(hbX, amY, hbW * Math.min(1, al / 8), amH);
-      if (al > 0) { c.font = 'bold 9px monospace'; c.fillStyle = al >= 4 ? '#ff8a3d' : '#c9a98a'; c.fillText('⚠ ' + al, hbX + hbW + 10, amY + 6); }
+      // #147 always label the alarm meter so a new player knows the red triangle is a
+      // danger gauge (rooms get tougher AND richer as it climbs); the count rides beside it.
+      c.font = 'bold 9px monospace';
+      c.fillStyle = al >= 4 ? '#ff8a3d' : 'rgba(201,169,138,0.6)';
+      c.fillText('ALARM', hbX + hbW + 10, amY + 6);
+      if (al > 0) { c.fillStyle = al >= 4 ? '#ff8a3d' : '#c9a98a'; c.fillText('⚠ ' + al, hbX + hbW + 48, amY + 6); }
     }
 
     // coins
