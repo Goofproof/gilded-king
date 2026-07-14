@@ -124,3 +124,43 @@ draft 2-3 candidate rules if you want a starting point.
 2. **#30 classes** (LIGHT scope) on top of the settled web.
 3. **#49c utility spells** (independent of the above; Option 2 unless you redirect).
 4. **#43 prestige** once the reset/reward rule is decided.
+
+---
+
+## LAYER 3 - Where the story goes after Hell (2026-07-14)
+
+Layers 1 and 2 shipped in v2.15: the nine circles are nine real places, each with
+its own rule, and floor mutators stack on top so the Descent never repeats. That
+fixes the "nothing changes after floor 4" wall. It does NOT answer where the STORY
+goes, and that is the designer's call, not mine.
+
+**The arc so far.** Act I: the Mimic's trap castle (Forest -> Swamp -> Keep, the
+Gilded King). Act II: the Inferno, nine circles, fire down to ice.
+
+**The proposal: Dante already wrote the rest, so use it.** The Divine Comedy does
+not end at the bottom of Hell. You climb through the centre of the earth and come
+out at the foot of **Mount Purgatory**, and then you go UP - seven terraces, one
+per deadly sin. After that, **Paradiso**: nine celestial spheres.
+
+  Act III  PURGATORIO  seven terraces, ASCENDING. The game flips direction.
+  Act IV   PARADISO    nine spheres of light. The enemies are angels.
+
+**Why this is the strong option.** The direction flip is a real mechanic, not a
+reskin: you stop descending and start CLIMBING, and the score stops being "how deep
+did you get" and becomes "how high". It also finally pays off the Toad's running
+joke - the princess is in another castle, and the last castle is at the TOP.
+It is canonical and googleable, which satisfies the standing rule that names
+reference real things.
+
+**What it costs.** This is a real project, not an afternoon: a new art direction
+(light, not fire), an ascending floor structure, and enemies that are not just
+recoloured demons. The circle/rule/mutator machinery from v2.15 carries straight
+over - a terrace is a circle with a different sign, mechanically - so the engine is
+already built. It is the CONTENT that is the work.
+
+**The open questions for the designer (the son):**
+1. Do we climb at all, or does the Descent just keep going deeper forever?
+2. If we climb: does the run continue (one long run, down then up), or is Purgatory
+   a separate mode you unlock by reaching the bottom of Hell?
+3. What is at the top? Dante's answer is Paradise. Ours could be the Mimic King
+   again, waiting, having been the thing you were climbing toward all along.
