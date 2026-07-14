@@ -40,7 +40,6 @@
 //   critHeal          crits heal v HP
 //   critBleed         crits ignite (bleed) at intensity v
 //   coin              +v% coins
-//   magnetR           +v px pickup magnet radius
 //   midasPer/midasCap +1 damage per (midasPer) coins held, capped at midasCap
 //   eliteCoins        elites drop +v bonus coins
 //   atkSpd            +v% attack speed
@@ -143,30 +142,29 @@ const Evolutions = (() => {
       ],
     },
     // -------------------------------------------------- FLEET (spd)
-    // #46 sharpened: FLEET is pure MOVEMENT now - raw speed, slipstream (roll speed
-    // burst), and a magnet/economy line (its FLOW bridge). Roll i-frames (phantomStep)
-    // and roll-through damage (rollNova) belong to ACROBAT, not here - so the two
-    // trees no longer read as one stat split in two.
+    // #46 FLEET is pure MOVEMENT - raw speed and slipstream (roll speed burst). The old
+    // magnet/pickup line was cut (room-clear vacuum made pickup range pointless). Roll
+    // i-frames (phantomStep) and roll-through damage (rollNova) belong to ACROBAT.
     spd: {
       3: [
         { name: 'Sidewinder', desc: '+16% move speed', fx: { spd: 0.16 } },
         { name: 'Kármán Vortex', desc: 'Rolling leaves the air spinning: 1.5s speed burst after each roll', fx: { windWake: 1.5 } },
-        { name: 'Lagrange Point', desc: 'Things fall toward you: +90px pickup magnet range', fx: { magnetR: 90 } },
+        { name: 'Ekman Transport', desc: 'Carried by the current: 1.2s roll speed burst and +10% move speed', fx: { windWake: 1.2, spd: 0.10 } },
       ],
       6: [
         { name: 'Mercurial Humour', desc: '+24% move speed', fx: { spd: 0.24 } },
         { name: 'Zephyrus Contract', desc: 'The west wind owes you: 2.4s speed burst after each roll', fx: { windWake: 2.4 } },
-        { name: 'Lodestone Vein', desc: 'A natural magnet in your bones: +150px pickup range and +10% move speed', fx: { magnetR: 150, spd: 0.10 } },
+        { name: 'Ground Effect', desc: 'Faster skimming close to the floor: +20% move speed', fx: { spd: 0.20 } },
       ],
       9: [
         { name: 'Cheetah Spine', desc: '+32% move speed', fx: { spd: 0.32 } },
         { name: 'Jet Stream Rider', desc: '3.2s roll speed burst and +14% move speed', fx: { windWake: 3.2, spd: 0.14 } },
-        { name: 'Lorentz Draw', desc: 'Charge in a field bends toward you: +240px pickup range and +24% coins', fx: { magnetR: 240, coin: 0.24 } },
+        { name: 'Boundary Layer', desc: 'Ride your own slipstream: 2.6s roll speed burst and +16% move speed', fx: { windWake: 2.6, spd: 0.16 } },
       ],
       12: [
         { name: 'Myelin Overdrive', desc: 'Insulated nerves fire faster: +55% move speed', fx: { spd: 0.55 } },
         { name: 'Coandă Effect', desc: 'The jet clings to your wake: 4.5s roll speed burst and +20% move speed', fx: { windWake: 4.5, spd: 0.20 } },
-        { name: 'Meissner Effect', desc: 'Levitate over the field, sweeping it clean: +320px pickup range and +45% coins', fx: { magnetR: 320, coin: 0.45 } },
+        { name: 'Meissner Effect', desc: 'Levitate the field, frictionless: +45% move speed', fx: { spd: 0.45 } },
       ],
     },
     // -------------------------------------------------- ACROBAT (roll)
@@ -218,7 +216,7 @@ const Evolutions = (() => {
     // -------------------------------------------------- GREEDY (coin)
     coin: {
       3: [
-        { name: 'Numismatist\'s Pull', desc: 'Coins know a collector: +130px pickup magnet range', fx: { magnetR: 130 } },
+        { name: 'Numismatist\'s Eye', desc: 'A collector spots value everywhere: +28% coins', fx: { coin: 0.28 } },
         { name: 'Letter of Marque', desc: 'Licensed piracy: elites drop +4 bonus coins', fx: { eliteCoins: 4 } },
         { name: 'Midas Metacarpals', desc: '+1 damage per 40 coins held (max +16)', fx: { midasPer: 40, midasCap: 16 } },
       ],
@@ -229,13 +227,13 @@ const Evolutions = (() => {
       ],
       9: [
         { name: 'Seigniorage', desc: 'Profit from the mint itself: +1 damage per 25 coins (max +32)', fx: { midasPer: 25, midasCap: 32 } },
-        { name: 'Rare Earth Attractor', desc: '+220px magnet range, +32% coins', fx: { magnetR: 220, coin: 0.32 } },
+        { name: 'Rare Earth Monopoly', desc: 'Corner the market on the scarce stuff: +50% coins', fx: { coin: 0.50 } },
         { name: 'Prize Court', desc: 'The admiralty rules in your favor: elites drop +10 coins', fx: { eliteCoins: 10 } },
       ],
       12: [
         { name: 'The Gilded Touch', desc: '+1 damage per 20 coins held (max +50)', fx: { midasPer: 20, midasCap: 50 } },
         { name: 'Mansa Musa Moment', desc: 'Richest human who ever lived: +130% coins', fx: { coin: 1.3 } },
-        { name: 'King\'s Ransom', desc: 'Elites drop +18 coins; +160px magnet range', fx: { eliteCoins: 18, magnetR: 160 } },
+        { name: 'King\'s Ransom', desc: 'Elites drop +24 coins', fx: { eliteCoins: 24 } },
       ],
     },
     // -------------------------------------------------- FRENZY (atkspd)
@@ -266,7 +264,7 @@ const Evolutions = (() => {
     magic: {
       3: [
         { name: 'Dirac Sea', desc: 'Draw from the vacuum\'s infinite energy: +25% spell damage', fx: { spellPower: 0.25 } },
-        { name: 'Brocken Spectre', desc: 'Your shadow looms huge on the cloud: +35px staff blast, +90px pickup range', fx: { blastBonus: 35, magnetR: 90 } },
+        { name: 'Brocken Spectre', desc: 'Your shadow looms huge on the cloud: +50px staff blast radius', fx: { blastBonus: 50 } },
         { name: 'Larmor Precession', desc: 'Spin faster in the field: +20% cast and attack speed', fx: { atkSpd: 0.20 } },
       ],
       6: [
@@ -302,9 +300,9 @@ const Evolutions = (() => {
   // ============================================================================
   const STATS = ['MIGHT', 'VIGOR', 'AGILITY', 'ARCANE', 'FORTUNE'];
   const STAT_TREES = {
-    MIGHT:   ['dmg', 'crit', 'atkspd'], // kill fast
+    MIGHT:   ['dmg', 'crit'],           // kill fast (atkspd moved to AGILITY per Sam)
     VIGOR:   ['hp', 'regen'],           // stay alive
-    AGILITY: ['spd', 'roll'],           // nimble / evasion
+    AGILITY: ['spd', 'roll', 'atkspd'], // nimble / evasion / quick hands
     ARCANE:  ['magic'],                 // spellcasting
     FORTUNE: ['coin'],                  // luck / economy
   };

@@ -16,7 +16,7 @@
     // MIGHT - kill fast
     { key: 'dmg',      icon: '⚔', color: '#ffd24c', name: 'Brutal',     desc: '+10% damage',            stat: 'MIGHT' },
     { key: 'crit',     icon: '✦', color: '#ffd24c', name: 'Deadly',     desc: '+6% crit chance',        stat: 'MIGHT' },
-    { key: 'atkspd',   icon: '≫', color: '#ff9a3d', name: 'Frenzy',     desc: '+10% attack speed',      stat: 'MIGHT' },
+    { key: 'atkspd',   icon: '≫', color: '#7fd4ff', name: 'Frenzy',     desc: '+10% attack speed',      stat: 'AGILITY' },
     // VIGOR - stay alive
     { key: 'hp',       icon: '♥', color: '#e05555', name: 'Tough',      desc: '+15 max health, heal 15', stat: 'VIGOR' },
     { key: 'regen',    icon: '✚', color: '#6ee7a0', name: 'Mending',    desc: 'Regenerate 0.6 HP/s',    stat: 'VIGOR' },
@@ -3600,7 +3600,7 @@
         const sp = 380 + Math.max(0, 300 - d);
         pk.x += (p.x - pk.x) / d * sp * dt;
         pk.y += (p.y - pk.y) / d * sp * dt;
-      } else if (d < 85 + p.mod('magnetR') && pk.t > 0.25) {
+      } else if (d < 85 && pk.t > 0.25) { // small base grab radius; room-clear vacuum (above) does the real gathering
         pk.x += (p.x - pk.x) / d * 320 * dt;
         pk.y += (p.y - pk.y) / d * 320 * dt;
       }
