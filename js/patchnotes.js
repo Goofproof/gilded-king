@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.31';
+  const VERSION = 'v2.32';
 
   const NOTES = [
+    {
+      v: 'v2.32', title: 'Thorns now punish enemies that shoot you from range', date: '2026-07-14',
+      sha: '89eb520',
+      items: [
+        'Thorns: bite ranged attackers, not just melee touchers (Sam).',
+      ],
+    },
     {
       v: 'v2.31', title: 'Ice floor now builds momentum when you commit to a direction', date: '2026-07-14',
       sha: 'daf3eb6',
