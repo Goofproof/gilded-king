@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.44';
+  const VERSION = 'v2.45';
 
   const NOTES = [
+    {
+      v: 'v2.45', title: 'The descent is now a real gauntlet', date: '2026-07-14',
+      sha: '3d92d1e',
+      items: [
+        'Descent scaling: the Inferno as a filter for the top raiders (Sam, #12).',
+      ],
+    },
     {
       v: 'v2.44', title: 'Twin portals: brave the Nightmare for a richer haul', date: '2026-07-14',
       sha: 'e375348',
