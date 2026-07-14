@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.32';
+  const VERSION = 'v2.33';
 
   const NOTES = [
+    {
+      v: 'v2.33', title: 'Meteor is now colossal', date: '2026-07-14',
+      sha: 'c2838d4',
+      items: [
+        'Meteor: colossal blast, bigger radius and impact (Sam).',
+      ],
+    },
     {
       v: 'v2.32', title: 'Thorns now punish enemies that shoot you from range', date: '2026-07-14',
       sha: '89eb520',
