@@ -6,6 +6,37 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #13 TWIN PORTALS - the Nightmare path (2026-07-14)
+Sam picked this off the parked-proposals list and said "let's do twin portals." The
+proposal (DESIGN-PROPOSALS #13) flagged two forks that needed his call; he said build
+it, so I made both calls and logged them here for his review.
+
+**The calls I made.**
+- **Co-op rule: host-authoritative.** DESIGN-PROPOSALS offered host-chooses / party-vote /
+  split-instances. I took HOST-CHOOSES because it is the only one that fits the engine as
+  it stands: the floor already advances host-first and the whole party follows a single
+  `{t:'floor', floor, seed}` broadcast. I just added a `nm` flag to that message. Whoever
+  takes a portal pulls the party, and the nightmare flag rides the shared message so
+  everyone lands on the same (nightmare or normal) floor from the same seed. No divergence,
+  no split instances. A vote UI would be a real feature on its own; not worth blocking this.
+- **How it is offered: ADDITIVE, not a rebuild.** Rather than replacing the descent exit,
+  the nightmare portal opens BESIDE the normal one (stairs on a normal floor, the boss-
+  plunge on a boss floor). The normal path is byte-for-byte untouched; nightmare is one new
+  interactable + one draw. Lowest-risk way to hit "a choice at the end of every descent
+  floor."
+- **Balance (first-pass, all in one NIGHTMARE knob block in main.js).** Harder: monsters
+  +45% HP, +25% damage, +18% chance any body is also an elite. Richer: +70% gold, +40% XP.
+  These are deliberately conservative-ish and trivially tunable. I did NOT force an extra
+  mutator or an extra Warden (the proposal floated both) - the stat + elite bump is enough
+  to make it feel nastier without destabilising the Rules/mutator determinism. If Sam wants
+  it swingier, the knobs are one edit.
+
+**What I deliberately left out of v1** (easy follow-ups if Sam wants them): a guaranteed
+mythic drop on a nightmare floor; a loot-rarity (luck) boost on kills; a red screen-tint
+for the whole nightmare floor (right now it is a banner + the red portal, not a persistent
+overlay). Rewards are gold + XP for now, which apply on every floor; essence/mythic
+sweeteners can layer on top.
+
 ## #11 DOPPELGANGER mini-boss - elevate the existing shade to a seed-placed boss (2026-07-14)
 Sam's ask: make the Doppelganger a real occasional mini-boss - a shadow of the player
 matching stats/speed/weapon/spells, in the odd room.

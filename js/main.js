@@ -206,6 +206,8 @@
     circleBossSeen: 0,       // recurring-boss counter (drives recolor + anger)
     descentPortal: null,     // {room,x,y,t,toad} - one-way plunge to the next floor
     pendingDescent: null,    // set on boss death; opens the portal after the celebration
+    nightmareNext: false,    // #13 the next floor was entered via the NIGHTMARE portal
+    floorNightmare: false,   // #13 the CURRENT floor is a nightmare floor (harder + richer)
     toadMsg: null,           // {text,t} - "THE PRINCESS IS IN ANOTHER CASTLE!"
     essenceCheckpoint: 0,    // essence already banked to meta this run (quit-safe descent)
     bossIntroName: 'THE MIMIC KING', bossIntroSub: 'the dungeon was bait all along',
@@ -363,6 +365,8 @@
     g.circleBossSeen = 0;
     g.descentPortal = null;
     g.pendingDescent = null;
+    g.nightmareNext = false;
+    g.floorNightmare = false;
     g.toadMsg = null;
     g.essenceCheckpoint = 0;
     // a pet chosen from the home-screen stable starts the run at your side
@@ -378,6 +382,10 @@
 
   function startFloor() {
     g.coopMenu = false; // never carry a menu overlay across a floor
+    // #13 (Sam) this floor is a NIGHTMARE floor if you took the nightmare portal to reach
+    // it (host sets nightmareNext locally; a co-op guest gets it from the 'floor' message).
+    g.floorNightmare = !!g.nightmareNext;
+    g.nightmareNext = false;
     // co-op: everyone builds the SAME floor from the shared run seed
     g.dungeon = Dungeon.generateFloor(g.floorNum, g.coop ? g.coopSeed : undefined);
     g.portal = null; // portals never carry across floors
@@ -397,6 +405,11 @@
     g.floorRule = g.rules.list.length
       ? { lines: g.rules.list.map(r => ({ name: r.name, desc: r.desc, color: r.color })), t: 5.5 }
       : null;
+    // #13 a nightmare floor announces itself: harder, and far richer.
+    if (g.floorNightmare) {
+      g.floorBanner = { text: `NIGHTMARE · FLOOR ${g.floorNum}`, t: 4.0, sub: `${theme.name} · far deadlier, far richer` };
+      Sfx.play('roar'); Fx.shake(6, 0.45);
+    }
 
     // ===================== BREAKING THROUGH THE ICE =========================
     // The single biggest beat in the game: you reach the bottom of Hell, and the
@@ -563,6 +576,7 @@
       } else {
         g.monsters = Monsters.spawnForRoom(room, g.floorNum, g);
         coopScaleMonsters(g.monsters);                        // co-op: tougher for the party
+        nightmareScaleMonsters(g.monsters);                   // #13 nightmare floor: tougher still
         for (const m of g.monsters) m.netId = ++g.netMobId;   // stamp for co-op sync
       }
       Sfx.play('door'); // doors slam
@@ -668,7 +682,8 @@
     if (g.quest && g.quest.key === 'hunt') g.huntKills = (g.huntKills || 0) + 1; // THE HUNT
     if (typeof Ach !== 'undefined') Ach.kill(m, g); // #86 accolades: kills, bosses, pits, goblins...
     // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
-    const alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
+    let alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
+    if (g.floorNightmare) alarmXp = Math.round(alarmXp * NIGHTMARE.xpMul); // #13 nightmare pays more XP
     p.addXp(alarmXp, g);
     // co-op: the whole party levels off shared kills (kills only ever happen on
     // the host, so it grants everyone the same XP)
@@ -712,6 +727,7 @@
     if (looting) n = Math.round(n * (1 + 0.3 * looting));
     if (g.midasT > 0) n *= 2; // MIDAS WAVE ultimate: double gold while active
     if (g.rules) n = Math.round(n * g.rules.coinMul); // the Hoard (Greed) doubles it
+    if (g.floorNightmare) n = Math.round(n * NIGHTMARE.coinMul); // #13 nightmare pays more gold
     for (let i = 0; i < n; i++) spawnPickup('coin', m.x, m.y);
 
     // hearts: small mercy drop. BLOOD MOON pays double gold and withholds them.
@@ -896,6 +912,47 @@
     Fx.burst(g.descentPortal.x, g.descentPortal.y, ['#ff5a2c', '#ffcc44', '#ff2200', '#1a0a06'], 36, { speed: 210, life: 1.0, glow: true });
     Fx.shake(6, 0.4);
     Sfx.play('roar');
+  }
+
+  // #13 (Sam) TWIN PORTALS. At the exit of every DESCENT floor a second, NIGHTMARE
+  // portal opens beside the normal one: a much harder version of the next floor for a
+  // much richer haul. All the knobs live here. Numbers are first-pass and tunable.
+  const NIGHTMARE = {
+    hpMul: 1.45, dmgMul: 1.25, eliteAdd: 0.18,   // tougher: tankier, hits harder, more elites
+    coinMul: 1.7, xpMul: 1.4,                     // richer: more gold + faster levelling
+  };
+  // the active NORMAL descent exit in the current room (the stairs, or the boss-floor
+  // plunge), or null if this floor/room has no descent exit to twin.
+  function descentExitPoint() {
+    if (typeof Descent === 'undefined' || !Descent.isDescent(g.floorNum)) return null;
+    if (g.descentPortal && g.descentPortal.room === g.room) return { x: g.descentPortal.x, y: g.descentPortal.y };
+    if (g.room && g.room.stairs && g.room.stairs.open !== undefined && Dungeon.uncleared(g.dungeon) === 0)
+      return { x: g.room.stairs.x, y: g.room.stairs.y };
+    return null;
+  }
+  // the nightmare portal sits beside the normal exit (flips to the other side near a wall).
+  function nightmarePos(ex) {
+    const off = 118;
+    let nx = ex.x + off;
+    if (nx > PF.x + PF.w - 46) nx = ex.x - off;
+    return { x: nx, y: ex.y };
+  }
+  // host: make a freshly-spawned set harder on a nightmare floor (guests get these via
+  // the mob snapshot, so this only runs host-side, after spawnForRoom).
+  function nightmareScaleMonsters(mons) {
+    if (!g.floorNightmare) return;
+    for (const m of mons) {
+      m.hp = Math.round(m.hp * NIGHTMARE.hpMul); m.maxHp = m.hp;
+      if (m.dmg) m.dmg = Math.round(m.dmg * NIGHTMARE.dmgMul);
+      // sprinkle extra elites onto the plain bodies (skip the doppelganger mini-boss)
+      if (!m.elite && !m.miniBoss && typeof Descent !== 'undefined' && Math.random() < NIGHTMARE.eliteAdd) {
+        const af = Descent.rollAffix();
+        m.elite = af; m.r = Math.round(m.r * (af.rMul || 1));
+        m.hp = Math.max(1, Math.round(m.hp * af.hpMul)); m.maxHp = m.hp;
+        m.dmg = Math.round(m.dmg * af.dmgMul); m.speed = m.speed * af.speedMul;
+        m.xp = Math.round(m.xp * 2.2);
+      }
+    }
   }
 
   // essence is never spent, so it only rises - bank the delta as you descend so
@@ -1296,6 +1353,8 @@
     }
     if (g.portal && g.portal.room === g.room) consider(g.portal.x, g.portal.y, { kind: 'portal' });
     if (g.descentPortal && g.descentPortal.room === g.room) consider(g.descentPortal.x, g.descentPortal.y, { kind: 'descentPortal' });
+    // #13 (Sam) TWIN PORTAL: a nightmare exit beside the normal descent exit
+    { const ex = descentExitPoint(); if (ex) { const np = nightmarePos(ex); consider(np.x, np.y, { kind: 'nightmareExit' }); } }
     if (g.room.merc && !g.room.merc.hired && g.mercs.length < 2) consider(g.room.merc.x, g.room.merc.y, { kind: 'merc' });
     if (g.room.pet && !g.room.pet.activated) consider(g.room.pet.x, g.room.pet.y, { kind: 'pet' });
     return best;
@@ -1561,6 +1620,24 @@
       g.floorNum++;
       if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
       p.heal(25); // a breath before the next circle
+      startFloor();
+    }
+
+    // #13 (Sam) the NIGHTMARE portal: the next floor, but far deadlier and far richer.
+    if (t.kind === 'nightmareExit') {
+      Sfx.play('roar');
+      Fx.burst(p.x, p.y, ['#ff2020', '#ff5a2c', '#3a0000', '#000'], 30, { speed: 220, life: 0.6, glow: true });
+      Fx.shake(9, 0.5);
+      g.descentPortal = null;
+      g.portal = null;
+      g.toadMsg = null;
+      bankEssenceCheckpoint();
+      g.nightmareNext = true;           // startFloor reads this to mark the new floor
+      g.floorNum++;
+      // co-op is host-authoritative: whoever takes the portal pulls the party, and the
+      // nightmare flag rides the shared floor message so everyone lands on the same floor.
+      if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: 1 });
+      p.heal(20);
       startFloor();
     }
   }
@@ -2647,7 +2724,7 @@
     Net.on('room', m => { if (g.coop && g.dungeon) coopEnterRoom(m.gx, m.gy, m.dir, false); });
     // host advanced the floor - regenerate the shared floor and follow (a floor change
     // trumps any pending level-up gate: clear it so nothing is left stranded)
-    Net.on('floor', m => { if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; startFloor(); g.state = 'play'; } });
+    Net.on('floor', m => { if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; g.nightmareNext = !!m.nm; startFloor(); g.state = 'play'; } });
     Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
     // NOTE: a mid-run socket close must NOT yank the player to the menu (that kicked
     // live players out on every WiFi blip). net.js now auto-reconnects to the same room
@@ -5134,6 +5211,34 @@
       c.fillText('E - DESCEND INTO THE INFERNO', pt.x, pt.y + 50);
     }
 
+    // #13 (Sam) TWIN PORTAL: the NIGHTMARE rift, a bleeding red tear beside the normal
+    // descent exit. Only on descent floors, only in the exit room, only once it is open.
+    {
+      const ex = (typeof descentExitPoint === 'function') ? descentExitPoint() : null;
+      if (ex && room === g.room) {
+        const np = nightmarePos(ex);
+        c.save();
+        c.translate(np.x, np.y);
+        const spin = g.time * 3.2;
+        for (let i = 0; i < 3; i++) {
+          c.strokeStyle = i === 1 ? 'rgba(255,32,32,0.9)' : 'rgba(180,0,40,0.85)';
+          c.lineWidth = 5 - i;
+          c.beginPath();
+          c.ellipse(0, 0, 26 + i * 8 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.7 : 0.7), 0.3, Math.PI * 2 - 0.3);
+          c.stroke();
+        }
+        const grad = c.createRadialGradient(0, 0, 2, 0, 0, 32);
+        grad.addColorStop(0, 'rgba(120,0,10,0.85)');
+        grad.addColorStop(0.6, 'rgba(255,32,32,0.35)');
+        grad.addColorStop(1, 'rgba(60,0,0,0)');
+        c.fillStyle = grad; c.beginPath(); c.arc(0, 0, 32, 0, Math.PI * 2); c.fill();
+        if (Math.random() < 0.4) Fx.burst(np.x + (Math.random() * 40 - 20), np.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#ff2020' : '#7a0010', 1, { speed: 45, life: 0.7, glow: true });
+        c.restore();
+        c.font = 'bold 12px monospace'; c.textAlign = 'center'; c.fillStyle = '#ff3b3b';
+        c.fillText('E - THE NIGHTMARE (harder · richer)', np.x, np.y + 50);
+      }
+    }
+
     // start-room hint
     if (room.type === 'start' && g.floorNum === 1) {
       c.font = '13px monospace'; c.textAlign = 'center';
@@ -5484,7 +5589,7 @@
     if (t.kind === 'trainStation') { x = t.st.x; y = t.st.y - 46; label = `E - train ${t.st.stat} ${t.st.label} (${30 + 20 * t.st.uses}g)`; }
     if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
     if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }
-    if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal') return; // these draw their own prompt
+    if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal' || t.kind === 'nightmareExit') return; // these draw their own prompt
     c.save();
     c.font = 'bold 12px monospace'; c.textAlign = 'center';
     c.fillStyle = 'rgba(0,0,0,0.6)';
