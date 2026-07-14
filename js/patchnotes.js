@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.35', title: 'HUD bars are now labeled', date: '2026-07-14',
       sha: 'edfe4ac',
       items: [
-        'HUD: label the HP/XP bars and the alarm meter (Sam).',
+        'The bars in the top-left corner now have little labels so you know what they are. The top red bar is your HP (health), the purple one under it is your XP (how close you are to leveling up), and the thin one below that is the ALARM meter. The alarm climbs every time you clear a room, and the higher it gets the tougher the rooms are, but the better the loot.',
       ],
     },
     {
