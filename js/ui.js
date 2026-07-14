@@ -467,7 +467,10 @@ const UI = (() => {
     c.textAlign = 'right';
     c.font = 'bold 11px monospace';
     c.fillStyle = '#c9a86a';
-    c.fillText(`FL.${g.floorNum} · ${theme.name}`, W - pad, oy - 11);
+    // "Floor 12", not "FL.12" (Sam). On the mountain it is an altitude, not a floor.
+    const climbingHere = typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum);
+    const label = climbingHere ? `Altitude ${Ascent.altitude(g.floorNum)}` : `Floor ${g.floorNum}`;
+    c.fillText(`${label} · ${theme.name}`, W - pad, oy - 11);
     c.globalAlpha = 0.92;
     // backdrop
     c.fillStyle = 'rgba(8,8,14,0.65)';

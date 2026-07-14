@@ -59,36 +59,45 @@ const PlayerDef = (() => {
   //     up over the head, so we never rotate it there;
   //   - the ripple is ONE coherent travelling wave across the hem (small phase deltas),
   //     so it reads as cloth flapping, not as three points fighting each other.
+  // #131 one palette PER PRESTIGE LEVEL, so every single prestige is a different
+  // cape and not a two-pixel difference nobody can see. Six of them; past six the
+  // colour holds and the chevrons keep counting.
+  const PRESTIGE_PAL = [
+    { dark: '#4e1226', lite: '#72203a' }, // 1 - crimson
+    { dark: '#123a5a', lite: '#1d5c84' }, // 2 - abyssal blue
+    { dark: '#1a4a2a', lite: '#246b3c' }, // 3 - deep green
+    { dark: '#431029', lite: '#651a41' }, // 4 - wine
+    { dark: '#2e0e42', lite: '#4a1c66' }, // 5 - violet
+    { dark: '#1a1416', lite: '#2f2226' }, // 6 - obsidian
+  ];
+
   function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
-    velX = velX || 0; velY = velY || 0;
-    let speed = Math.hypot(velX, velY);
-    // fallback for peers on an older build that only sent the `moving` flag, no vector
-    if (speed < 1 && moving) speed = 205;
-    const sp01 = Math.min(1.8, speed / 205);            // ~1.0 at a run, ~2.1 mid-roll
-    // swing: the cape trails OPPOSITE your horizontal travel, capped so it never lifts
-    // past a natural drape angle. Rotating the whole cape (not the hem) is what keeps
-    // it from shearing.
-    const swing = Math.max(-0.40, Math.min(0.40, -velX / 205 * 0.34));
-    // stretch: running up (away) streams it out, running down (at camera) tucks it in
-    const stretch = Math.max(-0.16, Math.min(0.30, -velY / 205 * 0.26));
-    const ph = now / Math.max(210, 360 - sp01 * 90) + (seedX || 0) * 0.05;
-    const amp = 1.4 + sp01 * 2.8;                       // hem ripple in px - gentle
-    const wobble = Math.sin(ph) * 0.05 * sp01;          // the swing itself breathes a little
-    // ONE travelling wave: small phase deltas across the hem, so the cloth ripples
+    // #131 THE MOVEMENT ANIMATION IS OFF (Sam's call, and the right one). Two attempts
+    // at making the cape react to travel both read as broken in motion - first it
+    // sheared, then it swung. The idle drift always looked good, so the cape now just
+    // does that, always: a slow, gentle ripple, whatever you are doing. velX/velY and
+    // `moving` are still in the signature (peers send them over the wire) and are
+    // deliberately IGNORED. Do not wire them back up without Sam asking.
+    const ph = now / 360 + (seedX || 0) * 0.05;
+    const amp = 1.4;                                    // the gentle idle ripple, and nothing else
+    // ONE travelling wave across the hem: small phase deltas, so the cloth ripples
     // coherently and the two panels never pump against each other
     const hemL = Math.sin(ph) * amp;
     const hemR = Math.sin(ph + 0.38) * amp;
     const hemM = Math.sin(ph + 0.19) * amp * 0.5;
-    const base = r * (2.1 + t * 0.14);
-    const L = base * (1 + stretch) + sp01 * r * 0.16;   // continuous - no pop when you start moving
-    const tw = r * 0.5, bw = r * (1.05 + t * 0.05);
+    // #131 PRESTIGE MUST BE VISIBLE. It used to grow the cape by r*0.14 per level -
+    // about TWO PIXELS - and only changed colour at levels 3 and 5, so Sam prestiged
+    // twice and saw nothing at all. Every level now changes the size AND the colour,
+    // and carries a gold chevron so you can literally count your rank off the cape.
+    const base = r * (2.0 + t * 0.40);                  // ~5px longer per level, not 1.8
+    const L = base;
+    const tw = r * 0.5, bw = r * (1.0 + t * 0.14);      // and visibly wider each time
     const sx = hemM * 0.6, sy = L * 0.86;               // the seam - SHARED by both panels
-    const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
-    const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
+    const dark = PRESTIGE_PAL[Math.max(0, t - 1)] ? PRESTIGE_PAL[Math.max(0, t - 1)].dark : '#4e1226';
+    const lite = PRESTIGE_PAL[Math.max(0, t - 1)] ? PRESTIGE_PAL[Math.max(0, t - 1)].lite : '#72203a';
     c.save();
-    c.rotate(swing + wobble);                           // pivot at the shoulders
     c.fillStyle = dark;
     c.beginPath();
     c.moveTo(0, -r * 0.2); c.lineTo(-tw, -r * 0.16);
@@ -109,6 +118,27 @@ const PlayerDef = (() => {
     c.quadraticCurveTo(bw * 0.42 + hemM, L * 0.9, bw + hemR, L);
     c.quadraticCurveTo(bw * 1.12 + hemR, L * 0.5, tw, -r * 0.16);
     c.stroke();
+    // #131 PRESTIGE CHEVRONS: one gold chevron down the spine of the cape per prestige
+    // level, so the rank is COUNTABLE and every prestige changes the cape whether or
+    // not you can tell violet from wine. Rank you can read at a glance, which is the
+    // whole point of a prestige cosmetic.
+    const chevrons = Math.min(8, prestige);
+    if (chevrons > 0) {
+      c.strokeStyle = '#ffd24c'; c.lineWidth = 1.6; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.shadowColor = '#ffd24c'; c.shadowBlur = 3;
+      const top = r * 0.35, span = L * 0.72 - top;
+      const gap = span / (chevrons + 0.6);
+      const wch = bw * 0.42;
+      for (let i = 0; i < chevrons; i++) {
+        const cy = top + gap * (i + 0.7);
+        c.beginPath();
+        c.moveTo(-wch, cy);
+        c.lineTo(0, cy + wch * 0.55);
+        c.lineTo(wch, cy);
+        c.stroke();
+      }
+      c.shadowBlur = 0;
+    }
     c.fillStyle = '#ffd24c';
     c.beginPath(); c.ellipse(0, -r * 0.18, tw * 0.9, 2.6 + t * 0.2, 0, 0, Math.PI * 2); c.fill();
     c.restore();
