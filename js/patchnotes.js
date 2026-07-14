@@ -26,8 +26,12 @@ const PatchNotes = (() => {
       v: 'v2.16', title: 'Mount Purgatory', date: '2026-07-14',
       sha: 'c29c1f9',
       items: [
-        'MOUNT PURGATORY: the run turns around and climbs.',
-        'Breaking through the ice: the transition beat, and the shore is a breather.',
+        'YOU BREAK THROUGH THE BOTTOM OF HELL. Past the frozen lake there is no floor left to fall through, so you go THROUGH it. Gravity turns over, you come out on the shore of a mountain under an open sky, and the falling stops.',
+        'NOW YOU CLIMB. The HUD stops counting how deep you got and starts counting how HIGH. Seven terraces of Mount Purgatory, cycling forever: Pride, Envy, Wrath, Sloth, Avarice, Gluttony and Lust.',
+        'AND THE MOUNTAIN IS NOT HELL. It is stone and dawn and open air, the dust drifts UPWARD, and for the first time in the whole game the music is in a major key.',
+        'SEVEN PENANCES, not seven torments. On PRIDE you carry a great stone and cannot dodge-roll at all. On ENVY your eyes are stitched shut and you see only what is near. On WRATH a bank of black smoke hides everything until it is on top of you. On SLOTH, standing still hurts. On AVARICE gold is worth nothing, and pays you in experience instead. On GLUTTONY nothing will feed you: no hearts, no regeneration. And on LUST the walls burn, so there is nowhere to hide but the open middle.',
+        'THE SHORE is the one floor in the entire endless run where nothing is hunting you. Stand there a moment. You earned it.',
+        'Toad has been telling you the princess is in another castle the whole way down. At the bottom of Hell, he finally tells you the truth.',
       ],
     },
     {
