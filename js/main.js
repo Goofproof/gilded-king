@@ -241,7 +241,8 @@
     time: 0,
     queueLevelUp() { this.levelUpQueue++; },
     onKill(m) { onKill(m); },
-    spawnPickup(kind, x, y) { spawnPickup(kind, x, y); }, // loot-goblin coin spill (monsters.js)
+    spawnPickup(kind, x, y, local) { spawnPickup(kind, x, y, local); }, // loot-goblin coin spill (monsters.js), quest payouts (encounters.js)
+    mythicFanfare(x, y, item) { mythicFanfare(x, y, item); },           // THE PACT pays a mythic, and it deserves the full celebration
     dropMine(x, y, dmg) { g.mines.push({ x, y, r: 8, blastR: 105, dmg: Math.round(dmg * 3.2), t: 0, armT: 0.6, armed: false, fuse: -1 }); }, // minelayer - TERRIFYING blast (big dmg + radius)
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
@@ -371,6 +372,10 @@
     // the RULES in force on this floor (the circle's signature rule, plus mutators).
     // Derived from floor + run seed only, so co-op peers agree without syncing it.
     g.rules = Rules.forFloor(g.floorNum, g.coop ? g.coopSeed : g.runSeed);
+    // a quest lives and dies on ONE floor. Take the stairs with it unfinished and it
+    // is simply gone - that is the cost of leaving early.
+    g.quest = null; g.offer = null; g.pactRule = null;
+    g.vowIntact = false; g.huntKills = 0; g.huntTarget = 12; g.titheAmount = 0;
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
     // the floor card names EVERY rule in force (the circle's, plus any mutators), so
     // it is never a mystery why you are suddenly sliding, on fire, or swarmed
@@ -579,6 +584,7 @@
   function onKill(m) {
     const p = g.player;
     p.kills++;
+    if (g.quest && g.quest.key === 'hunt') g.huntKills = (g.huntKills || 0) + 1; // THE HUNT
     if (typeof Ach !== 'undefined') Ach.kill(m, g); // #86 accolades: kills, bosses, pits, goblins...
     // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
     const alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
@@ -1155,6 +1161,12 @@
       if (d < bestD) { bestD = d; best = obj; }
     };
     for (const ch of g.room.chests) if (!ch.opened) consider(ch.x, ch.y, { kind: 'chest', ch });
+    // the stranger with an offer. Once you have taken (or refused) it, they stop
+    // being interactable - you do not get to shop the same deal twice.
+    if (g.room.encounter && !g.room.encounter.taken && !g.room.encounter.refused) {
+      const e = g.room.encounter;
+      consider(e.x, e.y, { kind: 'encounter', e });
+    }
     for (const pk of g.pickups) {
       if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
       if (pk.kind === 'armorItem') consider(pk.x, pk.y, { kind: 'armorPickup', pk });
@@ -1186,10 +1198,68 @@
     return best;
   }
 
+  // ======================= QUEST ENCOUNTERS ================================
+  // The stranger's offer is on the screen and the game is paused. Take it or leave
+  // it. Refusing is free and always allowed - they just go, and the room is quiet.
+  function updateOffer() {
+    const e = g.offer;
+    if (!e) { g.state = 'play'; return; }
+    const q = Encounters.byKey(e.key);
+    if (input.pressed('Escape') || input.pressed('KeyQ')) {  // refuse
+      e.refused = true;
+      g.offer = null;
+      g.state = 'play';
+      g.shareMsg = { text: 'you turn them down. they do not seem surprised.', t: 2.6 };
+      Sfx.play('ui');
+      return;
+    }
+    if (input.pressed('KeyE') || input.pressed('Space') || input.pressed('Enter')) { // accept
+      e.taken = true;
+      g.questRoll = e.roll;                 // deterministic: the quest's own seeded roll
+      g.quest = { key: e.key, room: g.room };
+      q.accept(g);
+      g.offer = null;
+      g.state = 'play';
+      g.shareMsg = { text: `${q.name} accepted.`, t: 3 };
+      Sfx.play('upgrade');
+      Fx.burst(e.x, e.y, ['#ffd24c', '#fff'], 20, { speed: 150, life: 0.6, glow: true });
+    }
+  }
+
+  // Check the live quest every frame: has it been earned, or blown?
+  function updateQuest(dt) {
+    if (!g.quest || g.quest.paid) return;
+    const q = Encounters.byKey(g.quest.key);
+    if (!q) { g.quest = null; return; }
+    if (q.failed && q.failed(g)) {
+      g.shareMsg = { text: `${q.name} FAILED.`, t: 3.5 };
+      Sfx.play('error');
+      g.quest = null;
+      return;
+    }
+    if (q.done(g)) {
+      const got = q.pay(g);
+      g.quest.paid = true;
+      g.shareMsg = { text: `${q.name} complete: ${got}`, t: 5 };
+      Sfx.play('upgrade');
+      Fx.burst(g.player.x, g.player.y, ['#ffd24c', '#fff', '#d4af37'], 34,
+        { speed: 220, life: 1.0, glow: true });
+      g.quest = null;
+    }
+  }
+
   function interact() {
     const t = nearestInteractable();
     if (!t) return;
     const p = g.player;
+
+    // QUEST ENCOUNTER: they make you an offer. The game stops while you read it.
+    if (t.kind === 'encounter') {
+      g.offer = t.e;
+      g.state = 'offer';
+      Sfx.play('ui');
+      return;
+    }
 
     if (t.kind === 'chest') {
       const ch = t.ch;
@@ -2061,6 +2131,7 @@
       case 'ultpick': g.overlayT += dt; if (peekCharSheet()) break; updateUltPick(); break;
       case 'rpick': g.overlayT += dt; if (peekCharSheet()) break; updateRPick(); break;
       case 'enchantpick': g.overlayT += dt; updateEnchantPick(); break;
+      case 'offer': g.overlayT += dt; updateOffer(); break;
       case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
       case 'pause':
         g.overlayT += dt;
@@ -2895,6 +2966,7 @@
     // captures typing; movement/ability keys are already swallowed by the keydown
     // handler while the box is open, so the player just stands and auto-fights.
     if (g.coop) updateChat();
+    updateQuest(dt); // has the stranger's errand been earned, or blown?
     if (input.pressed('KeyP') || input.pressed('Escape')) {
       g.state = 'pause'; g.overlayT = 0;
       g.player.drawT = -1; // a held bow draw must not survive pause and fire on resume
@@ -3685,6 +3757,38 @@
     drawUltFx(c);
 
     // actors
+    // THE STRANGER WITH AN OFFER. A hooded figure with a lantern; the lantern is the
+    // tell, so you can pick them out of a busy room from across it.
+    if (g.room.encounter && !g.room.encounter.refused) {
+      const e = g.room.encounter;
+      const q = Encounters.byKey(e.key);
+      const bob = Math.sin(g.time * 2 + e.bob) * 2.5;
+      c.save();
+      c.translate(e.x, e.y + bob);
+      // the lantern glow
+      c.save();
+      c.globalAlpha = 0.30 + Math.sin(g.time * 3) * 0.07;
+      c.fillStyle = '#ffd24c'; c.shadowColor = '#ffd24c'; c.shadowBlur = 20;
+      c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
+      c.restore();
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.beginPath(); c.ellipse(0, 15, 12, 5, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = e.taken ? '#4a5568' : '#2f3a4c';   // the robe
+      c.beginPath();
+      c.moveTo(0, -16); c.quadraticCurveTo(13, -6, 11, 14);
+      c.lineTo(-11, 14); c.quadraticCurveTo(-13, -6, 0, -16);
+      c.closePath(); c.fill();
+      c.fillStyle = '#141a24';                          // the hood, and nothing in it
+      c.beginPath(); c.arc(0, -13, 8, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#ffd24c';                          // the lantern
+      c.beginPath(); c.arc(10, 2, 3.4, 0, Math.PI * 2); c.fill();
+      c.restore();
+      if (!e.taken) {
+        c.font = 'bold 10px monospace'; c.textAlign = 'center'; c.fillStyle = '#ffd24c';
+        c.fillText(q ? q.name : 'AN OFFER', e.x, e.y - 30 + bob);
+      }
+    }
+
     // THE SMOKE (Wrath's terrace): the bank of bitter black smoke hides everything
     // until it is close. The monster is still there and still coming - you just
     // cannot see it yet. Faded by DISTANCE, not culled, so a shape looms out of it.
@@ -3871,6 +3975,10 @@
       c.fillRect(0, 0, W, H);
     }
     if (g.state === 'bossintro') UI.drawBossIntro(c, g);
+    // THE OFFER: the stranger's terms and the price, on one panel (drawn in ui.js
+    // where the other panels live, and where wrapText is in scope).
+    if (g.state === 'offer' && g.offer) UI.drawOffer(c, g);
+
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);

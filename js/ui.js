@@ -154,6 +154,17 @@ const UI = (() => {
               : `FLOOR ${g.floorNum}/3`;
     c.fillText(tag, hbX, H - 16);
 
+    // AN ACCEPTED QUEST rides above the depth tag for as long as it is live, so you
+    // never forget what you agreed to. It is gold while it is winnable.
+    if (g.quest && !g.quest.paid && typeof Encounters !== 'undefined') {
+      const q = Encounters.byKey(g.quest.key);
+      if (q) {
+        c.font = 'bold 11px monospace';
+        c.fillStyle = '#ffd24c';
+        c.fillText(q.objective(g), hbX, H - 32);
+      }
+    }
+
     // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
     drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
@@ -1932,5 +1943,36 @@ const UI = (() => {
     return [{ ...r1, y: r1.y + dy }, { ...r2, y: r2.y + dy }]; // hitboxes track the entrance drift
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap };
+  // THE OFFER (encounters.js): a stranger's terms, the price, and the way out. The
+  // "walk away" line is spelled out on purpose - a quest you cannot refuse is not a
+  // quest, it is a tax.
+  function drawOffer(c, g) {
+    const q = Encounters.byKey(g.offer.key);
+    if (!q) return;
+    const pw = 560, ph = 252, px = (W - pw) / 2, py = (H - ph) / 2;
+    c.save();
+    c.fillStyle = 'rgba(6,8,12,0.86)'; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#161b24'; c.fillRect(px, py, pw, ph);
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 22px monospace'; c.fillStyle = '#ffd24c';
+    c.fillText(q.name, W / 2, py + 38);
+    c.font = 'italic 12px monospace'; c.fillStyle = '#7a8698';
+    c.fillText(q.who, W / 2, py + 58);
+    c.font = '13px monospace'; c.fillStyle = '#cfe0f0';
+    wrapText(c, '"' + q.pitch + '"', W / 2, py + 88, pw - 60, 18);
+    c.font = 'bold 11px monospace'; c.fillStyle = '#ff9a4c';
+    c.fillText('THE DEAL', W / 2, py + 140);
+    c.font = '12px monospace'; c.fillStyle = '#e8d5a0';
+    wrapText(c, q.terms, W / 2, py + 158, pw - 60, 16);
+    c.font = 'bold 11px monospace'; c.fillStyle = '#6ee7a0';
+    c.fillText('THE REWARD', W / 2, py + 190);
+    c.font = '12px monospace'; c.fillStyle = '#e8d5a0';
+    wrapText(c, q.reward, W / 2, py + 208, pw - 60, 16);
+    c.font = 'bold 12px monospace'; c.fillStyle = '#9fb0c8';
+    c.fillText('E / SPACE  accept          Q / ESC  walk away', W / 2, py + ph - 12);
+    c.restore();
+  }
+
+  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
 })();

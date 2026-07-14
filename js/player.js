@@ -637,6 +637,7 @@ const PlayerDef = (() => {
       dmg = dmg * (1 - reduce);
       this.hp -= dmg;
       if (typeof Ach !== 'undefined') Ach.damaged(g); // #86 breaks the floor's no-hit streak
+      if (g.vowIntact) g.vowIntact = false;           // THE VOW (encounters.js) is broken by one hit
       this.iframes = T.hurtIframes;
       this.flash = 0.25;
       Fx.shake(6, 0.25);

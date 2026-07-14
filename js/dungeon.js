@@ -382,6 +382,23 @@ const Dungeon = (() => {
       }
     }
 
+    // QUEST ENCOUNTERS (Sam, 2026-07-14): somebody is standing in a room, and they
+    // want something. At most ONE per floor, from floor 2 on, and never in the room
+    // you start in - you should have to find them. Rolled with the SEEDED rng like
+    // every other occupant, so a co-op host and guest meet the same stranger in the
+    // same room.
+    if (floorNum >= 2 && typeof Encounters !== 'undefined') {
+      const candidates = list.filter(r => (r.type === 'combat' || r.type === 'treasure')
+                                       && !r.pet && !r.merc && r !== start);
+      if (candidates.length && rnd() < 0.55) {
+        const room = candidates[(rnd() * candidates.length) | 0];
+        const e = Encounters.make(rnd, floorNum);
+        e.x = PF.x + PF.w / 2 + (rnd() < 0.5 ? -120 : 120);
+        e.y = PF.y + PF.h / 2 + 46;
+        room.encounter = e;
+      }
+    }
+
     return { grid, start, rooms: list, floor: floorNum };
   }
 

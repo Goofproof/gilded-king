@@ -303,41 +303,45 @@ const Rules = (() => {
       list: active, circle, mutators, ascending,
       // the gale needs a stable direction for the whole floor
       windAngle: hash32((seed || 0) + floorNum * 977) * Math.PI * 2,
-      moveMul:   active.reduce((a, x) => a * (x.moveMul   ?? 1), 1),
-      coinMul:   active.reduce((a, x) => a * (x.coinMul   ?? 1), 1),
-      monDmgMul: active.reduce((a, x) => a * (x.monDmgMul ?? 1), 1),
-      monHpMul:  active.reduce((a, x) => a * (x.monHpMul  ?? 1), 1),
-      countMul:  active.reduce((a, x) => a * (x.countMul  ?? 1), 1),
-      xpMul:     active.reduce((a, x) => a * (x.xpMul     ?? 1), 1),
-      eliteAdd:  active.reduce((a, x) => a + (x.eliteAdd  ?? 0), 0),
-      mimicAdd:  active.reduce((a, x) => a + (x.mimicAdd  ?? 0), 0),
-      noHearts:  active.some(x => x.noHearts),
-      noRegen:   active.some(x => x.noRegen),   // the Fast (Gluttony)
-      noRoll:    active.some(x => x.noRoll),    // the Weight (Pride)
-      // draw-time effects, read by the renderer rather than by a hook
-      vision:    active.reduce((a, x) => Math.min(a, x.vision ?? Infinity), Infinity), // the Sewn Eyes
-      fade:      active.reduce((a, x) => Math.min(a, x.fade   ?? Infinity), Infinity), // the Smoke
-      // a rule sets moveMul 0 when it means to drive movement itself (the ice)
-      ownsMovement: active.some(x => x.moveMul === 0),
     };
-    r.player  = (p, dt, g) => { for (const x of active) if (x.player)  x.player(p, dt, g); };
-    r.spawn   = (m, g)     => { for (const x of active) if (x.spawn)   x.spawn(m, g); };
-    r.monster = (m, dt, g) => { for (const x of active) if (x.monster) x.monster(m, dt, g); };
+    remerge(r);
+    return r;
+  }
+
+  // Recompute every merged field from r.list. Split out of forFloor because a rule
+  // can be added to a floor you are ALREADY STANDING ON: the Pact (encounters.js)
+  // lets a stranger drop one more mutator on you mid-floor, and the multipliers have
+  // to start biting the moment you shake hands. One merge function, so a rule added
+  // at floor-gen and a rule added by a handshake behave identically.
+  function remerge(r) {
+    const active = r.list;
+    r.moveMul   = active.reduce((a, x) => a * (x.moveMul   ?? 1), 1);
+    r.coinMul   = active.reduce((a, x) => a * (x.coinMul   ?? 1), 1);
+    r.monDmgMul = active.reduce((a, x) => a * (x.monDmgMul ?? 1), 1);
+    r.monHpMul  = active.reduce((a, x) => a * (x.monHpMul  ?? 1), 1);
+    r.countMul  = active.reduce((a, x) => a * (x.countMul  ?? 1), 1);
+    r.xpMul     = active.reduce((a, x) => a * (x.xpMul     ?? 1), 1);
+    r.eliteAdd  = active.reduce((a, x) => a + (x.eliteAdd  ?? 0), 0);
+    r.mimicAdd  = active.reduce((a, x) => a + (x.mimicAdd  ?? 0), 0);
+    r.noHearts  = active.some(x => x.noHearts);
+    r.noRegen   = active.some(x => x.noRegen);   // the Fast (Gluttony)
+    r.noRoll    = active.some(x => x.noRoll);    // the Weight (Pride)
+    // draw-time effects, read by the renderer rather than by a hook
+    r.vision    = active.reduce((a, x) => Math.min(a, x.vision ?? Infinity), Infinity); // the Sewn Eyes
+    r.fade      = active.reduce((a, x) => Math.min(a, x.fade   ?? Infinity), Infinity); // the Smoke
+    // a rule sets moveMul 0 when it means to drive movement itself (the ice)
+    r.ownsMovement = active.some(x => x.moveMul === 0);
+    r.player  = (p, dt, g) => { for (const x of r.list) if (x.player)  x.player(p, dt, g); };
+    r.spawn   = (m, g)     => { for (const x of r.list) if (x.spawn)   x.spawn(m, g); };
+    r.monster = (m, dt, g) => { for (const x of r.list) if (x.monster) x.monster(m, dt, g); };
     return r;
   }
 
   // an empty rule set, for floors 1-3 and for any code path that runs before a
   // floor exists. Same shape, so callers never null-check.
   function none() {
-    return {
-      list: [], circle: null, mutators: [], ascending: false,
-      windAngle: 0, moveMul: 1, coinMul: 1, monDmgMul: 1, monHpMul: 1, countMul: 1,
-      xpMul: 1, eliteAdd: 0, mimicAdd: 0,
-      noHearts: false, noRegen: false, noRoll: false,
-      vision: Infinity, fade: Infinity, ownsMovement: false,
-      player() { }, spawn() { }, monster() { },
-    };
+    return remerge({ list: [], circle: null, mutators: [], ascending: false, windAngle: 0 });
   }
 
-  return { forFloor, none, rollMutators, mutatorCount, CIRCLE_RULES, TERRACE_RULES, MUTATORS };
+  return { forFloor, none, remerge, rollMutators, mutatorCount, CIRCLE_RULES, TERRACE_RULES, MUTATORS };
 })();
