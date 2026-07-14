@@ -26,9 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.29', title: 'Chest Vacuum, Sloth, Multishot', date: '2026-07-14',
       sha: '2424718',
       items: [
-        'Chests: opening one vacuums the coins to you (Sam).',
-        'Sloth: standing-still damage scales with max HP (Sam).',
-        'Multishot now works on the staff, not just the wand (Sam).',
+        'Open a chest and the coins fly straight to you now, along with any loose coins in the room. No more walking over each one.',
+        'The Terrace of SLOTH bites harder. Standing still used to chip a tiny fixed amount that meant nothing deep in the run; now it scales with your health, so it is always a real reason to keep moving.',
+        'MULTISHOT now works on staffs. It only ever fired the extra shots on wands and bows before, so a multishot staff was throwing a single fireball. Now it throws three.',
       ],
     },
     {
