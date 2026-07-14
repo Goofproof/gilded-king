@@ -143,7 +143,8 @@ const UI = (() => {
     // floor tag - "/3" through the Keep, then depth into the Descent
     const inDescent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
     c.font = 'bold 13px monospace';
-    c.fillStyle = inDescent ? '#ff8a3d' : '#8fa3bf';
+    // the depth tag wears the circle's accent, not a fixed fire orange
+    c.fillStyle = inDescent ? (Dungeon.themeFor(g.floorNum).accent || '#ff8a3d') : '#8fa3bf';
     c.fillText(inDescent ? `DESCENT · FLOOR ${g.floorNum}` : `FLOOR ${g.floorNum}/3`, hbX, H - 16);
 
     // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot

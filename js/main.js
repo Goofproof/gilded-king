@@ -3854,11 +3854,16 @@
     // outer wall fill
     c.fillStyle = pal.wall;
     c.fillRect(0, 0, W, H);
-    // Dante's Inferno backdrop: lava glow rising from the bottom of the frame
-    if (descent) {
-      const grad = c.createLinearGradient(0, H, 0, H * 0.35);
-      grad.addColorStop(0, 'rgba(150,26,0,0.55)');
-      grad.addColorStop(1, 'rgba(150,26,0,0)');
+    // Descent backdrop: a wash bleeding in from the edge of the frame. The colour
+    // and the direction come from the CIRCLE (descent.js), not from a hardcoded
+    // lava red - Limbo is grey fog from above, Treachery is cold light off the ice,
+    // Heresy is the classic fire from below.
+    if (descent && theme.glow) {
+      const grad = theme.glowTop
+        ? c.createLinearGradient(0, 0, 0, H * 0.65)   // light pressing down from above
+        : c.createLinearGradient(0, H, 0, H * 0.35);  // fire rising from below
+      grad.addColorStop(0, theme.glow);
+      grad.addColorStop(1, theme.glow.replace(/[\d.]+\)$/, '0)'));
       c.fillStyle = grad;
       c.fillRect(0, 0, W, H);
     }
@@ -3930,10 +3935,25 @@
       if (Math.random() < 0.05) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h,
         '#ff3300', 1, { speed: 45, life: 0.5, glow: true, size: 2 });
     }
+    if (theme.ambient === 'limbo') {
+      // grey ash, drifting down. Nothing burns here; it has simply always been falling.
+      if (Math.random() < 0.35) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * 30,
+        ['#8f97a3', '#5c626c'], 1, { speed: 4, life: 3.2, grav: 9, size: 1.5, drag: 0.999 });
+    }
+    if (theme.ambient === 'storm') {
+      // the gale, dragging everything sideways across the room
+      if (Math.random() < 0.6) Fx.burst(PF.x - 10, PF.y + Math.random() * PF.h,
+        ['#c060ff', '#6effc0', '#e0d0ff'], 1, { speed: 18, vx: 150, life: 1.6, size: 1.6, drag: 0.998 });
+    }
+    if (theme.ambient === 'ice') {
+      // frost falling through the still air over the frozen lake
+      if (Math.random() < 0.4) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * 20,
+        ['#cfeeff', '#7fd4ff'], 1, { speed: 5, life: 3.6, grav: 12, glow: true, size: 1.6, drag: 0.998 });
+    }
 
     // molten rounded corners: mask the square corners so the arena reads oblong
     // and cornerless (collision stays rectangular underneath - a deliberate call)
-    if (descent) drawMoltenCorners(c, pal);
+    if (descent) drawMoltenCorners(c, pal, theme.accent);
 
     // wall inner edge highlight - skip in the Descent, where the molten rounded
     // corners define the oblong edge (the rectangle outline was showing through)
@@ -4083,6 +4103,104 @@
         c.lineTo(o.x + o.r * 0.3, o.y - o.r * 0.25); c.lineTo(o.x + o.r * 0.6, o.y + o.r * 0.1);
         c.stroke();
         c.restore();
+      } else if (theme.obstacle === 'monolith') {
+        // LIMBO: a blank grey slab. No carving, no meaning. That is the point.
+        c.fillStyle = '#3a3e46';
+        c.beginPath(); c.arc(o.x, o.y, o.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#4a4f59';
+        c.beginPath(); c.arc(o.x - o.r * 0.22, o.y - o.r * 0.26, o.r * 0.66, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#20232a'; c.lineWidth = 1.5;
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.98, 0, Math.PI * 2); c.stroke();
+      } else if (theme.obstacle === 'plume') {
+        // LUST: a column of the eternal storm, turning where it stands
+        const t = Date.now() / 900 + o.x * 0.05;
+        c.save();
+        c.translate(o.x, o.y);
+        for (let i = 0; i < 3; i++) {
+          const rr = o.r * (1 - i * 0.24);
+          c.strokeStyle = `rgba(192,96,255,${0.30 + i * 0.16})`;
+          c.lineWidth = 2 + i;
+          c.beginPath(); c.arc(0, 0, rr, t + i * 2.1, t + i * 2.1 + Math.PI * 1.35); c.stroke();
+        }
+        c.fillStyle = 'rgba(60,20,80,0.75)';
+        c.beginPath(); c.arc(0, 0, o.r * 0.42, 0, Math.PI * 2); c.fill();
+        c.restore();
+      } else if (theme.obstacle === 'slop') {
+        // GLUTTONY: a mound of cold filth, half-melted
+        c.fillStyle = 'rgba(70,80,30,0.55)';
+        c.beginPath(); c.ellipse(o.x, o.y + 2, o.r * 1.3, o.r * 0.8, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#4a4a20';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.9, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#6b6e2c';
+        c.beginPath(); c.arc(o.x - o.r * 0.2, o.y - o.r * 0.22, o.r * 0.55, 0, Math.PI * 2); c.fill();
+        c.fillStyle = 'rgba(154,174,74,0.5)'; // a sickly gleam on the crest
+        c.beginPath(); c.arc(o.x - o.r * 0.3, o.y - o.r * 0.34, o.r * 0.2, 0, Math.PI * 2); c.fill();
+      } else if (theme.obstacle === 'hoard') {
+        // GREED: a heaped pile of coin, the weight they push forever
+        c.fillStyle = '#6b5518';
+        c.beginPath(); c.ellipse(o.x, o.y + 2, o.r * 1.15, o.r * 0.78, 0, 0, Math.PI * 2); c.fill();
+        for (let i = 0; i < 7; i++) {
+          const a = i * 2.39, rr = o.r * (0.28 + (i % 3) * 0.22);
+          c.fillStyle = i % 2 ? '#ffd24c' : '#d4af37';
+          c.beginPath();
+          c.ellipse(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr * 0.6, o.r * 0.26, o.r * 0.17, 0, 0, Math.PI * 2);
+          c.fill();
+        }
+      } else if (theme.obstacle === 'tomb') {
+        // HERESY: a burning sarcophagus, its lid ajar
+        c.fillStyle = '#3a3038';
+        c.fillRect(o.x - o.r, o.y - o.r * 0.72, o.r * 2, o.r * 1.44);
+        c.fillStyle = '#4c4048';
+        c.fillRect(o.x - o.r * 0.9, o.y - o.r * 0.6, o.r * 1.8, o.r * 0.55);
+        c.strokeStyle = '#1c161c'; c.lineWidth = 1.5;
+        c.strokeRect(o.x - o.r, o.y - o.r * 0.72, o.r * 2, o.r * 1.44);
+        c.save(); // the flame licking out of the gap
+        c.shadowColor = '#ff5a2c'; c.shadowBlur = 10;
+        for (let i = 0; i < 3; i++) {
+          const fy = Math.sin(Date.now() / 130 + i * 2) * 2;
+          c.fillStyle = i === 1 ? '#ffd24c' : '#ff6a2c';
+          c.beginPath();
+          c.arc(o.x + (i - 1) * o.r * 0.5, o.y - o.r * 0.15 + fy, o.r * 0.2, 0, Math.PI * 2);
+          c.fill();
+        }
+        c.restore();
+      } else if (theme.obstacle === 'mirror') {
+        // FRAUD: a shard of black glass. It shows you something, but not the truth.
+        c.save();
+        c.translate(o.x, o.y);
+        c.rotate((o.x + o.y) * 0.01); // fixed per-obstacle tilt, not animated
+        c.fillStyle = '#161226';
+        c.beginPath();
+        c.moveTo(0, -o.r); c.lineTo(o.r * 0.72, -o.r * 0.15);
+        c.lineTo(o.r * 0.4, o.r); c.lineTo(-o.r * 0.55, o.r * 0.7);
+        c.lineTo(-o.r * 0.75, -o.r * 0.4); c.closePath(); c.fill();
+        c.strokeStyle = '#6effc0'; c.lineWidth = 1.4; c.globalAlpha = 0.75; c.stroke();
+        c.globalAlpha = 0.28; // the false reflection
+        c.fillStyle = '#6effc0';
+        c.beginPath();
+        c.moveTo(-o.r * 0.2, -o.r * 0.6); c.lineTo(o.r * 0.3, -o.r * 0.2);
+        c.lineTo(-o.r * 0.1, o.r * 0.5); c.closePath(); c.fill();
+        c.restore();
+      } else if (theme.obstacle === 'ice') {
+        // TREACHERY: a spire of black ice. Something is frozen inside it.
+        c.fillStyle = 'rgba(150,210,255,0.18)';
+        c.beginPath(); c.ellipse(o.x, o.y + 3, o.r * 1.25, o.r * 0.8, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#2c4b63';
+        c.beginPath();
+        c.moveTo(o.x, o.y - o.r * 1.05); c.lineTo(o.x + o.r * 0.85, o.y + o.r * 0.2);
+        c.lineTo(o.x + o.r * 0.35, o.y + o.r * 0.95); c.lineTo(o.x - o.r * 0.6, o.y + o.r * 0.8);
+        c.lineTo(o.x - o.r * 0.9, o.y - o.r * 0.15); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(190,235,255,0.42)'; // lit facet
+        c.beginPath();
+        c.moveTo(o.x, o.y - o.r * 1.0); c.lineTo(o.x - o.r * 0.55, o.y + o.r * 0.7);
+        c.lineTo(o.x - o.r * 0.85, o.y - o.r * 0.1); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(10,20,30,0.55)'; // the shape suspended in it
+        c.beginPath(); c.arc(o.x + o.r * 0.05, o.y + o.r * 0.05, o.r * 0.28, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#7fd4ff'; c.lineWidth = 1.2; c.globalAlpha = 0.8;
+        c.beginPath();
+        c.moveTo(o.x, o.y - o.r * 1.05); c.lineTo(o.x + o.r * 0.85, o.y + o.r * 0.2);
+        c.lineTo(o.x + o.r * 0.35, o.y + o.r * 0.95); c.stroke();
+        c.globalAlpha = 1;
       } else {
         // plain rock (special rooms keep the classic look)
         c.fillStyle = pal.detail;
@@ -4177,7 +4295,12 @@
   // masks the four square corners of the playfield with wall-colored notches and
   // a glowing lava rim, so a descent room reads as an oblong pit of fire. Purely
   // cosmetic - the collision rectangle underneath is unchanged.
-  function drawMoltenCorners(c, pal) {
+  // The rounded corner notches that make a Descent arena read oblong. The rim used
+  // to be hardcoded molten orange, which looked absurd once the circles stopped all
+  // being fire - so it now glows in the CIRCLE's accent (grey in Limbo, gold in
+  // Greed, pale blue off the ice in Treachery).
+  function drawMoltenCorners(c, pal, accent) {
+    const rim = accent || '#ff6a2c';
     const R = 74;
     const L = PF.x, T = PF.y, Rt = PF.x + PF.w, B = PF.y + PF.h;
     const corners = [
@@ -4197,7 +4320,7 @@
       c.fill();
       // molten rim along the rounded edge
       c.save();
-      c.strokeStyle = '#ff6a2c'; c.shadowColor = '#ff3300'; c.shadowBlur = 10; c.lineWidth = 3;
+      c.strokeStyle = rim; c.shadowColor = rim; c.shadowBlur = 10; c.lineWidth = 3;
       c.beginPath(); c.arc(cn.cx, cn.cy, R, cn.a0, cn.a1, cn.ccw); c.stroke();
       c.restore();
     }
@@ -4643,6 +4766,15 @@
       return Weapons.displayName(a);
     },
     evo(key, stacks) { g.evoQueue.push({ key: key || 'regen', stacks: stacks || 3 }); },
+    // jump straight to a floor (the only way to eyeball a deep Descent circle
+    // without playing down to it). Rebuilds the floor exactly like a real descent.
+    floor(n) {
+      if (!g.player) return 'no run';
+      g.floorNum = Math.max(1, n | 0);
+      g.monsters = []; g.projectiles = [];
+      startFloor();
+      return Dungeon.themeFor(g.floorNum).name;
+    },
     god() { if (g.player) { g.player.maxHp = 9999; g.player.hp = 9999; } },
     lvl() { if (g.player) g.player.addXp(g.player.xpToNext(), g); },
     start() { if (g.state === 'title') newRun(); },

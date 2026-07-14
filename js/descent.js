@@ -59,22 +59,61 @@ const Descent = (() => {
   // a secret mythic shop opens every 5th floor overall: 5, 10, 15 ... (Phase 2)
   function isMythicFloor(f) { return isDescent(f) && f % 5 === 0; }
 
-  // --- HELL THEME -------------------------------------------------------------
-  // the nine circles, cycling as you sink deeper
-  const CIRCLES = ['LIMBO', 'LUST', 'GLUTTONY', 'GREED', 'WRATH',
-                   'HERESY', 'VIOLENCE', 'FRAUD', 'TREACHERY'];
+  // --- THE NINE CIRCLES -------------------------------------------------------
+  // Each circle is a PLACE, not just a name. Before this, themeFor() returned one
+  // hardcoded brimstone palette for every floor from 4 to infinity - so the whole
+  // Descent was a single red room with a different sign on the door, which is
+  // exactly why it stopped being interesting after a floor or two.
+  //
+  // Same contract as dungeon.js FLOOR_THEMES: {name, floor, wall, accent, detail,
+  // obstacle, ambient} - plus `glow`, the backdrop wash (main.js used to hardcode
+  // a red lava gradient for ALL descent floors, which would fight the ice and the
+  // grey). obstacle -> a renderer in main.js drawRoom; ambient -> a soundscape in
+  // audio.js.
+  //
+  // Dante's order, and Dante's ending: the bottom of Hell is NOT fire. The ninth
+  // circle is a frozen lake. Eight floors of flame and then sudden silent ice is
+  // the whole point of the descent.
+  const CIRCLES = [
+    { key: 'LIMBO', // colorless twilight - the virtuous pagans, no torment, no hope
+      floor: '#24262b', wall: '#0d0e10', accent: '#8f97a3', detail: '#33363d',
+      obstacle: 'monolith', ambient: 'limbo', glow: 'rgba(140,150,170,0.16)', glowTop: true },
+    { key: 'LUST', // the souls blown forever on an unending storm
+      floor: '#2a1a2e', wall: '#120a14', accent: '#c060ff', detail: '#3d2745',
+      obstacle: 'plume', ambient: 'storm', glow: 'rgba(150,60,220,0.30)', glowTop: true },
+    { key: 'GLUTTONY', // cold rain, foul mire
+      floor: '#2b2a18', wall: '#14130a', accent: '#9aae4a', detail: '#3d3b22',
+      obstacle: 'slop', ambient: 'swamp', glow: 'rgba(90,120,40,0.35)' },
+    { key: 'GREED', // the hoarders and the wasters, rolling their weights
+      floor: '#2e2718', wall: '#16120a', accent: '#ffd24c', detail: '#43391f',
+      obstacle: 'hoard', ambient: 'castle', glow: 'rgba(200,150,40,0.30)' },
+    { key: 'WRATH', // the marsh of the Styx - the sullen drowned beneath it
+      floor: '#2a1414', wall: '#120808', accent: '#ff4444', detail: '#3d1e1e',
+      obstacle: 'stump', ambient: 'swamp', glow: 'rgba(150,30,30,0.40)' },
+    { key: 'HERESY', // the burning tombs of the City of Dis
+      floor: '#2a1410', wall: '#0a0403', accent: '#ff6a2c', detail: '#3a1a12',
+      obstacle: 'tomb', ambient: 'inferno', glow: 'rgba(150,26,0,0.55)' },
+    { key: 'VIOLENCE', // Phlegethon, the river of boiling blood
+      floor: '#2e1216', wall: '#14080a', accent: '#ff2a4a', detail: '#40191f',
+      obstacle: 'brimstone', ambient: 'inferno', glow: 'rgba(170,10,30,0.55)' },
+    { key: 'FRAUD', // Malebolge, the ditches of the deceivers - nothing here is what it looks like
+      floor: '#221c2e', wall: '#100c18', accent: '#6effc0', detail: '#322a44',
+      obstacle: 'mirror', ambient: 'storm', glow: 'rgba(60,200,150,0.22)', glowTop: true },
+    { key: 'TREACHERY', // Cocytus. the frozen lake. the bottom.
+      floor: '#1a2630', wall: '#0a1016', accent: '#7fd4ff', detail: '#26384a',
+      obstacle: 'ice', ambient: 'ice', glow: 'rgba(120,200,255,0.26)', glowTop: true },
+  ];
+
+  const circleIndex = f => (f - FIRST_FLOOR) % CIRCLES.length;
   function circleName(f) {
     const loop = Math.floor((f - FIRST_FLOOR) / CIRCLES.length);
-    const name = 'THE ' + CIRCLES[(f - FIRST_FLOOR) % CIRCLES.length] + ' CIRCLE';
+    const name = 'THE ' + CIRCLES[circleIndex(f)].key + ' CIRCLE';
     return loop > 0 ? name + ' · DEEPER' : name; // second loop and beyond
   }
-  // ordinary descent rooms wear this; special rooms keep their signature palettes
+  // ordinary descent rooms wear this; special rooms keep their signature palettes.
+  // Pure function of the floor number, so host and guest agree with no seed sync.
   function themeFor(f) {
-    return {
-      name: circleName(f),
-      floor: '#2a1410', wall: '#0a0403', accent: '#ff6a2c', detail: '#3a1a12',
-      obstacle: 'brimstone', ambient: 'inferno',
-    };
+    return { ...CIRCLES[circleIndex(f)], name: circleName(f) };
   }
 
   // --- RECURRING BOSS: recolor + rising anger --------------------------------

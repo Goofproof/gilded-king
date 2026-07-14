@@ -292,6 +292,75 @@ const Sfx = (() => {
       });
       // a slow bell that tolls from the deep every so often, for gravitas
       every(11, 22, () => { tone('sine', 55, 55, 0.02, 3.2, 0.05); tone('sine', 110, 108, 0.02, 2.4, 0.02, 0.05); });
+    } else if (theme === 'limbo') {
+      // LIMBO: no torment, and no hope either. The sound of nothing happening -
+      // a hollow room tone, a sigh now and then, and a melody that never resolves.
+      drone('sine', 61, 0.028, 220);
+      drone('sine', 61.4, 0.022, 220);   // barely detuned: an unsettled, unfinished chord
+      noiseBed(120, 0.018);              // a very distant hush
+      every(7, 16, () => {               // the sighs of those who merely wait
+        noise(1.4, 0.022, 'lowpass', 700, 300, 0.4);
+        tone('sine', 190, 160, 0.5, 1.2, 0.014);
+      });
+      // MUSIC: two notes, forever, never landing anywhere
+      phraseLoop(() => {
+        const pair = [174.61, 196.00]; // F and G. no third, so it has no mood at all.
+        pair.forEach((f, i) => {
+          tone('sine', f, f, 0.9, 2.6, 0.022, i * 2.9);
+          tone('triangle', f * 2, f * 2, 0.9, 2.0, 0.008, i * 2.9 + 0.4);
+        });
+        return 5.8;
+      });
+    } else if (theme === 'storm') {
+      // LUST (and FRAUD): the endless gale that never lets the souls rest.
+      noiseBed(420, 0.075);              // the wind itself, bright and constant
+      drone('sine', 47, 0.03, 180);      // pressure underneath it
+      every(2.2, 5.5, () => noise(1.6, 0.05, 'bandpass', 600 + Math.random() * 900, 500, 0.5)); // gusts
+      every(9, 20, () => {               // a cry carried past you and gone
+        const f = 400 + Math.random() * 260;
+        tone('sine', f, f * 0.45, 0.25, 1.5, 0.03);
+      });
+      // MUSIC: a restless waltz that keeps getting blown off its beat
+      phraseLoop(() => {
+        const scale = [220.00, 246.94, 261.63, 311.13, 349.23]; // A minor-ish with a flat 5
+        const step = 0.38;
+        let t = 0;
+        for (let i = 0; i < 9; i++) {
+          const f = scale[(Math.random() * scale.length) | 0];
+          tone('triangle', f, f * 1.02, 0.05, 0.42, 0.026, t);
+          if (i % 3 === 0) tone('sine', f * 0.5, f * 0.5, 0.06, 0.7, 0.022, t); // the downbeat, when it lands
+          t += step * (0.8 + Math.random() * 0.5); // never quite in time
+        }
+        return t;
+      });
+    } else if (theme === 'ice') {
+      // TREACHERY: the bottom of Hell is a frozen lake, and it is SILENT. After
+      // eight floors of roaring fire, the absence of noise is the effect.
+      drone('sine', 38, 0.035, 90);      // the weight of the ice, felt more than heard
+      noiseBed(60, 0.012);               // almost nothing
+      every(4, 11, () => {               // the ice shifting somewhere under you
+        noise(0.14, 0.05, 'highpass', 2600, 5200);
+        tone('sine', 1800 + Math.random() * 900, 300, 0.005, 0.3, 0.02, 0.02);
+      });
+      every(16, 34, () => {              // a deep groan as the lake takes the strain
+        tone('sawtooth', 44, 33, 0.5, 2.6, 0.045);
+        noise(1.8, 0.02, 'lowpass', 260, 110, 0.3);
+      });
+      // MUSIC: high, thin, glassy. Widely spaced, cold, nothing warm underneath.
+      phraseLoop(() => {
+        const scale = [523.25, 587.33, 698.46, 783.99, 932.33]; // high and hollow
+        const step = 1.5;
+        let t = 0;
+        for (let i = 0; i < 4; i++) {
+          if (Math.random() < 0.75) {
+            const f = scale[(Math.random() * scale.length) | 0];
+            tone('sine', f, f, 0.6, 1.9, 0.020, t);
+            tone('sine', f * 1.5, f * 1.5, 0.7, 1.4, 0.006, t + 0.3); // a faint glassy overtone
+          }
+          t += step;
+        }
+        return t;
+      });
     }
   }
 
