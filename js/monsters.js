@@ -1090,6 +1090,10 @@ const Monsters = (() => {
     else if (side === 'N') { ax = cx; ay = PF.y + PF.h * 0.72; fx = 0; fy = -1; }
     else { ax = cx; ay = PF.y + PF.h * 0.28; fx = 0; fy = 1; } // 'S'
     const px = -fy, py = fx; // lateral axis
+    // usable lateral extent along that axis (horizontal for N/S entries, vertical for W/E),
+    // leaving the 24px border the clamp in place() enforces. #142: rank spacing fits inside
+    // this so a wide rank spreads evenly instead of clamp-stacking bodies onto the border.
+    const latAvail = (px !== 0 ? PF.w : PF.h) - 80;
     // #103 ROLE-BASED RANKS (Sam): sturdy tanks/shielded hold the FRONT line closest to
     // the player; the fuzzies (swarmers) picket a SCREEN just ahead of the ranged to body-
     // block for them; chargers (chasers) FLANK wide to the sides instead of tanking the
@@ -1112,7 +1116,17 @@ const Monsters = (() => {
       m.formFX = fx; m.formFY = fy;      // #94 shared forward axis: the whole line advances as ONE rigid block
       m.suppressCd = 0.2 + Math.random() * 0.5; // #94 base-of-fire: ranged open up almost at once
     };
-    const lay = (arr, depth) => arr.forEach((m, i) => place(m, depth, (i - (arr.length - 1) / 2) * 36));
+    // #142 (Sam) ANTI-CLEAVE spacing: ranks used to be a tight straight line (36px apart)
+    // so one heavy swing's cone swept the whole unit. Now they're spread wider AND bowed
+    // into a shallow crescent - the wings sit set-BACK, outside a forward cleave cone, so a
+    // single swing catches the center one or two, not the entire formation.
+    const lay = (arr, depth) => {
+      const gap = arr.length > 1 ? Math.min(60, latAvail / (arr.length - 1)) : 0;
+      arr.forEach((m, i) => {
+        const lat = (i - (arr.length - 1) / 2) * gap;
+        place(m, depth - Math.abs(lat) * 0.42, lat);
+      });
+    };
     lay(rank.front, 46);   // tanks/shielded: the wall closest to the player
     lay(rank.screen, 20);  // fuzzies: a picket line in front of the ranged
     lay(rank.mid, -12);
