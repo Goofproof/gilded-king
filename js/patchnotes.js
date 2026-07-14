@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.20';
+  const VERSION = 'v2.21';
 
   const NOTES = [
+    {
+      v: 'v2.21', title: 'Your Totals', date: '2026-07-14',
+      sha: '0369c5f',
+      items: [
+        'Character sheet: bring back the raw stat totals (Sam).',
+      ],
+    },
     {
       v: 'v2.20', title: 'The Fourth Slot', date: '2026-07-14',
       sha: 'f0e31d0',
