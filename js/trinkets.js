@@ -108,7 +108,57 @@ const Trinkets = (() => {
     },
   ];
 
-  const byKey = k => TRINKETS.find(t => t.key === k) || null;
+  // #154 (Sam) MYTHIC TRINKETS: the legendary tier of the fourth slot. Same one-gift-
+  // one-price language, but at mythic scale - a bigger gift AND a bigger price, so it is
+  // still a real decision and not just "strictly better". They are rare: the only source
+  // is the secret mythic shop (every 5th floor). Every name references something real.
+  // All built from mod keys player.mod() already sums, so no new wiring is needed.
+  const MYTHIC_TRINKETS = [
+    {
+      key: 'prometheus', name: "Prometheus' Ember", color: '#ff2fb0', icon: 'feather', mythic: true,
+      gift: '+75% damage',
+      price: 'but the stolen fire burns you too: you take 25% more damage',
+      lore: 'He stole fire from the gods and gave it to us. They chained him to a rock for it.',
+      mods: { dmg: 0.75, reduce: -0.25 },
+    },
+    {
+      key: 'aegis', name: 'Aegis of Athena', color: '#ff2fb0', icon: 'ring', mythic: true,
+      gift: 'take 35% less damage, and 24 thorns strike back',
+      price: 'but the great shield is heavy: -25% move speed and -15% damage',
+      lore: 'The shield of the war-goddess, the Gorgon set in its face so none dare look.',
+      mods: { reduce: 0.35, thorns: 24, spd: -0.25, dmg: -0.15 },
+    },
+    {
+      key: 'ambrosia', name: 'Vial of Ambrosia', color: '#ff2fb0', icon: 'apple', mythic: true,
+      gift: '+40% maximum health and regenerate 3 HP every second',
+      price: 'but the draught is slow to work: -20% attack speed',
+      lore: 'The food of the gods. A mortal who tastes it does not stay quite mortal.',
+      mods: { maxHpPct: 0.40, regenFlat: 3.0, atkSpd: -0.20 },
+    },
+    {
+      key: 'philstone', name: "Philosopher's Stone", color: '#ff2fb0', icon: 'coin', mythic: true,
+      gift: '+120% gold, the gold you carry becomes damage, and +30% crit damage',
+      price: 'but the transmutation thins you: -20% maximum health',
+      lore: 'Turn lead into gold, they said. Nobody ever managed it. You will.',
+      mods: { coin: 1.20, midasPer: 80, midasCap: 80, critDmg: 0.30, maxHpPct: -0.20 },
+    },
+    {
+      key: 'mjolnir', name: "Mjolnir's Splinter", color: '#ff2fb0', icon: 'sword', mythic: true,
+      gift: '+60% damage and +25% attack speed',
+      price: 'but only the worthy can lift it: -20% move speed',
+      lore: "The thunder-god's hammer. It always returns to the hand that threw it.",
+      mods: { dmg: 0.60, atkSpd: 0.25, spd: -0.20 },
+    },
+    {
+      key: 'pandora', name: "Pandora's Locket", color: '#ff2fb0', icon: 'gear', mythic: true,
+      gift: '+25% crit chance, crit damage, move speed and attack speed - a little of everything',
+      price: 'but with the gifts came the evils: -30% maximum health',
+      lore: 'She was told not to open it. Everything escaped but hope, caught under the lid.',
+      mods: { critCh: 0.25, critDmg: 0.25, spd: 0.25, atkSpd: 0.25, maxHpPct: -0.30 },
+    },
+  ];
+
+  const byKey = k => TRINKETS.find(t => t.key === k) || MYTHIC_TRINKETS.find(t => t.key === k) || null;
 
   // Trinkets are RARE and there is no rarity ladder: a trinket is a trinket. What
   // varies is WHICH one, and they are all meant to be a real decision.
@@ -121,8 +171,18 @@ const Trinkets = (() => {
     return { ...t, isTrinket: true, rarityName: 'Trinket', price: 120 };
   }
 
+  // #154 a mythic trinket for the secret shop. rarityName marks it; price is mythic-tier.
+  function rollMythicTrinket(opts) {
+    const pool = (opts && opts.exclude)
+      ? MYTHIC_TRINKETS.filter(t => !opts.exclude.includes(t.key))
+      : MYTHIC_TRINKETS;
+    const src = pool.length ? pool : MYTHIC_TRINKETS;
+    const t = src[(Math.random() * src.length) | 0];
+    return { ...t, isTrinket: true, mythic: true, rarityName: 'Mythic Trinket', price: 400 };
+  }
+
   // The one-line summary the HUD and the shop print.
   const displayName = t => (t && t.name) || 'Trinket';
 
-  return { TRINKETS, byKey, rollTrinket, displayName };
+  return { TRINKETS, MYTHIC_TRINKETS, byKey, rollTrinket, rollMythicTrinket, displayName };
 })();

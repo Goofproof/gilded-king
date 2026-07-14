@@ -648,12 +648,16 @@
     const w1 = Weapons.rollMythic('weapon', { exclude: owned, tier });
     const w2 = Weapons.rollMythic('weapon', { exclude: [...owned, w1.mythicId], tier });
     const a1 = Weapons.rollMythic('armor', { exclude: owned, tier });
+    // #154 (Sam) the secret shop now also carries one MYTHIC TRINKET - the only place to
+    // find the legendary tier of the fourth slot.
+    const trk = Trinkets.rollMythicTrinket({ exclude: g.player && g.player.trinket ? [g.player.trinket.key] : [] });
     const items = [
-      { kind: 'weapon', weapon: w1, x: PF.x + 230, y: PF.y + 210 },
-      { kind: 'weapon', weapon: w2, x: PF.x + 460, y: PF.y + 210 },
-      { kind: 'armor',  armor: a1,  x: PF.x + 660, y: PF.y + 210 },
+      { kind: 'weapon',  weapon: w1,  x: PF.x + 150, y: PF.y + 210 },
+      { kind: 'weapon',  weapon: w2,  x: PF.x + 350, y: PF.y + 210 },
+      { kind: 'armor',   armor: a1,   x: PF.x + 550, y: PF.y + 210 },
+      { kind: 'trinket', trinket: trk, x: PF.x + 730, y: PF.y + 210 },
     ];
-    for (const it of items) it.price = (it.weapon || it.armor).price;
+    for (const it of items) it.price = (it.weapon || it.armor || it.trinket).price;
     room.shopStock = { items, rerolls: 0, mythic: true };
   }
 
