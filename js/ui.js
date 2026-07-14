@@ -844,23 +844,32 @@ const UI = (() => {
       }
       c.strokeStyle = 'rgba(255,255,255,0.08)'; c.lineWidth = 1;
       c.beginPath(); c.moveTo(px + 26, py + 136); c.lineTo(px + pw - 26, py + 136); c.stroke();
+      // companion: the pet tooltip (name + passive) lives here now. Hovering a chip in
+      // PICK A COMPANION previews that pet; otherwise it shows your equipped one.
+      const previewType = g.hoverPet || meta.selectedPet;
+      const pet = roster.find(pp => pp.type === previewType && unlocked.includes(pp.type));
+      const previewing = !!(g.hoverPet && pet && g.hoverPet !== meta.selectedPet);
       c.font = '9px monospace'; c.fillStyle = '#667';
-      c.fillText('WITH', pcx, py + 150);
-      // selected companion (or "none")
-      const pet = roster.find(pp => pp.type === meta.selectedPet && unlocked.includes(pp.type));
-      const pcy = py + 188, pr = 16;
+      c.fillText(previewing ? 'PREVIEW' : 'WITH', pcx, py + 150);
+      const pcy = py + 186, pr = 16;
       if (pet) {
         drawPetFeature(c, pet.type, pcx, pcy, pr, pet.color);
         c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.fillStyle = pet.color; c.fill();
         c.fillStyle = '#0e1016'; c.beginPath(); c.arc(pcx - 4, pcy - 2, 2.4, 0, Math.PI * 2); c.arc(pcx + 4, pcy - 2, 2.4, 0, Math.PI * 2); c.fill();
-        c.lineWidth = 1.5; c.strokeStyle = '#5a6478'; c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.stroke();
+        c.lineWidth = previewing ? 2 : 1.5; c.strokeStyle = previewing ? '#8fd0a0' : '#5a6478'; c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.stroke();
         c.font = 'bold 12px monospace'; c.fillStyle = pet.color;
-        c.fillText(pet.name, pcx, pcy + 34);
+        c.fillText(pet.name, pcx, pcy + 32);
+        // the pet's passive (the restored tooltip)
+        c.font = '10px monospace'; c.fillStyle = '#b7c2d4';
+        c.fillText(pet.desc || '', pcx, pcy + 48);
+        c.font = 'bold 8px monospace'; c.fillStyle = previewing ? '#8fd0a0' : '#5a6478';
+        c.fillText(previewing ? 'click to equip' : 'equipped', pcx, pcy + 62);
       } else {
         c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.fillStyle = '#20242f'; c.fill();
         c.lineWidth = 1.5; c.strokeStyle = '#2c3040'; c.beginPath(); c.arc(pcx, pcy, pr, 0, Math.PI * 2); c.stroke();
         c.fillStyle = '#3a3f4d'; c.font = 'bold 16px monospace'; c.fillText('?', pcx, pcy + 5);
         c.font = '10px monospace'; c.fillStyle = '#667'; c.fillText('no companion', pcx, pcy + 34);
+        c.font = 'italic 9px monospace'; c.fillStyle = '#5a6478'; c.fillText('hover a pet to preview', pcx, pcy + 48);
       }
       c.font = 'bold 10px monospace'; c.fillStyle = '#ffd24c';
       c.fillText('▶ ENTER to descend', pcx, py + ph - 16);

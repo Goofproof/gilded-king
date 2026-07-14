@@ -2131,6 +2131,12 @@
       g.overlayT += 1 / 60;
       return;
     }
+    // pet tooltip: which companion chip is the mouse hovering (previewed in the loadout
+    // panel by ui.js). Uses last frame's uiRects, imperceptible one-frame lag.
+    g.hoverPet = null;
+    for (const r of (g.uiRects || [])) {
+      if (r.action === 'selectPet' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { g.hoverPet = r.key; break; }
+    }
     if (input.pressed('Enter')) { newRun(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
