@@ -51,15 +51,29 @@ layer (self-healing). Belt and suspenders.
   across five scenarios (missed drop healed, stale pruned, other-room ignored, no
   double-spawn, trinket syncs) via the new `dbg.mpForceGuest()` + `dbg.mpRecv()` hooks.
 
-## Next (same pattern)
+- **The room / door bugs** (commit "fix the plate teleport-back..."). Three of them:
+  - *Teleport back on spawn*: you spawned standing on the plate of the door you came in
+    through, so it bounced you straight back. Fixed with ARM-ON-VACATE - a plate only
+    counts once it has been empty at least once this room - plus a 0.4s entry settle.
+  - *Walk off the map*: `clampPlayer` opened the door gaps even in co-op, where the only
+    exit is the plate, so you walked through the gap and off the map. Walls are solid in
+    co-op now; the plate does the leaving.
+  - *Stranded follower*: a lost `room` event left a player behind. They now SEE the party
+    is elsewhere (via position snapshots) and follow - but only when every teammate has
+    been in one adjacent room continuously for 2s, so it never fires spuriously.
 
-- **Room / plate state as a snapshot.** The host should broadcast which room the party
-  is in and the plate occupancy, so a lost `room` event cannot strand a guest in the
-  wrong room or teleport them back. This is the plate-teleport and walk-off-the-map
-  class.
-- **Room-clear as part of the room snapshot** rather than a one-shot `roomclear`.
-- Consider a tiny **sequence number** on the room-change so an out-of-order `room`
-  event is ignored rather than acted on.
+- **Room-clear folded into the room snapshot.** The 4 Hz `gearsnap` now also carries the
+  room's `cleared` flag, so a lost one-shot `roomclear` self-heals (a guest that missed it
+  no longer sits trapped behind sealed doors). Monotonic: a snapshot never un-clears a
+  room.
+
+## Next (same pattern, if bugs surface)
+
+- The `room` change is still a one-shot event; the stranded-follower self-heal covers a
+  lost one, but a **sequence number** on room-change would also reject an out-of-order or
+  duplicate one before it acts. Only worth adding if the self-heal proves insufficient in
+  a real playtest.
+- Boss sync and the level-up gate are their own channels; no reported bugs there yet.
 
 ## Testing co-op
 

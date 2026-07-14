@@ -2527,6 +2527,12 @@
     Net.on('gearsnap', m => {
       if (!isCoopGuest() || !g.room) return;
       if (!m.room || m.room[0] !== g.room.gx || m.room[1] !== g.room.gy) return; // not our room
+      // #137 heal a lost 'roomclear': if the host says this room is cleared and we still
+      // think it is not, catch up - vacuum the loot, unseal the doors.
+      if (m.cleared && !g.room.cleared) {
+        g.room.cleared = true;
+        vacuumPickups(); Sfx.play('unlock');
+      }
       const have = new Set(g.pickups.filter(pk => pk.gid).map(pk => pk.gid));
       const authoritative = new Set((m.list || []).map(e => e.gid));
       // add anything the host has that we are missing (a lost 'gear' event)
@@ -3002,7 +3008,10 @@
       else e.item = pk.armor;
       list.push(e);
     }
-    Net.send({ t: 'gearsnap', room: [g.room.gx, g.room.gy], list });
+    // #137 the snapshot also carries the room's CLEARED flag, so a lost one-shot
+    // 'roomclear' event self-heals: without this, a guest that missed it keeps its doors
+    // sealed and is trapped in a room it has actually already cleared.
+    Net.send({ t: 'gearsnap', room: [g.room.gx, g.room.gy], list, cleared: !!g.room.cleared });
   }
 
   // host: broadcast a compact snapshot of every monster (~15 Hz)
