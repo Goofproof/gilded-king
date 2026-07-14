@@ -55,6 +55,48 @@ export default {
   },
 };
 
+// #133 THE LOADOUT, on the global board (Sam: "I want to know what the top scorers
+// are using to get the top score").
+//
+// The client builds a full death snapshot including a base64 PNG of the champion, and
+// the board used to throw ALL of it away - it rebuilt each entry from initials/score/
+// floor/won and nothing else, which is why a global score had no snapshot to open.
+//
+// We do NOT store the avatar up here. A Durable Object value caps at 128KB and the
+// PNG is several KB each; a hundred of them would blow the limit and take the whole
+// leaderboard down with it. The avatar stays local. What goes global is the part Sam
+// actually asked for: what they were RUNNING. That is a few hundred bytes.
+//
+// Everything below is attacker-controlled. Cap every string and every array, coerce
+// every number, and keep nothing we did not ask for.
+const str = (v, n) => typeof v === 'string' ? v.slice(0, n) : '';
+const strs = (v, n, len) => Array.isArray(v) ? v.slice(0, n).map(x => str(x, len)).filter(Boolean) : [];
+function slimSnap(s) {
+  if (!s || typeof s !== 'object') return null;
+  const sp = {};
+  if (s.statPoints && typeof s.statPoints === 'object') {
+    for (const k of ['MIGHT', 'VIGOR', 'AGILITY', 'ARCANE', 'FORTUNE']) {
+      const v = s.statPoints[k];
+      if (typeof v === 'number' && isFinite(v)) sp[k] = Math.max(0, Math.min(99, v | 0));
+    }
+  }
+  return {
+    cls: str(s.cls, 16),          // so the viewer can draw the class crest in place of the portrait
+    className: str(s.className, 24),
+    level: Math.max(0, Math.min(999, s.level | 0)),
+    kills: Math.max(0, Math.min(99999, s.kills | 0)),
+    prestige: Math.max(0, Math.min(99, s.prestige | 0)),
+    maxHp: Math.max(0, Math.min(99999, s.maxHp | 0)),
+    weapons: strs(s.weapons, 2, 64),
+    armor: str(s.armor, 64) || null,
+    evos: strs(s.evos, 8, 40),
+    q: str(s.q, 32) || null,
+    r: str(s.r, 32) || null,
+    ult: str(s.ult, 32) || null,
+    statPoints: sp,
+  };
+}
+
 // A single Durable Object holds the global top-100 scores in persistent storage.
 export class Leaderboard {
   constructor(state) { this.state = state; }
@@ -67,6 +109,7 @@ export class Leaderboard {
         score: Math.max(0, Math.min(1e9, Math.round(s.score))),
         floor: Math.max(0, Math.min(999, s.floor | 0)),
         won: !!s.won,
+        snap: slimSnap(s.snap),   // what they were actually RUNNING
         t: Date.now(),
       };
       let list = (await this.state.storage.get('scores')) || [];

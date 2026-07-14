@@ -960,6 +960,12 @@
   }
   function submitGlobalScore(entry) {
     const url = leaderboardUrl(); if (!url) return;
+    // #133 the global board keeps the LOADOUT but not the portrait: the avatar is a
+    // multi-KB PNG and the leaderboard's storage is capped, so the server drops it
+    // anyway. Strip it here too rather than upload several KB for nothing. The full
+    // snapshot (avatar and all) still goes to the LOCAL board.
+    const slim = entry.snap ? Object.assign({}, entry.snap, { avatar: undefined }) : null;
+    entry = Object.assign({}, entry, { snap: slim });
     fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(entry) })
       .then(r => r.json())
       .then(d => { if (d && Array.isArray(d.top) && d.top.length) { g.scores = displayBoard(d.top); g.globalScores = true; if (d.rank) g.newScoreRank = d.rank; } })

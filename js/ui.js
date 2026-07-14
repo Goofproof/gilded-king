@@ -1381,7 +1381,27 @@ const UI = (() => {
     const av = 110, ax = px + 28, ay = py + 52;
     c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(ax, ay, av, av);
     c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
-    if (s._img && s._img.complete && s._img.naturalWidth) c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
+    if (s._img && s._img.complete && s._img.naturalWidth) {
+      c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
+    } else {
+      // #133 a GLOBAL score carries the loadout but not the portrait: the avatar is a
+      // multi-KB PNG and a hundred of them would burst the leaderboard's storage cap,
+      // so it stays local. Draw the class crest instead of an empty box.
+      c.save();
+      c.translate(ax + av / 2, ay + av / 2);
+      if (typeof PlayerDef !== 'undefined' && PlayerDef.drawClassPortrait && s.cls) {
+        try { PlayerDef.drawClassPortrait(c, s.cls, 30); } catch (e) { /* fall through to the crest */ }
+      } else {
+        c.strokeStyle = '#5a6478'; c.lineWidth = 2;
+        c.beginPath(); c.arc(0, -6, 16, 0, Math.PI * 2); c.stroke();
+        c.beginPath(); c.moveTo(-18, 14); c.quadraticCurveTo(0, 2, 18, 14); c.stroke();
+      }
+      c.restore();
+      c.textAlign = 'center';
+      c.font = '9px monospace'; c.fillStyle = '#5a6478';
+      c.fillText('no portrait on the global board', ax + av / 2, ay + av - 6);
+      c.textAlign = 'left';
+    }
 
     // headline facts beside the portrait
     c.textAlign = 'left';
