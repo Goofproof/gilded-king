@@ -73,6 +73,27 @@ describe('#156 the five new classes', () => {
     expect(byScale[0].id).toBe('bear');
   });
 
+  it('#157 the size is REAL: a bear is a bigger target, and its hide pays for it', () => {
+    const bear = PlayerDef.FORMS.find(f => f.id === 'bear');
+    const wolf = PlayerDef.FORMS.find(f => f.id === 'wolf');
+    const owl  = PlayerDef.FORMS.find(f => f.id === 'owl');
+
+    // the hitbox comes from the same scale as the art - what you see IS what you are
+    const p = { baseR: 13, r: 13 };
+    PlayerDef.setForm(p, bear); const bearR = p.r;
+    PlayerDef.setForm(p, owl);  const owlR = p.r;
+    PlayerDef.setForm(p, null); const ownR = p.r;
+    expect(bearR, 'the bear must be a genuinely bigger target').toBeGreaterThan(ownR);
+    expect(owlR,  'the owl must be genuinely harder to hit').toBeLessThan(ownR);
+    expect(ownR,  'unshifting must restore the real body').toBe(13);
+
+    // and the bear MUST be paid for: the biggest target needs the thickest hide, by a
+    // clear margin. A bear that is easier to hit without a hide to match is just worse.
+    expect(bear.reduce, 'the bear is the biggest target and must have the best hide')
+      .toBeGreaterThan(Math.max(wolf.reduce, owl.reduce));
+    expect(bear.reduce, 'the hide must be SIGNIFICANT, not a token 5%').toBeGreaterThanOrEqual(0.30);
+  });
+
   it('the druid has three forms and every one has a real drawback', () => {
     const F = PlayerDef.FORMS;
     expect(F.length).toBe(3);

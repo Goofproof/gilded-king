@@ -90,20 +90,30 @@ const PlayerDef = (() => {
   // a head you can name from across the room, and a badge sits on the HUD. Three separate
   // tells, because one is not enough to read in a busy fight.
   //   body/cloak/accent - the two body circles and the visor slit
-  //   scale             - DRAWN size only. The hitbox (this.r) never changes, so shifting
-  //                       can never quietly make you easier or harder to hit.
+  //   scale             - the REAL size: it drives both the drawn body AND the hitbox
+  //                       (Sam, #157). A bear is a bigger target and genuinely easier to
+  //                       hit - and it pays for that with a hide that shrugs damage off.
+  //                       The owl is small and correspondingly hard to touch. The size you
+  //                       see IS the size you are; nothing here is cosmetic.
   const FORMS = [
-    { id: 'bear', name: 'Bear Form', color: '#a8763f', dmgMul: 1.45, spdMul: 0.82, reduce: 0.22,
+    { id: 'bear', name: 'Bear Form', color: '#a8763f', dmgMul: 1.45, spdMul: 0.82, reduce: 0.34,
       body: '#8a5a2b', cloak: '#5d3a19', accent: '#ffcf8a', scale: 1.28, tag: 'BEAR',
-      note: 'Slow. Armoured. Hits like a falling tree.' },
+      note: 'A big, slow target - but the hide turns almost everything.' },
     { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.15, spdMul: 1.30, reduce: -0.12, bleed: true,
       body: '#98a2b3', cloak: '#5a6172', accent: '#e8f0ff', scale: 0.92, tag: 'WOLF',
-      note: 'Fast and bleeding fangs, but every hit hurts you more.' },
+      note: 'Fast, lean and bleeding fangs, but every hit hurts you more.' },
     { id: 'owl',  name: 'Owl Form',  color: '#e6dcc0', dmgMul: 0.55, spdMul: 1.22, reduce: 0.10, evasive: true,
       body: '#c9bb96', cloak: '#8a7c5c', accent: '#fff3c4', scale: 0.86, tag: 'OWL',
-      note: 'Flies over everything. Barely scratches. This is your escape.' },
+      note: 'Tiny and hard to touch. Barely scratches. This is your escape.' },
   ];
   const formById = id => FORMS.find(f => f.id === id) || null;
+
+  // #157 the ONE place a shift is applied. Both the look and the HITBOX come from the same
+  // scale, so what you see is always what you are. Called by main.js castAbility.
+  function setForm(p, form) {
+    p.form = form || null;
+    p.r = Math.round(p.baseR * (form ? form.scale : 1));
+  }
 
   // #157 the animal head, at the head origin, head radius r. Replaces the druid's antlers
   // while shifted - you are wearing the beast, not a circlet.
@@ -678,6 +688,7 @@ const PlayerDef = (() => {
     constructor(meta) {
       this.x = PF.x + PF.w / 2; this.y = PF.y + PF.h / 2;
       this.r = 13;
+      this.baseR = 13;   // #157 the unshifted hitbox; r is derived from it + the form
       // meta-progression boosts (from the hub) fold into starting stats.
       // #104 clamp to rank 3 so a grinder can't exceed the intended cap even on a
       // save that bought extra ranks back when these were endless.
@@ -1650,12 +1661,12 @@ const PlayerDef = (() => {
       const F = this.form;
       const cloakCol = this.flash > 0 ? '#ff8080' : (F ? F.cloak : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60'));
       const bodyCol  = this.flash > 0 ? '#ffb0b0' : (F ? F.body  : (evoStage >= 2 && pal ? pal.body  : '#4a6fa5'));
-      const fs = F ? F.scale : 1;   // DRAWN size only - the hitbox never changes
+      // (no extra scale here: this.r IS the form's real radius - see setForm)
       c.fillStyle = cloakCol;
-      c.beginPath(); c.arc(0, 2, this.r * fs, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
       // body
       c.fillStyle = bodyCol;
-      c.beginPath(); c.arc(0, -2, this.r * 0.85 * fs, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
       // visor facing aim
       c.save();
       c.rotate(this.rollT >= 0 ? 0 : this.facing);
@@ -1702,7 +1713,7 @@ const PlayerDef = (() => {
     drawClassFeature(c) {
       // #157 shifted: the animal head REPLACES the race face and the class antlers. You are
       // the beast now; a bear does not keep its dwarf beard.
-      if (this.form) { drawFormHead(c, this.form.id, this.r * this.form.scale); return; }
+      if (this.form) { drawFormHead(c, this.form.id, this.r); return; }
       drawRaceFeature(c, (this.race && this.race.id) || 'human', this.r);
       classFeature(c, (this.class && this.class.id) || '', this.r);
     }
@@ -1983,5 +1994,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait };
 })();

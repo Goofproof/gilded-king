@@ -1871,7 +1871,9 @@
       const FORMS = PlayerDef.FORMS;
       const cur = p.form ? FORMS.findIndex(f => f.id === p.form.id) : -1;
       const next = cur + 1;
-      p.form = next >= FORMS.length ? null : FORMS[next];
+      // #157 setForm sets the form AND the hitbox from the same scale, so a bear is really
+      // a bigger target and an owl is really a smaller one. Never assign p.form directly.
+      PlayerDef.setForm(p, next >= FORMS.length ? null : FORMS[next]);
       const label = p.form ? p.form.name.toUpperCase() : 'OWN SHAPE';
       const col = p.form ? p.form.color : '#7fd47f';
       Fx.text(p.x, p.y - 32, label, col, 14);
