@@ -1563,6 +1563,11 @@
   function useUltimate() { castAbility(g.player.abilityUlt); }
 
   // run ANY ability (Q/R/ultimate). Ults just carry bigger numbers + the ult flag.
+  // #10 (Sam) a dungeon-wide ULTIMATE cast flash: a full-screen colour wash + a big
+  // banner. Set here, ticked in updateUltFx, drawn over the HUD. In co-op it is also
+  // triggered on remote clients (visual only, no sim impact).
+  function triggerUltFlash(name, color) { g.ultFlash = { t: 0.7, max: 0.7, name: name || 'ULTIMATE', color: color || '#fff' }; }
+
   function castAbility(a) {
     const p = g.player;
     if (!a || a.cd > 0 || p.dead || p.rollT >= 0) return;
@@ -1697,7 +1702,13 @@
     if (a.rageAfter) p.buffs.rageT = Math.max(p.buffs.rageT, a.rageAfter);
     if (a.hasteAfter) p.buffs.hasteT = Math.max(p.buffs.hasteT, a.hasteAfter);
     Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, a.ult ? 17 : 14);
-    if (a.ult) Fx.shake(9, 0.35);
+    if (a.ult) {
+      // #10 (Sam) the whole dungeon should know: full-screen flash + banner + heavy
+      // shake, and in co-op the rest of the party's screens flash too (visual only).
+      triggerUltFlash(a.name, a.color);
+      Fx.shake(16, 0.5);
+      if (g.coop && typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'ultcast', n: a.name, c: a.color });
+    }
     // #134 ANTIKYTHERA GEAR: the two-thousand-year-old machine still turns, and your
     // powers turn with it. Applied here, at the ONE place a cooldown is armed.
     const haste = p.trinketFlag('abilityHaste') ? (p.trinket.abilityCd || 0) : 0;
@@ -2508,6 +2519,8 @@
     Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, hitSet: null }); });
     // P1-B: AoE blast visual (damage already arrived via phit); guest plays the boom
     Net.on('boom', m => { if (isCoopGuest()) { Fx.shake(9, 0.3); Sfx.play('explode'); Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 28, { speed: 260, life: 0.6, glow: true }); } });
+    // #10 a teammate cast their ULTIMATE: flash our screen too (visual only, no sim impact)
+    Net.on('ultcast', m => { if (g.coop) { triggerUltFlash(m.n, m.c); Fx.shake(12, 0.4); Sfx.play('roar'); } });
     // P1-D: currency drop mirrored from the host -> guest's own instance (own wallet)
     Net.on('pk', m => { if (isCoopGuest()) spawnPickup(m.k, m.x, m.y); });
     // #32: GEAR drop mirrored from the host -> guest's OWN instanced copy on the
@@ -3351,11 +3364,16 @@
       return;
     }
     // offer the ULTIMATE on its own beat, a couple levels AFTER R was forged (never
-    // simultaneously - Sam: avoid information overload). 3 random picks from the pool.
+    // simultaneously - Sam: avoid information overload). #10 the 3 picks are now WEIGHTED
+    // toward your build (evolution history + Q/R kinds), so the offer feels like yours.
     if (p.abilityR && !p.abilityUlt && p.ultAtLevel && p.level >= p.ultAtLevel &&
         !g.ultChoices && g.evoQueue.length === 0 && g.levelUpQueue === 0 &&
         p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
-      g.ultChoices = Abilities.rollUltimates(3);
+      g.ultChoices = Abilities.rollUltimates(3, {
+        evo: p.evoHistory || [],
+        qKind: p.ability && p.ability.kind,
+        rKind: p.abilityR && p.abilityR.kind,
+      });
       g.hoverChoice = -1; g.state = 'ultpick'; g.overlayT = 0;
       p.drawT = -1; p.ultAtLevel = 0;
       Sfx.play('roar');
@@ -3864,6 +3882,7 @@
   // ULTIMATE room-effects (meteor / lightning storm / poison cloud / caltrops)
   function updateUltFx(dt) {
     if (g.midasT > 0) g.midasT -= dt;
+    if (g.ultFlash && g.ultFlash.t > 0) g.ultFlash.t -= dt; // #10 fade the ult-cast flash
     for (let i = g.ultFx.length - 1; i >= 0; i--) {
       const e = g.ultFx[i];
       e.t += dt;
@@ -4199,6 +4218,22 @@
     }
 
     UI.drawHUD(c, g);
+    // #10 (Sam) ULTIMATE cast flash: a full-screen colour wash that fades fast, plus a
+    // big centred banner naming the ult. Screen-space, over the HUD - the whole dungeon
+    // feels it (and in co-op every player's screen flashes).
+    if (g.ultFlash && g.ultFlash.t > 0) {
+      const f = g.ultFlash, k = f.t / f.max; // 1 -> 0
+      c.save();
+      c.globalAlpha = 0.5 * k * k;
+      c.fillStyle = f.color; c.fillRect(0, 0, W, H);
+      c.globalAlpha = Math.min(1, k * 1.5);
+      c.textAlign = 'center';
+      const sz = Math.round(38 * (1 + (1 - k) * 0.35));
+      c.font = `bold ${sz}px monospace`;
+      c.fillStyle = '#0a0a0a'; c.fillText(f.name.toUpperCase(), W / 2 + 3, H / 2 + 3);
+      c.fillStyle = '#fff'; c.fillText(f.name.toUpperCase(), W / 2, H / 2);
+      c.restore();
+    }
     UI.drawMinimap(c, g);
     if (g.state === 'play') drawEquippedHover(c); // hover equipped slots -> stat card
     if (g.room.type === 'boss' && g.boss) UI.drawBossBar(c, g); // guest may not have the boss obj (proxy only)

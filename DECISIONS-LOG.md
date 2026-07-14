@@ -6,6 +6,40 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #10 ULTIMATES rework - build-affinity offer + flashy dungeon-wide cast + tuning (2026-07-14)
+Sam's ask: ultimates should feel unique to the player's prior picks (build diversity),
+the cast should be flashy and "the whole dungeon should know," and the cooldown +
+effect should be bigger.
+
+**The fork.** A full per-build ultimate MATRIX (generate a bespoke ultimate parameterized
+by Q + R + every evolution) versus a lighter pass: bias the OFFER toward your build,
+make the cast a dungeon-wide spectacle, and turn the numbers up. I took the lighter,
+shippable path. A bespoke-per-build generator would be a week of tuning and a balance
+minefield, and the pool already holds 10 wildly distinct room-scale powers - the problem
+was that the 3-of-10 offer was pure random, so a crit-burst build was as likely to be
+offered POISON MIASMA as CATACLYSM. Weighting the offer to your build gives the
+"unique to my picks" feel without a new balance surface.
+
+**What I built.**
+- **Build-weighted offer.** Each ultimate carries affinity tags (dmg/crit/magic/spd/
+  roll/regen/hp/coin). `rollUltimates` now scores each ult against your evolution history
+  (the stats you stacked) plus your Q and R kinds, and weighted-samples 3 distinct. Your
+  build still cannot FORCE a specific ult (every ult keeps a floor weight), so there is
+  variety, but the offer leans hard toward what you have been building.
+- **Determinism note.** The offer is a LOCAL per-player menu, not shared world state
+  (each player levels independently; monster spawns/floor rules are the seed-derived
+  parts). So the weighted sample uses Math.random, exactly as the old random offer did -
+  it is not a co-op desync vector. The chosen ult is already broadcast in the score snap.
+- **Flashy dungeon-wide cast.** Every ultimate now fires a full-screen color flash + a
+  big centered ultimate-name banner + heavy shake, on top of each ult's own FX. In co-op
+  the cast broadcasts a visual-only 'ultcast' message so the other players' screens flash
+  too - "the whole dungeon knows." Visual only, zero sim impact, cannot desync.
+- **Tuning.** Cooldowns raised (~14-18s -> ~20-28s) and damage/effect/duration bumped
+  across the board, so an ultimate is a rarer, bigger moment.
+
+Numbers are first-pass and tunable. If the offer leans TOO hard (never seeing off-build
+options) or the flash is too much, both are one-line dials.
+
 ## Layer 3 / PURGATORIO - the calls I made while Sam was asleep (2026-07-14)
 Sam handed this off as an overnight /loop and pre-decided the big three: yes we
 climb; ONE continuous run (not a separate mode); Purgatorio only tonight, with

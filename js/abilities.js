@@ -180,22 +180,45 @@ const Abilities = (() => {
   // ULTIMATES (Sam): a POOL of wildly distinct room-scale powers, NOT amped Q/R.
   // You're offered 3 random ones to choose from, so builds feel unique. Each maps to
   // a `kind` handled in main.js castAbility(); numbers are first-pass and tunable.
+  // #10 (Sam) each ult carries AFFINITY tags. rollUltimates scores them against your
+  // build (evolution history + Q/R kinds) so the offer leans toward what you've been
+  // stacking - a crit-burst build is far likelier to be offered CATACLYSM than MIDAS.
+  // cdMax + numbers bumped: an ultimate is now a rarer, bigger moment.
   const ULTIMATES = [
-    { id: 'meteor',    name: 'METEOR',          color: '#ff8a3d', kind: 'meteor',  dmg: 340, radius: 340, cdMax: 16, desc: 'Call down a colossal meteor where you aim - a massive delayed blast' },
-    { id: 'inferno',   name: 'INFERNO',         color: '#ff5a2c', kind: 'inferno', dps: 55,  dur: 5,   cdMax: 15, desc: 'Every enemy in the room bursts into flame' },
-    { id: 'timestop',  name: 'TIME STOP',       color: '#9ecbff', kind: 'sleep',   dur: 3.5, cdMax: 18, desc: 'Freeze every enemy in place for a few seconds' },
-    { id: 'blizzard',  name: 'DEEP FREEZE',     color: '#7fe0ff', kind: 'freeze',  dmg: 70,  dur: 4.5, cdMax: 15, desc: 'The whole room ices over - enemies crawl and take frost damage' },
-    { id: 'storm',     name: 'LIGHTNING STORM', color: '#ffe27a', kind: 'storm',   dmg: 95,  strikes: 11, dur: 3, cdMax: 16, desc: 'Lightning hammers random enemies across the room' },
-    { id: 'miasma',    name: 'POISON MIASMA',   color: '#8ef06e', kind: 'poison',  dps: 45,  dur: 5.5, cdMax: 15, desc: 'A creeping poison cloud rots everything in the room' },
-    { id: 'vanish',    name: 'VANISH',          color: '#b6c0d0', kind: 'vanish',  dur: 4,   cdMax: 15, desc: 'Turn invisible - enemies lose track of you' },
-    { id: 'midas',     name: 'MIDAS WAVE',      color: '#ffd24c', kind: 'midas',   dmg: 90,  radius: 190, cdMax: 15, desc: 'A golden blast - every enemy here drops DOUBLE gold' },
-    { id: 'caltrops',  name: 'CALTROPS',        color: '#c9a227', kind: 'caltrops', dur: 6,  cdMax: 14, desc: 'Scatter caltrops that cripple every enemy in the room' },
-    { id: 'cataclysm', name: 'CATACLYSM',       color: '#ff2fb0', kind: 'nova',    dmg: 420, radius: 250, knock: 340, critAll: true, castShield: true, cdMax: 18, desc: 'A screen-shaking blast that levels everything nearby' },
+    { id: 'meteor',    name: 'METEOR',          color: '#ff8a3d', kind: 'meteor',  dmg: 460, radius: 340, cdMax: 24, aff: ['dmg', 'magic'],        desc: 'Call down a colossal meteor where you aim - a massive delayed blast' },
+    { id: 'inferno',   name: 'INFERNO',         color: '#ff5a2c', kind: 'inferno', dps: 85,  dur: 6,   cdMax: 22, aff: ['magic', 'dmg'],           desc: 'Every enemy in the room bursts into flame' },
+    { id: 'timestop',  name: 'TIME STOP',       color: '#9ecbff', kind: 'sleep',   dur: 5,   cdMax: 26, aff: ['spd', 'roll'],                     desc: 'Freeze every enemy in place for a few seconds' },
+    { id: 'blizzard',  name: 'DEEP FREEZE',     color: '#7fe0ff', kind: 'freeze',  dmg: 120, dur: 6,   cdMax: 22, aff: ['magic', 'hp'],            desc: 'The whole room ices over - enemies crawl and take frost damage' },
+    { id: 'storm',     name: 'LIGHTNING STORM', color: '#ffe27a', kind: 'storm',   dmg: 150, strikes: 16, dur: 3.4, cdMax: 24, aff: ['crit', 'magic'], desc: 'Lightning hammers random enemies across the room' },
+    { id: 'miasma',    name: 'POISON MIASMA',   color: '#8ef06e', kind: 'poison',  dps: 75,  dur: 7,   cdMax: 22, aff: ['magic', 'regen'],         desc: 'A creeping poison cloud rots everything in the room' },
+    { id: 'vanish',    name: 'VANISH',          color: '#b6c0d0', kind: 'vanish',  dur: 6,   cdMax: 22, aff: ['roll', 'spd'],                     desc: 'Turn invisible - enemies lose track of you' },
+    { id: 'midas',     name: 'MIDAS WAVE',      color: '#ffd24c', kind: 'midas',   dmg: 150, radius: 210, cdMax: 20, aff: ['coin'],                desc: 'A golden blast - every enemy here drops DOUBLE gold' },
+    { id: 'caltrops',  name: 'CALTROPS',        color: '#c9a227', kind: 'caltrops', dur: 8,  cdMax: 20, aff: ['spd', 'roll'],                     desc: 'Scatter caltrops that cripple every enemy in the room' },
+    { id: 'cataclysm', name: 'CATACLYSM',       color: '#ff2fb0', kind: 'nova',    dmg: 650, radius: 300, knock: 380, critAll: true, castShield: true, cdMax: 28, aff: ['dmg', 'crit'], desc: 'A screen-shaking blast that levels everything nearby' },
   ];
-  function rollUltimates(n) {
+  // #10 build-weighted offer. `build` = { evo: [statKeys...], qKind, rKind }. Every ult
+  // keeps a floor weight so nothing is impossible, but matches to your build multiply it.
+  // NOTE: the ult OFFER is a LOCAL per-player menu, not shared sim state, so a weighted
+  // Math.random sample is fine here (it was random before) - not a co-op desync vector.
+  function rollUltimates(n, build) {
+    const b = build || {};
+    const evo = b.evo || [];
+    const tally = {};
+    for (const k of evo) tally[k] = (tally[k] || 0) + 1;
+    const weightFor = (u) => {
+      let w = 1; // floor so every ult can still appear
+      for (const tag of (u.aff || [])) w += 2 * (tally[tag] || 0);
+      if (b.qKind && (u.aff || []).includes(b.qKind)) w += 1.5;
+      if (b.rKind && (u.aff || []).includes(b.rKind)) w += 1.5;
+      return w;
+    };
     const pool = ULTIMATES.slice(), out = [];
     for (let i = 0; i < n && pool.length; i++) {
-      out.push(Object.assign({ cd: 0, ult: true }, pool.splice((Math.random() * pool.length) | 0, 1)[0]));
+      const weights = pool.map(weightFor);
+      let total = weights.reduce((a, x) => a + x, 0), r = Math.random() * total, idx = 0;
+      for (; idx < pool.length; idx++) { r -= weights[idx]; if (r <= 0) break; }
+      if (idx >= pool.length) idx = pool.length - 1;
+      out.push(Object.assign({ cd: 0, ult: true }, pool.splice(idx, 1)[0]));
     }
     return out;
   }
