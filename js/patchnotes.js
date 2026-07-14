@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.27', title: 'Death Fix and Jupiter Balance', date: '2026-07-14',
       sha: 'e68a119',
       items: [
-        'Negative HP now kills you, and Jupiter\'s justice can\'t one-shot a cleave (Sam).',
+        'Fixed a bad one: you could end up at negative health and keep playing. Now zero health means you actually die, no matter what dealt the blow.',
+        'And the Sphere of JUPITER is fairer. It reflects a share of the damage you deal back at you, but cleaving a whole crowd used to reflect thousands at once and kill you instantly. That reflection is now capped, so it is a real cost without being a death sentence.',
       ],
     },
     {
