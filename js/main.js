@@ -3247,7 +3247,17 @@
 
     if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
       checkMimicProximity();
-      if (input.pressed('KeyE')) interact();
+      if (input.pressed('KeyE')) { interact(); g.trainHoldCd = 0.35; } // #146 seed the auto-repeat delay
+      // #146 (Sam) BARRACKS hold-to-buy: holding E at a training station auto-repeats the
+      // purchase (Sam shows up with 50k+ gold; one-at-a-time was a slog). Gated to stations
+      // and to affordability, so it stops the instant you cannot pay - no error-sound spam.
+      else if (input.key('KeyE')) {
+        const t = nearestInteractable();
+        if (t && t.kind === 'trainStation' && g.player.coins >= barracksCost(t.st)) {
+          g.trainHoldCd = (g.trainHoldCd || 0) - dt;
+          if (g.trainHoldCd <= 0) { interact(); g.trainHoldCd = 0.1; }
+        }
+      }
       if (input.pressed('KeyF')) { // #51 toggle auto-attack
         p.autoAttack = !p.autoAttack;
         p.drawT = -1; // drop any held bow draw when switching off
@@ -5200,7 +5210,7 @@
     c.textAlign = 'center'; c.font = 'bold 16px monospace'; c.fillStyle = '#c9a227';
     c.fillText('TRAINING BARRACKS', PF.x + PF.w / 2, PF.y + 40);
     c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('spend gold to sharpen your stats for this run', PF.x + PF.w / 2, PF.y + 56);
+    c.fillText('spend gold to sharpen your stats for this run  ·  hold E to keep training', PF.x + PF.w / 2, PF.y + 56);
     const t = b.trainer;
     c.save(); c.translate(t.x, t.y);
     c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 16, 14, 5, 0, 0, Math.PI * 2); c.fill();
