@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.43', title: 'Mythic trinkets: the legendary fourth slot', date: '2026-07-14',
       sha: 'a92c730',
       items: [
-        'Add MYTHIC TRINKETS - the legendary tier of the fourth slot (Sam).',
+        'There are now MYTHIC TRINKETS, the legendary version of the fourth slot. Six of them, each named after a real myth: Prometheus\' Ember, Aegis of Athena, Vial of Ambrosia, Philosopher\'s Stone, Mjolnir\'s Splinter, and Pandora\'s Locket. Like all trinkets they give one big gift for one real price, just bigger on both ends. You can only find them in the secret mythic shop that shows up every 5 floors, where one now sits next to the mythic weapons and armor.',
       ],
     },
     {
