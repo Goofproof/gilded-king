@@ -223,6 +223,7 @@
     netMobId: 0,                 // host-assigned monster ids (for co-op sync)
     netGearId: 0,                // #96 shared ids for kill-drop gear so grabbing one despawns it for the whole party
     mobSendT: 0,                 // monster-snapshot broadcast throttle
+    gearSendT: 0,                // ground-gear-snapshot broadcast throttle (#136)
     lobby: null,                 // {mode,entry,status} while on the lobby screen
     chat: { open: false, buffer: '', log: [] }, // #100 co-op text chat (log: {name,text,t,mine})
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
@@ -2483,13 +2484,39 @@
     // P1-D: currency drop mirrored from the host -> guest's own instance (own wallet)
     Net.on('pk', m => { if (isCoopGuest()) spawnPickup(m.k, m.x, m.y); });
     // #32: GEAR drop mirrored from the host -> guest's OWN instanced copy on the
+    // #136 spawn a shared gear pickup from a net message (used by both the 'gear' event
+    // and the 'gearsnap' reconcile). Handles all three gear kinds, including the trinket
+    // the old 'gear' handler silently dropped. Idempotent-ish: callers guard the gid.
+    function addSharedGear(m) {
+      if (g.pickups.some(pk => pk.gid && pk.gid === m.gid)) return; // never double-spawn a gid
+      const pk = { kind: m.kind, x: m.x, y: m.y, t: 0, gid: m.gid };
+      if (m.kind === 'weapon') pk.weapon = m.item;
+      else if (m.kind === 'trinketItem') pk.trinket = m.item;
+      else pk.armor = m.item;
+      g.pickups.push(pk);
+    }
     // ground, so player 2/3 can walk over + grab stronger weapons/armor of their own
     Net.on('gear', m => {
       if (!isCoopGuest()) return;
-      const pk = { kind: m.kind, x: m.x, y: m.y, t: 0, gid: m.gid }; // #96 same shared id as the host's copy
-      if (m.kind === 'weapon') pk.weapon = m.item; else pk.armor = m.item;
-      g.pickups.push(pk);
+      addSharedGear(m);   // instant feedback; the gearsnap below is the safety net
       Fx.text(m.x, m.y - 24, 'LOOT', m.item && m.item.color || '#ffd24c', 12);
+    });
+    // #136 GEAR SNAPSHOT: the reliability layer. The guest reconciles the ground gear in
+    // its CURRENT room against the host's authoritative list - adds a drop it missed,
+    // removes one that is gone. This is what actually cures the weapon desync: a lost
+    // 'gear' or 'gearget' event self-heals on the very next snapshot (~4 Hz).
+    Net.on('gearsnap', m => {
+      if (!isCoopGuest() || !g.room) return;
+      if (!m.room || m.room[0] !== g.room.gx || m.room[1] !== g.room.gy) return; // not our room
+      const have = new Set(g.pickups.filter(pk => pk.gid).map(pk => pk.gid));
+      const authoritative = new Set((m.list || []).map(e => e.gid));
+      // add anything the host has that we are missing (a lost 'gear' event)
+      for (const e of (m.list || [])) if (!have.has(e.gid)) addSharedGear(e);
+      // drop anything WE have that the host does not (a lost 'gearget', or grabbed)
+      for (let i = g.pickups.length - 1; i >= 0; i--) {
+        const pk = g.pickups[i];
+        if (pk.gid && !authoritative.has(pk.gid)) g.pickups.splice(i, 1);
+      }
     });
     // #96 a teammate grabbed a shared gear drop -> despawn our linked copy (same gid).
     // Symmetric (host<->guest) and idempotent (findIndex no-ops if already gone).
@@ -2900,6 +2927,35 @@
     }
   }
 
+  // #136 host: broadcast a SNAPSHOT of the ground gear in the current room (~4 Hz).
+  //
+  // This is the reliability layer under the fragile one-shot 'gear' event. Weapons
+  // desynced because a dropped gear-drop packet is never re-sent - one lost packet and
+  // the guest never sees that weapon (Sam's bug). Positions and monsters do not have
+  // this problem because they are SNAPSHOTS: a lost packet is corrected by the next.
+  // So gear becomes a snapshot too. The 'gear' event stays for instant feedback; this
+  // is the safety net that heals a miss. Guests reconcile their room against it: add a
+  // gid they are missing, drop a gid that is gone (already grabbed).
+  //
+  // Tagged with the room, and the guest applies it only when in that same room, so it
+  // never wipes a guest's gear while the party is briefly split across a doorway.
+  function broadcastGear(dt) {
+    if (!g.coop || typeof Net === 'undefined' || !Net.isHost || !Net.connected || !g.room) return;
+    g.gearSendT -= dt;
+    if (g.gearSendT > 0) return;
+    g.gearSendT = 0.25;
+    const list = [];
+    for (const pk of g.pickups) {
+      if (!pk.gid) continue; // only shared, id-bearing gear (weapon/armorItem/trinketItem)
+      const e = { gid: pk.gid, kind: pk.kind, x: Math.round(pk.x), y: Math.round(pk.y) };
+      if (pk.kind === 'weapon') e.item = pk.weapon;
+      else if (pk.kind === 'trinketItem') e.item = pk.trinket;
+      else e.item = pk.armor;
+      list.push(e);
+    }
+    Net.send({ t: 'gearsnap', room: [g.room.gx, g.room.gy], list });
+  }
+
   // host: broadcast a compact snapshot of every monster (~15 Hz)
   function broadcastMobs(dt) {
     if (!g.coop || typeof Net === 'undefined' || !Net.isHost || !Net.connected) return;
@@ -3165,7 +3221,7 @@
     // revive downed teammates; end only on a full party wipe
     if (g.coop) {
       broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
-      if (isCoopGuest()) updateGuestMobs(dt); else { broadcastMobs(dt); checkPartyWipe(); }
+      if (isCoopGuest()) updateGuestMobs(dt); else { broadcastMobs(dt); broadcastGear(dt); checkPartyWipe(); }
     }
 
     if (g.winTimer > 0) {
@@ -5487,6 +5543,10 @@
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
     mpStart() { const seed = (Math.random() * 1e9) | 0; Net.send({ t: 'start', seed }); startCoop(seed); },
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
+    // testing: pretend a net message arrived (drives the real Net.on handlers)
+    mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },
+    // testing: force this client into guest mode so guest-only handlers run
+    mpForceGuest() { g.coop = true; setupNet(); if (typeof Net !== 'undefined') { Object.defineProperty(Net, 'isHost', { get: () => false, configurable: true }); Object.defineProperty(Net, 'id', { get: () => 'guest', configurable: true }); Object.defineProperty(Net, 'hostId', { get: () => 'host', configurable: true }); } return isCoopGuest(); },
   };
 
   // mark the current version's patch notes as seen so they don't auto-pop again

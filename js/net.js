@@ -92,6 +92,9 @@ const Net = (() => {
     disconnect() { intentional = true; if (reTimer) { clearTimeout(reTimer); reTimer = null; } if (ws) { try { ws.close(); } catch { } ws = null; } peers.clear(); myId = hostId = roomCode = null; },
     send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); },
     on(type, fn) { handlers[type] = fn; },
+    // testing only: feed a message through the real handler path, as if it arrived
+    // from a peer. Lets the dbg harness exercise co-op receive logic single-client.
+    _dispatch(m) { const h = handlers[m.t]; if (h) h(m); },
     onLifecycle(name, fn) { lifecycle[name] = fn; },
     get id() { return myId; },
     get hostId() { return hostId; },
