@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.27';
+  const VERSION = 'v2.28';
 
   const NOTES = [
+    {
+      v: 'v2.28', title: 'Leaderboard Loadouts Clickable', date: '2026-07-14',
+      sha: 'ae67d93',
+      items: [
+        'Leaderboard: global loadout snapshots are finally clickable (Sam).',
+      ],
+    },
     {
       v: 'v2.27', title: 'Death Fix and Jupiter Balance', date: '2026-07-14',
       sha: 'e68a119',
