@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.19', title: 'Pause Menu Fix', date: '2026-07-14',
       sha: '837a242',
       items: [
-        'Pause menu: the END RUN label spilled out of its own box (Sam).',
+        'The pause menu buttons fit their boxes now. The END RUN label used to run straight out through both sides of its own border.',
+        'And ABANDON TO MENU finally tells you what it costs: no score, and you keep only the essence you had already banked.',
+        'The global leaderboard is LIVE with loadouts. From now on, every score you post records what you were actually running, and you can click a name to see it.',
       ],
     },
     {
