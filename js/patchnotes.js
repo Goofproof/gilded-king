@@ -26,9 +26,11 @@ const PatchNotes = (() => {
       v: 'v2.15', title: 'The Nine Circles', date: '2026-07-14',
       sha: '4dc7258',
       items: [
-        'The Descent\'s nine circles are nine real places.',
-        'Each circle now PLAYS different, not just looks different (floor rules engine).',
-        'Floor mutators: the Descent stops repeating itself.',
+        'THE NINE CIRCLES ARE NINE REAL PLACES. The Descent used to be one red room with a different name on the door. Now every circle is somewhere: grey silent Limbo, the violet storm of Lust, the foul mire of Gluttony, the gold of Greed, the blood marsh of Wrath, the burning tombs of Heresy, the boiling river of Violence, the black glass of Fraud.',
+        'AND THE BOTTOM OF HELL IS ICE. Eight floors of fire, and then Treachery: a silent frozen lake where you do not walk, you SLIDE. (Dante got there first.)',
+        'EVERY CIRCLE PLAYS DIFFERENT, not just looks different. The Gale shoves you sideways all floor. The Mire slows you to a crawl. In the Fury, every monster arrives already enraged. In the Pyres, the tombs BURN - your cover is now the thing hunting you. In the Hoard, gold is doubled and most chests are lying to you.',
+        'FLOOR MUTATORS: the deeper you go, the stranger it gets. BLOOD MOON (the dead pay double, and leave no hearts). THE SWARM (twice as many, half as sturdy). VAMPIRIC (they heal themselves - kill them faster). Ten in all, stacking two and three deep past the mid-Descent.',
+        'Which means no two runs of the Descent are the same run any more. Floors 4 through 40 are forty different floors.',
       ],
     },
     {
