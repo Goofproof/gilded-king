@@ -989,6 +989,10 @@ const Monsters = (() => {
     // #77 the floor's ALARM adds a few more bodies per room (capped) - the difficulty
     // side of the risk/reward: staying longer means fuller rooms.
     if (g.alarm) n = Math.min(16, n + Math.round(g.alarm * 0.35));
+    // MUTATORS: the Swarm doubles the bodies, the Juggernaut thins them out. Capped
+    // at 26 - the Swarm needs real headroom or it is not a swarm, but the renderer
+    // and the pathing still have to cope.
+    if (g.rules && g.rules.countMul !== 1) n = Math.max(2, Math.min(26, Math.round(n * g.rules.countMul)));
     const out = [];
     const p = g.player;
     // #67b/#74 don't spawn a mob buried in a wall or standing in a pit

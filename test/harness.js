@@ -16,14 +16,17 @@ const JS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js');
 
 // dependency order: evolutions/abilities are standalone; dungeon before monsters
 // (monsters reads Dungeon.PF at load); descent is optional (guarded in source).
-const MODULES = ['evolutions.js', 'abilities.js', 'dungeon.js', 'descent.js', 'weapons.js', 'monsters.js'];
+// rules.js after descent.js: it reads Descent.FIRST_FLOOR / CIRCLES at call time,
+// and dungeon.js consults Rules for the mimic odds, so it must be in the bundle or
+// the tests would silently exercise the no-rules fallback path.
+const MODULES = ['evolutions.js', 'abilities.js', 'dungeon.js', 'descent.js', 'rules.js', 'weapons.js', 'monsters.js'];
 
 let cached = null;
 export function loadGame() {
   if (cached) return cached;
   const parts = MODULES.map(f => fs.readFileSync(path.join(JS, f), 'utf8'));
   // footer: hoist the module globals onto the context so we can read them out
-  parts.push(`globalThis.__game = { Evolutions, Abilities, Dungeon, Descent, Weapons, Monsters };`);
+  parts.push(`globalThis.__game = { Evolutions, Abilities, Dungeon, Descent, Rules, Weapons, Monsters };`);
   const sandbox = {
     // call-time stubs the pure modules reference but never at load
     Fx: { burst() {}, text() {}, shake() {}, hitstop() {}, ghost() {}, clear() {} },

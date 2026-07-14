@@ -372,10 +372,11 @@
     // Derived from floor + run seed only, so co-op peers agree without syncing it.
     g.rules = Rules.forFloor(g.floorNum, g.coop ? g.coopSeed : g.runSeed);
     g.floorBanner = { text: `FLOOR ${g.floorNum} · ${theme.name}`, t: 3.5 };
-    // the floor card names the rule you are about to play under, so it is never a
-    // mystery why you are suddenly sliding or on fire
-    const r0 = g.rules.list[0];
-    g.floorRule = r0 ? { name: r0.name, desc: r0.desc, color: r0.color, t: 5.0 } : null;
+    // the floor card names EVERY rule in force (the circle's, plus any mutators), so
+    // it is never a mystery why you are suddenly sliding, on fire, or swarmed
+    g.floorRule = g.rules.list.length
+      ? { lines: g.rules.list.map(r => ({ name: r.name, desc: r.desc, color: r.color })), t: 5.5 }
+      : null;
     Sfx.setAmbient(theme.ambient);
     // Bulwark armor: a shield charm greets you on every floor
     if (g.player.armorMods.bulwark) {
@@ -607,8 +608,8 @@
     if (g.rules) n = Math.round(n * g.rules.coinMul); // the Hoard (Greed) doubles it
     for (let i = 0; i < n; i++) spawnPickup('coin', m.x, m.y);
 
-    // hearts: small mercy drop
-    if (Math.random() < 0.07) spawnPickup('heart', m.x, m.y);
+    // hearts: small mercy drop. BLOOD MOON pays double gold and withholds them.
+    if (Math.random() < 0.07 && !(g.rules && g.rules.noHearts)) spawnPickup('heart', m.x, m.y);
 
     // essence from elites (meta currency)
     if (['tank', 'summoner', 'shielded', 'mimic'].includes(m.type)) {
@@ -2920,7 +2921,7 @@
       if (input.pressed('KeyU')) honeWeapon();
     }
 
-    for (const m of g.monsters) if (!m.dead) m.update(dt, g);
+    for (const m of g.monsters) if (!m.dead) { m.update(dt, g); if (g.rules) g.rules.monster(m, dt, g); }
     updateMercs(dt);
     updateProjectiles(dt);
     updatePickups(dt);
@@ -3755,15 +3756,19 @@
     // says what it does. A player should never be left wondering why they suddenly
     // slide, or burn on the scenery.
     if (g.floorRule && g.floorRule.t > 0 && g.state === 'play') {
-      const a = Math.min(1, g.floorRule.t) * Math.min(1, (5.0 - g.floorRule.t) * 1.6);
+      const a = Math.min(1, g.floorRule.t) * Math.min(1, (5.5 - g.floorRule.t) * 1.6);
       c.save();
       c.globalAlpha = a;
       c.textAlign = 'center';
-      c.font = 'bold 15px monospace';
-      c.fillStyle = '#0a0a0a'; c.fillText(g.floorRule.name, W / 2 + 1, 129);
-      c.fillStyle = g.floorRule.color; c.fillText(g.floorRule.name, W / 2, 128);
-      c.font = 'italic 11px monospace'; c.fillStyle = '#9a8f7a';
-      c.fillText(g.floorRule.desc, W / 2, 146);
+      let y = 128;
+      for (const r of g.floorRule.lines) {
+        c.font = 'bold 15px monospace';
+        c.fillStyle = '#0a0a0a'; c.fillText(r.name, W / 2 + 1, y + 1);
+        c.fillStyle = r.color;   c.fillText(r.name, W / 2, y);
+        c.font = 'italic 11px monospace'; c.fillStyle = '#9a8f7a';
+        c.fillText(r.desc, W / 2, y + 18);
+        y += 40; // each rule (circle first, then mutators) gets its own stanza
+      }
       c.restore();
     }
 

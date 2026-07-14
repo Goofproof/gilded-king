@@ -123,6 +123,63 @@ const Rules = (() => {
   ];
 
   // ---------------------------------------------------------------------------
+  // LAYER 2 - THE MUTATORS.
+  //
+  // Nine circles is still only nine floors of content; after that it loops. What
+  // makes floor 25 different from floor 25 last run is not more hand-authored
+  // circles, it is COMBINATION. One mutator is rolled per floor from depth 6, a
+  // second from depth 15, a third from depth 24 - so the deeper you go the weirder
+  // the floor gets, and the pairings are never the same twice.
+  //
+  // Same rule shape as a circle rule, so they stack on top of it for free: the
+  // Gale plus Blackout is a dark floor that also shoves you, and neither had to
+  // know about the other.
+  // ---------------------------------------------------------------------------
+  const MUTATORS = [
+    { key: 'bloodmoon', name: 'BLOOD MOON', color: '#ff4444',
+      desc: 'The dead pay well. They do not, however, leave hearts.',
+      coinMul: 2, noHearts: true },
+    { key: 'swarm', name: 'THE SWARM', color: '#9aae4a',
+      desc: 'Twice as many. Half as sturdy.',
+      countMul: 2, monHpMul: 0.5 },
+    { key: 'famine', name: 'FAMINE', color: '#8f97a3',
+      desc: 'Nothing here bleeds gold.',
+      coinMul: 0.35, monHpMul: 0.85 },
+    { key: 'brittle', name: 'BRITTLE', color: '#7fd4ff',
+      desc: 'Glass, both ways. Everything dies fast - including you.',
+      monHpMul: 0.55, monDmgMul: 1.6 },
+    { key: 'juggernaut', name: 'JUGGERNAUT', color: '#ff8a3d',
+      desc: 'Fewer of them. Each one is a wall.',
+      countMul: 0.55, monHpMul: 2.4, coinMul: 1.5 },
+    { key: 'haste', name: 'FRENZY', color: '#c060ff',
+      desc: 'Everything here is faster than it should be.',
+      spawn(m) { m.speed *= 1.4; } },
+    { key: 'elite', name: 'THE COURT', color: '#ffd24c',
+      desc: 'The nobility have come down to meet you.',
+      eliteAdd: 0.45, coinMul: 1.4 },
+    { key: 'thin', name: 'THIN AIR', color: '#6effc0',
+      desc: 'You are quick here, and so is everything else.',
+      moveMul: 1.28, spawn(m) { m.speed *= 1.18; } },
+    { key: 'vampiric', name: 'VAMPIRIC', color: '#ff2a4a',
+      desc: 'They mend themselves. Kill them faster.',
+      spawn(m) { m._vamp = true; },
+      // slow regeneration on every monster: a damage race, not a war of attrition
+      monster(m, dt) { if (m._vamp && m.hp > 0 && m.hp < m.maxHp) m.hp = Math.min(m.maxHp, m.hp + m.maxHp * 0.02 * dt); } },
+    { key: 'greedy', name: 'TITHE', color: '#d4af37',
+      desc: 'The chests are hungry. So is everything else.',
+      mimicAdd: 0.4, coinMul: 1.6 },
+  ];
+
+  // how many mutators a floor carries. Depth is floors below the King.
+  function mutatorCount(floorNum) {
+    const d = floorNum - (typeof Descent !== 'undefined' ? Descent.FIRST_FLOOR : 4);
+    if (d < 2) return 0;    // the first two circles are clean - learn the place first
+    if (d < 11) return 1;
+    if (d < 20) return 2;
+    return 3;
+  }
+
+  // ---------------------------------------------------------------------------
   // deterministic per-floor RNG: floor number + run seed, never Math.random, so
   // host and guest roll the identical rules.
   // ---------------------------------------------------------------------------
@@ -133,29 +190,46 @@ const Rules = (() => {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  // The rules in force on a floor: the circle's signature rule, plus (layer 2)
-  // any mutators. Returns a merged view so callers never walk the list themselves.
+  // pick n DISTINCT mutators for a floor, deterministically from (seed, floor)
+  function rollMutators(floorNum, seed, n) {
+    if (n <= 0) return [];
+    // a shuffled view of the pool, ordered by a per-floor hash - stable for a given
+    // (seed, floor), so every peer picks the same ones and a resumed run is identical
+    const ranked = MUTATORS
+      .map((m, i) => ({ m, k: hash32((seed || 0) * 31 + floorNum * 7919 + i * 104729) }))
+      .sort((a, b) => a.k - b.k);
+    return ranked.slice(0, Math.min(n, ranked.length)).map(x => x.m);
+  }
+
+  // The rules in force on a floor: the circle's signature rule, plus the mutators.
+  // Returns a merged view so callers never walk the list themselves.
   function forFloor(floorNum, seed) {
     const active = [];
+    let circle = null, mutators = [];
     if (typeof Descent !== 'undefined' && Descent.isDescent(floorNum)) {
-      const idx = (floorNum - Descent.FIRST_FLOOR) % CIRCLE_RULES.length;
-      active.push(CIRCLE_RULES[idx]);
+      circle = CIRCLE_RULES[(floorNum - Descent.FIRST_FLOOR) % CIRCLE_RULES.length];
+      active.push(circle);
+      mutators = rollMutators(floorNum, seed, mutatorCount(floorNum));
+      active.push(...mutators);
     }
     const r = {
-      list: active,
+      list: active, circle, mutators,
       // the gale needs a stable direction for the whole floor
       windAngle: hash32((seed || 0) + floorNum * 977) * Math.PI * 2,
       moveMul:   active.reduce((a, x) => a * (x.moveMul   ?? 1), 1),
       coinMul:   active.reduce((a, x) => a * (x.coinMul   ?? 1), 1),
       monDmgMul: active.reduce((a, x) => a * (x.monDmgMul ?? 1), 1),
       monHpMul:  active.reduce((a, x) => a * (x.monHpMul  ?? 1), 1),
+      countMul:  active.reduce((a, x) => a * (x.countMul  ?? 1), 1),
       eliteAdd:  active.reduce((a, x) => a + (x.eliteAdd  ?? 0), 0),
       mimicAdd:  active.reduce((a, x) => a + (x.mimicAdd  ?? 0), 0),
+      noHearts:  active.some(x => x.noHearts),
       // a rule sets moveMul 0 when it means to drive movement itself (the ice)
       ownsMovement: active.some(x => x.moveMul === 0),
     };
-    r.player = (p, dt, g) => { for (const x of active) if (x.player) x.player(p, dt, g); };
-    r.spawn  = (m, g)     => { for (const x of active) if (x.spawn)  x.spawn(m, g); };
+    r.player  = (p, dt, g) => { for (const x of active) if (x.player)  x.player(p, dt, g); };
+    r.spawn   = (m, g)     => { for (const x of active) if (x.spawn)   x.spawn(m, g); };
+    r.monster = (m, dt, g) => { for (const x of active) if (x.monster) x.monster(m, dt, g); };
     return r;
   }
 
@@ -163,11 +237,12 @@ const Rules = (() => {
   // floor exists. Same shape, so callers never null-check.
   function none() {
     return {
-      list: [], windAngle: 0, moveMul: 1, coinMul: 1, monDmgMul: 1, monHpMul: 1,
-      eliteAdd: 0, mimicAdd: 0, ownsMovement: false,
-      player() { }, spawn() { },
+      list: [], circle: null, mutators: [],
+      windAngle: 0, moveMul: 1, coinMul: 1, monDmgMul: 1, monHpMul: 1, countMul: 1,
+      eliteAdd: 0, mimicAdd: 0, noHearts: false, ownsMovement: false,
+      player() { }, spawn() { }, monster() { },
     };
   }
 
-  return { forFloor, none, CIRCLE_RULES };
+  return { forFloor, none, rollMutators, mutatorCount, CIRCLE_RULES, MUTATORS };
 })();
