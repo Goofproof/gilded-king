@@ -108,16 +108,26 @@ const Rules = (() => {
       // and be stopped by it, which is exactly right.
       moveMul: 0,
       player(p, dt, g) {
-        if (!p._slide) p._slide = { x: 0, y: 0 };
-        const SPEED = 205 * 1.06;               // a shade quicker than a walk, once you get going
+        const s = p._slide || (p._slide = { x: 0, y: 0, hold: 0, dir: 0 });
+        // #143 (Sam) MOMENTUM BUILD: hold the SAME heading and you keep gathering speed
+        // like a real slide. A turn (heading swings past ~35deg) resets the build, so
+        // you commit to a line. Base is a shade quicker than a walk; full build ~1.8x.
+        const BASE = 205 * 1.06, MAX = BASE * 1.85;
+        if (p.moving) {
+          const turn = Math.abs(((p.moveAngle - s.dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          s.hold = turn < 0.6 ? s.hold + dt : 0;
+          s.dir = p.moveAngle;
+        } else s.hold = 0;
+        const ramp = Math.min(1, s.hold / 2.2);  // ~2.2s of committed input to top out
+        const SPEED = p.moving ? BASE + (MAX - BASE) * ramp : 0;
         const tx = p.moving ? Math.cos(p.moveAngle) * SPEED : 0;
         const ty = p.moving ? Math.sin(p.moveAngle) * SPEED : 0;
         // low easing = you cannot change direction sharply, and you cannot stop dead
         const k = Math.min(1, dt * (p.moving ? 2.6 : 1.5));
-        p._slide.x += (tx - p._slide.x) * k;
-        p._slide.y += (ty - p._slide.y) * k;
-        p.x += p._slide.x * dt;
-        p.y += p._slide.y * dt;
+        s.x += (tx - s.x) * k;
+        s.y += (ty - s.y) * k;
+        p.x += s.x * dt;
+        p.y += s.y * dt;
       },
     },
   ];
