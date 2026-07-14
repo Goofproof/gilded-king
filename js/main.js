@@ -566,6 +566,11 @@
         for (const m of g.monsters) m.netId = ++g.netMobId;   // stamp for co-op sync
       }
       Sfx.play('door'); // doors slam
+      // #148 (Sam) doppelganger mini-boss entrance
+      if (room.doppelRoom) {
+        g.floorBanner = { text: 'YOUR SHADOW STIRS', t: 2.6, sub: 'it wears your face, and your weapons' };
+        Sfx.play('roar');
+      }
       // #27 themed-room banner (an all-one-type gauntlet)
       if (room.enemyTheme) {
         const NAME = { archer: 'AMBUSH', bomber: 'MINEFIELD', swarmer: 'SWARM', glass: 'ARTILLERY', shielded: 'PHALANX', seeker: 'THE HUNT', miner: 'MINEFIELD', pulser: 'BULLET HELL', worm: 'THE NEST', chaser: 'THE HORDE' };

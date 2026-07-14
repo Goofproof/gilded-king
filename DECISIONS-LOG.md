@@ -6,6 +6,37 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #11 DOPPELGANGER mini-boss - elevate the existing shade to a seed-placed boss (2026-07-14)
+Sam's ask: make the Doppelganger a real occasional mini-boss - a shadow of the player
+matching stats/speed/weapon/spells, in the odd room.
+
+**Starting point.** A `doppel` enemy already existed (#128): it morphs into a copy of you
+on first sight and fights in your weapon's style (melee lunge / kite-and-shoot). But it was
+just another entry in the tier 4/5 random spawn tables - common trash, ~44 HP, easy to
+miss among a crowd.
+
+**The calls I made.**
+- **It is now a MINI-BOSS, not trash.** Pulled `doppel` out of the random spawn tables
+  entirely. It now appears ONLY as a dedicated mini-boss.
+- **Occasional + seed-placed.** At floor generation (the SEEDED rng, floor 4 and deeper,
+  ~30% of floors) one combat room is flagged as the doppelganger room. Because the flag is
+  seed-derived, a co-op host and guest agree the encounter exists; the host actually spawns
+  and owns it (spawnForRoom is host-only), and it syncs to guests via the mob snapshot like
+  every other monster. Host-authoritative, no desync of game state.
+- **A duel, not a mob.** The doppelganger room stages the shadow ALONE - fighting yourself,
+  one on one. Thematically right and mechanically clean (one clearable combat body).
+- **It mirrors YOU.** At spawn it copies the (host) player's weapon archetype + colour,
+  HP scaled off your own max HP (floored and depth-scaled, capped at 1400 so it stays a
+  fight not a wall), damage mirrored off your weapon but CLAMPED so a hyper-honed weapon
+  can't let it one-shot you, and near-player move speed. It casts its empowered move often
+  (the 3-shot / heavy-lunge "spell"). A floating name + HP bar mark it as a boss.
+
+**Known co-op cosmetic gap (not a desync).** The morph VISUAL (which class face/weapon the
+shade wears) is captured from the local player and is not in the 15Hz mob snapshot, so a
+guest sees a generic shade shape while the host sees the full morph. HP, position, damage
+and existence all sync correctly - only the skin differs. Syncing the mirror skin is a cheap
+follow-up if Sam wants it; I left it out to avoid bloating every mob snapshot.
+
 ## #10 ULTIMATES rework - build-affinity offer + flashy dungeon-wide cast + tuning (2026-07-14)
 Sam's ask: ultimates should feel unique to the player's prior picks (build diversity),
 the cast should be flashy and "the whole dungeon should know," and the cooldown +

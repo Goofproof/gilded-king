@@ -402,6 +402,17 @@ const Dungeon = (() => {
       }
     }
 
+    // #148 (Sam) DOPPELGANGER mini-boss: occasionally (floor 4+, ~30%) a seed-chosen
+    // combat room stages a solo duel against a shadow of the player. Rolled with the
+    // SEEDED rng so a co-op host and guest agree the encounter exists (host owns it).
+    if (floorNum >= 4) {
+      const dcand = list.filter(r => r.type === 'combat' && r !== start
+                                  && !r.encounter && !r.pet && !r.merc);
+      if (dcand.length && rnd() < 0.3) {
+        dcand[(rnd() * dcand.length) | 0].doppelRoom = true;
+      }
+    }
+
     return { grid, start, rooms: list, floor: floorNum };
   }
 

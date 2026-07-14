@@ -57,8 +57,10 @@ const Monsters = (() => {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
     3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage'],
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'doppel'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'doppel'],
+    // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
+    // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -143,6 +145,37 @@ const Monsters = (() => {
         m.coins = [m.coins[0] + 2, m.coins[1] + 4]; // new array: never mutates BASE
       }
     }
+    return m;
+  }
+
+  // #148 (Sam) DOPPELGANGER MINI-BOSS. Elevates the doppel shade into a real boss: a
+  // shadow of YOU. Mirrors your weapon style + colour, HP scaled off your own bulk (so a
+  // tanky player faces a tanky shadow), damage mirrored off your weapon but CLAMPED so a
+  // hyper-honed weapon can't let it one-shot you, near-player speed, and it casts its
+  // empowered move often. Spawned seed-deterministically at the doppelRoom (host-owned in
+  // co-op; syncs to guests via the mob snapshot). No Math.random here - spawn placement is
+  // the seeded part (dungeon.js); the values below are deterministic from floor + player.
+  function makeDoppelBoss(x, y, floor, player) {
+    const f = Math.max(1, floor | 0);
+    const m = make('doppel', x, y, Math.min(5, f));
+    const pl = player || {}, wp = pl.weapon || {};
+    m.miniBoss = true;
+    m.r = 15;
+    m.mirror = {
+      classId: (pl.class && pl.class.id) || '',
+      arch: wp.archetype || 'light',
+      wc: wp.color || '#9ee7ff',
+      ready: true,               // pre-morphed: it IS the encounter, no first-sight reveal
+    };
+    m.morphT = 0.6;
+    // HP: a real fight. Mirror the player's own bulk, floored + depth-scaled, capped.
+    m.hp = m.maxHp = Math.min(1400, Math.max(220 + f * 26, Math.round((pl.maxHp || 100) * 1.6)));
+    // damage: mirror the weapon, clamped so honing/rarity can't make it a one-shot.
+    m.dmg = Math.max(14, Math.min(18 + f * 4, Math.round((wp.dmg || 16) * 0.85)));
+    m.speed = Math.min(150, 104 + f * 2);
+    m.empowerCd = 3.5;           // casts its "spell" (empowered attack) often
+    m.xp = 60 + f * 8;
+    m.coins = [18, 30];
     return m;
   }
 
@@ -1008,6 +1041,12 @@ const Monsters = (() => {
 
   // --- room spawning ------------------------------------------------------------
   function spawnForRoom(room, floor, g) {
+    // #148 (Sam) DOPPELGANGER mini-boss room (flagged at floor-gen, seed-deterministic):
+    // a solo duel against a shadow of you. Staged opposite the door you came in.
+    if (room.doppelRoom) {
+      const bx = g.enterFrom === 'E' ? PF.x + PF.w * 0.28 : PF.x + PF.w * 0.72;
+      return [makeDoppelBoss(bx, PF.y + PF.h / 2, floor, g.player)];
+    }
     const tier = tierFor(floor, room.dist);
     const table = SPAWN_TABLE[tier];
     // Descent floors keep the tier-5 roster but scale raw stats + body count and
@@ -1210,6 +1249,20 @@ const Monsters = (() => {
       case 'miner': drawMiner(c, m, flash, ex, ey); break;
       case 'pulser': drawPulser(c, m, flash, ex, ey); break;
       case 'worm': drawWorm(c, m, flash, ex, ey); break;
+    }
+
+    // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
+    // not a stray mob. Drawn in the monster-local (unrotated) frame, above the head.
+    if (m.miniBoss) {
+      const bw = 66, k = Math.max(0, m.hp / m.maxHp);
+      c.save();
+      c.textAlign = 'center'; c.font = 'bold 10px monospace';
+      c.fillStyle = '#0a0a0a'; c.fillText('YOUR SHADOW', 1, -m.r - 19);
+      c.fillStyle = '#ff66dd'; c.fillText('YOUR SHADOW', 0, -m.r - 20);
+      c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(-bw / 2 - 1, -m.r - 15, bw + 2, 5);
+      c.fillStyle = '#3a2a54'; c.fillRect(-bw / 2, -m.r - 14, bw, 3);
+      c.fillStyle = '#e84393'; c.fillRect(-bw / 2, -m.r - 14, bw * k, 3);
+      c.restore();
     }
 
     // #110 EMPOWERED aura: a gold pulsing ring while a mob has a big move armed (or a
@@ -1603,5 +1656,5 @@ const Monsters = (() => {
     c.beginPath(); c.arc(6 * s + ex, -12 * s + ey, 2.2 * s, 0, Math.PI * 2); c.fill();
   }
 
-  return { make, spawnForRoom, tierFor, BASE, SPAWN_TABLE };
+  return { make, makeDoppelBoss, spawnForRoom, tierFor, BASE, SPAWN_TABLE };
 })();
