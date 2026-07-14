@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.43';
+  const VERSION = 'v2.44';
 
   const NOTES = [
+    {
+      v: 'v2.44', title: 'Twin portals: brave the Nightmare for a richer haul', date: '2026-07-14',
+      sha: 'e375348',
+      items: [
+        'Twin portals: a Nightmare path at every descent exit (Sam, #13).',
+      ],
+    },
     {
       v: 'v2.43', title: 'Mythic trinkets: the legendary fourth slot', date: '2026-07-14',
       sha: 'a92c730',
