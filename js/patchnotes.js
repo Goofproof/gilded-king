@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.15';
+  const VERSION = 'v2.16';
 
   const NOTES = [
+    {
+      v: 'v2.16', title: 'Mount Purgatory', date: '2026-07-14',
+      sha: 'c29c1f9',
+      items: [
+        'MOUNT PURGATORY: the run turns around and climbs.',
+        'Breaking through the ice: the transition beat, and the shore is a breather.',
+      ],
+    },
     {
       v: 'v2.15', title: 'The Nine Circles', date: '2026-07-14',
       sha: '4dc7258',
