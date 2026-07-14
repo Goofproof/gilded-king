@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.14';
+  const VERSION = 'v2.15';
 
   const NOTES = [
+    {
+      v: 'v2.15', title: 'The Nine Circles', date: '2026-07-14',
+      sha: '4dc7258',
+      items: [
+        'The Descent\'s nine circles are nine real places.',
+        'Each circle now PLAYS different, not just looks different (floor rules engine).',
+        'Floor mutators: the Descent stops repeating itself.',
+      ],
+    },
     {
       v: 'v2.14', title: 'Cape, Enemies & The Gilded Dais', date: '2026-07-14',
       sha: '4996f18',
