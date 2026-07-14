@@ -3,6 +3,10 @@
 // ============================================================================
 const UI = (() => {
   const W = 960, H = 540;
+  // #156 how far the class strip is scrolled, in cards. Lives here because it is pure
+  // presentation - it must NOT go in meta/save (a scroll position is not a choice).
+  let classScroll = 0;
+  function scrollClasses(d) { classScroll += d; }        // clamped at draw time
 
   // canonical public home of the game (GitHub Pages) - what the share button copies
   const GAME_URL = 'https://goofproof.github.io/gilded-king/';
@@ -810,45 +814,110 @@ const UI = (() => {
 
     const rects = [startR, coopR];
 
-    // --- #30 CLASS picker: pick your starting kit for the next run. Redesign: dead-
-    // centered on true center (x=480) with slightly wider cards (was pushed right to
-    // dodge the old left panel, which is now gone). #78 two-row grid so 10 classes fit.
+    // --- #156 RACE picker: five bloods, five faces. A small always-on bias plus a look.
+    // Sits ABOVE the class strip because you are a Dwarf who became a Warrior, not the
+    // other way round.
+    const races = (typeof PlayerDef !== 'undefined' && PlayerDef.RACES) || [];
+    const cx0 = W / 2;
+    if (races.length) {
+      c.textAlign = 'center';
+      c.font = 'bold 11px monospace'; c.fillStyle = '#8fd0a0';
+      c.fillText('CHOOSE YOUR BLOOD', cx0, 219);
+      const rw = 76, rgap = 6, rh = 40, ry = 225;
+      const rowW = races.length * rw + (races.length - 1) * rgap;
+      const selR = meta.selectedRace || 'human';
+      races.forEach((ra, i) => {
+        const x = cx0 - rowW / 2 + i * (rw + rgap);
+        const on = ra.id === selR;
+        const r = { x, y: ry, w: rw, h: rh, action: 'selectRace', key: ra.id };
+        c.fillStyle = on ? 'rgba(143,208,160,0.14)' : 'rgba(255,255,255,0.02)';
+        c.fillRect(r.x, r.y, r.w, r.h);
+        c.lineWidth = on ? 2.5 : 1; c.strokeStyle = on ? '#8fd0a0' : '#3a4050';
+        c.strokeRect(r.x, r.y, r.w, r.h);
+        if (PlayerDef.drawRacePortrait) PlayerDef.drawRacePortrait(c, ra, r.x + 17, r.y + 20, 9);
+        c.textAlign = 'left';
+        c.font = 'bold 10px monospace'; c.fillStyle = on ? '#c9f0d6' : '#c8d0de';
+        c.fillText(ra.name, r.x + 32, r.y + 24);
+        rects.push(r);
+      });
+      const chosenR = races.find(ra => ra.id === selR) || races[0];
+      c.textAlign = 'center';
+      c.font = '10px monospace'; c.fillStyle = chosenR.color;
+      c.fillText(chosenR.desc, cx0, ry + rh + 13);
+    }
+
+    // --- #30/#156 CLASS picker. Was a two-row grid; with 15 classes that grid ate the
+    // whole screen, so it is now a ONE-ROW SCROLLING STRIP (Sam: "make class selection a
+    // scrolling option, so we don't clutter the page"). Mouse wheel over the strip, the
+    // arrows, or A/D scroll it. Only the window is drawn, so adding a 16th class costs
+    // no vertical space at all.
     const classes = (typeof PlayerDef !== 'undefined' && PlayerDef.CLASSES) || [];
     if (classes.length) {
-      const cx0 = W / 2;
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('CHOOSE YOUR CLASS', cx0, 228);
-      // fits between the side panels (loadout right / raiders left)
-      const perRow = Math.ceil(classes.length / 2), gap = 8, cw = 100, chh = 54, y0 = 236, rowStride = 60;
+      c.fillText('CHOOSE YOUR CLASS', cx0, 288);
+
+      const gap = 6, cw = 88, chh = 54, y0 = 296;
+      const VIS = 5;   // 5 x 88 + 4 x 6 = 464 wide; with a 24px arrow each side that is
+                       // 528, which fits the 568px corridor between the two side panels.
+                       // Go wider and the strip slides UNDER them (it did - that was a bug).
+      const maxScroll = Math.max(0, classes.length - VIS);
+      classScroll = Math.max(0, Math.min(maxScroll, classScroll));
+      const stripW = VIS * cw + (VIS - 1) * gap;
+      const x0 = cx0 - stripW / 2;
       const sel = meta.selectedClass || '';
+
+      // the window: clipped, so a half-scrolled card is cut off cleanly at the edge
+      c.save();
+      c.beginPath(); c.rect(x0 - 2, y0 - 2, stripW + 4, chh + 4); c.clip();
       classes.forEach((cl, i) => {
-        const row = Math.floor(i / perRow), col = i % perRow;
-        const rowN = row === 0 ? Math.min(perRow, classes.length) : classes.length - perRow;
-        const rowW = rowN * cw + (rowN - 1) * gap;
-        const x = cx0 - rowW / 2 + col * (cw + gap), y = y0 + row * rowStride;
+        const x = x0 + (i - classScroll) * (cw + gap), y = y0;
+        if (x > x0 + stripW || x + cw < x0) return;    // fully outside the window
         const on = cl.id === sel;
         const r = { x, y, w: cw, h: chh, action: 'selectClass', key: cl.id };
         c.fillStyle = on ? 'rgba(255,210,76,0.12)' : 'rgba(255,255,255,0.02)';
         c.fillRect(r.x, r.y, r.w, r.h);
         c.lineWidth = on ? 2.5 : 1; c.strokeStyle = on ? '#ffd24c' : '#3a4050';
         c.strokeRect(r.x, r.y, r.w, r.h);
-        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cl, r.x + r.w / 2, r.y + 24, 12);
+        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cl, r.x + r.w / 2, r.y + 24, 12, meta.selectedRace);
         c.textAlign = 'center';
         c.font = 'bold 10px monospace'; c.fillStyle = on ? '#ffe9a8' : '#c8d0de';
         c.fillText(cl.name, r.x + r.w / 2, r.y + r.h - 6);
         rects.push(r);
       });
-      const gridBottom = y0 + rowStride + chh; // 350
+      c.restore();
+
+      // arrows: only drawn when there is somewhere to go, so they never lie
+      if (classScroll > 0) {
+        const r = { x: x0 - 30, y: y0 + 12, w: 24, h: 30, action: 'classScroll', key: -1 };
+        c.fillStyle = 'rgba(255,210,76,0.10)'; c.fillRect(r.x, r.y, r.w, r.h);
+        c.strokeStyle = '#ffd24c'; c.lineWidth = 1; c.strokeRect(r.x, r.y, r.w, r.h);
+        c.textAlign = 'center'; c.font = 'bold 16px monospace'; c.fillStyle = '#ffd24c';
+        c.fillText('‹', r.x + r.w / 2, r.y + 21);
+        rects.push(r);
+      }
+      if (classScroll < maxScroll) {
+        const r = { x: x0 + stripW + 6, y: y0 + 12, w: 24, h: 30, action: 'classScroll', key: 1 };
+        c.fillStyle = 'rgba(255,210,76,0.10)'; c.fillRect(r.x, r.y, r.w, r.h);
+        c.strokeStyle = '#ffd24c'; c.lineWidth = 1; c.strokeRect(r.x, r.y, r.w, r.h);
+        c.textAlign = 'center'; c.font = 'bold 16px monospace'; c.fillStyle = '#ffd24c';
+        c.fillText('›', r.x + r.w / 2, r.y + 21);
+        rects.push(r);
+      }
+      // how far along the strip you are - on the HEADER line, so it costs no height
+      c.textAlign = 'right'; c.font = '9px monospace'; c.fillStyle = '#5f6b80';
+      c.fillText(`${classScroll + 1}-${Math.min(classes.length, classScroll + VIS)} of ${classes.length} · scroll`, x0 + stripW, 288);
+
+      const gridBottom = y0 + chh;   // 350, exactly where the old grid ended
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
       c.textAlign = 'center';
       c.font = '11px monospace'; c.fillStyle = chosen.color;
-      c.fillText(chosen.desc, cx0, gridBottom + 14);
+      c.fillText(chosen.desc, cx0, gridBottom + 15);
       if (chosen.q) {
         c.font = 'bold 11px monospace'; c.fillStyle = '#9ecbff';
-        c.fillText('Q ability · ' + chosen.q, cx0, gridBottom + 28);
+        c.fillText('Q ability · ' + chosen.q, cx0, gridBottom + 29);
         c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-        c.fillText(chosen.qDesc, cx0, gridBottom + 40);
+        c.fillText(chosen.qDesc, cx0, gridBottom + 41);
       }
     }
 
@@ -2300,5 +2369,5 @@ const UI = (() => {
     c.restore();
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
+  return { META_UPGRADES, metaCost, GAME_URL, scrollClasses, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
 })();
