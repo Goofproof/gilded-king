@@ -19,9 +19,20 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.16';
+  const VERSION = 'v2.17';
 
   const NOTES = [
+    {
+      v: 'v2.17', title: 'Mobile, Quests and the Climb', date: '2026-07-14',
+      sha: '1e8d984',
+      items: [
+        'Level-up: say so when a stat is FULLY EVOLVED (Sam\'s request).',
+        'Random quest encounters: a stranger in a room, with an offer (Sam\'s request).',
+        'Cape: movement animation OFF, and prestige you can actually SEE.',
+        'Leaderboard: the global board now carries the LOADOUT (Sam).',
+        'MOBILE: it plays on a phone now (Sam).',
+      ],
+    },
     {
       v: 'v2.16', title: 'Mount Purgatory', date: '2026-07-14',
       sha: 'c29c1f9',
