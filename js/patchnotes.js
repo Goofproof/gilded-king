@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.36';
+  const VERSION = 'v2.37';
 
   const NOTES = [
+    {
+      v: 'v2.37', title: 'Meet your Shadow: the Doppelganger is now a mini-boss', date: '2026-07-14',
+      sha: 'cf0790b',
+      items: [
+        'Doppelganger: elevate the shade to a seed-placed mini-boss (Sam).',
+      ],
+    },
     {
       v: 'v2.36', title: 'Ultimates match your build and shake the whole dungeon', date: '2026-07-14',
       sha: '69b3f32',
