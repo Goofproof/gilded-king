@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.26';
+  const VERSION = 'v2.27';
 
   const NOTES = [
+    {
+      v: 'v2.27', title: 'Death Fix and Jupiter Balance', date: '2026-07-14',
+      sha: 'e68a119',
+      items: [
+        'Negative HP now kills you, and Jupiter\'s justice can\'t one-shot a cleave (Sam).',
+      ],
+    },
     {
       v: 'v2.26', title: 'Overcharge', date: '2026-07-14',
       sha: '66d57a8',
