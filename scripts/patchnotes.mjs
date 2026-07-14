@@ -33,7 +33,15 @@ const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).tr
 
 const argv = process.argv.slice(2);
 const flag = n => argv.includes(n);
-const opt = n => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
+// take EVERY token up to the next --flag, so a title that lost its quotes on the way
+// through npm/cmd still arrives whole instead of silently truncating to its first word
+const opt = n => {
+  const i = argv.indexOf(n);
+  if (i < 0) return null;
+  const words = [];
+  for (let j = i + 1; j < argv.length && !argv[j].startsWith('--'); j++) words.push(argv[j]);
+  return words.length ? words.join(' ') : null;
+};
 
 // chore commits a player does not care about
 const SKIP = /^(patch notes|notes|chore|test|tests|docs?|refactor|wip|merge|revert|bump|ci)\b|\[skip-notes\]/i;

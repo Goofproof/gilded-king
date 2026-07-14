@@ -17,7 +17,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const run = (cmd, args) => execFileSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
+// shell:true ONLY for npm (it is npm.cmd on Windows and needs one). Never for node
+// or git: with shell:true the args are re-joined WITHOUT quoting, so an argument
+// containing spaces - like a patch-notes title, or a commit message - is torn into
+// separate tokens. That shipped a patch note titled "The" once.
+const run = (cmd, args) =>
+  execFileSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: cmd === 'npm' && process.platform === 'win32' });
 const out = (cmd, args) => execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8' }).trim();
 
 const argv = process.argv.slice(2);
