@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.46';
+  const VERSION = 'v2.47';
 
   const NOTES = [
+    {
+      v: 'v2.47', title: 'Five new classes and five bloodlines', date: '2026-07-14',
+      sha: '711b919',
+      items: [
+        'Five new classes: Mesmer, Druid, Death Knight, Necromancer and Pyromancer.',
+        'Pick your blood: Human, Orc, Elf, Dwarf or Undead, and a class list that scrolls.',
+      ],
+    },
     {
       v: 'v2.46', title: 'Nine circles, nine bosses', date: '2026-07-14',
       sha: 'd290020',
