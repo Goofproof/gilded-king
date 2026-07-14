@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.47';
+  const VERSION = 'v2.48';
 
   const NOTES = [
+    {
+      v: 'v2.48', title: 'Class descriptions you can actually read', date: '2026-07-14',
+      sha: '56f901d',
+      items: [
+        'Class descriptions no longer hide behind the side boxes.',
+      ],
+    },
     {
       v: 'v2.47', title: 'Five new classes and five bloodlines', date: '2026-07-14',
       sha: '711b919',
