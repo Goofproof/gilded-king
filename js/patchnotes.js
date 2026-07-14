@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.34';
+  const VERSION = 'v2.35';
 
   const NOTES = [
+    {
+      v: 'v2.35', title: 'HUD bars are now labeled', date: '2026-07-14',
+      sha: 'edfe4ac',
+      items: [
+        'HUD: label the HP/XP bars and the alarm meter (Sam).',
+      ],
+    },
     {
       v: 'v2.34', title: 'Hold E to keep training in the barracks', date: '2026-07-14',
       sha: '421af6c',
