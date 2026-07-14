@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.39';
+  const VERSION = 'v2.40';
 
   const NOTES = [
+    {
+      v: 'v2.40', title: 'Fallen raiders get a Homeric eulogy', date: '2026-07-14',
+      sha: '27c67ce',
+      items: [
+        'Fallen-hero card: a Homeric eulogy where the portrait is blank (Sam).',
+      ],
+    },
     {
       v: 'v2.39', title: 'Fix the fallen-hero card: no more NaN, fits the box', date: '2026-07-14',
       sha: '05da92f',
