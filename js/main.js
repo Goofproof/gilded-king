@@ -120,6 +120,7 @@
     if (!Array.isArray(m.petsUnlocked)) m.petsUnlocked = []; // pet types banked to the stable
     if (typeof m.selectedPet !== 'string') m.selectedPet = ''; // stable pet chosen for the next run
     if (typeof m.selectedClass !== 'string') m.selectedClass = ''; // #30 class chosen for the next run
+    if (typeof m.selectedRace !== 'string') m.selectedRace = 'human'; // #156 blood chosen for the next run
     if (typeof m.prestige !== 'number' || !isFinite(m.prestige)) m.prestige = 0; // #43 prestige level (cosmetic; reset essence+ranks to raise it)
     return m;
   }
@@ -185,6 +186,11 @@
     e.preventDefault();
     if (g.showPatch) { g.patchScroll = Math.max(0, (g.patchScroll || 0) + e.deltaY); return; } // #76 scroll the changelog
     if (g.showAchievements) { g.achScroll = Math.max(0, (g.achScroll || 0) + e.deltaY); return; } // #86 scroll the accolades
+    // #156 the class strip scrolls on the title screen (15 classes, 6 visible)
+    if (g.state === 'title' && typeof UI !== 'undefined' && UI.scrollClasses) {
+      UI.scrollClasses(e.deltaY > 0 ? 1 : -1);
+      return;
+    }
     if (g.state === 'play' && e.timeStamp - lastWheelSwap >= 150) {
       g.player.swapWeapon();
       lastWheelSwap = e.timeStamp;
@@ -680,6 +686,23 @@
   function onKill(m) {
     const p = g.player;
     p.kills++;
+    // #156 PYROMANCER: the fire spreads from the dying to the living. A monster that
+    // dies while burning lights everything near it - a room can chain itself down.
+    if (g.pyroSpread && g.pyroSpread.t > 0 && m.burn) {
+      const R = 120;
+      for (const o of g.monsters) {
+        if (o.dead || o === m || o.burn) continue;
+        if (Math.hypot(o.x - m.x, o.y - m.y) < R) {
+          o.burn = { t: g.pyroSpread.dur, tick: 0, dps: g.pyroSpread.dps };
+          Fx.burst(o.x, o.y, ['#ff8a3d', '#ffd24c'], 10, { speed: 120, life: 0.4, glow: true });
+        }
+      }
+    }
+    // #156 UNDEAD race: the grave feeds you. Every kill knits you back together.
+    if (p.race && p.race.id === 'undead') {
+      const h = p.mod('healOnKill') || 0;
+      if (h > 0) p.heal(h);
+    }
     if (g.quest && g.quest.key === 'hunt') g.huntKills = (g.huntKills || 0) + 1; // THE HUNT
     if (typeof Ach !== 'undefined') Ach.kill(m, g); // #86 accolades: kills, bosses, pits, goblins...
     // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
@@ -1819,6 +1842,98 @@
       g.summon = makeElemental(elem, p.x - 24, p.y + 16, scale);
       Fx.text(p.x, p.y - 30, elem.toUpperCase() + ' ELEMENTAL', a.color, 12);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 22, { speed: 160, life: 0.5, glow: true });
+
+    // ---- #156 the five new classes ------------------------------------------------
+    } else if (a.kind === 'clones') {
+      // MESMER: three copies of you. They are real bodies - enemies chase them (see
+      // targeting in updateMonsters), and when one dies it detonates. Built on the merc
+      // follower so they already move, get hit, and get targeted; the clone flag gives
+      // them a lifespan and the death blast.
+      const n = a.clones || 3;
+      for (let i = 0; i < n; i++) {
+        const ang = (i / n) * Math.PI * 2;
+        const cl = makeMercFollower({ cls: 'blade' }, g.floorNum);
+        cl.clone = true;
+        cl.life = a.dur || 8;   // already level-scaled above
+        cl.blastDmg = Math.round((a.dmg || 70) * (p.stats.dmgMul || 1));
+        cl.blastR = a.radius || 130;
+        cl.color = a.color;
+        cl.maxHp = cl.hp = Math.max(1, Math.round(p.maxHp * 0.25)); // fragile decoys
+        cl.x = p.x + Math.cos(ang) * 46; cl.y = p.y + Math.sin(ang) * 46;
+        g.mercs.push(cl);
+      }
+      Fx.text(p.x, p.y - 30, 'MIRROR IMAGE', a.color, 13);
+      Fx.burst(p.x, p.y, [a.color, '#fff', '#e8c8ff'], 26, { speed: 190, life: 0.55, glow: true });
+
+    } else if (a.kind === 'shift') {
+      // DRUID: cycle Bear -> Wolf -> Owl -> back to your own body. Each form is a real
+      // trade-off (PlayerDef.FORMS); shifting is nearly free so you shift constantly.
+      const FORMS = PlayerDef.FORMS;
+      const cur = p.form ? FORMS.findIndex(f => f.id === p.form.id) : -1;
+      const next = cur + 1;
+      p.form = next >= FORMS.length ? null : FORMS[next];
+      const label = p.form ? p.form.name.toUpperCase() : 'OWN SHAPE';
+      const col = p.form ? p.form.color : '#7fd47f';
+      Fx.text(p.x, p.y - 32, label, col, 14);
+      if (p.form && p.form.note) Fx.text(p.x, p.y - 16, p.form.note, col, 9);
+      Fx.burst(p.x, p.y, [col, '#fff', '#7fd47f'], 22, { speed: 170, life: 0.5, glow: true });
+
+    } else if (a.kind === 'undying') {
+      // DEATH KNIGHT: LIFE AFTER DEATH. Arm the rune - the next killing blow leaves you
+      // on 1 HP (player.js hurt() spends it). DEATH OVER EVERYTHING: it also detonates.
+      p.buffs.undyingT = a.dur || 12;   // already level-scaled above
+      Fx.text(p.x, p.y - 32, 'LIFE AFTER DEATH', a.color, 14);
+      Fx.burst(p.x, p.y, [a.color, '#dff7f4', '#2a4a4e'], 30, { speed: 200, life: 0.7, glow: true });
+
+    } else if (a.kind === 'raise') {
+      // NECROMANCER: the grave gives more as you grow. Tier by level:
+      //   1-4   one skeletal knight
+      //   5-9   two skeletal knights
+      //   10+   THREE knights and TWO archers - the final form
+      const L = p.level | 0;
+      const tier = L >= 10 ? 3 : L >= 5 ? 2 : 1;
+      p.undeadTier = tier;
+      const knights = tier === 3 ? 3 : tier;
+      const archers = tier === 3 ? 2 : 0;
+      for (const m of g.mercs) if (m.bone && !m.dead) m.dead = true;   // the old dead lie back down
+      g.mercs = g.mercs.filter(m => !(m.bone && m.dead));
+      const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
+      const scale = 1 + 0.10 * arc + 0.05 * (L - 1);
+      const raise = (cls, i, n) => {
+        const s = makeMercFollower({ cls }, g.floorNum);
+        s.bone = true;
+        s.color = cls === 'bow' ? '#cfe6cf' : '#e6efe6';
+        s.dmg = Math.round(s.dmg * scale);
+        s.maxHp = s.hp = Math.round(s.maxHp * scale);
+        const ang = (i / Math.max(1, n)) * Math.PI * 2;
+        s.x = p.x + Math.cos(ang) * 40; s.y = p.y + Math.sin(ang) * 40 + 10;
+        g.mercs.push(s);
+        Fx.burst(s.x, s.y, ['#9ae6a0', '#e6efe6', '#3a5a40'], 14, { speed: 130, life: 0.5, glow: true });
+      };
+      const total = knights + archers;
+      for (let i = 0; i < knights; i++) raise('blade', i, total);
+      for (let i = 0; i < archers; i++) raise('bow', knights + i, total);
+      const label = tier === 3 ? 'THE DEAD RISE - 3 KNIGHTS, 2 ARCHERS'
+                  : tier === 2 ? 'TWO SKELETAL KNIGHTS RISE'
+                               : 'A SKELETAL KNIGHT RISES';
+      Fx.text(p.x, p.y - 32, label, a.color, tier === 3 ? 14 : 12);
+      Fx.shake(tier === 3 ? 10 : 4, 0.3);
+
+    } else if (a.kind === 'immolate') {
+      // PYROMANCER: EVERYTHING MUST BURN. Every enemy in the room catches, and the fire
+      // spreads - a burning enemy that dies sets its neighbours alight (see monsters.js
+      // death hook via g.pyroSpread).
+      const dur = a.dur || 6;   // already level-scaled above
+      let lit = 0;
+      for (const m of g.monsters) {
+        if (m.dead) continue;
+        m.burn = { t: dur, tick: 0, dps: (a.dps || 60) * (p.stats.dmgMul || 1) };
+        lit++;
+      }
+      g.pyroSpread = { t: dur + 4, dps: (a.dps || 60) * (p.stats.dmgMul || 1), dur };
+      Fx.burst(p.x, p.y, ['#ff8a3d', '#ffd24c', '#ff3d1f'], 40, { speed: 240, life: 0.8, glow: true });
+      Fx.text(p.x, p.y - 32, lit ? 'EVERYTHING MUST BURN' : 'NOTHING LEFT TO BURN', a.color, 15);
+      Fx.shake(10, 0.35);
     }
 
     if (_qScaled) Object.assign(a, _qScaled); // #109 restore base Q values after the scaled cast
@@ -1842,7 +1957,7 @@
     a.cd = a.cdMax * (1 - haste);
     // #78 the summon's cooldown does NOT run while the elemental lives - it starts the
     // moment the elemental dies (killSummon sets a.cd). Until then Q is gated, not on cd.
-    if (a.kind === 'summon') a.cd = 0;
+    if (a.kind === 'summon') a.cd = 0; // (the necromancer's 'raise' does NOT get this - it is on a real cooldown)
   }
 
   // --- SHARD SALVAGE (Sam's idea: floor loot shouldn't be waste) ------------------
@@ -1952,6 +2067,31 @@
   }
   function updateMercs(dt) {
     const p = g.player;
+    // #156 clones burn down and blow up: on expiry OR on death they detonate. Done first
+    // so a clone that died to a hit this frame still pays out its blast.
+    for (const merc of g.mercs) {
+      if (!merc.clone) continue;
+      if (!merc.dead && merc.life !== undefined) {
+        merc.life -= dt;
+        if (merc.life <= 0) merc.dead = true;
+      }
+      if (merc.dead && !merc.blown) {
+        merc.blown = true;
+        const R = merc.blastR || 130, D = merc.blastDmg || 70;
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne || m.spawnT > 0) continue;
+          const d = Math.hypot(m.x - merc.x, m.y - merc.y);
+          if (d > R + m.r) continue;
+          // damage falls off with distance, like every other blast in the game
+          m.takeHit(D * (1 - 0.4 * (d / R)), { sx: merc.x, sy: merc.y, knock: 150, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        }
+        Fx.burst(merc.x, merc.y, ['#c78bff', '#fff', '#e8c8ff'], 26, { speed: 230, life: 0.55, glow: true });
+        Fx.shake(5, 0.2);
+        Sfx.play('hitHeavy');
+      }
+    }
+    g.mercs = g.mercs.filter(m => !(m.clone && m.dead && m.blown && (m.life === undefined || m.life <= -0.4)));
+
     for (const merc of g.mercs) {
       if (merc.dead) continue;
       if (merc.swingT > 0) merc.swingT -= dt;
@@ -2540,6 +2680,16 @@
             g.meta.selectedPet = g.meta.selectedPet === r.key ? '' : r.key;
             saveMeta(); Sfx.play('ui');
           }
+          if (r.action === 'selectRace') {   // #156 pick the blood for the next run
+            g.meta.selectedRace = r.key;
+            saveMeta(); Sfx.play('ui');
+            break;
+          }
+          if (r.action === 'classScroll') {  // #156 the strip's < > arrows
+            if (typeof UI !== 'undefined' && UI.scrollClasses) UI.scrollClasses(r.key);
+            Sfx.play('ui');
+            break;
+          }
           if (r.action === 'selectClass') { // #30 pick the class for the next run
             g.meta.selectedClass = r.key;
             saveMeta(); Sfx.play('ui');
@@ -3042,6 +3192,12 @@
     // (otherwise they swarm it, no one can revive, and the party false-wipes to menu).
     const list = [];
     if (!P.dead && !P.downed && !(P.invisT > 0)) list.push({ x: P.x, y: P.y, r: P.r, ref: P, isRemote: false, id: 'me' });
+    // #156 MESMER: the copies are real targets. Monsters chase them instead of you -
+    // that IS the class. They are pushed as ordinary party targets so the existing
+    // nearestTarget() in monsters.js finds them with no AI change.
+    for (const m of g.mercs) {
+      if (m.clone && !m.dead) list.push({ x: m.x, y: m.y, r: 12, ref: m, isRemote: false, id: 'clone' });
+    }
     if (g.coop && typeof Net !== 'undefined' && Net.isHost && g.room) {
       for (const [id, rp] of g.remotePlayers) {
         if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed) continue;
@@ -3391,6 +3547,20 @@
     const pInput = g.coopMenu ? IDLE_INPUT : input;
     if (!p.dead && pInput.pressed('Tab')) p.swapWeapon();
     p.update(dt, g, pInput);
+    // #156 DEATH KNIGHT: the rune ate a killing blow this frame - DEATH OVER EVERYTHING.
+    // player.hurt() only raises the flag; the room is detonated here so the blast is not
+    // resolved inside the damage path it was triggered from.
+    if (p.undyingBlast) {
+      p.undyingBlast = false;
+      const a = p.ability || {};
+      const R = a.radius || 240, D = (a.dmg || 150) * (p.stats.dmgMul || 1);
+      for (const m of g.monsters) {
+        if (m.dead || m.airborne || m.spawnT > 0) continue;
+        const d = Math.hypot(m.x - p.x, m.y - p.y);
+        if (d > R + m.r) continue;
+        m.takeHit(D * (1 - 0.35 * (d / R)), { sx: p.x, sy: p.y, knock: 320, crit: true, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+      }
+    }
     if (!g.coopMenu) tryRoomExit();   // don't walk through a door while the menu is up
     if (g.state !== 'play') return; // transition may have started
 

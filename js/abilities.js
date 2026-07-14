@@ -145,6 +145,17 @@ const Abilities = (() => {
                  desc: 'Build an auto-turret at your feet - more charges as you level (up to 5)' },
     summoner:  { name: 'Summon Elemental', color: '#9ad0ff', kind: 'summon', cdMax: 9,
                  desc: 'Summon an elemental matching your weapon (earth if none). It fights until killed; the cooldown starts when it dies' },
+    // #156 five new classes.
+    mesmer:      { name: 'Mirror Image',  color: '#c78bff', kind: 'clones', clones: 3, dur: 8, cdMax: 11, dmg: 70, radius: 130,
+                   desc: 'Split into three copies - enemies chase them instead of you, and each one detonates when it dies' },
+    druid:       { name: 'Shapeshift',    color: '#7fd47f', kind: 'shift', cdMax: 1.2,
+                   desc: 'Cycle Bear (tanky, slow, huge hits), Wolf (fast, frail, bleeds) and Owl (flies, weak, untouchable)' },
+    deathknight: { name: 'Unholy Rune',   color: '#8fd6d0', kind: 'undying', dur: 12, cdMax: 18, dmg: 150, radius: 240,
+                   desc: 'LIFE AFTER DEATH - the next killing blow leaves you at 1 HP instead, and the room pays for it' },
+    necromancer: { name: 'Raise Dead',    color: '#9ae6a0', kind: 'raise', cdMax: 10,
+                   desc: 'Raise a skeletal knight. The grave gives more as you level: two knights, then three knights and two archers' },
+    pyromancer:  { name: 'Immolate',      color: '#ff8a3d', kind: 'immolate', dps: 60, dur: 6, cdMax: 14, dmg: 90,
+                   desc: 'EVERYTHING MUST BURN - the whole room catches, and the fire spreads from the dying to the living' },
   };
   // #109 every class Q grows with player level (like the Engineer's turret count).
   // Returns multipliers for the value-driven Qs; the turret/summon Qs additionally
@@ -169,7 +180,8 @@ const Abilities = (() => {
       if (act[k] !== undefined) a[k] = act[k];
     }
     for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
-                     'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter', 'dur']) {
+                     'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter', 'dur',
+                     'clones', 'dps']) { // #156 mesmer clone count, pyromancer burn dps
       if (spec[k] !== undefined) a[k] = spec[k];
     }
     a.name = spec.name;

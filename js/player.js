@@ -39,8 +39,61 @@ const PlayerDef = (() => {
     { id: 'summoner',  name: 'Summoner',  color: '#9ad0ff', icon: '❈', arch: 'wand',
       desc: 'Starts with a wand. Magic 2. Commands an elemental.', magic: 2, fx: { spellPower: 0.10 },
       q: 'Summon Elemental', qDesc: 'Summon an elemental matching your weapon (Fire/Lightning/Poison, or Earth). It fights until killed; scales with Arcane.' },
+    // #156 five new classes.
+    { id: 'mesmer',      name: 'Mesmer',       color: '#c78bff', icon: '❋', arch: 'wand',
+      desc: 'Starts with a wand. Magic 2 and +10% move speed. Fights with copies of itself.', magic: 2, fx: { spd: 0.10, spellPower: 0.08 },
+      q: 'Mirror Image',  qDesc: 'Split into three copies. Enemies chase them instead of you, and each one detonates when it dies.' },
+    { id: 'druid',       name: 'Druid',        color: '#7fd47f', icon: '❦', arch: 'wand',
+      desc: 'Starts with a wand. Magic 1, +10 HP. Shifts between three animal forms.', magic: 1, hp: 10, fx: { regenFlat: 0.4 },
+      q: 'Shapeshift',    qDesc: 'Cycle Bear (tanky, slow, huge hits), Wolf (fast, frail, bleeds) and Owl (flies over everything, weak but untouchable).' },
+    { id: 'deathknight', name: 'Death Knight', color: '#8fd6d0', icon: '☨', arch: 'heavy',
+      desc: 'Starts with a heavy weapon. +25 HP. Enemies dying near you feed you, and you refuse to die once per cast.', hp: 25, fx: { soulFeast: 3, reduce: 0.05 },
+      q: 'Unholy Rune',   qDesc: 'LIFE AFTER DEATH. Carve a rune - the next hit that would kill you leaves you at 1 HP instead, and the room pays for it.' },
+    { id: 'necromancer', name: 'Necromancer',  color: '#9ae6a0', icon: '☠', arch: 'wand',
+      desc: 'Starts with a wand. Magic 3. Commands a growing army of the dead.', magic: 3, fx: { spellPower: 0.12 },
+      q: 'Raise Dead',    qDesc: 'Raise a skeletal knight. As you level the grave gives more: two knights, then three knights and two archers.' },
+    { id: 'pyromancer',  name: 'Pyromancer',   color: '#ff8a3d', icon: '✸', arch: 'wand',
+      desc: 'Starts with a wand. Magic 3, +18% spell power. Everything you touch catches fire.', magic: 3, fx: { spellPower: 0.18, burnOnHit: 1 },
+      q: 'Immolate',      qDesc: 'EVERYTHING MUST BURN. You erupt, and every enemy in the room is set alight - burning spreads from the dying to the living.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
+
+  // #156 RACES: picked alongside the class. A race is a small, always-on stat bias plus a
+  // look. Deliberately weaker than a class perk - the class is the build, the race is the
+  // flavour that tilts it. Every one has a real trade-off; none is a strict upgrade.
+  const RACES = [
+    { id: 'human',  name: 'Human',  color: '#e8d3b0', skin: '#e8d3b0',
+      desc: 'Adaptable. +10% experience and +5% gold - you learn and earn faster than anyone.',
+      fx: { xpMult: 0.10, coin: 0.05 } },
+    { id: 'orc',    name: 'Orc',    color: '#6fa84f', skin: '#79ad5c',
+      desc: 'Brutal. +15% damage and +15 HP, but 6% slower - you hit like a truck and move like one.',
+      fx: { dmg: 0.15, spd: -0.06 }, hp: 15 },
+    { id: 'elf',    name: 'Elf',    color: '#bfe6d8', skin: '#f0e2d0',
+      desc: 'Quick. +8% crit chance and +10% move speed, but 10 less HP - fast and sharp, not sturdy.',
+      fx: { critCh: 0.08, spd: 0.10 }, hp: -10 },
+    { id: 'dwarf',  name: 'Dwarf',  color: '#d59a5a', skin: '#dda878',
+      desc: 'Stubborn. +25 HP and takes 10% less damage, but 8% slower - very hard to put down.',
+      fx: { reduce: 0.10, spd: -0.08 }, hp: 25 },
+    { id: 'undead', name: 'Undead', color: '#9fb7a8', skin: '#a9bfae',
+      desc: 'Already dead. Every kill knits you back together, but potions do 30% less for you.',
+      fx: { healOnKill: 3, healMult: -0.30 } },
+  ];
+  const raceById = id => RACES.find(r => r.id === (id || '')) || RACES[0];
+
+  // #156 DRUID FORMS. Q cycles them. Each is a REAL trade-off - there is no best form,
+  // which is the whole point of the class: you shift to suit the room.
+  //   Bear - walks into everything and survives it, but slow.
+  //   Wolf - fast and bleeds enemies, but made of paper.
+  //   Owl  - untouchable and quick, but barely hurts anything. For getting OUT.
+  const FORMS = [
+    { id: 'bear', name: 'Bear Form', color: '#a8763f', dmgMul: 1.45, spdMul: 0.82, reduce: 0.22,
+      note: 'Slow. Armoured. Hits like a falling tree.' },
+    { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.15, spdMul: 1.30, reduce: -0.12, bleed: true,
+      note: 'Fast and bleeding fangs, but every hit hurts you more.' },
+    { id: 'owl',  name: 'Owl Form',  color: '#e6dcc0', dmgMul: 0.55, spdMul: 1.22, reduce: 0.10, evasive: true,
+      note: 'Flies over everything. Barely scratches. This is your escape.' },
+  ];
+  const formById = id => FORMS.find(f => f.id === id) || null;
 
   // #43/#117/#119/#129 the prestige cape, drawn at the current translate origin. Shared
   // by the local player AND remote peers (main.js drawRemotePlayers). Two fold panels +
@@ -259,26 +312,151 @@ const PlayerDef = (() => {
       c.quadraticCurveTo(-r * 0.5, -r * 0.15, -r * 0.92, r * 0.12); c.closePath(); c.fill();
       c.fillStyle = '#9ad0ff'; c.globalAlpha = 0.5 + Math.sin(Date.now() / 300) * 0.3;
       c.beginPath(); c.arc(0, -r * 1.7, r * 0.28, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+    // #156 the five new classes. Each needs a SILHOUETTE you can name at a glance - the
+    // picker is read by a 12-year-old, not off a stat table.
+    } else if (id === 'mesmer') {
+      // a split mask: one half solid, one half shattering off
+      c.fillStyle = '#7a4fa8';
+      c.beginPath(); c.moveTo(-r * 0.78, -r * 0.5); c.lineTo(0, -r * 0.72); c.lineTo(0, r * 0.28); c.lineTo(-r * 0.7, r * 0.1); c.closePath(); c.fill();
+      c.fillStyle = '#c78bff'; c.globalAlpha = 0.55;
+      c.beginPath(); c.moveTo(r * 0.78, -r * 0.5); c.lineTo(0, -r * 0.72); c.lineTo(0, r * 0.28); c.lineTo(r * 0.7, r * 0.1); c.closePath(); c.fill();
+      c.globalAlpha = 1;
+      c.fillStyle = '#e8c8ff';
+      c.beginPath(); c.moveTo(r * 0.95, -r * 0.95); c.lineTo(r * 1.35, -r * 0.6); c.lineTo(r * 0.98, -r * 0.45); c.closePath(); c.fill();
+    } else if (id === 'druid') {
+      c.strokeStyle = '#c9b48a'; c.lineWidth = Math.max(2, r * 0.16); c.lineCap = 'round';
+      for (const dir of [-1, 1]) {
+        c.beginPath(); c.moveTo(dir * r * 0.4, -r * 0.62);
+        c.quadraticCurveTo(dir * r * 0.85, -r * 1.35, dir * r * 0.55, -r * 1.75); c.stroke();
+        c.beginPath(); c.moveTo(dir * r * 0.66, -r * 1.12); c.lineTo(dir * r * 1.15, -r * 1.3); c.stroke();
+        c.beginPath(); c.moveTo(dir * r * 0.74, -r * 1.45); c.lineTo(dir * r * 1.1, -r * 1.72); c.stroke();
+      }
+      c.fillStyle = '#3f7a44'; c.fillRect(-r * 0.72, -r * 0.72, r * 1.44, r * 0.2);
+    } else if (id === 'deathknight') {
+      c.fillStyle = '#2a3f45';
+      c.beginPath(); c.arc(0, -r * 0.14, r * 0.8, Math.PI, 0); c.fill();
+      c.fillRect(-r * 0.8, -r * 0.2, r * 1.6, r * 0.42);
+      c.fillStyle = '#1b2a2e';
+      for (const dir of [-1, 1]) {
+        c.beginPath(); c.moveTo(dir * r * 0.72, -r * 0.62);
+        c.quadraticCurveTo(dir * r * 1.5, -r * 1.05, dir * r * 1.2, -r * 1.6);
+        c.quadraticCurveTo(dir * r * 1.1, -r * 1.05, dir * r * 0.6, -r * 0.78);
+        c.closePath(); c.fill();
+      }
+      c.fillStyle = '#8fd6d0';
+      c.globalAlpha = 0.75 + Math.sin(Date.now() / 260) * 0.25;
+      c.fillRect(-r * 0.5, -r * 0.08, r * 1.0, r * 0.12);
+      c.globalAlpha = 1;
+    } else if (id === 'necromancer') {
+      c.fillStyle = '#26332a';
+      c.beginPath();
+      c.moveTo(-r * 0.95, r * 0.15); c.quadraticCurveTo(-r * 1.05, -r * 1.1, 0, -r * 1.12);
+      c.quadraticCurveTo(r * 1.05, -r * 1.1, r * 0.95, r * 0.15);
+      c.quadraticCurveTo(r * 0.5, -r * 0.18, 0, -r * 0.22);
+      c.quadraticCurveTo(-r * 0.5, -r * 0.18, -r * 0.95, r * 0.15); c.closePath(); c.fill();
+      c.fillStyle = '#cfe6cf';
+      for (const dx of [-0.5, 0, 0.5]) {
+        c.beginPath();
+        c.moveTo(dx * r - r * 0.11, -r * 1.05); c.lineTo(dx * r, -r * 1.55); c.lineTo(dx * r + r * 0.11, -r * 1.05);
+        c.closePath(); c.fill();
+      }
+      c.fillStyle = '#9ae6a0'; c.globalAlpha = 0.6 + Math.sin(Date.now() / 240) * 0.3;
+      c.beginPath(); c.arc(-r * 0.24, -r * 0.05, r * 0.1, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.24, -r * 0.05, r * 0.1, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1;
+    } else if (id === 'pyromancer') {
+      c.fillStyle = '#6e2a12';
+      c.beginPath();
+      c.moveTo(-r * 0.92, r * 0.12); c.quadraticCurveTo(-r * 1.0, -r * 1.0, 0, -r * 1.04);
+      c.quadraticCurveTo(r * 1.0, -r * 1.0, r * 0.92, r * 0.12);
+      c.quadraticCurveTo(r * 0.5, -r * 0.16, 0, -r * 0.2);
+      c.quadraticCurveTo(-r * 0.5, -r * 0.16, -r * 0.92, r * 0.12); c.closePath(); c.fill();
+      const fl = 0.85 + Math.sin(Date.now() / 90) * 0.15;
+      const FLAMES = [[-0.42, 0.7, '#ff5a2c'], [0, 1.0, '#ff8a3d'], [0.42, 0.66, '#ffd24c']];
+      for (const f of FLAMES) {
+        c.fillStyle = f[2];
+        c.beginPath();
+        c.moveTo(f[0] * r - r * 0.2, -r * 0.98);
+        c.quadraticCurveTo(f[0] * r, -r * (1.0 + f[1] * fl), f[0] * r + r * 0.2, -r * 0.98);
+        c.closePath(); c.fill();
+      }
     }
     // adventurer: no signature look (plain champion)
   }
 
   // #71 a class portrait for the character-select screen: a little bust wearing the
+  // #156 the race's face, drawn at the head origin (0,0) with head radius s. Kept small
+  // and silhouette-level on purpose: it has to still read under a warrior's full helm.
+  // Undead draws its OWN eyes (hollow sockets with a green ember), so the caller skips
+  // the normal eyes for it.
+  function drawRaceFeature(c, id, s) {
+    if (id === 'orc') {
+      c.fillStyle = '#f2f0e2';                                    // two tusks, jutting up
+      c.beginPath(); c.moveTo(-s * 0.34, s * 0.42); c.lineTo(-s * 0.22, s * 0.16); c.lineTo(-s * 0.14, s * 0.46); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(s * 0.34, s * 0.42); c.lineTo(s * 0.22, s * 0.16); c.lineTo(s * 0.14, s * 0.46); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(0,0,0,0.18)';                           // heavy brow
+      c.fillRect(-s * 0.62, -s * 0.24, s * 1.24, s * 0.14);
+    } else if (id === 'elf') {
+      c.fillStyle = '#f0e2d0';                                    // long swept ears
+      c.beginPath(); c.moveTo(-s * 0.66, -s * 0.04); c.lineTo(-s * 1.22, -s * 0.52); c.lineTo(-s * 0.6, s * 0.2); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(s * 0.66, -s * 0.04); c.lineTo(s * 1.22, -s * 0.52); c.lineTo(s * 0.6, s * 0.2); c.closePath(); c.fill();
+    } else if (id === 'dwarf') {
+      c.fillStyle = '#b5642e';                                    // the beard: the whole lower face
+      c.beginPath(); c.arc(0, s * 0.3, s * 0.72, 0, Math.PI); c.fill();
+      c.fillRect(-s * 0.6, s * 0.24, s * 1.2, s * 0.5);
+      c.fillStyle = '#c9773d';                                    // braid highlight
+      c.fillRect(-s * 0.12, s * 0.42, s * 0.24, s * 0.5);
+    } else if (id === 'undead') {
+      c.fillStyle = '#1a2220';                                    // hollow sockets
+      c.beginPath(); c.arc(-s * 0.26, s * 0.0, s * 0.17, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.26, s * 0.0, s * 0.17, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#9ae6a0';                                    // the ember still burning in there
+      c.beginPath(); c.arc(-s * 0.26, s * 0.0, s * 0.07, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.26, s * 0.0, s * 0.07, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = 'rgba(30,40,36,0.5)'; c.lineWidth = Math.max(1, s * 0.07);
+      c.beginPath(); c.moveTo(-s * 0.5, s * 0.42); c.lineTo(s * 0.5, s * 0.42); c.stroke();  // stitched jaw
+    }
+    // human: no feature. That IS the human - the baseline face.
+  }
+
+  // #156 the race picker's portrait: a bare head, no class gear, so the face is the point.
+  function drawRacePortrait(c, race, cx, cy, s) {
+    c.save();
+    c.translate(cx, cy);
+    c.fillStyle = '#4a5468';                                       // plain shoulders
+    c.beginPath(); c.moveTo(-s * 1.15, s * 1.6); c.quadraticCurveTo(0, s * 0.3, s * 1.15, s * 1.6); c.closePath(); c.fill();
+    c.fillStyle = race.skin;
+    c.beginPath(); c.arc(0, 0, s * 0.74, 0, Math.PI * 2); c.fill();
+    drawRaceFeature(c, race.id, s);
+    if (race.id !== 'undead') {                                    // undead draws its own
+      c.fillStyle = '#33507a';
+      c.beginPath(); c.arc(-s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+  }
+
   // class's signature headgear, so players pick by picture instead of a cryptic glyph.
   // (cx,cy) is the head centre; s is the head radius.
-  function drawClassPortrait(c, cls, cx, cy, s) {
+  // #156 raceId is optional: when given, the portrait wears that race's skin and its
+  // feature (tusks / ears / beard / hollow eyes) UNDER the class headgear, so a Dwarf
+  // Warrior reads as both at a glance.
+  function drawClassPortrait(c, cls, cx, cy, s, raceId) {
     const id = cls.id || '';
-    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8' }[id] || '#5b6884';
+    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8',
+      mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f' }[id] || '#5b6884';
+    const race = raceById(raceId);
     c.save();
     c.translate(cx, cy);
     // shoulders / torso
     c.fillStyle = bodyCol;
     c.beginPath(); c.moveTo(-s * 1.25, s * 1.7); c.quadraticCurveTo(0, s * 0.28, s * 1.25, s * 1.7); c.closePath(); c.fill();
-    // head
-    c.fillStyle = '#e8d3b0';
+    // head - in the chosen race's skin
+    c.fillStyle = race.skin;
     c.beginPath(); c.arc(0, 0, s * 0.74, 0, Math.PI * 2); c.fill();
+    drawRaceFeature(c, race.id, s);
     // eyes (a cowl hides these behind a shadow instead)
-    if (id !== 'rogue') {
+    if (id !== 'rogue' && race.id !== 'undead') {
       c.fillStyle = '#33507a';
       c.beginPath(); c.arc(-s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
       c.beginPath(); c.arc(s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
@@ -352,6 +530,67 @@ const PlayerDef = (() => {
       c.fillStyle = '#9ad0ff'; c.globalAlpha = 0.9;                                                       // floating arcane orb
       c.beginPath(); c.arc(0, -s * 1.4, s * 0.24, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
       c.strokeStyle = '#cfe9ff'; c.lineWidth = 1; c.beginPath(); c.arc(0, -s * 1.4, s * 0.38, 0, Math.PI * 2); c.stroke();
+    // #156 the five new classes - the same silhouettes as the in-game body
+    } else if (id === 'mesmer') {
+      c.fillStyle = '#7a4fa8';
+      c.beginPath(); c.moveTo(-s * 0.78, -s * 0.5); c.lineTo(0, -s * 0.72); c.lineTo(0, s * 0.28); c.lineTo(-s * 0.7, s * 0.1); c.closePath(); c.fill();
+      c.fillStyle = '#c78bff'; c.globalAlpha = 0.55;
+      c.beginPath(); c.moveTo(s * 0.78, -s * 0.5); c.lineTo(0, -s * 0.72); c.lineTo(0, s * 0.28); c.lineTo(s * 0.7, s * 0.1); c.closePath(); c.fill();
+      c.globalAlpha = 1;
+      c.fillStyle = '#e8c8ff';
+      c.beginPath(); c.moveTo(s * 0.95, -s * 0.95); c.lineTo(s * 1.35, -s * 0.6); c.lineTo(s * 0.98, -s * 0.45); c.closePath(); c.fill();
+    } else if (id === 'druid') {
+      c.strokeStyle = '#c9b48a'; c.lineWidth = Math.max(1.6, s * 0.15); c.lineCap = 'round';
+      for (const dir of [-1, 1]) {
+        c.beginPath(); c.moveTo(dir * s * 0.4, -s * 0.62);
+        c.quadraticCurveTo(dir * s * 0.85, -s * 1.35, dir * s * 0.55, -s * 1.75); c.stroke();
+        c.beginPath(); c.moveTo(dir * s * 0.66, -s * 1.12); c.lineTo(dir * s * 1.15, -s * 1.3); c.stroke();
+        c.beginPath(); c.moveTo(dir * s * 0.74, -s * 1.45); c.lineTo(dir * s * 1.1, -s * 1.72); c.stroke();
+      }
+      c.fillStyle = '#3f7a44'; c.fillRect(-s * 0.72, -s * 0.72, s * 1.44, s * 0.2);
+    } else if (id === 'deathknight') {
+      c.fillStyle = '#2a3f45';
+      c.beginPath(); c.arc(0, -s * 0.14, s * 0.8, Math.PI, 0); c.fill();
+      c.fillRect(-s * 0.8, -s * 0.2, s * 1.6, s * 0.42);
+      c.fillStyle = '#1b2a2e';
+      for (const dir of [-1, 1]) {
+        c.beginPath(); c.moveTo(dir * s * 0.72, -s * 0.62);
+        c.quadraticCurveTo(dir * s * 1.5, -s * 1.05, dir * s * 1.2, -s * 1.6);
+        c.quadraticCurveTo(dir * s * 1.1, -s * 1.05, dir * s * 0.6, -s * 0.78);
+        c.closePath(); c.fill();
+      }
+      c.fillStyle = '#8fd6d0'; c.fillRect(-s * 0.5, -s * 0.08, s * 1.0, s * 0.12);
+    } else if (id === 'necromancer') {
+      c.fillStyle = '#26332a';
+      c.beginPath();
+      c.moveTo(-s * 0.95, s * 0.15); c.quadraticCurveTo(-s * 1.05, -s * 1.1, 0, -s * 1.12);
+      c.quadraticCurveTo(s * 1.05, -s * 1.1, s * 0.95, s * 0.15);
+      c.quadraticCurveTo(s * 0.5, -s * 0.18, 0, -s * 0.22);
+      c.quadraticCurveTo(-s * 0.5, -s * 0.18, -s * 0.95, s * 0.15); c.closePath(); c.fill();
+      c.fillStyle = '#cfe6cf';
+      for (const dx of [-0.5, 0, 0.5]) {
+        c.beginPath();
+        c.moveTo(dx * s - s * 0.11, -s * 1.05); c.lineTo(dx * s, -s * 1.55); c.lineTo(dx * s + s * 0.11, -s * 1.05);
+        c.closePath(); c.fill();
+      }
+      c.fillStyle = '#9ae6a0';
+      c.beginPath(); c.arc(-s * 0.24, -s * 0.05, s * 0.1, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(s * 0.24, -s * 0.05, s * 0.1, 0, Math.PI * 2); c.fill();
+    } else if (id === 'pyromancer') {
+      c.fillStyle = '#6e2a12';
+      c.beginPath();
+      c.moveTo(-s * 0.92, s * 0.12); c.quadraticCurveTo(-s * 1.0, -s * 1.0, 0, -s * 1.04);
+      c.quadraticCurveTo(s * 1.0, -s * 1.0, s * 0.92, s * 0.12);
+      c.quadraticCurveTo(s * 0.5, -s * 0.16, 0, -s * 0.2);
+      c.quadraticCurveTo(-s * 0.5, -s * 0.16, -s * 0.92, s * 0.12); c.closePath(); c.fill();
+      const FLAMES = [[-0.42, 0.7, '#ff5a2c'], [0, 1.0, '#ff8a3d'], [0.42, 0.66, '#ffd24c']];
+      for (const f of FLAMES) {
+        c.fillStyle = f[2];
+        c.beginPath();
+        c.moveTo(f[0] * s - s * 0.2, -s * 0.98);
+        c.quadraticCurveTo(f[0] * s, -s * (1.0 + f[1]), f[0] * s + s * 0.2, -s * 0.98);
+        c.closePath(); c.fill();
+      }
     } else {
       c.fillStyle = '#6a5a44'; c.beginPath(); c.arc(0, -s * 0.34, s * 0.66, Math.PI, 0); c.fill();        // adventurer: simple hair
     }
@@ -402,7 +641,9 @@ const PlayerDef = (() => {
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
-      this.buffs = { shield: 0, rageT: 0, hasteT: 0 };
+      this.buffs = { shield: 0, rageT: 0, hasteT: 0, undyingT: 0 }; // #156 undyingT: the death knight's rune
+      this.form = null;          // #156 druid: current animal form (null = your own body)
+      this.undeadTier = 0;       // #156 necromancer: how much the grave gives back
 
       // evolution system: stacks per upgrade key + accumulated fx primitives
       this.upgradeStacks = {};    // per-CARD count (drives body-part visuals)
@@ -454,6 +695,14 @@ const PlayerDef = (() => {
       if (cls.magic) this.stats.magic = cls.magic + (meta?.ranks?.arcane || 0); // #88 Arcane boost stacks on a caster's base Magic
       if (cls.hp) { this.maxHp += cls.hp; this.hp = this.maxHp; }
       if (cls.fx) this.applyEvolution(cls.fx); // the perk folds into evo -> mod()
+
+      // #156 race: a smaller, always-on bias on top of the class, through the same mod()
+      // channel. Applied AFTER the class so a race's HP swing lands on the class's total
+      // (an Orc Warrior is +20 from the class and +15 from the blood, and both count).
+      const race = raceById(meta?.selectedRace);
+      this.race = race;
+      if (race.hp) { this.maxHp += race.hp; this.hp = this.maxHp; }
+      if (race.fx) this.applyEvolution(race.fx);
 
       // two FREE weapon slots - any mix (two swords is a fine build).
       // Tab / wheel / right-click to swap. Your class sets the starting weapon;
@@ -629,6 +878,7 @@ const PlayerDef = (() => {
     // one damage formula for every player attack: melee and arrows both route here
     computeDmg(base, target, g) {
       let dmg = base * this.stats.dmgMul * (1 + this.mod('dmg'));
+      if (this.form) dmg *= this.form.dmgMul;   // #156 druid form
       if (this.buffs.rageT > 0) dmg *= 1.35;
       if (this.mod('lowHpRage') && this.hp <= this.maxHp * 0.35) dmg *= 1 + this.mod('lowHpRage');
       if (target) {
@@ -655,6 +905,8 @@ const PlayerDef = (() => {
       // THE BINDING (Avarice) pays nothing in gold and everything in experience:
       // the penance teaches you, where the coin never did.
       if (g && g.rules && g.rules.xpMul !== 1) n = Math.round(n * g.rules.xpMul);
+      const xpBonus = this.mod('xpMult');   // #156 HUMAN: adaptable - you learn faster
+      if (xpBonus) n = Math.round(n * (1 + xpBonus));
       this.xp += n;
       while (this.xp >= this.xpToNext()) {
         this.xp -= this.xpToNext();
@@ -714,8 +966,27 @@ const PlayerDef = (() => {
         return;
       }
       // damage reduction from armor + evolutions (capped so nothing is free)
-      const reduce = Math.min(0.6, this.mod('reduce'));
+      // #156 the druid's form folds in here: Bear is armoured, Wolf and Owl are not.
+      const reduce = Math.min(0.6, this.mod('reduce') + ((this.form && this.form.reduce) || 0));
       dmg = dmg * (1 - reduce);
+
+      // #156 DEATH KNIGHT - LIFE AFTER DEATH. The rune eats the killing blow: you are
+      // left on 1 HP instead of dying, once per cast, and the room pays for it. Checked
+      // BEFORE hp is subtracted so it cannot be skipped by an overkill.
+      if (this.hp - dmg <= 0 && this.buffs.undyingT > 0) {
+        this.buffs.undyingT = 0;
+        this.hp = 1;
+        this.iframes = Math.max(this.iframes || 0, 1.2);
+        if (typeof Fx !== 'undefined') {
+          Fx.text(this.x, this.y - 44, 'DEATH OVER EVERYTHING', '#8fd6d0', 17);
+          Fx.burst(this.x, this.y, ['#8fd6d0', '#dff7f4', '#2a4a4e'], 46, { speed: 260, life: 0.9, glow: true });
+          Fx.shake(14, 0.45);
+        }
+        if (typeof Sfx !== 'undefined') Sfx.play('hitHeavy');
+        this.undyingBlast = true;   // main.js reads this and detonates the room
+        return;
+      }
+
       this.hp -= dmg;
       if (typeof Ach !== 'undefined') Ach.damaged(g); // #86 breaks the floor's no-hit streak
       if (g.vowIntact) g.vowIntact = false;           // THE VOW (encounters.js) is broken by one hit
@@ -810,6 +1081,7 @@ const PlayerDef = (() => {
       if (this.attackCd > 0) this.attackCd -= dt * (stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02);
       if (this.flash > 0) this.flash -= dt;
       if (this.momentumT > 0) this.momentumT -= dt;
+      if (this.buffs.undyingT > 0) this.buffs.undyingT -= dt; // #156
       if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
       if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
@@ -918,7 +1190,8 @@ const PlayerDef = (() => {
         // normal movement (momentum enchant gives a brief speed burst after kills);
         // cleared rooms grant a traversal boost so backtracking to doors is snappy
         const mom = this.momentumT > 0 ? 1.25 : 1;
-        const haste = this.buffs.hasteT > 0 ? 1.30 : 1;
+        const haste = (this.buffs.hasteT > 0 ? 1.30 : 1) * (this.form ? this.form.spdMul : 1); // #156 druid form
+
         // cleared-room traversal boost; and a STRONGER one when backtracking far (>3
         // rooms) from the nearest unexplored room, so long treks back are snappy (#34)
         const clear = !g.monsters.some(m => !m.dead);
@@ -1119,7 +1392,10 @@ const PlayerDef = (() => {
           const landed = m.takeHit(dmg, {
             sx: this.x, sy: this.y,
             knock: (Weapons.has(w, 'knockback') ? 260 : 90) + (w.archetype === 'heavy' ? 160 : 0),
-            flame: Weapons.has(w, 'fireaspect') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
+            // #156 PYROMANCER: everything you touch catches fire. burnOnHit feeds the
+            // SAME flame channel fire-aspect weapons use, so the burn DoT already in
+            // monsters.js applies with no new system.
+            flame: Weapons.has(w, 'fireaspect') || this.mod('burnOnHit') || (crit && this.mod('critBleed') ? this.mod('critBleed') : 0),
             chill: Weapons.has(w, 'frost'), venom: Weapons.has(w, 'venom'), chain: Weapons.has(w, 'chain'),
             stagger: w.stagger,
             execute: !!Weapons.has(w, 'executioner'),
@@ -1369,8 +1645,10 @@ const PlayerDef = (() => {
       capeAt(c, this.r, prestige, this.moving, this.x, this.capeWind.x, this.capeWind.y);
     }
 
-    // #52 the class's signature headwear/armor, in the fixed body frame
+    // #52 the class's signature headwear/armor, in the fixed body frame.
+    // #156 the RACE's face goes on first, so the class helm sits over it.
     drawClassFeature(c) {
+      drawRaceFeature(c, (this.race && this.race.id) || 'human', this.r);
       classFeature(c, (this.class && this.class.id) || '', this.r);
     }
 
@@ -1650,5 +1928,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById, capeAt, peerWeapon, classFeature, drawClassPortrait };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait };
 })();
