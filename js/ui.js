@@ -2007,6 +2007,28 @@ const UI = (() => {
     ].join('   ·   ');
     c.fillText(gear, cx, 472);
 
+    // #135 YOUR TOTALS (Sam): the raw derived combat numbers - crit chance, crit
+    // damage, spell power, move speed, regen, damage reduction. The Portrait redesign
+    // dropped these; they live in the empty far-left margin now, one per row, and every
+    // value is the REAL in-combat formula with trinket + evolutions + armour + pet all
+    // folded in (Evolutions.statTotals). This is the panel that answers "what are my
+    // actual numbers right now".
+    const totals = Evolutions.statTotals(p);
+    const tx = 22, tw = 150, tTop = 150;   // value column ends at 172, clear of the leftmost ring label (~188)
+    c.textAlign = 'left';
+    c.font = 'bold 11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('YOUR TOTALS', tx, tTop);
+    for (let i = 0; i < totals.length; i++) {
+      const y = tTop + 20 + i * 19;
+      c.font = '11px monospace'; c.fillStyle = '#8b93a3';
+      c.textAlign = 'left';
+      c.fillText(totals[i].label, tx, y);
+      c.font = 'bold 11px monospace'; c.fillStyle = '#e8e3f0';
+      c.textAlign = 'right';
+      c.fillText(totals[i].value, tx + tw, y);
+    }
+    c.textAlign = 'left';
+
     // ============================ THE RIGHT COLUMN ============================
     const rx = W - 330, rw = 300;
     c.strokeStyle = 'rgba(255,255,255,0.10)'; c.lineWidth = 1;

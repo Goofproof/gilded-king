@@ -376,6 +376,45 @@ const Evolutions = (() => {
     return { tag: 'STACKS', text: opt && opt.desc ? opt.desc : '', color: '#6ee7a0' };
   }
 
+  // The player's LIVE combat totals, as {label, value} pairs for the character sheet.
+  // The Portrait redesign dropped these and Sam wants them back. Every number here is
+  // the ACTUAL formula the engine uses in combat (verified against player.js), not a
+  // guess - so a stat card that says "42% crit" means you really crit 42% of the time,
+  // trinket and evolution and armour and pet all folded in.
+  //   damage      base * stats.dmgMul * (1 + mod dmg)        player.js:630
+  //   crit chance critBase 0.05 + stats.crit + mod critCh    player.js:639
+  //   crit mult   critMult 1.7 + mod critDmg                 player.js:640
+  //   atk speed   stats.atkSpeedMul + mod atkSpd             player.js:800
+  //   move        T.speed 205 * (stats.speedMul + mod spd)   player.js:912
+  //   spell       (1 + (magic-1)*0.08) * (1 + mod spellPower) player.js:1172
+  //   regen       stats.regen + mod regenFlat                player.js:811
+  //   reduce      min(0.6, mod reduce)  (HARD CAP)           player.js:716
+  function statTotals(p) {
+    const s = p.stats || {};
+    const pct = v => Math.round(v * 100) + '%';
+    const mag = p.magicLevel ? p.magicLevel() : (s.magic || 0);
+    const out = [
+      { label: 'Health',      value: `${Math.round(p.maxHp)}` },
+      { label: 'Damage',      value: `${pct(s.dmgMul * (1 + p.mod('dmg')))}` },
+      { label: 'Crit chance', value: pct(0.05 + (s.crit || 0) + p.mod('critCh')) },
+      { label: 'Crit damage', value: `${(1.7 + p.mod('critDmg')).toFixed(2)}x` },
+      { label: 'Attack speed', value: `${((s.atkSpeedMul || 1) + p.mod('atkSpd')).toFixed(2)}x` },
+      { label: 'Move speed',  value: pct((s.speedMul || 1) + p.mod('spd')) },
+      { label: 'HP regen',    value: `${((s.regen || 0) + p.mod('regenFlat')).toFixed(1)}/s` },
+      { label: 'Damage taken', value: `-${Math.round(Math.min(0.6, p.mod('reduce')) * 100)}%` },
+      { label: 'Coins',       value: pct((s.coinMul || 1) + p.mod('coin')) },
+    ];
+    // magic users get their spell numbers; nobody else has to look at them
+    if (mag > 1 || p.mod('spellPower') > 0) {
+      const spell = (1 + Math.max(0, mag - 1) * 0.08) * (1 + p.mod('spellPower'));
+      out.push({ label: 'Spell power', value: `${pct(spell)}` });
+      out.push({ label: 'Magic level', value: `${mag}` });
+    }
+    // only show thorns if you actually have any
+    if (p.mod('thorns') > 0) out.push({ label: 'Thorns', value: `${Math.round(p.mod('thorns'))}` });
+    return out;
+  }
+
   return { TABLE, STAT_NAMES, STAT_SCHOOL, SCHOOL_COLOR, TIER_LABEL, optionsFor, STATS, STAT_TREES,
-           STAT_COLOR, STAT_BLURB, STAT_OF, optionsForStat, THRESH, progressLine, verdictFor };
+           STAT_COLOR, STAT_BLURB, STAT_OF, optionsForStat, THRESH, progressLine, verdictFor, statTotals };
 })();
