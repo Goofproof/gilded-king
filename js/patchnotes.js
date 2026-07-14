@@ -26,8 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.22', title: 'Co-op: Weapons and Pause', date: '2026-07-14',
       sha: '4ac7b11',
       items: [
-        'Co-op: a paused player no longer freezes the whole party.',
-        'Co-op: gear snapshot cures the weapon desync (the reliability layer).',
+        'CO-OP: pausing no longer freezes everyone. When one player opens the menu, the world keeps running for the whole party (you cannot pause an online game). Solo play still pauses like normal.',
+        'CO-OP: weapons stop vanishing for one player. Dropped loot now heals itself across the party a few times a second, so a weapon that showed up for one of you but not the other will now show up for both.',
+        'More multiplayer fixes are coming. If co-op still looks glitchy, make sure both players have hard-refreshed to the latest version first.',
       ],
     },
     {
