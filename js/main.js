@@ -2321,6 +2321,13 @@
   function updateTitle() {
     if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
     if (g.prestigeConfirm > 0) g.prestigeConfirm -= 1 / 60; // an armed prestige-reset confirm expires
+    // #149 (Sam) a death-snapshot can be opened from the scoreboard OR the Top Raiders
+    // panel. Close it here so it works from either: click/Esc returns to whatever is
+    // underneath (the full board, or the title itself).
+    if (g.snapView) {
+      if (input.mouse.clicked || input.pressed('Escape')) { g.snapView = null; Sfx.play('ui'); }
+      return;
+    }
     if (g.showPatch) {
       // #76 arrow / page keys scroll the changelog (mouse wheel handled in the wheel listener)
       if (input.pressed('ArrowDown')) g.patchScroll = (g.patchScroll || 0) + 40;
@@ -2332,11 +2339,8 @@
       return;
     }
     if (g.showScores) {
-      // #102 death-snapshot popup sits on top of the scoreboard
-      if (g.snapView) {
-        if (input.mouse.clicked || input.pressed('Escape')) g.snapView = null;
-        return;
-      }
+      // #102 death-snapshot popup (opened from a row) is handled by the top-level
+      // g.snapView guard in this function, above.
       if (input.pressed('Escape')) { g.showScores = false; return; }
       if (input.mouse.clicked) {
         // click an underlined name -> open that fallen hero's snapshot
@@ -2401,6 +2405,11 @@
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
+          if (r.action === 'raiderSnap') { // #149 open a top-5 raider's loadout snapshot from the main page
+            const img = new Image(); img.src = r.snap.avatar || '';
+            g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap);
+            Sfx.play('ui'); return;
+          }
           if (r.action === 'patchnotes') { g.showPatch = true; g.patchScroll = 0; Sfx.play('ui'); }
           if (r.action === 'mythics') { g.showMythics = true; Sfx.play('ui'); }
           if (r.action === 'achievements') { g.showAchievements = true; g.achScroll = 0; g.overlayT = 0; Sfx.play('ui'); }

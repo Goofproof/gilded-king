@@ -898,9 +898,20 @@ const UI = (() => {
         c.fillText('loading...', px + 16, py + 58);
       } else {
         (g.scores || []).slice(0, 5).forEach((s, i) => {
+          const ry = py + 60 + i * 22;
           c.font = '11px monospace';
           c.fillStyle = i === 0 ? '#ffd24c' : '#9fb0c8';
-          c.fillText(`${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`, px + 16, py + 60 + i * 22);
+          const label = `${i + 1}. ${s.initials}  ${s.score}${s.won ? ' ♛' : ''}`;
+          c.fillText(label, px + 16, ry);
+          // #149 (Sam) top-5 raiders are clickable if they carry a loadout snapshot -
+          // opens that fallen hero's sheet right from the main page. A magnifier marks it.
+          const hasSnap = !!(s.snap && (s.snap.avatar || s.snap.className || (s.snap.weapons && s.snap.weapons.length) || (s.snap.evos && s.snap.evos.length)));
+          if (hasSnap) {
+            const w = c.measureText(label).width;
+            c.font = '10px monospace'; c.fillStyle = '#8a7340';
+            c.fillText('🔍', px + 22 + w, ry - 1);
+            rects.push({ x: px + 12, y: ry - 12, w: pw - 24, h: 18, action: 'raiderSnap', snap: s.snap, initials: s.initials });
+          }
         });
       }
       c.font = 'italic 10px monospace'; c.fillStyle = '#5a6478';
@@ -997,7 +1008,8 @@ const UI = (() => {
 
     // scoreboard overlay (+ #102 death-snapshot popup on top of it)
     if (g.showScores) drawScoreboard(c, g);
-    if (g.showScores && g.snapView) drawScoreSnap(c, g);
+    // #149 the snapshot can be opened from the Top Raiders panel too (no board underneath)
+    if (g.snapView) drawScoreSnap(c, g);
     // patch-notes overlay
     if (g.showPatch) drawPatchNotes(c, g);
     // #38: mythic collection gallery
