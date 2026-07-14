@@ -8,9 +8,13 @@
     "test:watch": "vitest",
     "notes": "node scripts/patchnotes.mjs",
     "ship": "node scripts/publish.mjs",
-    "postinstall": "git config core.hooksPath .githooks"
+    "postinstall": "git config core.hooksPath .githooks",
+    "deploy": "wrangler deploy -c server/wrangler.toml",
+    "preview": "wrangler dev -c server/wrangler.toml",
+    "deploy:check": "wrangler deploy -c server/wrangler.toml --dry-run"
   },
   "devDependencies": {
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "wrangler": "^4.110.0"
   }
 }
