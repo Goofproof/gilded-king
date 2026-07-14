@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.48';
+  const VERSION = 'v2.49';
 
   const NOTES = [
+    {
+      v: 'v2.49', title: 'See what you shifted into', date: '2026-07-14',
+      sha: 'a28fc68',
+      items: [
+        'You can now see which druid form you are in.',
+      ],
+    },
     {
       v: 'v2.48', title: 'Class descriptions you can actually read', date: '2026-07-14',
       sha: '56f901d',
