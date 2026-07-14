@@ -1454,52 +1454,58 @@ const UI = (() => {
     c.font = 'bold 20px monospace'; c.fillStyle = '#ffd24c';
     c.fillText(`${s.initials} · the fallen`, W / 2, py + 32);
 
-    // visage (rendered PNG captured at death), framed
-    const av = 110, ax = px + 28, ay = py + 52;
-    c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(ax, ay, av, av);
-    c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
-    if (s._img && s._img.complete && s._img.naturalWidth) {
-      c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
-    } else {
-      // #133 a GLOBAL score carries the loadout but not the portrait: the avatar is a
-      // multi-KB PNG and a hundred of them would burst the leaderboard's storage cap,
-      // so it stays local. Draw the class crest instead of an empty box.
-      c.save();
-      c.translate(ax + av / 2, ay + av / 2);
-      if (typeof PlayerDef !== 'undefined' && PlayerDef.drawClassPortrait && s.cls) {
-        try { PlayerDef.drawClassPortrait(c, s.cls, 30); } catch (e) { /* fall through to the crest */ }
-      } else {
-        c.strokeStyle = '#5a6478'; c.lineWidth = 2;
-        c.beginPath(); c.arc(0, -6, 16, 0, Math.PI * 2); c.stroke();
-        c.beginPath(); c.moveTo(-18, 14); c.quadraticCurveTo(0, 2, 18, 14); c.stroke();
-      }
-      c.restore();
-      c.textAlign = 'center';
-      c.font = '9px monospace'; c.fillStyle = '#5a6478';
-      c.fillText('no portrait on the global board', ax + av / 2, ay + av - 6);
-      c.textAlign = 'left';
-    }
-
-    // headline facts beside the portrait
-    c.textAlign = 'left';
-    const hx = ax + av + 22; let hy = ay + 20;
-    // #150 (Sam) OLDER global snapshots predate some of these fields (dmgMul/spdMul/
-    // crit/coinMul/magic and the headline counts). Default every one so a legacy entry
-    // shows a sane value instead of NaN% / "undefined".
+    // #150 default every possibly-missing field (legacy snaps predate some) so nothing
+    // renders as NaN / "undefined".
     const num = (v, d) => (Number.isFinite(+v) ? +v : d);
     const level = s.level != null ? s.level : '?', floorN = s.floor != null ? s.floor : '?';
     const maxHpTxt = s.maxHp != null ? s.maxHp : '?';
-    c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
-    c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 22;
-    c.font = '13px monospace'; c.fillStyle = '#c8d2e0';
-    c.fillText(`Level ${level}  ·  fell on floor ${floorN}`, hx, hy); hy += 20;
-    c.fillStyle = '#ffd24c'; c.fillText(`${num(s.essence, 0)} essence banked`, hx, hy); hy += 20;
-    c.fillStyle = '#9fb0c8';
-    c.fillText(`${num(s.kills, 0)} kills  ·  ${num(s.coins, 0)} gold`, hx, hy); hy += 20;
-    c.fillText(`${maxHpTxt} max HP`, hx, hy);
+    const hasAvatar = !!(s._img && s._img.complete && s._img.naturalWidth);
+    let topBottom; // y where the top block ends and the STATS section begins
+
+    if (hasAvatar) {
+      // LOCAL run: the rendered visage, framed, headline facts beside it.
+      const av = 110, ax = px + 28, ay = py + 52;
+      c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(ax, ay, av, av);
+      c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
+      c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
+      c.textAlign = 'left';
+      const hx = ax + av + 22; let hy = ay + 20;
+      c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
+      c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 22;
+      c.font = '13px monospace'; c.fillStyle = '#c8d2e0';
+      c.fillText(`Level ${level}  ·  fell on floor ${floorN}`, hx, hy); hy += 20;
+      c.fillStyle = '#ffd24c'; c.fillText(`${num(s.essence, 0)} essence banked`, hx, hy); hy += 20;
+      c.fillStyle = '#9fb0c8';
+      c.fillText(`${num(s.kills, 0)} kills  ·  ${num(s.coins, 0)} gold`, hx, hy); hy += 20;
+      c.fillText(`${maxHpTxt} max HP`, hx, hy);
+      topBottom = ay + av;
+    } else {
+      // #151 (Sam) GLOBAL raider: no portrait is stored, so we sing them a Homeric
+      // eulogy built from their own run (weapon, signature stat, ultimate). A laurel, a
+      // compact headline, then the verse - filling the space the face used to be blank in.
+      c.save(); c.translate(px + 42, py + 74); c.globalAlpha = 0.85;
+      c.strokeStyle = '#c9a227'; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, 14, Math.PI * 0.55, Math.PI * 1.45); c.stroke();
+      c.beginPath(); c.arc(0, 0, 14, -Math.PI * 0.45, Math.PI * 0.45); c.stroke();
+      c.restore(); c.globalAlpha = 1;
+      c.textAlign = 'left';
+      let hy = py + 68;
+      c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
+      c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, px + 70, hy); hy += 20;
+      c.font = '12px monospace'; c.fillStyle = '#9fb0c8';
+      c.fillText(`Lv ${level} · floor ${floorN} · ${num(s.essence, 0)} essence · ${num(s.kills, 0)} kills`, px + 70, hy);
+      let py2 = py + 116;
+      const poem = (typeof Eulogy !== 'undefined') ? Eulogy.forSnap(s) : null;
+      if (poem && poem.length) {
+        c.textAlign = 'center'; c.fillStyle = '#a9b6cf'; c.font = 'italic 12.5px monospace';
+        for (const line of poem) { c.fillText(line, W / 2, py2); py2 += 18; }
+        c.textAlign = 'left';
+      }
+      topBottom = py2 + 2;
+    }
 
     // stat line - split across two rows so a full build never runs off the panel
-    let y = ay + av + 30;
+    let y = topBottom + 22;
     c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227'; c.fillText('STATS', px + 28, y); y += 18;
     c.font = '12px monospace'; c.fillStyle = '#b7c2d4';
     const dmgPct = Math.round((num(s.dmgMul, 1) - 1) * 100), spdPct = Math.round((num(s.spdMul, 1) - 1) * 100), coinPct = Math.round((num(s.coinMul, 1) - 1) * 100);
