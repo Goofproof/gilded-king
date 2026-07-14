@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.24';
+  const VERSION = 'v2.25';
 
   const NOTES = [
+    {
+      v: 'v2.25', title: 'Machine Gun Sound', date: '2026-07-14',
+      sha: '5cdf7de',
+      items: [
+        'Audio: the machine-gunner sounds like a machine gun, not a bow (Sam).',
+      ],
+    },
     {
       v: 'v2.24', title: 'Enchant Table Moved', date: '2026-07-14',
       sha: 'eebcb3a',
