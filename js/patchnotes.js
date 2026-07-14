@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.45', title: 'The descent is now a real gauntlet', date: '2026-07-14',
       sha: '3d92d1e',
       items: [
-        'Descent scaling: the Inferno as a filter for the top raiders (Sam, #12).',
+        'The descent is a real gauntlet now. The deeper you go into Hell, the tougher the enemies get, and by the frozen lake at the very bottom it is brutal, so reaching the end of the Inferno is a genuine badge of honor only the best will earn. And here is the twist: grinding levels does NOT make it easier. The dungeon watches how high your level is and matches you, so piling on levels just makes the monsters tougher too. The only way to break through is a truly great build, not a big level number. (These numbers are a first pass and will get tuned.)',
       ],
     },
     {
