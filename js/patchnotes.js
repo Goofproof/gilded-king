@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.26', title: 'Overcharge', date: '2026-07-14',
       sha: '66d57a8',
       items: [
-        'Shards: OVERCHARGE honing gives them an endless sink (Sam).',
+        'SHARDS NEVER RUN OUT OF A USE. Honing your weapon used to stop at 5 and then your shards just piled up with nowhere to go. Now you can keep going past 5 as OVERCHARGE: a smaller boost each time, for a cost that climbs forever. So it is always worth breaking down the loot you leave behind.',
+        'The hone prompt is clearer too: it now reads like an action and its price instead of a mystery number.',
       ],
     },
     {
