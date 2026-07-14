@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.41';
+  const VERSION = 'v2.42';
 
   const NOTES = [
+    {
+      v: 'v2.42', title: 'Fix black screen when looking at a trinket in a shop', date: '2026-07-14',
+      sha: '0894853',
+      items: [
+        'Fix black-screen crash when viewing a trinket for sale (Sam).',
+      ],
+    },
     {
       v: 'v2.41', title: 'Eulogy sits beside the portrait and names the place they fell', date: '2026-07-14',
       sha: 'ed6cad6',
