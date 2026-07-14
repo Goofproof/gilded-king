@@ -22,9 +22,25 @@ if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
   exit 0
 fi
 
-# game files changed since the last entry (the notes file itself does not count)
-changed=$(git diff --name-only "$sha"..HEAD -- js index.html style.css assets server \
-          | grep -v '^js/patchnotes\.js$')
+# Game files changed since the last entry (the notes file itself does not count).
+#
+# A commit whose subject carries [skip-notes] is EXEMPT - and it has to be, or the
+# guard is unpassable for work that is genuinely invisible to a player (a comment, a
+# typo, a test-only refactor of a js/ file). The notes GENERATOR already filters
+# those commits out; the hook did not know about them, so a chore commit touching js/
+# could only ever be pushed by inventing a version nobody needed. That is not a
+# guarantee, it is a tax.
+#
+# The bar is unchanged: a change is either IN THE NOTES, or it explicitly declares
+# itself invisible. It can never be silent by accident, which is the whole point.
+changed=$(
+  for cmt in $(git rev-list "$sha"..HEAD); do
+    case "$(git log -1 --format=%s "$cmt")" in
+      *"[skip-notes]"*) continue ;;
+    esac
+    git show --name-only --format= "$cmt" -- js index.html style.css assets server
+  done | grep -v '^js/patchnotes\.js$' | sort -u
+)
 
 if [ -n "$changed" ]; then
   echo "" >&2

@@ -926,7 +926,7 @@ const UI = (() => {
       dockBadge(c, rects, 349, 'achievements', '#ffd24c', '#c9a227', iconTrophy, `${Ach.earnedCount(g)}/${Ach.total()}`, 'ACCOLADES');
     }
     // HIGH SCORES (opens the full board, which hosts the top-5 too)
-    const topScore = (g.scoresReady && g.scores && g.scores[0]) ? `${g.scores[0].score}` : '—';
+    const topScore = (g.scoresReady && g.scores && g.scores[0]) ? `${g.scores[0].score}` : '-';
     dockBadge(c, rects, 487, 'scores', '#ffd24c', '#c9a227', iconStar, topScore, 'HIGH SCORES');
     // PATCH NOTES
     if (typeof PatchNotes !== 'undefined') {
@@ -1132,11 +1132,11 @@ const UI = (() => {
     };
 
     c.textAlign = 'left'; c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227';
-    c.fillText('YOUR ENCHANTS — click one to replace', leftX, y0 - 12);
+    c.fillText('YOUR ENCHANTS · click one to replace', leftX, y0 - 12);
     (w.enchants || []).forEach((en, i) => row(leftX, i, en, e.slotSel === i, 'ench-slot'));
 
     c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227';
-    c.fillText('OFFERED — click one to apply', rightX, y0 - 12);
+    c.fillText('OFFERED · click one to apply', rightX, y0 - 12);
     e.offers.forEach((of, i) => row(rightX, i, of, e.offerSel === i, 'ench-offer', (x, y) => {
       const cost = eCost(of), afford = p.coins >= cost.gold && p.shards >= cost.shards;
       c.textAlign = 'right'; c.font = 'bold 11px monospace'; c.fillStyle = afford ? '#ffd24c' : '#e05555';
@@ -1177,7 +1177,7 @@ const UI = (() => {
     c.font = 'bold 16px monospace'; c.fillStyle = '#ffb0b0';
     c.fillText((e.brokeName || 'Your weapon') + ' broke apart on the table', W / 2, H / 2 + 32);
     c.font = '14px monospace'; c.fillStyle = '#e08a8a';
-    c.fillText('A 1-in-200 catastrophe — and it found YOU.', W / 2, H / 2 + 58);
+    c.fillText('A 1-in-200 catastrophe, and it found YOU.', W / 2, H / 2 + 58);
     c.font = 'italic 13px monospace'; c.fillStyle = '#8a5a5a';
     c.fillText('the forge kept your gold. unlucky.', W / 2, H / 2 + 82);
     c.restore();
