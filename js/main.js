@@ -247,6 +247,7 @@
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
+    dropTrinketPickup(t, x, y) { this.pickups.push({ kind: 'trinketItem', trinket: t, x, y, t: 0 }); }, // #134
     recordMythic(item) { recordMythic(item); },
     saveMeta() { saveMeta(); }, // #86 lets the achievements module persist unlocks
   };
@@ -574,7 +575,12 @@
         { kind: 'weapon', weapon: Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.5 }), x: PF.x + 660, y: PF.y + 160 },
         { kind: 'armor', armor: Weapons.rollArmor(tier, { minRarity: 1 }), x: PF.x + 120, y: PF.y + 320 },
         { kind: 'potion', x: PF.x + 320, y: PF.y + 320 },
-        { kind: 'reroll', x: PF.x + 540, y: PF.y + 320 },
+        // #134 the sixth shop slot is usually a reroll, but ~40% of the time it is a
+        // TRINKET instead - a rare, real decision for the fourth slot, excluding one
+        // you already carry. This is the main way you find trinkets.
+        (Math.random() < 0.4
+          ? { kind: 'trinket', trinket: Trinkets.rollTrinket({ exclude: g.player && g.player.trinket ? [g.player.trinket.key] : [] }), x: PF.x + 540, y: PF.y + 320 }
+          : { kind: 'reroll', x: PF.x + 540, y: PF.y + 320 }),
       ],
       rerolls: 0,
       // #50 the shopkeeper you can haggle with (once per shop). Position matches
@@ -588,6 +594,7 @@
     for (const it of room.shopStock.items) {
       if (it.kind === 'weapon') it.price = it.weapon.price;
       if (it.kind === 'armor') it.price = it.armor.price;
+      if (it.kind === 'trinket') it.price = it.trinket.price; // #134
       if (it.kind === 'potion') it.price = POTION_PRICE;
       if (it.kind === 'reroll') it.price = REROLL_BASE;
     }
@@ -960,6 +967,7 @@
       evos: (p.evoTaken || []).map(e => e.name).slice(0, 8),
       weapons: [nm(p.weapons && p.weapons.a), nm(p.weapons && p.weapons.b)].filter(Boolean),
       armor: nm(p.armor),
+      trinket: p.trinket ? p.trinket.name : null,   // #134 the fourth slot, on the leaderboard too
       q: p.ability && p.ability.name, r: p.abilityR && p.abilityR.name, ult: p.abilityUlt && p.abilityUlt.name,
     };
   }
@@ -1222,6 +1230,7 @@
     for (const pk of g.pickups) {
       if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
       if (pk.kind === 'armorItem') consider(pk.x, pk.y, { kind: 'armorPickup', pk });
+      if (pk.kind === 'trinketItem') consider(pk.x, pk.y, { kind: 'trinketPickup', pk });
     }
     if ((g.room.type === 'shop' || g.room.type === 'mythicshop') && g.room.shopStock) {
       for (const it of g.room.shopStock.items) if (!it.sold) consider(it.x, it.y, { kind: 'shopItem', it });
@@ -1338,6 +1347,11 @@
       consumeGear(t.pk); // #96 despawn this drop for the whole party
     }
 
+    if (t.kind === 'trinketPickup') {   // #134 the fourth slot
+      p.equipTrinket(t.pk.trinket, g);
+      consumeGear(t.pk);
+    }
+
     if (t.kind === 'shopItem') {
       const it = t.it, stock = g.room.shopStock;
       if (p.coins < it.price) {
@@ -1352,6 +1366,10 @@
       } else if (it.kind === 'armor') {
         p.coins -= it.price; it.sold = true;
         p.equipArmor(it.armor, g);
+        Sfx.play('buy');
+      } else if (it.kind === 'trinket') {   // #134 the fourth slot
+        p.coins -= it.price; it.sold = true;
+        p.equipTrinket(it.trinket, g);
         Sfx.play('buy');
       } else if (it.kind === 'potion') {
         if (p.hp >= p.maxHp) { g.shopMsg = { text: 'Already at full health', t: 1.2 }; Sfx.play('error'); return; }
@@ -1634,7 +1652,10 @@
     if (a.hasteAfter) p.buffs.hasteT = Math.max(p.buffs.hasteT, a.hasteAfter);
     Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, a.ult ? 17 : 14);
     if (a.ult) Fx.shake(9, 0.35);
-    a.cd = a.cdMax;
+    // #134 ANTIKYTHERA GEAR: the two-thousand-year-old machine still turns, and your
+    // powers turn with it. Applied here, at the ONE place a cooldown is armed.
+    const haste = p.trinketFlag('abilityHaste') ? (p.trinket.abilityCd || 0) : 0;
+    a.cd = a.cdMax * (1 - haste);
     // #78 the summon's cooldown does NOT run while the elemental lives - it starts the
     // moment the elemental dies (killSummon sets a.cd). Until then Q is gated, not on cd.
     if (a.kind === 'summon') a.cd = 0;
@@ -1649,7 +1670,7 @@
 
   function salvageNearest() {
     const t = nearestInteractable();
-    if (!t || (t.kind !== 'weaponPickup' && t.kind !== 'armorPickup')) return;
+    if (!t || (t.kind !== 'weaponPickup' && t.kind !== 'armorPickup' && t.kind !== 'trinketPickup')) return;
     const item = t.pk.weapon || t.pk.armor;
     const val = SHARD_VALUE[item.rarIdx] || 1;
     g.player.shards += val;
@@ -3077,6 +3098,17 @@
     }
 
     for (const m of g.monsters) if (!m.dead) { m.update(dt, g); if (g.rules) g.rules.monster(m, dt, g); }
+    // #134 NEWTON'S APPLE: everything is pulled gently toward you. A weak, constant tug
+    // (not a yank) so you can line a room up along your swing - and so the enemies also
+    // arrive sooner than they meant to, which is the apple's price.
+    if (g.player && !g.player.dead && g.player.trinketFlag('gravity')) {
+      const p = g.player;
+      for (const m of g.monsters) {
+        if (m.dead || m.isBoss || m.spawnT > 0) continue;
+        const dx = p.x - m.x, dy = p.y - m.y, d = Math.hypot(dx, dy);
+        if (d > 40 && d < 420) { const pull = 34 * dt; m.x += dx / d * pull; m.y += dy / d * pull; }
+      }
+    }
     updateMercs(dt);
     updateProjectiles(dt);
     updatePickups(dt);
@@ -3532,7 +3564,15 @@
         const sp = Math.hypot(pr.vx, pr.vy);
         pr.vx = Math.cos(a) * sp; pr.vy = Math.sin(a) * sp;
       }
-      pr.x += pr.vx * dt; pr.y += pr.vy * dt;
+      // #134 ZENO'S ARROW: to reach you, the arrow must first come half way. An enemy
+      // shot inside 150px of you crawls toward half speed - which does not STOP it, it
+      // just gives you the time to not be standing there. Your own shots are untouched.
+      let zeno = 1;
+      if (pr.from === 'enemy' && p && p.trinketFlag('zeno')) {
+        const d = Math.hypot(pr.x - p.x, pr.y - p.y);
+        if (d < 150) zeno = 0.5 + 0.5 * (d / 150);   // 1.0 at the edge, 0.5 point-blank
+      }
+      pr.x += pr.vx * dt * zeno; pr.y += pr.vy * dt * zeno;
       pr.life -= dt;
       if (pr.homing !== undefined) Fx.burst(pr.x, pr.y, [pr.color, '#fff'], 1, { speed: 12, life: 0.25, glow: true, size: 2 });
       // enchant trail on player arrows (fire streaks behind a Flame arrow, etc.)
@@ -3760,7 +3800,7 @@
     for (let i = g.pickups.length - 1; i >= 0; i--) {
       const pk = g.pickups[i];
       pk.t += dt;
-      if (pk.kind === 'weapon' || pk.kind === 'armorItem') continue; // gear sits still; E to pick up
+      if (pk.kind === 'weapon' || pk.kind === 'armorItem' || pk.kind === 'trinketItem') continue; // gear sits still; E to pick up
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
@@ -5036,6 +5076,7 @@
 
       if (it.kind === 'weapon') drawWeaponGlyph(c, it.weapon, it.x, it.y - 18, 1.1);
       if (it.kind === 'armor') drawArmorGlyph(c, it.armor, it.x, it.y - 18, 1.1);
+      if (it.kind === 'trinket') drawTrinketGlyph(c, it.trinket, it.x, it.y - 18, 1.4);
       if (it.kind === 'potion') {
         c.fillStyle = '#e05555';
         c.beginPath(); c.arc(it.x, it.y - 14, 9, 0, Math.PI * 2); c.fill();
@@ -5145,7 +5186,27 @@
       drawWeaponGlyph(c, pk.weapon, pk.x, pk.y + bobY, 1);
     } else if (pk.kind === 'armorItem') {
       drawArmorGlyph(c, pk.armor, pk.x, pk.y + bobY, 1);
+    } else if (pk.kind === 'trinketItem') {
+      drawTrinketGlyph(c, pk.trinket, pk.x, pk.y + bobY, 1);
     }
+  }
+
+  // #134 a trinket on the ground: a small faceted gem in the trinket's colour, on a
+  // slow spin, so it reads as "a rare little thing" and not as another sword or vest.
+  function drawTrinketGlyph(c, t, x, y, s) {
+    c.save();
+    c.translate(x, y);
+    c.scale(s, s);
+    c.rotate(Math.sin(g.time * 1.5 + x) * 0.2);
+    c.shadowColor = t.color; c.shadowBlur = 10;
+    c.fillStyle = t.color;
+    c.beginPath();
+    c.moveTo(0, -9); c.lineTo(7, -2); c.lineTo(4, 8); c.lineTo(-4, 8); c.lineTo(-7, -2);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = 'rgba(255,255,255,0.55)';   // a lit facet
+    c.beginPath(); c.moveTo(0, -9); c.lineTo(7, -2); c.lineTo(0, 0); c.closePath(); c.fill();
+    c.restore();
   }
 
   function drawInteractPrompt(c) {
@@ -5155,6 +5216,8 @@
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
     if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12,20][t.pk.weapon.rarIdx]}◈`; }
     if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
+    if (t.kind === 'trinketPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip ${t.pk.trinket.name}`; } // #134 (the info card shows the gift/price)
+    if (t.kind === 'encounter') { x = t.e.x; y = t.e.y - 34; label = 'E to interact'; } // the quest giver (Sam)
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
     if (t.kind === 'enchantTable') { x = t.et.x; y = t.et.y - 34; label = 'E - enchant weapon (swap an enchant)'; }
@@ -5177,7 +5240,24 @@
     if (t.kind === 'shopItem' && t.it.kind === 'weapon') w = t.it.weapon;
     if (t.kind === 'shopItem' && t.it.kind === 'armor') w = t.it.armor;
     if (w) drawGearCard(c, w, x, y);
+    // #134 the trinket card: its gift, its price, and the story, BEFORE you commit -
+    // because a trinket is a decision and you should get to read it first.
+    let tr = null;
+    if (t.kind === 'trinketPickup') tr = t.pk.trinket;
+    if (t.kind === 'shopItem' && t.it.kind === 'trinket') tr = t.it.trinket;
+    if (tr) drawTrinketCard(c, tr, x, y);
     c.restore();
+  }
+
+  function drawTrinketCard(c, tr, anchorX, anchorY) {
+    const lines = [
+      { text: tr.name, color: tr.color, bold: true },
+      { text: 'Trinket · the fourth slot', color: '#8fa3bf' },
+      { text: tr.gift, color: '#6ee7a0' },
+      { text: tr.price, color: '#e0894a' },
+      ...(tr.lore ? [{ text: `"${tr.lore}"`, color: '#9a8f7a', italic: true }] : []),
+    ];
+    drawGearCardLines(c, lines, anchorX, anchorY);
   }
 
   // a hovering stat card for a weapon or armor item, anchored above (anchorX, anchorY)
@@ -5195,6 +5275,12 @@
       })),
       ...(w.flavor ? [{ text: `"${w.flavor}"`, color: '#9a8f7a', italic: true }] : []),
     ];
+    drawGearCardLines(c, lines, anchorX, anchorY);
+  }
+
+  // #134 the box-rendering half of the gear card, split out so the trinket card
+  // (drawTrinketCard) and the weapon/armour card share the exact same wrap + layout.
+  function drawGearCardLines(c, lines, anchorX, anchorY) {
     const cw = 262, pad = 10, maxTextW = cw - pad * 2, lh = 15;
     c.save();
     // wrap every raw line to the box width, using each line's own font, so long
@@ -5218,7 +5304,9 @@
     cy = Math.max(8, Math.min(cy, H - chh - 8)); // never spill off the bottom either
     c.fillStyle = 'rgba(8,8,16,0.94)';
     c.fillRect(cx, cy, cw, chh);
-    c.strokeStyle = w.color; c.lineWidth = 1.5;
+    // the border wears the title's colour (the first line is always the item name in
+    // its own colour) - drawGearCardLines no longer has the item object itself.
+    c.strokeStyle = (lines[0] && lines[0].color) || '#b88aff'; c.lineWidth = 1.5;
     c.strokeRect(cx, cy, cw, chh);
     c.textAlign = 'left';
     render.forEach((l, i) => { c.font = l.font; c.fillStyle = l.color; c.fillText(l.text, cx + pad, cy + 16 + i * lh); });

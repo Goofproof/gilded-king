@@ -99,8 +99,41 @@ function slimSnap(s) {
 
 // A single Durable Object holds the global top-100 scores in persistent storage.
 export class Leaderboard {
-  constructor(state) { this.state = state; }
+  // env, so we can read the ADMIN_KEY secret. Set it with:
+  //     npx wrangler secret put ADMIN_KEY -c server/wrangler.toml
+  constructor(state, env) { this.state = state; this.env = env; }
   async fetch(request) {
+    // ---------------------------------------------------------------- ADMIN
+    // DELETE /scores, authenticated with the ADMIN_KEY secret in an x-admin-key
+    // header. Removes ONE entry by exact (initials, score) match.
+    //
+    // This exists because I tested the loadout field against production instead of
+    // `wrangler dev` and left a junk row on Sam's real board. The obvious fix - a
+    // plain unauthenticated purge - would have been a hole anyone on the internet
+    // could reach, which is a far worse thing than the row it was cleaning up. So it
+    // is gated on a secret that lives only in Cloudflare, and it fails CLOSED: no
+    // secret configured means no deletes, ever.
+    if (request.method === 'DELETE') {
+      const key = this.env && this.env.ADMIN_KEY;
+      if (!key) return json({ error: 'no ADMIN_KEY configured - deletes are disabled' }, 503);
+      const given = request.headers.get('x-admin-key') || '';
+      // constant-time-ish: compare full length, never bail early on first mismatch
+      let ok = given.length === key.length;
+      for (let i = 0; i < key.length; i++) ok = ok && given.charCodeAt(i) === key.charCodeAt(i);
+      if (!ok) return json({ error: 'forbidden' }, 403);
+
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const ini = String(b.initials || '').toUpperCase();
+      const sc = Math.round(Number(b.score));
+      if (!ini || !isFinite(sc)) return json({ error: 'need {initials, score}' }, 400);
+
+      let list = (await this.state.storage.get('scores')) || [];
+      const before = list.length;
+      list = list.filter(x => !(x.initials === ini && x.score === sc));
+      await this.state.storage.put('scores', list);
+      return json({ removed: before - list.length, top: list.slice(0, 50) });
+    }
+
     if (request.method === 'POST') {
       let s; try { s = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!s || typeof s.score !== 'number' || !isFinite(s.score)) return json({ error: 'bad score' }, 400);

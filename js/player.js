@@ -424,6 +424,9 @@ const PlayerDef = (() => {
       this.armor = null;          // armor item (weapons.js rollArmor)
       this.armorMods = {};        // derived from the equipped armor
       this.phoenixUsed = false;
+      // #134 THE FOURTH SLOT: a trinket. One gift, one price (trinkets.js).
+      this.trinket = null;
+      this.trinketMods = {};      // derived from the equipped trinket
 
       // pet (Descent reward): one at a time, a passive buff folded into mod()
       this.pet = null;
@@ -491,7 +494,12 @@ const PlayerDef = (() => {
     turretMax() { return Math.min(5, 1 + Math.floor(this.level / 5)); }
 
     // --- evolution / armor helpers ------------------------------------------
-    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0) + (this.petMods[key] || 0); }
+    // #134 the trinket folds into the SAME sum as everything else, so it composes with
+    // evolutions, armour and pets for free - and so a trinket's PRICE (a negative mod)
+    // can genuinely be dug out of by the rest of your build, which is the whole point.
+    mod(key) { return (this.evo[key] || 0) + (this.armorMods[key] || 0) + (this.petMods[key] || 0) + (this.trinketMods[key] || 0); }
+    // does the equipped trinket carry this behaviour flag?
+    trinketFlag(f) { return !!(this.trinket && this.trinket.flag === f); }
     // #16 your Magic stat - base + any from evolutions/armor. Gates wielding wands/staffs.
     magicLevel() { return (this.stats.magic || 0) + this.mod('magic'); }
     canWield(w) { return !w || !w.magicReq || this.magicLevel() >= w.magicReq; }
@@ -573,6 +581,48 @@ const PlayerDef = (() => {
       Sfx.play('pickup');
       Fx.text(this.x, this.y - 26, Weapons.displayName(a), a.color, 12);
       if (a.mythic && g.recordMythic) g.recordMythic(a);
+    }
+
+    // #134 THE FOURTH SLOT. Swapping a trinket must be perfectly reversible, and the
+    // reason is maxHpPct: several trinkets pay for their gift with a slice of your
+    // maximum health, and maxHpPct is NOT one of the summed mod keys - the engine
+    // applies it once, as a one-shot change to maxHp (see applyEvolution). So if we
+    // just re-derived mods on every swap, picking a trinket up and putting it down
+    // three times would permanently drain you to nothing.
+    //
+    // We therefore remember exactly how much health THIS trinket took (trinketHpDelta)
+    // and give it all back before applying the next one.
+    equipTrinket(t, g) {
+      const old = this.trinket;
+
+      // 1. undo the outgoing trinket's health cost, exactly
+      const back = this.trinketHpDelta || 0;
+      if (back) {
+        this.maxHp -= back;                       // back is negative for a cost, so this ADDS it back
+        this.hp = Math.min(this.hp - back, this.maxHp);
+      }
+      this.trinketHpDelta = 0;
+
+      this.trinket = t;
+      this.trinketMods = Object.assign({}, t.mods || {});
+
+      // 2. apply the incoming one's health cost, and remember it
+      const pct = this.trinketMods.maxHpPct;
+      if (pct) {
+        delete this.trinketMods.maxHpPct;         // it is a one-shot, not a summed mod
+        const delta = Math.round(this.maxHp * pct);
+        this.maxHp += delta;
+        this.hp += delta;
+        this.trinketHpDelta = delta;
+      }
+      // never let a trinket kill you outright on pickup
+      this.maxHp = Math.max(10, this.maxHp);
+      this.hp = Math.max(1, Math.min(this.hp, this.maxHp));
+
+      if (old) g.dropTrinketPickup(old, this.x, this.y + 30);
+      Sfx.play('upgrade');
+      Fx.text(this.x, this.y - 26, t.name, t.color, 13);
+      Fx.burst(this.x, this.y, [t.color, '#fff'], 22, { speed: 160, life: 0.7, glow: true });
     }
 
     // one damage formula for every player attack: melee and arrows both route here
@@ -690,8 +740,12 @@ const PlayerDef = (() => {
       const a = Math.atan2(this.y - sy, this.x - sx);
       this.vx += Math.cos(a) * 180; this.vy += Math.sin(a) * 180;
       if (this.hp <= 0) {
+        // #134 PASCAL'S WAGER: you bet everything on the upside, so there is no hedge -
+        // no Lazarus, no Phoenix, no second chance of any kind. If the wager is wrong,
+        // it is wrong all the way.
+        const noHedge = this.trinketFlag('noSecondChance');
         // Lazarus Taxon (evolution), then Phoenix Plume (armor): cheat death
-        if (this.evo.lifeline > this.lifelineUsed) {
+        if (!noHedge && this.evo.lifeline > this.lifelineUsed) {
           this.lifelineUsed++;
           this.hp = 1;
           this.iframes = 1.5;
@@ -700,7 +754,7 @@ const PlayerDef = (() => {
           Fx.burst(this.x, this.y, ['#6ee7a0', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
           return;
         }
-        if (this.armorMods.phoenix && !this.phoenixUsed) {
+        if (!noHedge && this.armorMods.phoenix && !this.phoenixUsed) {
           this.phoenixUsed = true;
           this.hp = Math.round(this.maxHp * 0.3);
           this.iframes = 1.5;

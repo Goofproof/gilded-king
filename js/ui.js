@@ -167,10 +167,12 @@ const UI = (() => {
       }
     }
 
-    // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot
+    // weapon slots (bottom-left) - two free slots, any mix - the armor slot, and #134
+    // the fourth: the trinket slot.
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
     drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
     drawArmorSlot(c, p.armor, 110, H - 106);
+    drawTrinketSlot(c, p.trinket, 158, H - 106);
     // MOBILE: there is no Tab, no F and no Q key, and the touch buttons already show
     // the abilities WITH their cooldowns (touch.js). Showing keyboard hints and a
     // second set of ability badges to a phone is just clutter sitting under the
@@ -334,6 +336,35 @@ const UI = (() => {
     c.restore();
   }
 
+  // #134 the fourth slot: a trinket, drawn as a small faceted gem in its own colour so
+  // it never reads as another vest. Empty slots say 'trinket' so a new player knows the
+  // slot exists and is waiting to be filled.
+  function drawTrinketSlot(c, t, x, y) {
+    c.save();
+    c.globalAlpha = 0.85;
+    c.fillStyle = 'rgba(0,0,0,0.6)';
+    c.fillRect(x, y, 42, 42);
+    c.strokeStyle = t ? t.color : '#444';
+    c.lineWidth = 1.5;
+    c.strokeRect(x, y, 42, 42);
+    if (t) {
+      c.translate(x + 21, y + 21);
+      c.shadowColor = t.color; c.shadowBlur = 8;
+      c.fillStyle = t.color;
+      c.beginPath();
+      c.moveTo(0, -11); c.lineTo(9, -3); c.lineTo(5, 10); c.lineTo(-5, 10); c.lineTo(-9, -3);
+      c.closePath(); c.fill();
+      c.shadowBlur = 0;
+      c.fillStyle = 'rgba(255,255,255,0.5)';
+      c.beginPath(); c.moveTo(0, -11); c.lineTo(9, -3); c.lineTo(0, 0); c.closePath(); c.fill();
+    } else {
+      c.fillStyle = '#3a3f4d';
+      c.font = '9px monospace'; c.textAlign = 'center';
+      c.fillText('trinket', x + 21, y + 24);
+    }
+    c.restore();
+  }
+
   // --- EVOLUTION CHOICE (Sam's system: stack a stat to 3/6/9/12) --------------------
   // the ULTIMATE picker: choose 1 of 3 ultimates forged from your Q + R abilities
   function drawUltPick(c, g) {
@@ -440,7 +471,11 @@ const UI = (() => {
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
   function drawMinimap(c, g) {
     const gap = 6, pad = 10;
-    const rooms = g.dungeon.rooms.filter(r => r.visited);
+    // #134 ARIADNE'S THREAD: she gave Theseus the thread so he could find his way out
+    // of the maze. Holding it, the whole floor is on your map from the moment you
+    // arrive - so a room counts as "visited" for the minimap even if you have not been.
+    const seeAll = g.player && g.player.trinketFlag && g.player.trinketFlag('revealMap');
+    const rooms = g.dungeon.rooms.filter(r => r.visited || seeAll);
     if (!rooms.length) return;
     // bounds of the VISITED map only - fog of war: unvisited rooms don't exist here
     let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
