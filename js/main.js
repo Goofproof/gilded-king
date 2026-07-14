@@ -5510,7 +5510,7 @@
       { text: tr.name, color: tr.color, bold: true },
       { text: 'Trinket · the fourth slot', color: '#8fa3bf' },
       { text: tr.gift, color: '#6ee7a0' },
-      { text: tr.price, color: '#e0894a' },
+      { text: `${tr.price} gold`, color: '#e0894a' }, // #153 (Sam) was a raw number - drawGearCardLines .split()'d it and black-screened the game
       ...(tr.lore ? [{ text: `"${tr.lore}"`, color: '#9a8f7a', italic: true }] : []),
     ];
     drawGearCardLines(c, lines, anchorX, anchorY);
@@ -5546,7 +5546,7 @@
       const font = (l.bold ? 'bold 12px' : l.italic ? 'italic 11px' : '11px') + ' monospace';
       c.font = font;
       let cur = '';
-      for (const wd of l.text.split(' ')) {
+      for (const wd of String(l.text).split(' ')) { // #153 never let a non-string line crash the render loop
         const test = cur ? cur + ' ' + wd : wd;
         if (c.measureText(test).width > maxTextW && cur) { render.push({ text: cur, font, color: l.color }); cur = wd; }
         else cur = test;
