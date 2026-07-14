@@ -247,6 +247,9 @@
     runSeed: 0,           // solo run seed; co-op uses coopSeed. Rules derive from it.
     gateMsg: 0,           // "sealed" toast timer
     coopMenu: false,      // co-op pause menu overlay (world stays live behind it)
+    plateArmed: null,     // #137 co-op door-plates that have been vacated this room (Set)
+    roomSettleT: 0,       // #137 brief post-entry window where no plate can fire
+    strandT: 0,           // #137 how long the whole party has been in an adjacent room without me
     shopMsg: null,        // {text, t}
     time: 0,
     queueLevelUp() { this.levelUpQueue++; },
@@ -496,6 +499,8 @@
     g.ultFx = [];
     g.playerTaunt = { src: null, t: 0 }; // taunts don't carry between rooms
     g.pickups = room.savedPickups || [];
+    g.plateArmed = new Set(); // #137 all door-plates start disarmed (arm on first vacate)
+    g.roomSettleT = 0.4;      // and no plate fires for the first 0.4s, so remote positions settle first
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
 
@@ -1131,9 +1136,18 @@
     // #101 co-op: leave via the majority-occupied door-plate, not by walking out
     if (g.coop) {
       const need = plateNeeded();
+      if (!g.plateArmed) g.plateArmed = new Set();
       for (const d of doorRects(g.room)) {
         if (doorSealed(g.room, d.dir)) continue;
-        if (plateOccupancy(d.dir) >= need) {
+        const occ = plateOccupancy(d.dir);
+        // #137 ARM-ON-VACATE: a plate only counts once it has been EMPTY at least once
+        // this room. You spawn standing on the door you came in through, so that plate
+        // starts DISARMED and cannot bounce you straight back to the previous room
+        // (Sam's teleport bug). It arms the moment it is vacated; every other plate
+        // arms on its first empty frame. Belt-and-suspenders with a short entry settle.
+        if (occ === 0) g.plateArmed.add(d.dir);
+        if (g.roomSettleT > 0) continue;
+        if (occ >= need && g.plateArmed.has(d.dir)) {
           const next = g.room.doors[d.dir];
           if (typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir });
           g.transition = { dir: d.dir, next, t: 0 };
@@ -1208,7 +1222,12 @@
     // share the same centre-X lane, so the old "inLaneY" let a north door leak you
     // out through the south wall - and W/E likewise.)
     let openTop = false, openBot = false, openLeft = false, openRight = false;
-    if (!doorsLocked()) {
+    // #137 CO-OP: the door GAPS stay solid. In solo you walk out through the door lane
+    // (and tryRoomExit's 'past' check transitions you); in co-op the ONLY way out is the
+    // majority door-plate, so if the gaps opened here you could walk straight through
+    // them and off the map (Sam's bug) because nothing triggers a transition from a
+    // walk. Keep every wall solid when co-op - the plate does the leaving.
+    if (!doorsLocked() && !g.coop) {
       for (const d of doorRects(g.room)) {
         if (doorSealed(g.room, d.dir)) continue;
         if (d.dir === 'N' && p.x > d.x && p.x < d.x + d.w) openTop = true;
@@ -2637,6 +2656,36 @@
   }
 
   // co-op room change: move to room (gx,gy). If `initiator`, tell everyone else.
+  // #137 STRANDED-FOLLOWER SELF-HEAL. The 'room' change is still a one-shot event: if
+  // it is lost, and you did not co-detect the plate yourself, the party moves on and you
+  // are left behind. But everyone broadcasts which room they are in (the 'p' snapshot),
+  // so a stranded player can SEE the rest of the party is elsewhere and follow.
+  //
+  // Deliberately conservative: it only fires when EVERY live teammate has been in the
+  // SAME room - one that connects to yours by a door - continuously for 2 seconds. That
+  // never triggers during a normal split-second transition (the party is not "stably
+  // elsewhere" then), only when a room event was genuinely dropped.
+  function checkStrandedFollow(dt) {
+    if (!g.coop || !g.room || !g.dungeon || g.state !== 'play' || g.transition) { g.strandT = 0; return; }
+    const mates = [...g.remotePlayers.values()].filter(rp => g.time - (rp.last || 0) < 3 && rp.room);
+    if (!mates.length) { g.strandT = 0; return; }
+    // are ALL of them in one room, and is it NOT my room?
+    const r0 = mates[0].room;
+    const together = mates.every(rp => rp.room[0] === r0[0] && rp.room[1] === r0[1]);
+    if (!together || (r0[0] === g.room.gx && r0[1] === g.room.gy)) { g.strandT = 0; return; }
+    // is their room adjacent to mine (connected by one of my doors)?
+    const doorTo = Object.keys(g.room.doors || {}).find(d => {
+      const nb = g.room.doors[d]; return nb && nb.gx === r0[0] && nb.gy === r0[1];
+    });
+    if (!doorTo) { g.strandT = 0; return; }   // not adjacent - do not teleport across the map
+    g.strandT = (g.strandT || 0) + dt;
+    if (g.strandT >= 2) {
+      g.strandT = 0;
+      Fx.text(g.player.x, g.player.y - 40, 'CATCHING UP', '#7fd4ff', 14);
+      coopEnterRoom(r0[0], r0[1], doorTo, false); // follow them, via my own door
+    }
+  }
+
   function coopEnterRoom(gx, gy, dir, initiator) {
     const room = g.dungeon.rooms.find(r => r.gx === gx && r.gy === gy);
     if (!room || room === g.room) return;
@@ -3221,6 +3270,7 @@
     // revive downed teammates; end only on a full party wipe
     if (g.coop) {
       broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
+      checkStrandedFollow(dt);
       if (isCoopGuest()) updateGuestMobs(dt); else { broadcastMobs(dt); broadcastGear(dt); checkPartyWipe(); }
     }
 
@@ -3238,6 +3288,7 @@
       if (g.deathTimer <= 0) { endToScreen('dead'); return; }
     }
     if (g.gateMsg > 0) g.gateMsg -= dt;
+    if (g.roomSettleT > 0) g.roomSettleT -= dt; // #137 post-entry plate settle
     if (g.shopMsg) { g.shopMsg.t -= dt; if (g.shopMsg.t <= 0) g.shopMsg = null; }
     if (g.floorBanner && g.floorBanner.t > 0) g.floorBanner.t -= dt;
     if (g.floorRule && g.floorRule.t > 0) g.floorRule.t -= dt;
