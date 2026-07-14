@@ -42,52 +42,72 @@ const PlayerDef = (() => {
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
-  // #43/#117/#119 the prestige cape, drawn at the current translate origin. Shared by
-  // the local player AND remote peers (main.js drawRemotePlayers). Two fold panels +
-  // gold trim + collar, draped from the shoulders. #119 rework: the cape stays ANCHORED
-  // and symmetric (it no longer slid off to one side / stretched, which read as broken);
-  // instead the hem FLUTTERS harder + faster with speed - a rippling wind flap - with
-  // only a whisper of lateral lean for wind direction, and a gentle billow on a roll.
+  // #43/#117/#119/#129 the prestige cape, drawn at the current translate origin. Shared
+  // by the local player AND remote peers (main.js drawRemotePlayers). Two fold panels +
+  // gold trim + collar, draped from the shoulders.
+  //
+  // #129 rework: the cape now SWINGS AS ONE PIECE from the shoulders instead of having
+  // its hem deformed. The old version moved the two hem corners and the seam on three
+  // independent sine phases (ph, ph+1.1, ph+0.5) while the shoulders stayed pinned, so
+  // at speed the panels sheared against each other - one collapsed to a sliver, the
+  // other ballooned - and the whole thing wagged. Now:
+  //   - the cloth is rigid and the WHOLE shape rotates about the shoulders (swing),
+  //     so the panels always keep their width and stay symmetric about their own axis;
+  //   - horizontal travel sets the swing, so the cape trails behind you;
+  //   - vertical travel only stretches (running away = it streams out longer) or tucks
+  //     (running at the camera = it shortens). In this 3/4 view a cape can never flip
+  //     up over the head, so we never rotate it there;
+  //   - the ripple is ONE coherent travelling wave across the hem (small phase deltas),
+  //     so it reads as cloth flapping, not as three points fighting each other.
   function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
     velX = velX || 0; velY = velY || 0;
-    const speed = Math.hypot(velX, velY);
+    let speed = Math.hypot(velX, velY);
+    // fallback for peers on an older build that only sent the `moving` flag, no vector
+    if (speed < 1 && moving) speed = 205;
     const sp01 = Math.min(1.8, speed / 205);            // ~1.0 at a run, ~2.1 mid-roll
-    const amp = 2.5 + sp01 * 7;                         // flutter grows with speed (gentler)
-    const freq = Math.max(180, 380 - sp01 * 110);       // and quickens a touch
-    const ph = now / freq + (seedX || 0) * 0.05;
-    const lean = -velX / 205 * r * 0.3;                 // just a whisper of wind direction
-    // each hem control point flutters at its own phase so the cloth ripples like fabric
-    const swayL = Math.sin(ph) * amp + lean;
-    const swayR = Math.sin(ph + 1.1) * amp + lean;
-    const midW = Math.sin(ph + 0.5) * amp * 0.55 + lean * 0.5;
-    // a modest billow with speed - no vertical stretch/squash (that looked distorted)
-    const base = r * (2.1 + t * 0.14) + (moving ? r * 0.5 : 0);
-    const L = base + sp01 * r * 0.28;
+    // swing: the cape trails OPPOSITE your horizontal travel, capped so it never lifts
+    // past a natural drape angle. Rotating the whole cape (not the hem) is what keeps
+    // it from shearing.
+    const swing = Math.max(-0.40, Math.min(0.40, -velX / 205 * 0.34));
+    // stretch: running up (away) streams it out, running down (at camera) tucks it in
+    const stretch = Math.max(-0.16, Math.min(0.30, -velY / 205 * 0.26));
+    const ph = now / Math.max(210, 360 - sp01 * 90) + (seedX || 0) * 0.05;
+    const amp = 1.4 + sp01 * 2.8;                       // hem ripple in px - gentle
+    const wobble = Math.sin(ph) * 0.05 * sp01;          // the swing itself breathes a little
+    // ONE travelling wave: small phase deltas across the hem, so the cloth ripples
+    // coherently and the two panels never pump against each other
+    const hemL = Math.sin(ph) * amp;
+    const hemR = Math.sin(ph + 0.38) * amp;
+    const hemM = Math.sin(ph + 0.19) * amp * 0.5;
+    const base = r * (2.1 + t * 0.14);
+    const L = base * (1 + stretch) + sp01 * r * 0.16;   // continuous - no pop when you start moving
     const tw = r * 0.5, bw = r * (1.05 + t * 0.05);
+    const sx = hemM * 0.6, sy = L * 0.86;               // the seam - SHARED by both panels
     const dark = t >= 5 ? '#2e0e42' : t >= 3 ? '#431029' : '#4e1226';
     const lite = t >= 5 ? '#4a1c66' : t >= 3 ? '#651a41' : '#72203a';
     c.save();
+    c.rotate(swing + wobble);                           // pivot at the shoulders
     c.fillStyle = dark;
     c.beginPath();
     c.moveTo(0, -r * 0.2); c.lineTo(-tw, -r * 0.16);
-    c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
-    c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+    c.quadraticCurveTo(-bw * 1.12 + hemL, L * 0.5, -bw + hemL, L);
+    c.quadraticCurveTo(-bw * 0.42 + hemM, L * 0.9, sx, sy);
     c.closePath(); c.fill();
     c.fillStyle = lite;
     c.beginPath();
     c.moveTo(0, -r * 0.2); c.lineTo(tw, -r * 0.16);
-    c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, bw + swayR, L);
-    c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
+    c.quadraticCurveTo(bw * 1.12 + hemR, L * 0.5, bw + hemR, L);
+    c.quadraticCurveTo(bw * 0.42 + hemM, L * 0.9, sx, sy);
     c.closePath(); c.fill();
     c.strokeStyle = '#e8b52f'; c.lineWidth = 1.3 + t * 0.3; c.lineJoin = 'round';
     c.beginPath();
     c.moveTo(-tw, -r * 0.16);
-    c.quadraticCurveTo(-bw * 1.12 + swayL, L * 0.5, -bw + swayL, L);
-    c.quadraticCurveTo(-bw * 0.42 + midW, L * 0.9, 0, L * 0.86);
-    c.quadraticCurveTo(bw * 0.42 + midW, L * 0.9, bw + swayR, L);
-    c.quadraticCurveTo(bw * 1.12 + swayR, L * 0.5, tw, -r * 0.16);
+    c.quadraticCurveTo(-bw * 1.12 + hemL, L * 0.5, -bw + hemL, L);
+    c.quadraticCurveTo(-bw * 0.42 + hemM, L * 0.9, sx, sy);
+    c.quadraticCurveTo(bw * 0.42 + hemM, L * 0.9, bw + hemR, L);
+    c.quadraticCurveTo(bw * 1.12 + hemR, L * 0.5, tw, -r * 0.16);
     c.stroke();
     c.fillStyle = '#ffd24c';
     c.beginPath(); c.ellipse(0, -r * 0.18, tw * 0.9, 2.6 + t * 0.2, 0, 0, Math.PI * 2); c.fill();

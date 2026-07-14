@@ -5,8 +5,9 @@ const { Evolutions } = loadGame();
 const STATS = Object.keys(Evolutions.STAT_NAMES);
 
 describe('Evolutions table', () => {
-  it('has 8 stat paths', () => {
-    expect(STATS.length).toBe(8);
+  it('has the 9 stat paths', () => {
+    expect(STATS).toEqual(
+      ['hp', 'dmg', 'spd', 'roll', 'crit', 'coin', 'regen', 'atkspd', 'magic']);
   });
 
   it('every stat offers 3 options at each of the I/II/III/IV tiers', () => {

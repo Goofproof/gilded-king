@@ -18,19 +18,19 @@ describe('Abilities.build (Q = first two evolutions)', () => {
     expect(Abilities.build('dmg', 'dmg').dmgMul).toBeGreaterThan(1);
   });
 
-  it('every one of the 64 stat pairs yields a valid ability', () => {
+  it('every stat pair yields a valid ability', () => {
     let count = 0;
     for (const s1 of STATS) {
       for (const s2 of STATS) {
         const a = Abilities.build(s1, s2);
         expect(a.name, `${s1}+${s2}`).toBeTruthy();
-        expect(['nova', 'dash', 'strike', 'buff']).toContain(a.kind);
+        expect(['nova', 'dash', 'strike', 'buff', 'heal']).toContain(a.kind);
         expect(a.cdMax).toBeGreaterThan(0);
         expect(typeof a.desc).toBe('string');
         count++;
       }
     }
-    expect(count).toBe(64);
+    expect(count).toBe(STATS.length ** 2); // derived, so adding a stat path can't stale this
   });
 
   it('cooldown starts ready (cd 0) and never exceeds a sane bound', () => {
