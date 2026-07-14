@@ -6,6 +6,35 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## #12 DESCENT SCALING - the Inferno as a filter (2026-07-14)
+Sam took this off the parked list and, mid-build, gave the real goal: "only the top 5
+players will ever get to the end of Dante's Inferno." So this is not a gentle
+match-progression tweak; it is a deliberate WALL that filters the leaderboard.
+
+**The design (two levers, one function `progressionScaleMonsters`).**
+- **The wall.** Monster HP/damage ramp quadratically toward the bottom of the Inferno
+  (floor 12), on TOP of the existing depth curve (#126). On-curve, floor 12 monsters carry
+  ~+70% HP / +30% damage from the wall alone (~6-7x base HP once the depth curve is folded
+  in). It maxes at floor 12 and stays maxed on the climb beyond, so the frozen lake is a
+  genuine gauntlet.
+- **The rubber-band (the "scales with the player" half).** The proposal's option 1. Monsters
+  scale with how far the player's level is ABOVE the expected level for the floor, capped at
+  +90% HP. So GRINDING LEVELS DOES NOT HELP - a level-60 grinder at floor 12 faces ~3.2x
+  HP, a level-38 on-curve player ~1.7x. Only a genuinely strong BUILD (real DPS-per-level,
+  not raw levels) breaks the wall. Under-level gets a small mercy (-15%). This is what makes
+  it a skill/build filter rather than a grind check - exactly Sam's "top 5 only" intent.
+- **Why not option 2 (scale off weapon DPS).** Still rejected: it feels unfair ("I upgraded
+  my sword and enemies got tankier") and is the purest death-spiral risk. The rubber-band
+  gets the same anti-trivialisation effect off LEVEL, which reads as fair.
+
+**The numbers are a first-pass and WILL need Sam's playtest.** They are all in one
+`DESCENT_SCALE` knob block. The honest caveat: I cannot calibrate "exactly the top 5 reach
+the bottom" from a script - that is a live-telemetry / feel decision. I set it moderate so
+players can still progress and Sam can watch WHERE they stall, then raise wallHpBottom /
+perLevelHp (harsher) or lower expBase (treats more players as over-levelled, also harsher)
+until the leaderboard tops out where he wants. Starting moderate-and-tunable-up beats
+starting impossible.
+
 ## #13 TWIN PORTALS - the Nightmare path (2026-07-14)
 Sam picked this off the parked-proposals list and said "let's do twin portals." The
 proposal (DESIGN-PROPOSALS #13) flagged two forks that needed his call; he said build

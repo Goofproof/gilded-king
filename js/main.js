@@ -576,6 +576,7 @@
       } else {
         g.monsters = Monsters.spawnForRoom(room, g.floorNum, g);
         coopScaleMonsters(g.monsters);                        // co-op: tougher for the party
+        progressionScaleMonsters(g.monsters);                 // #12 descent gauntlet: the wall + rubber-band
         nightmareScaleMonsters(g.monsters);                   // #13 nightmare floor: tougher still
         for (const m of g.monsters) m.netId = ++g.netMobId;   // stamp for co-op sync
       }
@@ -937,6 +938,46 @@
     if (nx > PF.x + PF.w - 46) nx = ex.x - off;
     return { x: nx, y: ex.y };
   }
+  // #12 (Sam) DESCENT SCALING. The goal: the Inferno (floors 4-12) is a gauntlet only the
+  // very best builds clear - only the top raiders should ever reach the frozen lake at the
+  // bottom of Hell. Two levers, BOTH first-pass and meant to be tuned by watching where the
+  // leaderboard actually stalls:
+  //   (1) THE WALL - monster HP/damage ramp steeply toward the bottom of the Inferno, so
+  //       even an on-level player is in a real fight by floor 12 (and it stays maxed on the
+  //       climb beyond).
+  //   (2) THE RUBBER-BAND - grinding levels must NOT trivialise the descent. Monsters scale
+  //       with how far you are ABOVE the expected level for the floor, so raw levels stop
+  //       paying off; only a genuinely strong BUILD breaks the wall. Under-level gets a
+  //       little mercy. This is the "scales with the player's stats" half of the ask.
+  // TUNING: raise wallHpBottom / perLevelHp to make the filter harsher; lower expBase to
+  // treat more players as over-levelled (also harsher). Applied host-side after spawn; the
+  // doppelganger mini-boss is skipped (it already mirrors you).
+  const DESCENT_SCALE = {
+    wallHpBottom: 0.7, wallDmgBottom: 0.3,       // extra HP/dmg at the very bottom (floor 12)
+    expBase: 22, expPerFloor: 2,                  // expected player level: 22 at floor 4, +2/floor
+    perLevelHp: 0.045, perLevelDmg: 0.02,         // scaling per level ABOVE expected
+    capUp: 0.9, capDown: -0.15,                   // rubber-band clamps (grind fully neutralised / mild mercy)
+  };
+  function progressionScaleMonsters(mons) {
+    if (typeof Descent === 'undefined' || !Descent.isDescent(g.floorNum)) return;
+    const D = DESCENT_SCALE;
+    // (1) the wall: quadratic ramp across the nine circles, maxed from floor 12 on.
+    const t = Math.max(0, Math.min(9, g.floorNum - 3)) / 9;
+    const wallHp = D.wallHpBottom * t * t, wallDmg = D.wallDmgBottom * t * t;
+    // (2) the rubber-band vs the expected level for this floor.
+    const lvl = (g.player && g.player.level) || 1;
+    const delta = lvl - (D.expBase + D.expPerFloor * (g.floorNum - 4));
+    const clamp = v => Math.max(D.capDown, Math.min(D.capUp, v));
+    const hpMul = (1 + wallHp) * (1 + clamp(delta * D.perLevelHp));
+    const dmgMul = (1 + wallDmg) * (1 + clamp(delta * D.perLevelDmg));
+    if (hpMul === 1 && dmgMul === 1) return;
+    for (const m of mons) {
+      if (m.miniBoss) continue;
+      m.hp = Math.max(1, Math.round(m.hp * hpMul)); m.maxHp = m.hp;
+      if (m.dmg) m.dmg = Math.round(m.dmg * dmgMul);
+    }
+  }
+
   // host: make a freshly-spawned set harder on a nightmare floor (guests get these via
   // the mob snapshot, so this only runs host-side, after spawnForRoom).
   function nightmareScaleMonsters(mons) {
