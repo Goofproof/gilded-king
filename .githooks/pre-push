@@ -1,0 +1,40 @@
+#!/bin/sh
+# Blocks a push that ships game changes with no patch-notes entry.
+#
+# js/patchnotes.js NOTES[0].sha is the commit the newest entry shipped at. If
+# anything under js/ index.html style.css assets/ server/ changed since then,
+# the notes are stale and players would get a silent update. This is how 87
+# commits - five new classes, the global leaderboard, 118 accolades, real room
+# shapes - went live unannounced between v2.13 and v2.14.
+#
+# Fix: npm run notes -- --title "Headline"   (or `npm run ship`, which does
+# notes + test + commit + push in one go). Genuinely need to bypass? --no-verify.
+#
+# Installed via: git config core.hooksPath .githooks
+
+sha=$(grep -m1 -o "sha: '[0-9a-f]\{7,40\}'" js/patchnotes.js | grep -o "[0-9a-f]\{7,40\}")
+if [ -z "$sha" ]; then
+  echo "pre-push: js/patchnotes.js NOTES[0] has no sha - cannot tell what is unreleased." >&2
+  exit 1
+fi
+if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+  echo "pre-push: patch-notes sha $sha is not a commit here - skipping the check." >&2
+  exit 0
+fi
+
+# game files changed since the last entry (the notes file itself does not count)
+changed=$(git diff --name-only "$sha"..HEAD -- js index.html style.css assets server \
+          | grep -v '^js/patchnotes\.js$')
+
+if [ -n "$changed" ]; then
+  echo "" >&2
+  echo "  PUSH BLOCKED - the game changed since patch notes $sha, but the notes did not." >&2
+  echo "" >&2
+  echo "$changed" | sed 's/^/    /' >&2
+  echo "" >&2
+  echo "  Run:  npm run notes -- --title \"Your Headline\"     then commit and push" >&2
+  echo "  Or:   npm run ship -- --title \"Your Headline\"   (test + notes + commit + push)" >&2
+  echo "" >&2
+  exit 1
+fi
+exit 0

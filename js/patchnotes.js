@@ -3,16 +3,46 @@
 //
 // AUTO: the title screen shows a "PATCH NOTES" button, and the newest entry
 // pops up automatically the first time you load a version you haven't seen
-// (tracked in localStorage 'drl_seen_ver'). Bump VERSION and unshift a new
-// entry at the top whenever something ships - the newest version is always
-// NOTES[0].
+// (tracked in localStorage 'drl_seen_ver'). The newest version is NOTES[0].
+//
+// DO NOT HAND-EDIT THE VERSION OR UNSHIFT AN ENTRY BY HAND. Run:
+//     npm run notes -- --title "Your Headline"
+// which reads NOTES[0].sha, turns every commit since it into an item, bumps
+// VERSION, and stamps the new entry with the current HEAD. `npm run ship`
+// does that plus test + commit + push. A pre-push hook blocks a push that
+// changes the game without new notes, so this file can't silently fall behind
+// again - by v2.14 it had gone 87 commits stale, an entire era of the game
+// (five classes, the leaderboard, accolades, room shapes) shipped unannounced.
+//
+// `sha` = the HEAD commit that entry shipped at. It is the cursor the generator
+// reads; every entry needs one. Items are drafted from commit subjects, so
+// write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.13';
+  const VERSION = 'v2.14';
 
   const NOTES = [
     {
+      v: 'v2.14', title: 'Cape, Enemies & The Gilded Dais', date: '2026-07-14',
+      sha: '4996f18',
+      items: [
+        'A ROSTER OF CLASSES: Barbarian, Paladin, Cleric, Engineer (deployable turrets) and Summoner (an elemental matched to your weapon) join the original five.',
+        '118 ACCOLADES to unlock, with a title gallery - and a GLOBAL LEADERBOARD on the title screen. Click any fallen hero to see the snapshot of how they died.',
+        'NEW ENEMIES: an arcane Mage who kites you, a Doppelganger that copies you, a burst-fire Gunner, a shrapnel Lobber, and a Worm that bursts into wormlings when it dies.',
+        'MONSTERS FIGHT AS A UNIT: tanks hold the front, shield-bearers screen their archers, chargers swing wide to flank. The ALARM meter means the longer a floor takes, the harder it pushes back.',
+        'REAL ROOMS: walls carve true shapes - donuts, missing corners, bridges - and PITS you have to path around. Monsters can\'t march over them either.',
+        'BOSSES OF THE DEEP: the Colossus and the Matriarch wait past the King.',
+        'A TRAINING BARRACKS to spend gold on run boosts, and an ENCHANT TABLE in the shops.',
+        'STATS REBUILT: five base stats fed by the skills you pick, so your build actually reads. Your R ability is now a choice of three, and ultimates draw from a pool of ten.',
+        'THE GILDED DAIS: a whole new home screen, with a live preview of the loadout you\'re about to take in.',
+        'YOUR CAPE now hangs from your shoulders and swings behind you as you run and roll, instead of tearing itself apart in motion.',
+        'CO-OP: text chat (press Enter), your teammate\'s class and cape render properly, loot stops leaking between players, and a door gate keeps the party together.',
+        'Plus a long readability and balance pass: enemy shots are marked as theirs, empowered attacks telegraph, mythics feel mythic again, and the bow is worth carrying.',
+      ],
+    },
+    {
       v: 'v2.13', title: 'Classes, Controls & a Harder Dungeon', date: '2026-07-12',
+      sha: '858e726',
       items: [
         'CLASS ABILITIES: Q is now your class\'s signature power from the very start - Warrior Shield Bash, Ranger Tumble Volley, Mage Arcane Nova, Rogue Eviscerate, Adventurer Adrenaline.',
         'Your first two EVOLUTIONS now fuse into your R ability, and your ULTIMATE (class power + evolved power) fires on RIGHT-CLICK.',

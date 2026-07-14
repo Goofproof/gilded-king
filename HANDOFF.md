@@ -40,6 +40,25 @@ meta-progression essence, coin vacuum, floor-clear portal, celebration door lock
   to the Artifact tool to keep the same link.
 - Commit locally after every wave (repo-local git identity already set).
 
+## Shipping: `npm run ship` (do NOT hand-edit patch notes)
+- **`npm run ship -- --title "Headline"`** is the whole release: runs the tests,
+  generates the patch-notes entry from every commit since the last one, commits
+  it, and pushes master -> origin/main. `--dry` to preview.
+- `npm run notes -- --title "..."` just writes the entry (add `--dry` to preview).
+- **Never hand-bump `PatchNotes.VERSION` or unshift an entry.** `NOTES[0].sha` is
+  the cursor the generator reads (= the HEAD that entry shipped at); hand-editing
+  desyncs it.
+- A **pre-push hook** (`.githooks/pre-push`, wired by `git config core.hooksPath
+  .githooks`, which `npm install` also does) BLOCKS any push that changes js/,
+  index.html, style.css, assets/ or server/ without new notes. This exists
+  because the notes went **87 commits stale** between v2.13 and v2.14 - five
+  classes, the leaderboard, 118 accolades and real room shapes all shipped
+  unannounced. Bypass with `--no-verify` only if you truly mean to.
+- **Commit subjects become player-facing patch-note items.** Write them for a
+  12-year-old reading the popup, not for a reviewer. Chore commits (chore/test/
+  docs/refactor/wip/merge prefixes, or `[skip-notes]`) are filtered out, as are
+  commits that touch no game file.
+
 ## Hard rules learned this session
 - SPOILERS: the boss is THE MIMIC KING - that name must never appear on the
   title screen, tab title, filenames, or anything pre-fight. Public-facing name

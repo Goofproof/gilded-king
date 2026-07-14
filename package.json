@@ -5,7 +5,10 @@
   "description": "Dungeon of the Gilded King - a vanilla-JS canvas roguelike (no build step for the game itself; this package.json only wires the dev test harness).",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "notes": "node scripts/patchnotes.mjs",
+    "ship": "node scripts/publish.mjs",
+    "postinstall": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "vitest": "^2.1.9"
