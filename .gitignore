@@ -6,3 +6,7 @@ node_modules/
 !.dev.vars.example
 .env*
 !.env.example
+
+# stray wrangler auto-scaffold at the repo root: the REAL worker config is
+# server/wrangler.toml. A root config would deploy the whole repo as assets.
+wrangler.jsonc
