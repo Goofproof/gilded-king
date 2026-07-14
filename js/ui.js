@@ -100,12 +100,17 @@ const UI = (() => {
       c.beginPath(); c.moveTo(sx, sy - 7); c.lineTo(sx + 6, sy + 4); c.lineTo(sx - 6, sy + 4); c.closePath(); c.fill();
       c.font = 'bold 13px monospace'; c.textAlign = 'left';
       c.fillText(`${p.shards}`, sx + 11, sy + 5);
+      // the hone prompt. Always shown now (there is no cap - past 5 it OVERCHARGES),
+      // and the wording is clearer: "hold U: Hone 9◈" reads as an action + its price,
+      // where "U hone 5" read like a weapon level. Cost curve mirrors main.js honeCost.
       const w = p.weapon;
-      if (w && (w.upLvl || 0) < 5) {
-        const cost = 5 + (w.upLvl || 0) * 4;
+      if (w) {
+        const lv = w.upLvl || 0;
+        const cost = lv < 5 ? 5 + lv * 4 : 25 + (lv - 5) * 14;
+        const label = lv < 5 ? 'Hone' : 'Overcharge';
         c.font = '10px monospace';
-        c.fillStyle = p.shards >= cost ? '#7fe8e0' : 'rgba(127,232,224,0.4)';
-        c.fillText(`U hone ${cost}◈`, sx + 40, sy + 5);
+        c.fillStyle = p.shards >= cost ? (lv < 5 ? '#7fe8e0' : '#ff9a4c') : 'rgba(127,232,224,0.4)';
+        c.fillText(`[U] ${label} ${cost}◈`, sx + 40, sy + 5);
       }
     }
 

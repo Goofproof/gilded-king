@@ -1710,8 +1710,15 @@
   // X breaks a nearby dropped weapon/armor into shards; U spends shards to hone
   // your equipped weapon (+8% damage per hone, 5 hones max per weapon).
   const SHARD_VALUE = [1, 2, 4, 7, 12, 20]; // by rarity index (last = mythic)
+  // #139 (Sam) honing used to HARD-cap at 5, which left shards with no sink at all
+  // once your weapon was maxed - a deep player ends up with hundreds of shards and
+  // leaves loot on the floor. Past 5 you can now OVERCHARGE: a smaller gain (+4% vs
+  // +8%) for a steeper, ever-climbing shard cost, so surplus shards always have
+  // somewhere to go and salvaging is never pointless again.
   const HONE_MAX = 5;
-  const honeCost = w => 5 + (w.upLvl || 0) * 4;
+  // NOTE: ui.js drawHUD recomputes this same curve inline for the shard prompt - keep
+  // the two in sync. Base hones 5/9/13/17/21; overcharge climbs 25/39/53/... forever.
+  const honeCost = w => { const lv = w.upLvl || 0; return lv < HONE_MAX ? 5 + lv * 4 : 25 + (lv - HONE_MAX) * 14; };
 
   function salvageNearest() {
     const t = nearestInteractable();
@@ -1729,11 +1736,6 @@
     const p = g.player, w = p.weapon;
     if (!w) return;
     w.upLvl = w.upLvl || 0;
-    if (w.upLvl >= HONE_MAX) {
-      g.shopMsg = { text: 'This weapon is fully honed', t: 1.4 };
-      Sfx.play('error');
-      return;
-    }
     const cost = honeCost(w);
     if (p.shards < cost) {
       g.shopMsg = { text: `Need ${cost} shards to hone (have ${p.shards})`, t: 1.6 };
@@ -1742,10 +1744,12 @@
     }
     p.shards -= cost;
     w.upLvl++;
-    w.dmg = Math.round(w.dmg * 1.08);
+    const over = w.upLvl > HONE_MAX;          // #139 overcharge: smaller gain, no ceiling
+    w.dmg = Math.round(w.dmg * (over ? 1.04 : 1.08));
     Sfx.play('upgrade');
     Fx.burst(p.x, p.y, ['#7fe8e0', w.color, '#fff'], 20, { speed: 170, life: 0.6, glow: true });
-    Fx.text(p.x, p.y - 30, `${w.name} +${w.upLvl} · ${w.dmg} DMG`, w.color, 13);
+    const tag = over ? `OVERCHARGE ${w.upLvl - HONE_MAX}` : `+${w.upLvl}`;
+    Fx.text(p.x, p.y - 30, `${w.name} · ${tag} · ${w.dmg} DMG`, over ? '#ff9a4c' : w.color, 13);
   }
 
   function wakeMimic(ch) {
