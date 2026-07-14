@@ -34,6 +34,22 @@ const Eulogy = (() => {
   const num = (v, d) => (Number.isFinite(+v) ? +v : d);
   const titleCase = w => String(w || '').toLowerCase().replace(/\b\w/g, m => m.toUpperCase());
 
+  // the stored weapon name is a full display name - "Doomcleaver +5 [Sharpness III,
+  // Fire Aspect]". #152 (Sam) the verse wants the bare weapon, no hone level or enchants.
+  const cleanWeapon = n => String(n || '').replace(/\s*\[[^\]]*\]/g, '').replace(/\s*\+\d+/g, '').trim();
+
+  // #152 the floor's NAME, not "floor 11" - "the Lust Circle", "the Whispering Forest".
+  // Dungeon.themeFor dispatches to the right place (castle themes / circles / terraces /
+  // spheres). Drop the leading article and any "· DEEPER" tail; the template re-adds "the".
+  function floorName(f) {
+    if (f == null) return null;
+    let nm = null;
+    try { if (typeof Dungeon !== 'undefined' && Dungeon.themeFor) nm = Dungeon.themeFor(f).name; } catch (e) { /* fall back to the number */ }
+    if (!nm) return null;
+    nm = String(nm).split('·')[0].trim().replace(/^THE\s+/i, '');
+    return titleCase(nm);
+  }
+
   // class -> a Homeric epithet pool. Keyed loosely by the class name so heavy
   // melee reads martial, casters read arcane, bows read far-shooting, etc.
   // Epithets follow "the" in the verse, so keep them clean noun/adjective forms
@@ -71,9 +87,9 @@ const Eulogy = (() => {
     const r = rng(hash(name + '|' + (s.score || 0) + '|' + (s.className || '')));
     const classEp = pick(r, classEpithets(s.className));
     const statEp = signature(r, s);
-    const weapon = (s.weapons && s.weapons.length) ? s.weapons[0] : null;
+    const weapon = (s.weapons && s.weapons.length) ? cleanWeapon(s.weapons[0]) : null;
     const ult = s.ult ? titleCase(s.ult) : null;
-    const floor = s.floor != null ? s.floor : null;
+    const place = floorName(s.floor);
 
     const lines = [];
     // L1: the invocation
@@ -84,10 +100,10 @@ const Eulogy = (() => {
       : `${statEp}, and unafraid.`);
     // L3: the ultimate they loosed (skipped if none recorded)
     if (ult) lines.push(pick(r, [`who loosed the ${ult} upon the host,`, `and called the ${ult} down from the vault,`, `whose ${ult} unmade the dark,`]));
-    // L4: the fall
-    lines.push(floor != null
-      ? pick(r, [`then on floor ${floor} the deep closed over ${name}.`, `till floor ${floor} took ${name} into the long dark.`, `and fell upon floor ${floor}, and was still.`])
-      : `and passed into the long dark.`);
+    // L4: the fall, named by the place it happened
+    lines.push(place
+      ? pick(r, [`then in the ${place} the deep closed over ${name}.`, `till the ${place} took ${name} into the long dark.`, `and fell in the ${place}, and was still.`])
+      : (s.floor != null ? `and fell upon floor ${s.floor}, and was still.` : `and passed into the long dark.`));
     return lines;
   }
 

@@ -1445,14 +1445,16 @@ const UI = (() => {
   }
 
   // #102 DEATH SNAPSHOT: the fallen hero's visage + character sheet, frozen at death.
+  // #151/#152 (Sam) plus a Homeric eulogy at the foot - shown for EVERY raider, in
+  // ADDITION to the portrait. The border is sized to the content at the end, so a full
+  // build and its verse always fit the box.
   function drawScoreSnap(c, g) {
     const s = g.snapView; if (!s) return;
-    const pw = 500, ph = 448, px = (W - pw) / 2, py = 55;
+    const pw = 500, px = (W - pw) / 2, py = 36;
     c.fillStyle = 'rgba(4,4,10,0.96)'; c.fillRect(0, 0, W, H);
-    c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
     c.textAlign = 'center';
     c.font = 'bold 20px monospace'; c.fillStyle = '#ffd24c';
-    c.fillText(`${s.initials} · the fallen`, W / 2, py + 32);
+    c.fillText(`${s.initials} · the fallen`, W / 2, py + 28);
 
     // #150 default every possibly-missing field (legacy snaps predate some) so nothing
     // renders as NaN / "undefined".
@@ -1460,78 +1462,76 @@ const UI = (() => {
     const level = s.level != null ? s.level : '?', floorN = s.floor != null ? s.floor : '?';
     const maxHpTxt = s.maxHp != null ? s.maxHp : '?';
     const hasAvatar = !!(s._img && s._img.complete && s._img.naturalWidth);
-    let topBottom; // y where the top block ends and the STATS section begins
 
+    // --- top block: the visage (local run) or a laurel (global raider), + headline ---
+    const av = 100, ax = px + 28, ay = py + 44;
+    c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(ax, ay, av, av);
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
     if (hasAvatar) {
-      // LOCAL run: the rendered visage, framed, headline facts beside it.
-      const av = 110, ax = px + 28, ay = py + 52;
-      c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(ax, ay, av, av);
-      c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
       c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
-      c.textAlign = 'left';
-      const hx = ax + av + 22; let hy = ay + 20;
-      c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
-      c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 22;
-      c.font = '13px monospace'; c.fillStyle = '#c8d2e0';
-      c.fillText(`Level ${level}  ·  fell on floor ${floorN}`, hx, hy); hy += 20;
-      c.fillStyle = '#ffd24c'; c.fillText(`${num(s.essence, 0)} essence banked`, hx, hy); hy += 20;
-      c.fillStyle = '#9fb0c8';
-      c.fillText(`${num(s.kills, 0)} kills  ·  ${num(s.coins, 0)} gold`, hx, hy); hy += 20;
-      c.fillText(`${maxHpTxt} max HP`, hx, hy);
-      topBottom = ay + av;
     } else {
-      // #151 (Sam) GLOBAL raider: no portrait is stored, so we sing them a Homeric
-      // eulogy built from their own run (weapon, signature stat, ultimate). A laurel, a
-      // compact headline, then the verse - filling the space the face used to be blank in.
-      c.save(); c.translate(px + 42, py + 74); c.globalAlpha = 0.85;
+      c.save(); c.translate(ax + av / 2, ay + av / 2 - 6); c.globalAlpha = 0.85;
       c.strokeStyle = '#c9a227'; c.lineWidth = 2;
-      c.beginPath(); c.arc(0, 0, 14, Math.PI * 0.55, Math.PI * 1.45); c.stroke();
-      c.beginPath(); c.arc(0, 0, 14, -Math.PI * 0.45, Math.PI * 0.45); c.stroke();
+      c.beginPath(); c.arc(0, 4, 20, Math.PI * 0.58, Math.PI * 1.42); c.stroke();
+      c.beginPath(); c.arc(0, 4, 20, -Math.PI * 0.42, Math.PI * 0.42); c.stroke();
       c.restore(); c.globalAlpha = 1;
-      c.textAlign = 'left';
-      let hy = py + 68;
-      c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
-      c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, px + 70, hy); hy += 20;
-      c.font = '12px monospace'; c.fillStyle = '#9fb0c8';
-      c.fillText(`Lv ${level} · floor ${floorN} · ${num(s.essence, 0)} essence · ${num(s.kills, 0)} kills`, px + 70, hy);
-      let py2 = py + 116;
-      const poem = (typeof Eulogy !== 'undefined') ? Eulogy.forSnap(s) : null;
-      if (poem && poem.length) {
-        c.textAlign = 'center'; c.fillStyle = '#a9b6cf'; c.font = 'italic 12.5px monospace';
-        for (const line of poem) { c.fillText(line, W / 2, py2); py2 += 18; }
-        c.textAlign = 'left';
-      }
-      topBottom = py2 + 2;
+      c.textAlign = 'center'; c.font = '9px monospace'; c.fillStyle = '#5a6478';
+      c.fillText('no portrait', ax + av / 2, ay + av - 8);
     }
+    c.textAlign = 'left';
+    const hx = ax + av + 22; let hy = ay + 18;
+    c.font = 'bold 15px monospace'; c.fillStyle = '#e8e3f0';
+    c.fillText(`${s.className || 'Adventurer'}${s.prestige ? '  ♛' + s.prestige : ''}`, hx, hy); hy += 21;
+    c.font = '13px monospace'; c.fillStyle = '#c8d2e0';
+    c.fillText(`Level ${level}  ·  fell on floor ${floorN}`, hx, hy); hy += 19;
+    c.fillStyle = '#ffd24c'; c.fillText(`${num(s.essence, 0)} essence banked`, hx, hy); hy += 19;
+    c.fillStyle = '#9fb0c8';
+    c.fillText(`${num(s.kills, 0)} kills  ·  ${num(s.coins, 0)} gold`, hx, hy); hy += 19;
+    c.fillText(`${maxHpTxt} max HP`, hx, hy);
 
-    // stat line - split across two rows so a full build never runs off the panel
-    let y = topBottom + 22;
-    c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227'; c.fillText('STATS', px + 28, y); y += 18;
+    // --- stats (two rows so a full build never runs off the panel) ---
+    let y = ay + av + 24;
+    c.textAlign = 'left';
+    c.font = 'bold 12px monospace'; c.fillStyle = '#c9a227'; c.fillText('STATS', px + 28, y); y += 17;
     c.font = '12px monospace'; c.fillStyle = '#b7c2d4';
     const dmgPct = Math.round((num(s.dmgMul, 1) - 1) * 100), spdPct = Math.round((num(s.spdMul, 1) - 1) * 100), coinPct = Math.round((num(s.coinMul, 1) - 1) * 100);
-    c.fillText(`+${dmgPct}% dmg   +${spdPct}% move   ${num(s.crit, 0)}% crit`, px + 28, y); y += 16;
-    c.fillText(`+${coinPct}% coins   magic x${num(s.magic, 1)}`, px + 28, y); y += 22;
+    c.fillText(`+${dmgPct}% dmg   +${spdPct}% move   ${num(s.crit, 0)}% crit`, px + 28, y); y += 15;
+    c.fillText(`+${coinPct}% coins   magic x${num(s.magic, 1)}`, px + 28, y); y += 20;
 
-    // evolutions
-    c.font = 'bold 12px monospace'; c.fillStyle = '#b06bff'; c.fillText('EVOLUTIONS', px + 28, y); y += 18;
+    // --- evolutions ---
+    c.font = 'bold 12px monospace'; c.fillStyle = '#b06bff'; c.fillText('EVOLUTIONS', px + 28, y); y += 16;
     c.font = '11px monospace'; c.fillStyle = '#cbb7e6';
     const evoText = (s.evos && s.evos.length) ? s.evos.join(' · ') : 'none taken';
-    wrapText(c, evoText, px + 28, y, pw - 56, 15); y += Math.max(15, Math.ceil(evoText.length / 60) * 15) + 12;
+    y = wrapText(c, evoText, px + 28, y, pw - 56, 14) + 10;
 
-    // gear + abilities
-    c.font = 'bold 12px monospace'; c.fillStyle = '#8fd0a0'; c.fillText('GEAR & ABILITIES', px + 28, y); y += 18;
+    // --- gear + abilities ---
+    c.font = 'bold 12px monospace'; c.fillStyle = '#8fd0a0'; c.fillText('GEAR & ABILITIES', px + 28, y); y += 16;
     c.font = '11px monospace'; c.fillStyle = '#c8d2e0';
-    (s.weapons || []).forEach(w => { c.fillText('⚔ ' + w, px + 28, y); y += 15; });
-    if (s.armor) { c.fillText('🛡 ' + s.armor, px + 28, y); y += 15; }
+    (s.weapons || []).forEach(w => { c.fillText('⚔ ' + w, px + 28, y); y += 14; });
+    if (s.armor) { c.fillText('🛡 ' + s.armor, px + 28, y); y += 14; }
     c.fillStyle = '#9ecbff';
     const ab = [s.q && 'Q: ' + s.q, s.r && 'R: ' + s.r, s.ult && '★: ' + s.ult].filter(Boolean).join('   ');
-    if (ab) { c.fillText(ab, px + 28, y); y += 15; }
+    if (ab) { c.fillText(ab, px + 28, y); y += 14; }
 
+    // --- the eulogy, for everyone, at the foot ---
+    const poem = (typeof Eulogy !== 'undefined') ? Eulogy.forSnap(s) : null;
+    if (poem && poem.length) {
+      y += 8;
+      c.strokeStyle = 'rgba(201,162,39,0.35)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(px + 40, y); c.lineTo(px + pw - 40, y); c.stroke(); y += 16;
+      c.textAlign = 'center'; c.fillStyle = '#a9b6cf'; c.font = 'italic 12px monospace';
+      for (const line of poem) y = wrapCentered(c, line, W / 2, y, pw - 68, 16);
+      y += 2;
+    }
+
+    // --- border sized to the content, then the footer inside it ---
+    const ph = Math.min(H - py - 8, (y + 26) - py);
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
     c.textAlign = 'center'; c.font = '12px monospace'; c.fillStyle = '#667';
-    c.fillText('click or Esc to go back', W / 2, py + ph - 12);
+    c.fillText('click or Esc to go back', W / 2, py + ph - 11);
   }
 
-  // simple word-wrap helper (used by the snapshot evolutions line)
+  // word-wrap a left-aligned block; returns the y of the LAST line drawn.
   function wrapText(c, text, x, y, maxW, lh) {
     const words = String(text).split(' '); let line = '', yy = y;
     for (const w of words) {
@@ -1540,6 +1540,19 @@ const UI = (() => {
       else line = test;
     }
     if (line) c.fillText(line, x, yy);
+    return yy;
+  }
+
+  // word-wrap a CENTERED block; returns the y for the NEXT line (used by the eulogy).
+  function wrapCentered(c, text, cx, y, maxW, lh) {
+    const words = String(text).split(' '); let line = '', yy = y;
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (c.measureText(test).width > maxW && line) { c.fillText(line, cx, yy); line = w; yy += lh; }
+      else line = test;
+    }
+    if (line) { c.fillText(line, cx, yy); yy += lh; }
+    return yy;
   }
 
   // arcade three-letter initials entry
