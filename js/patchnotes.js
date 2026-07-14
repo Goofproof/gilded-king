@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.37';
+  const VERSION = 'v2.38';
 
   const NOTES = [
+    {
+      v: 'v2.38', title: 'See a top raider\'s loadout from the main page', date: '2026-07-14',
+      sha: '356fadd',
+      items: [
+        'Top Raiders: click a top-5 raider on the main page to see their loadout (Sam).',
+      ],
+    },
     {
       v: 'v2.37', title: 'Meet your Shadow: the Doppelganger is now a mini-boss', date: '2026-07-14',
       sha: 'cf0790b',
