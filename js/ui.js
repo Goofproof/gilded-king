@@ -208,6 +208,30 @@ const UI = (() => {
 
       // ability badges (Q / R / Ultimate), bottom-centre; hover shows what each does
       for (const b of abilityBadges(p)) drawAbility(c, b.a, b.key, b.x);
+
+      // #157 DRUID: which shape am I in? The third tell, and the only one that survives a
+      // busy fight - the body art can be buried under monsters, this cannot. Sits directly
+      // ABOVE the Q badge, because Q is the key that changes it.
+      if (p.form) {
+        const F = p.form;
+        const bw = 96, bh = 26, bx = W - bw - 14, by = H - ABILITY_S - 12 - bh - 8;
+        c.save();
+        c.globalAlpha = 1;
+        c.fillStyle = 'rgba(0,0,0,0.55)';
+        c.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+        c.fillStyle = 'rgba(255,255,255,0.05)';
+        c.fillRect(bx, by, bw, bh);
+        c.strokeStyle = F.color; c.lineWidth = 2;
+        c.strokeRect(bx, by, bw, bh);
+        // the animal head itself, so the badge matches the body you are looking at
+        if (PlayerDef.drawFormHead) {
+          c.save(); c.translate(bx + 17, by + bh / 2); PlayerDef.drawFormHead(c, F.id, 8); c.restore();
+        }
+        c.textAlign = 'left';
+        c.font = 'bold 12px monospace'; c.fillStyle = F.color;
+        c.fillText(F.tag, bx + 32, by + 17);
+        c.restore();
+      }
     }
 
     c.restore();

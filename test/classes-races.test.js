@@ -54,6 +54,25 @@ describe('#156 the five new classes', () => {
     expect(army(tierFor(30))).toEqual({ knights: 3, archers: 2 });
   });
 
+  it('#157 every form is visually distinct - you can always tell which one you are in', () => {
+    const F = PlayerDef.FORMS;
+    // a form the player cannot IDENTIFY is a form they cannot play around
+    for (const f of F) {
+      expect(f.tag, `${f.id} has no HUD tag`).toBeTruthy();
+      expect(f.body, `${f.id} has no body colour`).toBeTruthy();
+      expect(f.cloak, `${f.id} has no cloak colour`).toBeTruthy();
+      expect(f.scale, `${f.id} has no size`).toBeGreaterThan(0);
+      expect(typeof PlayerDef.drawFormHead).toBe('function');
+    }
+    // no two forms may share a look
+    expect(new Set(F.map(f => f.body)).size, 'two forms share a body colour').toBe(F.length);
+    expect(new Set(F.map(f => f.tag)).size,  'two forms share a HUD tag').toBe(F.length);
+    expect(new Set(F.map(f => f.scale)).size,'two forms are the same size').toBe(F.length);
+    // and the bear must actually read as the big one
+    const byScale = [...F].sort((a, b) => b.scale - a.scale);
+    expect(byScale[0].id).toBe('bear');
+  });
+
   it('the druid has three forms and every one has a real drawback', () => {
     const F = PlayerDef.FORMS;
     expect(F.length).toBe(3);

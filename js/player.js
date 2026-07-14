@@ -85,15 +85,63 @@ const PlayerDef = (() => {
   //   Bear - walks into everything and survives it, but slow.
   //   Wolf - fast and bleeds enemies, but made of paper.
   //   Owl  - untouchable and quick, but barely hurts anything. For getting OUT.
+  // #157 Each form carries its OWN LOOK, not just its own numbers. The player must never
+  // have to remember which shape they are in: the body recolours, changes size, and grows
+  // a head you can name from across the room, and a badge sits on the HUD. Three separate
+  // tells, because one is not enough to read in a busy fight.
+  //   body/cloak/accent - the two body circles and the visor slit
+  //   scale             - DRAWN size only. The hitbox (this.r) never changes, so shifting
+  //                       can never quietly make you easier or harder to hit.
   const FORMS = [
     { id: 'bear', name: 'Bear Form', color: '#a8763f', dmgMul: 1.45, spdMul: 0.82, reduce: 0.22,
+      body: '#8a5a2b', cloak: '#5d3a19', accent: '#ffcf8a', scale: 1.28, tag: 'BEAR',
       note: 'Slow. Armoured. Hits like a falling tree.' },
     { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.15, spdMul: 1.30, reduce: -0.12, bleed: true,
+      body: '#98a2b3', cloak: '#5a6172', accent: '#e8f0ff', scale: 0.92, tag: 'WOLF',
       note: 'Fast and bleeding fangs, but every hit hurts you more.' },
     { id: 'owl',  name: 'Owl Form',  color: '#e6dcc0', dmgMul: 0.55, spdMul: 1.22, reduce: 0.10, evasive: true,
+      body: '#c9bb96', cloak: '#8a7c5c', accent: '#fff3c4', scale: 0.86, tag: 'OWL',
       note: 'Flies over everything. Barely scratches. This is your escape.' },
   ];
   const formById = id => FORMS.find(f => f.id === id) || null;
+
+  // #157 the animal head, at the head origin, head radius r. Replaces the druid's antlers
+  // while shifted - you are wearing the beast, not a circlet.
+  function drawFormHead(c, id, r) {
+    if (id === 'bear') {
+      c.fillStyle = '#5d3a19';                                  // two round ears, high and wide
+      c.beginPath(); c.arc(-r * 0.72, -r * 0.72, r * 0.36, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.72, -r * 0.72, r * 0.36, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#8a5a2b';
+      c.beginPath(); c.arc(-r * 0.72, -r * 0.72, r * 0.18, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.72, -r * 0.72, r * 0.18, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#3a2410';                                  // heavy muzzle
+      c.beginPath(); c.ellipse(0, r * 0.44, r * 0.44, r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#140c05';
+      c.beginPath(); c.arc(0, r * 0.32, r * 0.13, 0, Math.PI * 2); c.fill();
+    } else if (id === 'wolf') {
+      c.fillStyle = '#5a6172';                                  // sharp pricked ears
+      c.beginPath(); c.moveTo(-r * 0.82, -r * 0.34); c.lineTo(-r * 0.62, -r * 1.24); c.lineTo(-r * 0.24, -r * 0.56); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r * 0.82, -r * 0.34); c.lineTo(r * 0.62, -r * 1.24); c.lineTo(r * 0.24, -r * 0.56); c.closePath(); c.fill();
+      c.fillStyle = '#98a2b3';                                  // long snout
+      c.beginPath(); c.moveTo(-r * 0.3, r * 0.24); c.lineTo(0, r * 1.0); c.lineTo(r * 0.3, r * 0.24); c.closePath(); c.fill();
+      c.fillStyle = '#f0f4fa';                                  // bared fangs
+      c.beginPath(); c.moveTo(-r * 0.17, r * 0.6); c.lineTo(-r * 0.07, r * 0.94); c.lineTo(r * 0.01, r * 0.6); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r * 0.17, r * 0.6); c.lineTo(r * 0.07, r * 0.94); c.lineTo(-r * 0.01, r * 0.6); c.closePath(); c.fill();
+    } else if (id === 'owl') {
+      c.fillStyle = '#8a7c5c';                                  // feather tufts
+      c.beginPath(); c.moveTo(-r * 0.7, -r * 0.5); c.lineTo(-r * 0.5, -r * 1.18); c.lineTo(-r * 0.2, -r * 0.62); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r * 0.7, -r * 0.5); c.lineTo(r * 0.5, -r * 1.18); c.lineTo(r * 0.2, -r * 0.62); c.closePath(); c.fill();
+      c.fillStyle = '#fff3c4';                                  // the huge round eyes - the giveaway
+      c.beginPath(); c.arc(-r * 0.3, -r * 0.02, r * 0.33, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.3, -r * 0.02, r * 0.33, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#1a1408';
+      c.beginPath(); c.arc(-r * 0.3, -r * 0.02, r * 0.15, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.3, -r * 0.02, r * 0.15, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#e8a33d';                                  // beak
+      c.beginPath(); c.moveTo(-r * 0.14, r * 0.28); c.lineTo(0, r * 0.68); c.lineTo(r * 0.14, r * 0.28); c.closePath(); c.fill();
+    }
+  }
 
   // #43/#117/#119/#129 the prestige cape, drawn at the current translate origin. Shared
   // by the local player AND remote peers (main.js drawRemotePlayers). Two fold panels +
@@ -1597,19 +1645,23 @@ const PlayerDef = (() => {
       this.drawEvoParts(c, 'back');
 
       // cloak - recoloured to the dominant path from stage 2 on
-      const cloakCol = this.flash > 0 ? '#ff8080' : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60');
-      const bodyCol  = this.flash > 0 ? '#ffb0b0' : (evoStage >= 2 && pal ? pal.body : '#4a6fa5');
+      // #157 DRUID FORM: the beast's colours win over the evolution palette - if you are a
+      // bear you must LOOK like a bear, not like a tier-3 champion who happens to be brown.
+      const F = this.form;
+      const cloakCol = this.flash > 0 ? '#ff8080' : (F ? F.cloak : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60'));
+      const bodyCol  = this.flash > 0 ? '#ffb0b0' : (F ? F.body  : (evoStage >= 2 && pal ? pal.body  : '#4a6fa5'));
+      const fs = F ? F.scale : 1;   // DRAWN size only - the hitbox never changes
       c.fillStyle = cloakCol;
-      c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(0, 2, this.r * fs, 0, Math.PI * 2); c.fill();
       // body
       c.fillStyle = bodyCol;
-      c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(0, -2, this.r * 0.85 * fs, 0, Math.PI * 2); c.fill();
       // visor facing aim
       c.save();
       c.rotate(this.rollT >= 0 ? 0 : this.facing);
       c.fillStyle = '#0e1420';
       c.fillRect(this.r * 0.15, -4, this.r * 0.75, 8);
-      c.fillStyle = evoStage >= 2 && pal ? pal.accent : '#9ee7ff';
+      c.fillStyle = this.form ? this.form.accent : (evoStage >= 2 && pal ? pal.accent : '#9ee7ff');
       c.fillRect(this.r * 0.3, -2.5, this.r * 0.5, 5);
       c.restore();
 
@@ -1648,6 +1700,9 @@ const PlayerDef = (() => {
     // #52 the class's signature headwear/armor, in the fixed body frame.
     // #156 the RACE's face goes on first, so the class helm sits over it.
     drawClassFeature(c) {
+      // #157 shifted: the animal head REPLACES the race face and the class antlers. You are
+      // the beast now; a bear does not keep its dwarf beard.
+      if (this.form) { drawFormHead(c, this.form.id, this.r * this.form.scale); return; }
       drawRaceFeature(c, (this.race && this.race.id) || 'human', this.r);
       classFeature(c, (this.class && this.class.id) || '', this.r);
     }
@@ -1928,5 +1983,5 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait };
 })();
