@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.25';
+  const VERSION = 'v2.26';
 
   const NOTES = [
+    {
+      v: 'v2.26', title: 'Overcharge', date: '2026-07-14',
+      sha: '66d57a8',
+      items: [
+        'Shards: OVERCHARGE honing gives them an endless sink (Sam).',
+      ],
+    },
     {
       v: 'v2.25', title: 'Machine Gun Sound', date: '2026-07-14',
       sha: '5cdf7de',
