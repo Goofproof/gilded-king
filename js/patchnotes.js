@@ -26,8 +26,12 @@ const PatchNotes = (() => {
       v: 'v2.18', title: 'The End of the Book', date: '2026-07-14',
       sha: '06421d5',
       items: [
-        'PARADISO: the heavens, and the end of the book.',
-        'Character sheet rebuilt: THE PORTRAIT (multi-agent design bake-off).',
+        'THE TOP OF THE MOUNTAIN IS NOT THE END. Climb past the seven terraces and you reach the Earthly Paradise, and then the ground lets go of you and YOU RISE.',
+        'NINE HEAVENS. The Moon, Mercury, Venus, the Sun, Mars, Jupiter, Saturn, the Fixed Stars, and the Primum Mobile. Heaven is not another dungeon: it is glass and light and enormous open space, the dust falls UPWARD, and the music finally stops being frightening.',
+        'NINE BLESSINGS THAT COST SOMETHING. On VENUS you heal from every hit you land, but you are made of glass. On MARS everything hits harder, including you. On JUPITER the scales are exact: what you deal, you are dealt. On SATURN, standing still is the ONLY thing that will heal you - the exact opposite of the terrace of Sloth, where standing still killed you. Saturn is also completely silent, because in the poem it is.',
+        'AND THEN THE EMPYREAN. The end of the book. Toad has been telling you the princess is in another castle since floor 3. At the top of Heaven, there is another castle. The King is waiting in it, gold again, and he has been waiting the whole time. He finally tells you the truth.',
+        'A NEW CHARACTER SHEET (press C). Your champion stands in the middle with five rings around him, one per path, and you can count your evolutions off them. One line tells you what you are. One gold line tells you what to take next.',
+        'And hover any ring to see EXACTLY what it will offer you - with every option marked STACKS, CAPPED, or DEAD SLOT. If you are carrying a bow, it will now tell you straight out that the spell upgrades would do nothing for you.',
       ],
     },
     {
