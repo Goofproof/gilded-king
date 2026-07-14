@@ -136,6 +136,14 @@
     key(code) { return this.keys.has(code); },
     pressed(code) { return this.just.has(code); },
   };
+  // a frozen "nothing is pressed" input, fed to the player while the co-op menu overlay
+  // is open so it holds still and holds fire while the world keeps running around it.
+  const IDLE_INPUT = {
+    keys: new Set(), just: new Set(),
+    mouse: { x: 0, y: 0, down: false, clicked: false, moved: false },
+    stick: null,
+    key() { return false; }, pressed() { return false; },
+  };
   window.addEventListener('keydown', e => {
     // #100 while the chat box is open, swallow game keys and collect real characters
     // (e.key, so punctuation + lowercase work) instead of driving movement/abilities.
@@ -237,6 +245,7 @@
     floorRule: null,      // {name, desc, color, t} - the rule card on the floor banner
     runSeed: 0,           // solo run seed; co-op uses coopSeed. Rules derive from it.
     gateMsg: 0,           // "sealed" toast timer
+    coopMenu: false,      // co-op pause menu overlay (world stays live behind it)
     shopMsg: null,        // {text, t}
     time: 0,
     queueLevelUp() { this.levelUpQueue++; },
@@ -364,6 +373,7 @@
   }
 
   function startFloor() {
+    g.coopMenu = false; // never carry a menu overlay across a floor
     // co-op: everyone builds the SAME floor from the shared run seed
     g.dungeon = Dungeon.generateFloor(g.floorNum, g.coop ? g.coopSeed : undefined);
     g.portal = null; // portals never carry across floors
@@ -1257,6 +1267,18 @@
     if (g.room.merc && !g.room.merc.hired && g.mercs.length < 2) consider(g.room.merc.x, g.room.merc.y, { kind: 'merc' });
     if (g.room.pet && !g.room.pet.activated) consider(g.room.pet.x, g.room.pet.y, { kind: 'pet' });
     return best;
+  }
+
+  // the co-op menu overlay (see the pause note in updatePlay). The world is live
+  // behind it; this only handles the two buttons. P/Esc toggles it (in updatePlay).
+  function handleCoopMenu() {
+    if (!input.mouse.clicked) return;
+    for (const r of (g.uiRects || [])) {
+      if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+        if (r.action === 'menu') { g.coopMenu = false; quitToTitle(); }
+        else if (r.action === 'retire') { g.coopMenu = false; retireRun(); }
+      }
+    }
   }
 
   // ======================= QUEST ENCOUNTERS ================================
@@ -3053,9 +3075,27 @@
     if (g.coop) updateChat();
     updateQuest(dt); // has the stranger's errand been earned, or blown?
     if (input.pressed('KeyP') || input.pressed('Escape')) {
-      g.state = 'pause'; g.overlayT = 0;
-      g.player.drawT = -1; // a held bow draw must not survive pause and fire on resume
-      return;
+      // YOU CANNOT PAUSE AN ONLINE GAME. In co-op, a true pause (g.state='pause')
+      // stops updatePlay, and with it the host's authoritative monster tick and every
+      // client's position broadcast - so ONE player pausing froze the whole party
+      // (Sam's bug). Instead we open a menu OVERLAY: the world keeps running underneath
+      // (monsters, other players, your own peril), input is swallowed, and it is purely
+      // a menu. Same model co-op chat already uses. Solo play still truly pauses.
+      if (g.coop) {
+        g.coopMenu = !g.coopMenu;
+        g.player.drawT = -1;
+        Sfx.play('ui');
+      } else {
+        g.state = 'pause'; g.overlayT = 0;
+        g.player.drawT = -1; // a held bow draw must not survive pause and fire on resume
+        return;
+      }
+    }
+    // while the co-op menu is open, swallow player control (movement/abilities) but let
+    // the rest of updatePlay run, so the shared world never freezes for anyone.
+    if (g.coopMenu) {
+      handleCoopMenu();
+      // fall through: monsters, sync, other players all keep updating below
     }
     if (input.pressed('KeyC')) { // character sheet: stats + evolutions (pauses the action)
       g.state = 'charsheet'; g.overlayT = 0;
@@ -3075,9 +3115,12 @@
     }
 
     const p = g.player;
-    if (!p.dead && input.pressed('Tab')) p.swapWeapon();
-    p.update(dt, g, input);
-    tryRoomExit();
+    // while the co-op menu overlay is up, the player stands still and holds fire (its
+    // timers, cooldowns and regen still tick) - but the world around it keeps moving.
+    const pInput = g.coopMenu ? IDLE_INPUT : input;
+    if (!p.dead && pInput.pressed('Tab')) p.swapWeapon();
+    p.update(dt, g, pInput);
+    if (!g.coopMenu) tryRoomExit();   // don't walk through a door while the menu is up
     if (g.state !== 'play') return; // transition may have started
 
     if (!p.dead) { // a corpse can't loot chests or wake mimics during the death beat
@@ -4099,6 +4142,8 @@
     if (g.state === 'enchantpick') g.uiRects = UI.drawEnchantPick(c, g);
     if (g.state === 'levelwait') drawLevelWait(c);
     if (g.state === 'pause') g.uiRects = UI.drawPause(c, g);
+    // the co-op menu overlay draws over a LIVE world (g.state is still 'play')
+    if (g.coopMenu && g.state === 'play') g.uiRects = UI.drawPause(c, g);
     if (g.state === 'charsheet') g.uiRects = UI.drawCharSheet(c, g);
     if (g.state === 'dead') g.uiRects = UI.drawEnd(c, g, false);
     if (g.state === 'win') g.uiRects = UI.drawEnd(c, g, true);
