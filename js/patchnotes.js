@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.28', title: 'Leaderboard Loadouts Clickable', date: '2026-07-14',
       sha: 'ae67d93',
       items: [
-        'Leaderboard: global loadout snapshots are finally clickable (Sam).',
+        'You can finally click the top scores on the leaderboard to see what they were running. It was there all along, just not clickable. Old scores from before this feature stay blank, but every new run records its loadout.',
       ],
     },
     {
