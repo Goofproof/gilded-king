@@ -142,10 +142,17 @@ const UI = (() => {
 
     // floor tag - "/3" through the Keep, then depth into the Descent
     const inDescent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
+    const climbing = typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum);
     c.font = 'bold 13px monospace';
-    // the depth tag wears the circle's accent, not a fixed fire orange
+    // the tag wears the place's own accent, not a fixed fire orange
     c.fillStyle = inDescent ? (Dungeon.themeFor(g.floorNum).accent || '#ff8a3d') : '#8fa3bf';
-    c.fillText(inDescent ? `DESCENT · FLOOR ${g.floorNum}` : `FLOOR ${g.floorNum}/3`, hbX, H - 16);
+    // THE FLIP: past the bottom of Hell you are not falling any more. Depth becomes
+    // ALTITUDE and the arrow turns around. (Score is still g.floorNum, untouched, so
+    // the leaderboard does not care that the direction changed.)
+    const tag = climbing ? `ASCENT ▲ ALTITUDE ${Ascent.altitude(g.floorNum)}`
+              : inDescent ? `DESCENT ▼ FLOOR ${g.floorNum}`
+              : `FLOOR ${g.floorNum}/3`;
+    c.fillText(tag, hbX, H - 16);
 
     // weapon slots (bottom-left) - two free slots, any mix - plus the armor slot
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');

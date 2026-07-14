@@ -361,6 +361,97 @@ const Sfx = (() => {
         }
         return t;
       });
+
+    // ======================= MOUNT PURGATORY =================================
+    // Hell was a furnace: saw waves, low drones, roaring noise. The mountain is the
+    // opposite - open air, real intervals, and MAJOR harmony. It should sound like
+    // relief. That contrast is doing as much work as the palettes are.
+    } else if (theme === 'shore') {
+      // THE SHORE: surf at the foot of the mountain, and a dawn coming up
+      noiseBed(340, 0.045);                      // the sea
+      every(3.5, 7, () => noise(1.9, 0.05, 'lowpass', 900, 340, 0.6)); // waves breaking
+      drone('sine', 98, 0.022, 260);             // low, calm, steady
+      every(9, 20, () => { const f = 700 + Math.random() * 500; tone('sine', f, f * 1.2, 0.3, 0.7, 0.016); }); // a bird
+      // MUSIC: a plain, open major line. The first unclouded thing in the whole game.
+      phraseLoop(() => {
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00]; // C major pentatonic
+        const step = 1.05;
+        let t = 0;
+        for (let i = 0; i < 5; i++) {
+          const f = scale[(Math.random() * scale.length) | 0];
+          tone('triangle', f, f, 0.15, 1.15, 0.030, t);
+          if (i === 0) tone('sine', f * 0.5, f * 0.5, 0.2, 2.2, 0.022, t); // a root under it
+          t += step;
+        }
+        return t;
+      });
+    } else if (theme === 'stonework') {
+      // the terraces of carved rock: a wide stone hall, open to the sky
+      drone('sine', 130.81, 0.020, 300);         // a C, held
+      drone('sine', 196.00, 0.014, 300);         // and a G above it: an open fifth
+      noiseBed(200, 0.020);
+      every(5, 12, () => { tone('sine', 220, 218, 0.06, 1.1, 0.020); noise(0.2, 0.02, 'highpass', 3000, 5000); }); // chisel on stone
+      // MUSIC: a slow, climbing figure. It goes UP. Every phrase ends higher.
+      phraseLoop(() => {
+        const scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]; // C major, a full octave
+        const step = 0.72;
+        let t = 0, i0 = (Math.random() * 3) | 0;
+        for (let i = 0; i < 6; i++) {
+          const f = scale[Math.min(scale.length - 1, i0 + i)]; // strictly ascending
+          tone('triangle', f, f, 0.05, 0.8, 0.030, t);
+          tone('sine', f * 2, f * 2, 0.06, 0.5, 0.008, t + 0.1);
+          t += step;
+        }
+        return t + 0.6;
+      });
+    } else if (theme === 'smoke') {
+      // WRATH's terrace: you cannot see, so the room is told to you in sound
+      noiseBed(150, 0.070);                      // the smoke, thick and close
+      drone('sawtooth', 58, 0.028, 130);
+      every(2.4, 6, () => noise(0.8, 0.035, 'lowpass', 500, 220, 0.4)); // something moving in it
+      every(11, 24, () => { tone('sawtooth', 150, 96, 0.08, 1.0, 0.040); }); // and a cry, close by
+      phraseLoop(() => {                          // MUSIC: muffled, two notes, uneasy
+        const pair = [174.61, 185.00];            // a semitone apart: it grates
+        pair.forEach((f, i) => tone('triangle', f, f, 0.4, 1.8, 0.022, i * 1.9));
+        return 4.0;
+      });
+    } else if (theme === 'wind') {
+      // the high terraces: thin, clean, moving air
+      noiseBed(700, 0.038);                      // wind, but bright and high, not a gale
+      drone('sine', 164.81, 0.016, 320);
+      every(6, 14, () => { const f = 900 + Math.random() * 700; tone('sine', f, f * 0.85, 0.4, 1.1, 0.012); }); // birds, far off
+      phraseLoop(() => {                          // MUSIC: airy, unhurried, major
+        const scale = [329.63, 392.00, 440.00, 493.88, 587.33];
+        const step = 1.25;
+        let t = 0;
+        for (let i = 0; i < 4; i++) {
+          if (Math.random() < 0.8) {
+            const f = scale[(Math.random() * scale.length) | 0];
+            tone('sine', f, f, 0.35, 1.5, 0.024, t);
+          }
+          t += step;
+        }
+        return t;
+      });
+    } else if (theme === 'refiner') {
+      // the last terrace: fire again - but this fire is meant to CLEAN you, so it
+      // is warm and bright, not the roar of the pit
+      noiseBed(1100, 0.042);                     // bright crackle, high-passed
+      drone('sine', 220, 0.018, 260);
+      every(1.4, 3.4, () => noise(0.3, 0.028, 'bandpass', 3200 + Math.random() * 1200, 1600));
+      // MUSIC: warm major, rising. The summit is close and the game knows it.
+      phraseLoop(() => {
+        const scale = [349.23, 392.00, 440.00, 523.25, 587.33, 698.46]; // F major
+        const step = 0.62;
+        let t = 0;
+        for (let i = 0; i < 7; i++) {
+          const f = scale[Math.min(scale.length - 1, i)];
+          tone('triangle', f, f, 0.04, 0.7, 0.030, t);
+          if (i % 2 === 0) tone('sine', f * 0.5, f * 0.5, 0.06, 0.9, 0.018, t);
+          t += step;
+        }
+        return t + 0.7;
+      });
     }
   }
 

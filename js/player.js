@@ -571,6 +571,9 @@ const PlayerDef = (() => {
     }
 
     addXp(n, g) {
+      // THE BINDING (Avarice) pays nothing in gold and everything in experience:
+      // the penance teaches you, where the coin never did.
+      if (g && g.rules && g.rules.xpMul !== 1) n = Math.round(n * g.rules.xpMul);
       this.xp += n;
       while (this.xp >= this.xpToNext()) {
         this.xp -= this.xpToNext();
@@ -718,7 +721,9 @@ const PlayerDef = (() => {
       if (this.ability && this.ability.cd > 0) this.ability.cd -= dt;
       if (this.abilityR && this.abilityR.cd > 0) this.abilityR.cd -= dt;
       if (this.abilityUlt && this.abilityUlt.cd > 0) this.abilityUlt.cd -= dt;
-      const totalRegen = stats.regen + this.mod('regenFlat');
+      // THE FAST (Gluttony) stops your regeneration dead: nothing on that terrace
+      // will feed you, and the health you finish the floor with is the health you had.
+      const totalRegen = (g.rules && g.rules.noRegen) ? 0 : stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
       // auto-attack is always on (Sam). CURSOR-BASED targeting (#17): if you're
@@ -814,8 +819,15 @@ const PlayerDef = (() => {
         const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
-        // roll trigger
-        if ((input.pressed('Space') || input.pressed('ShiftLeft') || input.pressed('ShiftRight')) && this.rollCd <= 0) {
+        // roll trigger. THE WEIGHT (Pride, on the mountain) takes the dodge away
+        // entirely: you go bent double under a stone, and you cannot bend from
+        // anything. It is the single most-used button in the game, and losing it
+        // changes how you have to fight the whole terrace.
+        const noRoll = g.rules && g.rules.noRoll;
+        if (noRoll && (input.pressed('Space') || input.pressed('ShiftLeft') || input.pressed('ShiftRight'))) {
+          if (typeof Fx !== 'undefined') Fx.text(this.x, this.y - this.r - 16, 'THE WEIGHT', '#d8c39a', 12);
+        }
+        if (!noRoll && (input.pressed('Space') || input.pressed('ShiftLeft') || input.pressed('ShiftRight')) && this.rollCd <= 0) {
           this.rollT = 0;
           this.rollAngle = this.moving ? this.moveAngle : this.facing;
           this.rollCd = T.rollCooldown * stats.rollCdMul * (1 - Math.min(0.5, this.mod('rollCd')));

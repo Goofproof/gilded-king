@@ -3666,7 +3666,21 @@
     drawUltFx(c);
 
     // actors
-    for (const m of g.monsters) if (!m.dead) m.draw(c, g);
+    // THE SMOKE (Wrath's terrace): the bank of bitter black smoke hides everything
+    // until it is close. The monster is still there and still coming - you just
+    // cannot see it yet. Faded by DISTANCE, not culled, so a shape looms out of it.
+    const fadeR = g.rules ? g.rules.fade : Infinity;
+    for (const m of g.monsters) {
+      if (m.dead) continue;
+      if (fadeR !== Infinity) {
+        const d = Math.hypot(m.x - g.player.x, m.y - g.player.y);
+        const a = Math.max(0, Math.min(1, (fadeR + 60 - d) / 90)); // fully out by fadeR+60
+        if (a <= 0.02) continue;
+        c.save(); c.globalAlpha = a; m.draw(c, g); c.restore();
+        continue;
+      }
+      m.draw(c, g);
+    }
     for (const merc of g.mercs) if (!merc.dead) drawMerc(c, merc);
     for (const tr of g.turrets) if (!tr.dead) drawTurret(c, tr);
     drawSummon(c);
@@ -3716,6 +3730,28 @@
     }
 
     Fx.draw(c);
+
+    // THE SEWN EYES (Envy's terrace): the envious have their eyelids stitched shut
+    // with iron wire, and so, more or less, do you. Everything past a short radius
+    // goes black. Drawn over the whole world but UNDER the HUD - you keep your
+    // health bar and your minimap, you just cannot see the room you are standing in.
+    if (g.rules && g.rules.vision !== Infinity && g.player && g.state === 'play') {
+      const R = g.rules.vision;
+      const grad = c.createRadialGradient(g.player.x, g.player.y, R * 0.45, g.player.x, g.player.y, R);
+      grad.addColorStop(0, 'rgba(6,8,8,0)');
+      grad.addColorStop(1, 'rgba(6,8,8,0.97)');
+      c.save();
+      c.fillStyle = grad;
+      c.fillRect(0, 0, W, H);
+      // and the black beyond the falloff, so the corners of the room are simply gone
+      c.fillStyle = 'rgba(6,8,8,0.97)';
+      c.beginPath();
+      c.rect(0, 0, W, H);
+      c.arc(g.player.x, g.player.y, R, 0, Math.PI * 2, true); // punch the lit circle out
+      c.fill();
+      c.restore();
+    }
+
     c.restore(); // end shake
 
     // interaction prompt + info card
@@ -3985,6 +4021,33 @@
       if (Math.random() < 0.4) Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * 20,
         ['#cfeeff', '#7fd4ff'], 1, { speed: 5, life: 3.6, grav: 12, glow: true, size: 1.6, drag: 0.998 });
     }
+    // --- MOUNT PURGATORY: the air goes UP here, not down. Everything on the mountain
+    // rises (grav is negative), which is the whole point of the place.
+    if (theme.ambient === 'shore') {
+      // sea spray off the water at the foot of the mountain, and the dawn coming
+      if (Math.random() < 0.3) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 30,
+        ['#cfe6ff', '#9fc6e8'], 1, { speed: 10, life: 2.4, grav: -16, glow: true, size: 1.5, drag: 0.996 });
+    }
+    if (theme.ambient === 'stonework') {
+      // dust off the carved rock, drifting up in the light
+      if (Math.random() < 0.28) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 40,
+        ['#d8c39a', '#8fb8b0'], 1, { speed: 6, life: 3.0, grav: -10, size: 1.3, drag: 0.998 });
+    }
+    if (theme.ambient === 'smoke') {
+      // the bank of bitter smoke itself, rolling through the room
+      if (Math.random() < 0.7) Fx.burst(PF.x - 10, PF.y + Math.random() * PF.h,
+        ['#6d6a64', '#8b877f', '#4f4d49'], 1, { speed: 14, vx: 60, life: 2.6, size: 5.5, drag: 0.999 });
+    }
+    if (theme.ambient === 'wind') {
+      // clean mountain air, and something green on it
+      if (Math.random() < 0.3) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 30,
+        ['#9ad0a4', '#c3dd8a'], 1, { speed: 9, vx: 26, life: 2.8, grav: -14, size: 1.5, drag: 0.997 });
+    }
+    if (theme.ambient === 'refiner') {
+      // embers off the refining fire - they rise, and they are WARM, not cruel
+      if (Math.random() < 0.5) Fx.burst(PF.x + Math.random() * PF.w, PF.y + PF.h - Math.random() * 30,
+        ['#ffb27a', '#ffd24c', '#ff7a3c'], 1, { speed: 9, life: 2.2, grav: -30, glow: true, size: 1.9, drag: 0.998 });
+    }
 
     // molten rounded corners: mask the square corners so the arena reads oblong
     // and cornerless (collision stays rectangular underneath - a deliberate call)
@@ -4236,6 +4299,107 @@
         c.moveTo(o.x, o.y - o.r * 1.05); c.lineTo(o.x + o.r * 0.85, o.y + o.r * 0.2);
         c.lineTo(o.x + o.r * 0.35, o.y + o.r * 0.95); c.stroke();
         c.globalAlpha = 1;
+      } else if (theme.obstacle === 'reed') {
+        // THE SHORE: the rush that grows at the foot of the mountain. Dante is told
+        // to bind one round his waist - the only humble plant, and it grows back.
+        c.fillStyle = 'rgba(120,170,200,0.25)';
+        c.beginPath(); c.ellipse(o.x, o.y + 3, o.r * 1.2, o.r * 0.55, 0, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#6f8f70'; c.lineWidth = 2; c.lineCap = 'round';
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + (i - 2) * 0.28 + Math.sin(Date.now() / 700 + i + o.x * 0.03) * 0.10;
+          c.beginPath(); c.moveTo(o.x + (i - 2) * 3, o.y + o.r * 0.5);
+          c.lineTo(o.x + (i - 2) * 3 + Math.cos(a) * o.r * 1.25, o.y + o.r * 0.5 + Math.sin(a) * o.r * 1.25);
+          c.stroke();
+        }
+      } else if (theme.obstacle === 'carving') {
+        // PRIDE: a great carved stone. The terrace floor is cut with reliefs of the
+        // proud brought low, and the proud walk bent double under blocks like this.
+        c.fillStyle = '#6b6153';
+        c.fillRect(o.x - o.r, o.y - o.r * 0.85, o.r * 2, o.r * 1.7);
+        c.fillStyle = '#837768';
+        c.fillRect(o.x - o.r * 0.9, o.y - o.r * 0.75, o.r * 1.8, o.r * 0.7);
+        c.strokeStyle = '#4a4238'; c.lineWidth = 1.4;
+        c.strokeRect(o.x - o.r, o.y - o.r * 0.85, o.r * 2, o.r * 1.7);
+        c.strokeStyle = '#d8c39a'; c.lineWidth = 1; c.globalAlpha = 0.55; // the relief
+        c.beginPath();
+        c.moveTo(o.x - o.r * 0.6, o.y + o.r * 0.35); c.lineTo(o.x - o.r * 0.1, o.y - o.r * 0.1);
+        c.lineTo(o.x + o.r * 0.35, o.y + o.r * 0.4); c.lineTo(o.x + o.r * 0.7, o.y - o.r * 0.2);
+        c.stroke();
+        c.globalAlpha = 1;
+      } else if (theme.obstacle === 'cairn') {
+        // ENVY: a stack of grey stones against the cliff, where the envious sit
+        c.fillStyle = 'rgba(0,0,0,0.22)';
+        c.beginPath(); c.ellipse(o.x, o.y + o.r * 0.7, o.r, o.r * 0.4, 0, 0, Math.PI * 2); c.fill();
+        const st = [[0, 0.55, 0.9], [-0.12, 0.02, 0.72], [0.1, -0.42, 0.52], [0, -0.8, 0.3]];
+        for (let i = 0; i < st.length; i++) {
+          const [dx, dy, w] = st[i];
+          c.fillStyle = i % 2 ? '#7c8a86' : '#616e6b';
+          c.beginPath();
+          c.ellipse(o.x + dx * o.r, o.y + dy * o.r, o.r * w, o.r * w * 0.46, 0, 0, Math.PI * 2);
+          c.fill();
+        }
+      } else if (theme.obstacle === 'brazier') {
+        // WRATH: the iron pans that make the smoke. The source of the blindness.
+        c.fillStyle = '#2f2c28';
+        c.fillRect(o.x - o.r * 0.18, o.y - o.r * 0.1, o.r * 0.36, o.r * 1.0); // stem
+        c.fillStyle = '#4a453e';
+        c.beginPath(); c.ellipse(o.x, o.y - o.r * 0.2, o.r * 0.85, o.r * 0.36, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#1a1815'; // the pitch burning in it
+        c.beginPath(); c.ellipse(o.x, o.y - o.r * 0.26, o.r * 0.62, o.r * 0.24, 0, 0, Math.PI * 2); c.fill();
+        for (let i = 0; i < 3; i++) { // the smoke, rolling up
+          const t = Date.now() / 620 + i * 2.1 + o.x * 0.02;
+          const ry = (t % 1);
+          c.fillStyle = `rgba(150,146,138,${0.30 * (1 - ry)})`;
+          c.beginPath();
+          c.arc(o.x + Math.sin(t * 3) * o.r * 0.35, o.y - o.r * 0.5 - ry * o.r * 1.5, o.r * (0.25 + ry * 0.5), 0, Math.PI * 2);
+          c.fill();
+        }
+      } else if (theme.obstacle === 'terrace') {
+        // SLOTH: a low step in the mountain path. The slothful run past it forever.
+        c.fillStyle = '#42513f';
+        c.fillRect(o.x - o.r, o.y - o.r * 0.5, o.r * 2, o.r * 1.0);
+        c.fillStyle = '#55684f';
+        c.fillRect(o.x - o.r, o.y - o.r * 0.5, o.r * 2, o.r * 0.34);
+        c.strokeStyle = '#2c3a2c'; c.lineWidth = 1.3;
+        c.strokeRect(o.x - o.r, o.y - o.r * 0.5, o.r * 2, o.r * 1.0);
+        c.fillStyle = '#9ad0a4'; c.globalAlpha = 0.4; // grass in the joints
+        for (let i = 0; i < 4; i++) c.fillRect(o.x - o.r * 0.8 + i * o.r * 0.5, o.y - o.r * 0.56, 2, 5);
+        c.globalAlpha = 1;
+      } else if (theme.obstacle === 'chain') {
+        // AVARICE: the bindings. The avaricious lie face-down, hand and foot, who in
+        // life would look at nothing but the ground.
+        c.fillStyle = '#5a5540';
+        c.beginPath(); c.arc(o.x, o.y, o.r * 0.85, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#6d6749';
+        c.beginPath(); c.arc(o.x - o.r * 0.2, o.y - o.r * 0.22, o.r * 0.5, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#e0cc84'; c.lineWidth = 2; c.globalAlpha = 0.8;
+        for (let i = 0; i < 4; i++) { // the links, pinned into the rock
+          const a = i * 1.57 + 0.4;
+          c.beginPath();
+          c.ellipse(o.x + Math.cos(a) * o.r * 0.95, o.y + Math.sin(a) * o.r * 0.95, 4.5, 3, a, 0, Math.PI * 2);
+          c.stroke();
+        }
+        c.globalAlpha = 1;
+      } else if (theme.obstacle === 'flamewall') {
+        // LUST: the refining fire. Not the fire of Hell - this one is meant to
+        // CLEAN you, and the only way onward is straight through it.
+        c.save();
+        c.shadowColor = '#ff9a4c'; c.shadowBlur = 14;
+        for (let i = 0; i < 4; i++) {
+          const t = Date.now() / 190 + i * 1.7 + o.x * 0.04;
+          const h = o.r * (1.1 + Math.sin(t) * 0.30);
+          const xo = (i - 1.5) * o.r * 0.44;
+          c.fillStyle = i % 2 ? '#ffb27a' : '#ff7a3c';
+          c.beginPath();
+          c.moveTo(o.x + xo - o.r * 0.24, o.y + o.r * 0.6);
+          c.quadraticCurveTo(o.x + xo - o.r * 0.1, o.y - h * 0.35, o.x + xo, o.y - h);
+          c.quadraticCurveTo(o.x + xo + o.r * 0.1, o.y - h * 0.35, o.x + xo + o.r * 0.24, o.y + o.r * 0.6);
+          c.closePath(); c.fill();
+        }
+        c.shadowBlur = 0;
+        c.fillStyle = 'rgba(255,225,180,0.55)'; // the white heart of it
+        c.beginPath(); c.ellipse(o.x, o.y + o.r * 0.35, o.r * 0.5, o.r * 0.22, 0, 0, Math.PI * 2); c.fill();
+        c.restore();
       } else {
         // plain rock (special rooms keep the classic look)
         c.fillStyle = pal.detail;

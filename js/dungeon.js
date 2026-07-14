@@ -396,7 +396,11 @@ const Dungeon = (() => {
   }
 
   function themeFor(floorNum) {
-    // the Descent (floor 4+) supplies its own hell theme per circle
+    // Mount Purgatory (floor 13+) is checked FIRST: it sits inside the Descent's
+    // floor range (everything past the King is "the Descent" for difficulty
+    // purposes), but you are climbing now, and the mountain owns the scenery.
+    if (typeof Ascent !== 'undefined' && Ascent.isAscent(floorNum)) return Ascent.themeFor(floorNum);
+    // the nine circles of Hell (floors 4-12)
     if (typeof Descent !== 'undefined' && Descent.isDescent(floorNum)) return Descent.themeFor(floorNum);
     return FLOOR_THEMES[floorNum] || FLOOR_THEMES[1];
   }

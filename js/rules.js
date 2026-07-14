@@ -123,6 +123,79 @@ const Rules = (() => {
   ];
 
   // ---------------------------------------------------------------------------
+  // THE SEVEN TERRACE RULES (Mount Purgatory - ascent.js).
+  //
+  // Hell's rules are TORMENTS: they are done to you, and they are cruel. Purgatory's
+  // are PENANCES: they are burdens you carry up the mountain, and every one of them
+  // is the sin itself turned into the cure. The proud carry the weight they would
+  // not bow under. The slothful are never allowed to stand still. The greedy find
+  // that gold has stopped meaning anything.
+  //
+  // Same shape as a circle rule, so the mutators stack on top of these for free.
+  // In Descent.CIRCLES order? No - in ascent.js TERRACES order (Pride first).
+  // ---------------------------------------------------------------------------
+  const TERRACE_RULES = [
+    { key: 'weight', name: 'THE WEIGHT', color: '#d8c39a',
+      desc: 'The proud go bent double under a stone. You cannot dodge what you cannot bend from.',
+      // PRIDE: no dodge roll at all. The single most-used button in the game, taken
+      // away - you have to actually walk out of trouble.
+      noRoll: true, moveMul: 0.9 },
+
+    { key: 'sewneyes', name: 'THE SEWN EYES', color: '#8fb8b0',
+      desc: 'The envious have their eyes stitched shut with wire. You see only what is near.',
+      // ENVY: the room goes dark beyond a small radius around you. Read by the
+      // renderer (main.js), not by a hook - it is a draw-time effect.
+      vision: 150 },
+
+    { key: 'smoke', name: 'THE SMOKE', color: '#b9b3a6',
+      desc: 'A bank of bitter smoke, black as pitch. Nothing is visible until it is close.',
+      // WRATH: monsters fade out at range. They are still there, still coming.
+      fade: 230 },
+
+    { key: 'nevrest', name: 'NEVER REST', color: '#9ad0a4',
+      desc: 'The slothful run without ceasing. Stand still and it will find you.',
+      // SLOTH: standing still hurts, after a short grace. You fight on the move.
+      player(p, dt, g) {
+        if (p.moving || p.rollT >= 0) { p._stillT = 0; return; }
+        p._stillT = (p._stillT || 0) + dt;
+        if (p._stillT > 1.6) {
+          p._stillT = 1.6 - 0.55;              // tick roughly every half second stood still
+          p.damage(4, p.x, p.y - 1, g);
+          if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - p.r - 16, 'MOVE!', '#9ad0a4', 13);
+        }
+      } },
+
+    { key: 'binding', name: 'THE BINDING', color: '#e0cc84',
+      desc: 'They lie bound, face-down, who once looked only at the ground. Gold is worth nothing here.',
+      // AVARICE: no gold at all on this terrace. In exchange, the climb itself
+      // teaches you faster - the penance pays in experience, not coin.
+      coinMul: 0, xpMul: 1.6 },
+
+    { key: 'fast', name: 'THE FAST', color: '#c3dd8a',
+      desc: 'The gluttonous starve beneath a tree they cannot reach. Nothing here will feed you.',
+      // GLUTTONY: no hearts, and your regeneration stops. What health you have is
+      // what you finish the floor with.
+      noHearts: true, noRegen: true },
+
+    { key: 'refining', name: 'THE REFINING FIRE', color: '#ffb27a',
+      desc: 'The last terrace is a wall of flame, and the only way on is through it.',
+      // LUST: the edges of the room burn. You are driven into the open middle, where
+      // there is no cover and nowhere to kite. The final penance before the summit.
+      player(p, dt, g) {
+        const PF = Dungeon.PF;
+        const M = 74; // the burning margin, in from the play-field edge
+        const near = p.x < PF.x + M || p.x > PF.x + PF.w - M
+                  || p.y < PF.y + M || p.y > PF.y + PF.h - M;
+        p._fireCd = Math.max(0, (p._fireCd || 0) - dt);
+        if (!near) return;
+        if (p._fireCd > 0) return;
+        p._fireCd = 0.7;
+        p.damage(5, p.x, p.y, g);
+        if (typeof Fx !== 'undefined') Fx.burst(p.x, p.y, ['#ffb27a', '#ff7a3c', '#ffd24c'], 10, { speed: 100, life: 0.4, glow: true });
+      } },
+  ];
+
+  // ---------------------------------------------------------------------------
   // LAYER 2 - THE MUTATORS.
   //
   // Nine circles is still only nine floors of content; after that it loops. What
@@ -206,14 +279,24 @@ const Rules = (() => {
   function forFloor(floorNum, seed) {
     const active = [];
     let circle = null, mutators = [];
-    if (typeof Descent !== 'undefined' && Descent.isDescent(floorNum)) {
+    const ascending = typeof Ascent !== 'undefined' && Ascent.isAscent(floorNum);
+    if (ascending) {
+      // MOUNT PURGATORY. The shore (floor 13) carries no rule at all: you have just
+      // come up out of the bottom of Hell, and the game lets you breathe once.
+      if (!Ascent.onShore(floorNum)) {
+        circle = TERRACE_RULES[Ascent.terraceIndex(floorNum)];
+        active.push(circle);
+      }
+      mutators = rollMutators(floorNum, seed, mutatorCount(floorNum));
+      active.push(...mutators);
+    } else if (typeof Descent !== 'undefined' && Descent.isDescent(floorNum)) {
       circle = CIRCLE_RULES[(floorNum - Descent.FIRST_FLOOR) % CIRCLE_RULES.length];
       active.push(circle);
       mutators = rollMutators(floorNum, seed, mutatorCount(floorNum));
       active.push(...mutators);
     }
     const r = {
-      list: active, circle, mutators,
+      list: active, circle, mutators, ascending,
       // the gale needs a stable direction for the whole floor
       windAngle: hash32((seed || 0) + floorNum * 977) * Math.PI * 2,
       moveMul:   active.reduce((a, x) => a * (x.moveMul   ?? 1), 1),
@@ -221,9 +304,15 @@ const Rules = (() => {
       monDmgMul: active.reduce((a, x) => a * (x.monDmgMul ?? 1), 1),
       monHpMul:  active.reduce((a, x) => a * (x.monHpMul  ?? 1), 1),
       countMul:  active.reduce((a, x) => a * (x.countMul  ?? 1), 1),
+      xpMul:     active.reduce((a, x) => a * (x.xpMul     ?? 1), 1),
       eliteAdd:  active.reduce((a, x) => a + (x.eliteAdd  ?? 0), 0),
       mimicAdd:  active.reduce((a, x) => a + (x.mimicAdd  ?? 0), 0),
       noHearts:  active.some(x => x.noHearts),
+      noRegen:   active.some(x => x.noRegen),   // the Fast (Gluttony)
+      noRoll:    active.some(x => x.noRoll),    // the Weight (Pride)
+      // draw-time effects, read by the renderer rather than by a hook
+      vision:    active.reduce((a, x) => Math.min(a, x.vision ?? Infinity), Infinity), // the Sewn Eyes
+      fade:      active.reduce((a, x) => Math.min(a, x.fade   ?? Infinity), Infinity), // the Smoke
       // a rule sets moveMul 0 when it means to drive movement itself (the ice)
       ownsMovement: active.some(x => x.moveMul === 0),
     };
@@ -237,12 +326,14 @@ const Rules = (() => {
   // floor exists. Same shape, so callers never null-check.
   function none() {
     return {
-      list: [], circle: null, mutators: [],
+      list: [], circle: null, mutators: [], ascending: false,
       windAngle: 0, moveMul: 1, coinMul: 1, monDmgMul: 1, monHpMul: 1, countMul: 1,
-      eliteAdd: 0, mimicAdd: 0, noHearts: false, ownsMovement: false,
+      xpMul: 1, eliteAdd: 0, mimicAdd: 0,
+      noHearts: false, noRegen: false, noRoll: false,
+      vision: Infinity, fade: Infinity, ownsMovement: false,
       player() { }, spawn() { }, monster() { },
     };
   }
 
-  return { forFloor, none, rollMutators, mutatorCount, CIRCLE_RULES, MUTATORS };
+  return { forFloor, none, rollMutators, mutatorCount, CIRCLE_RULES, TERRACE_RULES, MUTATORS };
 })();
