@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.35';
+  const VERSION = 'v2.36';
 
   const NOTES = [
+    {
+      v: 'v2.36', title: 'Ultimates match your build and shake the whole dungeon', date: '2026-07-14',
+      sha: '69b3f32',
+      items: [
+        'Ultimates: build-weighted offer, flashy dungeon-wide cast, bigger tuning (Sam).',
+      ],
+    },
     {
       v: 'v2.35', title: 'HUD bars are now labeled', date: '2026-07-14',
       sha: 'edfe4ac',
