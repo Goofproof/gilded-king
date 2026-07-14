@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.38', title: 'See a top raider\'s loadout from the main page', date: '2026-07-14',
       sha: '356fadd',
       items: [
-        'Top Raiders: click a top-5 raider on the main page to see their loadout (Sam).',
+        'You can now click any of the top 5 names in the TOP RAIDERS box on the main menu to see exactly what that player was running when they fell, their class, weapons and upgrades. A little magnifier shows which names you can click. Before, you had to open the full high-scores board to peek at a loadout.',
       ],
     },
     {
