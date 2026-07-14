@@ -164,3 +164,90 @@ already built. It is the CONTENT that is the work.
    a separate mode you unlock by reaching the bottom of Hell?
 3. What is at the top? Dante's answer is Paradise. Ours could be the Mimic King
    again, waiting, having been the thing you were climbing toward all along.
+
+---
+
+## #12 - DESCENT SCALING off the player (2026-07-14)
+
+**The ask.** "Once the descent starts, each floor should scale with the player's
+stats to better match progression."
+
+**What's already there.** Descent floors are NOT flat. `Descent.threat(f)` in
+descent.js already scales every descent floor by DEPTH: monster HP is quadratic in
+depth (`1 + 0.18d + 0.015d^2`), damage linear, speed and body-count climb, and the
+elite chance rises with depth. This was deliberately steepened once already (comment
+#126): "the player out-scaled deep floors (a mage was one-shotting the floor-9
+boss)", so HP was made quadratic to "keep pace with a compounding build". So depth
+is being used AS a proxy for player power, and it has been tuned by feel.
+
+**Why this needs your call, not mine.** The ask is to scale off the player's actual
+stats, not just depth. The danger is real and I cannot judge "feel" from a script:
+scale too hard and you get a death spiral (the stronger you get, the tougher
+everything gets, so upgrades feel worthless and a run that stalls becomes
+unwinnable); scale too soft and it does nothing; and because depth ALREADY stands in
+for player power, adding a second player-power term risks double-counting and
+destabilising the curve that #126 already tuned. This is a systems-level balance
+lever, exactly the kind you asked me not to guess at blind.
+
+**Three concrete options (pick one, or redirect):**
+1. **Gentle player-level term, capped (recommended).** Multiply threat HP/dmg by a
+   small factor of how far the player's level is AHEAD of the floor's "expected"
+   level, capped hard (say +/- 25%). If you are over-levelled the floor firms up a
+   little; if under-levelled it eases. Self-correcting, hard to death-spiral because
+   of the cap. Pro: matches progression without punishing upgrades. Con: needs an
+   "expected level per floor" curve to measure against.
+2. **Scale off equipped-weapon damage.** Read the player's real DPS (weapon dmg x
+   attack speed x crit) and nudge monster HP so fights stay a target length. Pro:
+   tracks the thing that actually trivialises floors (a hyper-honed weapon). Con:
+   most invasive, can feel unfair ("I upgraded my sword and enemies got tankier"),
+   and hardest to tune. This is the death-spiral risk in its purest form.
+3. **Leave the depth curve, widen the ELITE pool instead.** Don't touch base
+   scaling; instead make elites more common and more varied deep (new affixes:
+   Warding, Vampiric, Splitting) so deep floors get more DANGEROUS-INTERESTING
+   rather than just bigger numbers. Pro: safest, adds variety not just difficulty,
+   no death-spiral. Con: does not literally "scale with your stats" - it scales with
+   depth like today, just with more texture.
+
+My lean: option 1 (self-correcting and capped) or option 3 (safest, most fun).
+Option 2 is the riskiest and I would not ship it without you watching a playtest.
+
+---
+
+## #13 - TWIN PORTALS: a Nightmare path down the Descent (2026-07-14)
+
+**The ask.** At the end of each descent floor, offer TWO portals: the normal next
+floor, and a NIGHTMARE version that is much harder but much more rewarding.
+
+**What's there now.** One `descentPortal` (a single one-way plunge). Taking it does
+`g.floorNum++; startFloor()`. In co-op the host broadcasts `{t:'floor', floor,
+seed}` so the whole party descends onto the SAME floor built from the shared seed.
+A floor's character comes from `Descent.threat(floor)` (difficulty) plus
+`Rules.forFloor(floor, seed)` (the circle rule + stacked MUTATORS from rules.js).
+
+**Why this needs your call.** Two design forks I should not guess:
+- **The co-op fork (the real blocker).** Today both players land on ONE shared
+  floor. With two portals, if player A picks Normal and player B picks Nightmare,
+  the shared floor diverges and co-op breaks. Someone has to decide the rule:
+  (a) HOST chooses, guests follow; (b) a vote / both-must-stand-on-the-same-portal
+  to commit; or (c) the party splits into two instances (a much bigger lift). This
+  is a genuine multiplayer-design decision with real UX and code weight.
+- **The balance fork.** "Much harder, much more rewarding" is a feel dial: how much
+  harder (a threat multiplier? a guaranteed extra mutator? forced elites / an extra
+  Warden?) and how much more rewarding (loot rarity x1.5? double gold/essence? a
+  guaranteed mythic?). Wrong numbers make Nightmare either a no-brainer or a trap.
+
+**The shippable plan I'd build once you steer it:**
+- A `g.nightmare` flag set when you take the right-hand portal, synced in the co-op
+  `floor` message (so it is part of the shared floor state, host-authoritative).
+- Nightmare modifies the NEXT floor only: `Descent.threat` reads the flag and applies
+  a multiplier (start ~1.35x HP/dmg), `Rules.forFloor` force-adds one extra mutator,
+  and the elite chance floor is raised. Reward side: a loot-rarity + gold/essence
+  multiplier on that floor, and a much higher mythic-drop chance from its Warden.
+- Two portal sprites at the floor exit (left = calm blue, right = a violent red rift
+  with a "NIGHTMARE - harder, richer" tag). Co-op rule per your answer above.
+
+**The three questions for you:**
+1. Co-op rule: host-chooses, party-vote, or split instances?
+2. How much harder: threat multiplier value + forced extra mutator, or an extra
+   Warden fight?
+3. How much richer: the reward multiplier, and is a mythic guaranteed?
