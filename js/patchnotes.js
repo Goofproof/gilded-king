@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.18';
+  const VERSION = 'v2.19';
 
   const NOTES = [
+    {
+      v: 'v2.19', title: 'Pause Menu Fix', date: '2026-07-14',
+      sha: '837a242',
+      items: [
+        'Pause menu: the END RUN label spilled out of its own box (Sam).',
+      ],
+    },
     {
       v: 'v2.18', title: 'The End of the Book', date: '2026-07-14',
       sha: '06421d5',
