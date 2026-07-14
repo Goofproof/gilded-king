@@ -1537,19 +1537,39 @@ const UI = (() => {
         const scol = (typeof Evolutions !== 'undefined' && Evolutions.STAT_COLOR[stat]) || ch.color;
         const stacks = (g.player.statPoints && g.player.statPoints[stat]) || 0;
         const inTier = stacks % 3, owned = Math.floor(stacks / 3);
-        const evolves = inTier === 2;                          // this pick completes a set of 3
+        // Evolutions open at 3/6/9/12 and there is no tier V (evolutions.js
+        // optionsForStat returns null past IV). Once a stat is FULLY EVOLVED the card
+        // used to keep counting "2/3 to MIGHT evo" and even promise "EVOLVES ON THIS
+        // PICK" - a promise it could not keep. Now it says so plainly. The point is
+        // still worth taking (the base stat keeps growing), so the card says that too.
+        const maxed = owned >= 4;
+        const evolves = !maxed && inTier === 2;                // this pick completes a set of 3
         // "STAT +1" tag so you see the stat point you're banking
         c.font = 'bold 10px monospace'; c.fillStyle = scol;
         c.fillText(stat + ' +1', x + cardW / 2, y + cardH - 44);
         const py = y + cardH - 30;
-        for (let p = 0; p < 3; p++) {
-          const on = p < inTier;
-          c.fillStyle = on ? scol : 'rgba(255,255,255,0.16)';
-          c.beginPath(); c.arc(x + cardW / 2 - 16 + p * 16, py, 4.2, 0, Math.PI * 2); c.fill();
-          if (!on) { c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 1; c.stroke(); }
+        if (maxed) {
+          // all four pips lit, in gold: the track is finished. Sits 8px higher than
+          // the normal row so the two lines of text below it still fit in the card.
+          for (let p = 0; p < 4; p++) {
+            c.fillStyle = '#ffd24c';
+            c.beginPath(); c.arc(x + cardW / 2 - 24 + p * 16, py - 8, 4.2, 0, Math.PI * 2); c.fill();
+          }
+        } else {
+          for (let p = 0; p < 3; p++) {
+            const on = p < inTier;
+            c.fillStyle = on ? scol : 'rgba(255,255,255,0.16)';
+            c.beginPath(); c.arc(x + cardW / 2 - 16 + p * 16, py, 4.2, 0, Math.PI * 2); c.fill();
+            if (!on) { c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 1; c.stroke(); }
+          }
         }
         c.font = 'bold 10px monospace';
-        if (evolves) {
+        if (maxed) {
+          c.fillStyle = '#ffd24c';
+          c.fillText(`${stat} FULLY EVOLVED · IV`, x + cardW / 2, py + 7);
+          c.font = '9px monospace'; c.fillStyle = '#7a8698';
+          c.fillText('the point still counts', x + cardW / 2, py + 19);
+        } else if (evolves) {
           c.fillStyle = '#ffd24c';
           c.fillText('EVOLVES ON THIS PICK', x + cardW / 2, py + 18);
         } else {
