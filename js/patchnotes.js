@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.30';
+  const VERSION = 'v2.31';
 
   const NOTES = [
+    {
+      v: 'v2.31', title: 'Ice floor now builds momentum when you commit to a direction', date: '2026-07-14',
+      sha: 'daf3eb6',
+      items: [
+        'Ice floor: sustained same-direction input builds momentum (Sam).',
+      ],
+    },
     {
       v: 'v2.30', title: 'Formations spread out so one swing can\'t clear them', date: '2026-07-14',
       sha: '5576933',
