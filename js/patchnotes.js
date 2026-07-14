@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.45';
+  const VERSION = 'v2.46';
 
   const NOTES = [
+    {
+      v: 'v2.46', title: 'Nine circles, nine bosses', date: '2026-07-14',
+      sha: 'd290020',
+      items: [
+        'Nine circles, nine bosses: a named Dante guardian at every level of Hell (Sam, #155).',
+      ],
+    },
     {
       v: 'v2.45', title: 'The descent is now a real gauntlet', date: '2026-07-14',
       sha: '3d92d1e',
