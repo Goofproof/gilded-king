@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.46', title: 'Nine circles, nine bosses', date: '2026-07-14',
       sha: 'd290020',
       items: [
-        'Nine circles, nine bosses: a named Dante guardian at every level of Hell (Sam, #155).',
+        'Every one of the nine circles of Hell now has its own boss guarding the way down, straight out of Dante. You will face Charon the ferryman, Minos the judge, the three-headed hound Cerberus, Plutus, Phlegyas, Medusa, the Minotaur, Geryon, and finally Lucifer himself frozen at the very bottom. Each one is a real figure from the story, wears the colors of its circle, and gets tougher the deeper you go. Look them up, they are all real.',
       ],
     },
     {
