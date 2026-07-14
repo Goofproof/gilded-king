@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.38';
+  const VERSION = 'v2.39';
 
   const NOTES = [
+    {
+      v: 'v2.39', title: 'Fix the fallen-hero card: no more NaN, fits the box', date: '2026-07-14',
+      sha: '05da92f',
+      items: [
+        'Snapshot viewer: fix NaN% on legacy entries + panel overflow (Sam).',
+      ],
+    },
     {
       v: 'v2.38', title: 'See a top raider\'s loadout from the main page', date: '2026-07-14',
       sha: '356fadd',
