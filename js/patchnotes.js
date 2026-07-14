@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.21';
+  const VERSION = 'v2.22';
 
   const NOTES = [
+    {
+      v: 'v2.22', title: 'Co-op: Weapons and Pause', date: '2026-07-14',
+      sha: '4ac7b11',
+      items: [
+        'Co-op: a paused player no longer freezes the whole party.',
+        'Co-op: gear snapshot cures the weapon desync (the reliability layer).',
+      ],
+    },
     {
       v: 'v2.21', title: 'Your Totals', date: '2026-07-14',
       sha: '0369c5f',
