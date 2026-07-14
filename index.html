@@ -2,17 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- MOBILE: without this a phone lays the page out at 980px wide and zooms out, so the
+     game arrives as a postage stamp. user-scalable=no stops a double-tap zooming the
+     canvas mid-fight. viewport-fit=cover gets us under the notch. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0b12">
 <title>Dungeon of the Gilded King</title>
 <style>
   html,body{margin:0;padding:0;background:#0b0b12;height:100%;overflow:hidden}
   body{display:flex;align-items:center;justify-content:center}
-  /* Fixed internal resolution 960x540, scaled to fit the window preserving 16:9 */
+  /* Fixed internal resolution 960x540, scaled to fit the window preserving 16:9.
+     The internal size is FIXED ON PURPOSE. The play field defines room geometry and
+     monster spawn positions, and those are seeded and shared in co-op - if the canvas
+     resized with the window, two players on different screens would generate
+     DIFFERENT DUNGEONS. The letterboxing on an ultrawide window is the price of that,
+     and it is worth paying. Do not "fix" it by making the internal resolution adapt. */
   canvas{
     width:100vw;height:56.25vw;           /* 16:9 */
     max-height:100vh;max-width:177.78vh;
     image-rendering:auto;cursor:crosshair;
     background:#0b0b12;
+    touch-action:none;                    /* MOBILE: no scroll, no zoom, no pull-to-refresh */
   }
+  /* MOBILE: no blue tap flash, no text-selection lasso on a long press */
+  html,body,canvas{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
 </style>
 </head>
 <body>
@@ -34,6 +49,7 @@
 <script src="js/achievements.js"></script>
 <script src="js/patchnotes.js"></script>
 <script src="js/net.js"></script>
+<script src="js/touch.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>

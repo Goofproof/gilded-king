@@ -169,16 +169,23 @@ const UI = (() => {
     drawWeaponSlot(c, p.weapons.a, 14, H - 106, p.slot === 'a');
     drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
     drawArmorSlot(c, p.armor, 110, H - 106);
-    c.font = '10px monospace';
-    c.fillStyle = 'rgba(255,255,255,0.45)';
-    c.fillText('Tab/RMB swap', 14, H - 112);
-    // #51 auto-attack state (subtle when on, loud when off so you know why you're idle)
-    c.textAlign = 'left';
-    c.fillStyle = p.autoAttack ? 'rgba(126,224,160,0.55)' : '#ff9a3d';
-    c.fillText(p.autoAttack ? 'F auto-atk ON' : 'F AUTO-ATK OFF', 110, H - 112);
+    // MOBILE: there is no Tab, no F and no Q key, and the touch buttons already show
+    // the abilities WITH their cooldowns (touch.js). Showing keyboard hints and a
+    // second set of ability badges to a phone is just clutter sitting under the
+    // player's thumbs.
+    const onTouch = typeof Mobile !== 'undefined' && Mobile.enabled;
+    if (!onTouch) {
+      c.font = '10px monospace';
+      c.fillStyle = 'rgba(255,255,255,0.45)';
+      c.fillText('Tab/RMB swap', 14, H - 112);
+      // #51 auto-attack state (subtle when on, loud when off so you know why you're idle)
+      c.textAlign = 'left';
+      c.fillStyle = p.autoAttack ? 'rgba(126,224,160,0.55)' : '#ff9a3d';
+      c.fillText(p.autoAttack ? 'F auto-atk ON' : 'F AUTO-ATK OFF', 110, H - 112);
 
-    // ability badges (Q / R / Ultimate), bottom-centre; hover shows what each does
-    for (const b of abilityBadges(p)) drawAbility(c, b.a, b.key, b.x);
+      // ability badges (Q / R / Ultimate), bottom-centre; hover shows what each does
+      for (const b of abilityBadges(p)) drawAbility(c, b.a, b.key, b.x);
+    }
 
     c.restore();
   }

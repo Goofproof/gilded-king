@@ -797,6 +797,10 @@ const PlayerDef = (() => {
       if (input.key('KeyS') || input.key('ArrowDown')) my += 1;
       if (input.key('KeyA') || input.key('ArrowLeft')) mx -= 1;
       if (input.key('KeyD') || input.key('ArrowRight')) mx += 1;
+      // MOBILE: the touch stick is analog. Emulating WASD from a thumbstick gives you
+      // 8-way movement and feels awful, so the stick overrides the keys outright when
+      // it is being held (touch.js).
+      if (input.stick) { mx = input.stick.x; my = input.stick.y; }
       this.moving = mx !== 0 || my !== 0;
       if (this.moving) {
         const len = Math.hypot(mx, my);
@@ -847,7 +851,11 @@ const PlayerDef = (() => {
         // movement entirely in its player() hook below (momentum, no sharp stops).
         const rules = (g.rules || (typeof Rules !== 'undefined' ? Rules.none() : null));
         const ruleMul = rules ? rules.moveMul : 1;
-        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul;
+        // MOBILE: mx/my get normalised to a unit vector just above, which throws the
+        // thumbstick's MAGNITUDE away and makes a half-pushed stick run at full speed.
+        // Fold it back in here, so a gentle push is a walk and a full push is a sprint.
+        const stickMag = input.stick ? input.stick.mag : 1;
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul * stickMag;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger. THE WEIGHT (Pride, on the mountain) takes the dodge away

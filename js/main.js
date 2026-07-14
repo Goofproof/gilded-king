@@ -2111,6 +2111,10 @@
   }
 
   function update(dt) {
+    // MOBILE: fold the thumbstick + auto-aim into `input` BEFORE anything reads it,
+    // so the rest of the game cannot tell a thumb from a keyboard. No-op on desktop.
+    if (typeof Mobile !== 'undefined') Mobile.update(g);
+
     // global keys
     if (input.pressed('KeyM')) Sfx.toggleMute();
 
@@ -4005,6 +4009,11 @@
 
     // #86 accolade unlock toasts render on top of everything, in any play state
     UI.drawToasts(c, g);
+
+    // MOBILE: the thumbstick and the buttons sit on top of the HUD. Drawn in game
+    // coordinates on the same canvas, so they scale with everything else and need no
+    // DOM at all. No-op on desktop.
+    if (typeof Mobile !== 'undefined') Mobile.draw(c, g);
   }
 
   // #100 render the co-op chat: recent lines fade after a while, and an input box
@@ -5151,6 +5160,12 @@
 
   // boot
   console.log('[dungeon] loaded - Dungeon of the Gilded King');
+  // MOBILE: bind the touch layer to the SAME input object the desktop game reads, so a
+  // synthetic 'KeyE' from a thumb is indistinguishable from a real keypress. Returns
+  // false and does nothing at all on a device with a real pointer.
+  if (typeof Mobile !== 'undefined' && Mobile.init(canvas, input, useUltimate)) {
+    console.log('[dungeon] touch controls ON');
+  }
   maybeShowPatchNotes();
   fetchGlobalScores();            // #62 pull the global leaderboard for the title board
   setInterval(() => { if (g.state === 'title') fetchGlobalScores(); }, 300000); // refresh every 5 min on the title
