@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.39', title: 'Fix the fallen-hero card: no more NaN, fits the box', date: '2026-07-14',
       sha: '05da92f',
       items: [
-        'Snapshot viewer: fix NaN% on legacy entries + panel overflow (Sam).',
+        'Fixed the fallen-hero card you get when you click a raider. Older scores from before we added some stats were showing "NaN%" in the STATS line, and a fully loaded hero could spill outside the box. Now every stat shows a real number and the whole card fits neatly.',
       ],
     },
     {
