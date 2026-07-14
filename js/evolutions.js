@@ -306,7 +306,10 @@ const Evolutions = (() => {
     ARCANE:  ['magic'],                 // spellcasting
     FORTUNE: ['coin'],                  // luck / economy
   };
-  const STAT_COLOR = { MIGHT: '#ffd24c', VIGOR: '#6ee7a0', AGILITY: '#7fd4ff', ARCANE: '#b06bff', FORTUNE: '#ffce54' };
+  // FORTUNE used to be '#ffce54', which is the SAME YELLOW as MIGHT's '#ffd24c' to the
+  // naked eye. The character sheet colour-codes every ring and every evolution by its
+  // stat, so two stats sharing a colour is fatal there. Orange. Now they are five.
+  const STAT_COLOR = { MIGHT: '#ffd24c', VIGOR: '#6ee7a0', AGILITY: '#7fd4ff', ARCANE: '#b06bff', FORTUNE: '#ff9f4a' };
   const STAT_BLURB = { MIGHT: 'kill fast', VIGOR: 'stay alive', AGILITY: 'nimble & evasive', ARCANE: 'spellcasting', FORTUNE: 'luck & economy' };
   // reverse map: sub-stat evolution-tree key -> its base stat (for the char sheet)
   const STAT_OF = {};
@@ -330,5 +333,49 @@ const Evolutions = (() => {
     return out.slice(0, 3);
   }
 
-  return { TABLE, STAT_NAMES, STAT_SCHOOL, SCHOOL_COLOR, TIER_LABEL, optionsFor, STATS, STAT_TREES, STAT_COLOR, STAT_BLURB, STAT_OF, optionsForStat };
+  const THRESH = [3, 6, 9, 12];   // evolutions open here, and there is no tier V
+
+  // ONE copy of the "how close am I to an evolution" maths, for the whole game. The
+  // level-up card and the character sheet both used to work it out for themselves, in
+  // slightly different ways, which is exactly how a maxed stat ended up promising an
+  // evolution it could never deliver.
+  function progressLine(p, stat) {
+    const sp = (p.statPoints && p.statPoints[stat]) || 0;
+    const owned = Math.floor(sp / 3);
+    const nextT = THRESH.find(t => t > sp) || null;
+    if (owned >= 4) return { text: `${stat} FULLY EVOLVED · IV`, color: '#ffd24c', stat, sp, nextT: null, maxed: true };
+    if (sp + 1 === nextT) return { text: `+1 ${stat} · EVOLVES ON THIS PICK`, color: '#ffd24c', stat, sp, nextT, evolves: true };
+    return { text: `+1 ${stat} · ${sp + 1}/${nextT} to evolve`, color: STAT_COLOR[stat], stat, sp, nextT };
+  }
+
+  // Is this option actually going to DO anything for me? A 12-year-old cannot be
+  // expected to know that spell power does nothing without a wand, or that damage
+  // reduction is hard-capped at 60% (player.js:666) and the rest is thrown away. So
+  // the game says so, out loud, on the option itself.
+  function verdictFor(p, opt) {
+    const fx = (opt && opt.fx) || {};
+    const pc = v => Math.round(v * 100) + '%';
+    const arch = a => (p.weapons && ((p.weapons.a && p.weapons.a.archetype === a) || (p.weapons.b && p.weapons.b.archetype === a)));
+    const magic = arch('wand') || arch('staff');
+
+    if (fx.reduce !== undefined) {
+      const cur = p.mod ? p.mod('reduce') : 0;
+      if (cur >= 0.6) return { tag: 'CAPPED', text: 'you already take the least damage the game allows (60%)', color: '#e0894a' };
+      if (cur + fx.reduce > 0.6) return { tag: 'CAPPED', text: `${pc(cur)} to 60% less damage - the rest is wasted`, color: '#e0894a' };
+      return { tag: 'STACKS', text: `take ${pc(cur)} to ${pc(cur + fx.reduce)} less damage`, color: '#6ee7a0' };
+    }
+    if ((fx.spellPower !== undefined || fx.blastBonus !== undefined) && !magic) {
+      return { tag: 'DEAD SLOT', text: 'you carry no wand or staff - this does nothing right now', color: '#e0894a' };
+    }
+    if (fx.echo !== undefined && !arch('light')) {
+      return { tag: 'DEAD SLOT', text: 'echo only fires on a light weapon - you carry none', color: '#e0894a' };
+    }
+    if (fx.midasPer !== undefined && !(p.mod && p.mod('midasPer'))) {
+      return { tag: 'STACKS', text: 'turns the gold you are holding into damage', color: '#6ee7a0' };
+    }
+    return { tag: 'STACKS', text: opt && opt.desc ? opt.desc : '', color: '#6ee7a0' };
+  }
+
+  return { TABLE, STAT_NAMES, STAT_SCHOOL, SCHOOL_COLOR, TIER_LABEL, optionsFor, STATS, STAT_TREES,
+           STAT_COLOR, STAT_BLURB, STAT_OF, optionsForStat, THRESH, progressLine, verdictFor };
 })();

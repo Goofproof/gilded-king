@@ -2203,17 +2203,25 @@
         break;
       case 'charsheet':
         g.overlayT += dt;
-        // #46 click a stat row to drill into its evolution tree
-        if (input.mouse.clicked && g.uiRects) {
+        // THE PORTRAIT: HOVER a ring to drill into it. Hovering rather than clicking is
+        // the point - the drill-down is a glance, not a mode you have to click out of.
+        // Moving the mouse off the rings returns you to the quiet default view.
+        if (g.uiRects && input.mouse.moved) {
+          let over = null;
           for (const r of g.uiRects) {
-            if (r.stat && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
-              g.charDetail = r.stat; Sfx.play('ui'); break;
-            }
+            if (r.stat && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { over = r.stat; break; }
           }
+          if (over !== g.charDetail) { g.charDetail = over; if (over) Sfx.play('ui'); }
         }
+        // 1-5 pick a ring by number (and it STICKS, so you can read it without holding
+        // the mouse still); 0 goes back to the portrait.
+        for (let i = 0; i < 5; i++) {
+          if (input.pressed('Digit' + (i + 1))) { g.charDetail = Evolutions.STATS[i]; Sfx.play('ui'); }
+        }
+        if (input.pressed('Digit0')) { g.charDetail = null; Sfx.play('ui'); }
         // #85 close: return to whatever we peeked FROM (a level-up/evolution/ultimate
         // pick), else back to play
-        if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) { g.state = g.charReturn || 'play'; g.charReturn = null; }
+        if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) { g.state = g.charReturn || 'play'; g.charReturn = null; g.charDetail = null; }
         break;
       case 'transition': updateTransition(dt); break;
       case 'bossintro': updateBossIntro(dt); break;
