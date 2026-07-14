@@ -1380,6 +1380,7 @@
       if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3 }), x: ch.x - 50, y: ch.y + 20, t: 0 });
       if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y, true); // #97 chest loot is per-player: don't mirror
       p.addXp(10, g);
+      vacuumPickups(); // #140 (Sam) opening a chest sweeps its coins (and any loose in the room) to you - the weapon/armor it drops stay put (vacuumPickups skips gear)
     }
 
     if (t.kind === 'weaponPickup') {
