@@ -442,8 +442,9 @@ const Monsters = (() => {
           m.facing = Math.atan2(p.y - m.y, p.x - m.x); // tracks while revving
           m.telegraph = 0.7 - m.t;                     // long readable spin-up (red ring)
           m.spin = (m.spin || 0) + dt * 22;            // barrel spin for the draw
+          if (!m.spinSfx) { Sfx.play('gunspin'); m.spinSfx = 1; } // #138 rev-up whine
           if (m.t >= 0.7) {
-            m.state = 'burst'; m.t = 0; m.telegraph = 0;
+            m.state = 'burst'; m.t = 0; m.telegraph = 0; m.spinSfx = 0;
             m.burstLeft = m.emp ? 12 : 7; m.burstShotT = 0; m.empBurst = m.emp; m.emp = false;
           }
         } else if (m.state === 'burst') {
@@ -456,7 +457,7 @@ const Monsters = (() => {
             fireProjectile(g, m, m.facing + spread, 400, m.dmg, m.empBurst ? '#ff7a2c' : '#ffd24c', 3, { glow: true });
             m.muzzle = 0.07;
             m.burstLeft--;
-            Sfx.play('bowfire');
+            Sfx.play('gunfire'); // #138 percussive round, not a bow twang
             if (m.burstLeft <= 0) { m.state = 'idle'; m.t = 0; } // into the reload
           }
         }
@@ -1137,7 +1138,7 @@ const Monsters = (() => {
         m.telegraph = 0;
         if (m.type === 'archer') { fireProjectile(g, m, ang, 330, m.dmg, '#cfe8b0', 4); m.suppressCd = 1.5; Sfx.play('bowfire'); }
         else if (m.type === 'seeker') { fireProjectile(g, m, ang, 155, m.dmg, '#ff8a3d', 6, { glow: true, homing: 1.8, turnRate: 2.7 }); m.suppressCd = 2.4; Sfx.play('bowfire'); }
-        else if (m.type === 'gunner') { for (let k = -1; k <= 1; k++) fireProjectile(g, m, ang + k * 0.12, 400, m.dmg, '#ffd24c', 3, { glow: true }); m.muzzle = 0.07; m.suppressCd = 1.6; Sfx.play('bowfire'); } // #115 held gunner lays down a short burst
+        else if (m.type === 'gunner') { for (let k = -1; k <= 1; k++) fireProjectile(g, m, ang + k * 0.12, 400, m.dmg, '#ffd24c', 3, { glow: true }); m.muzzle = 0.07; m.suppressCd = 1.6; Sfx.play('gunfire'); } // #115 held gunner lays down a short burst
         else { g.ultFx.push({ type: 'lob', x: t.x, y: t.y, sx: m.x, sy: m.y, t: 0, delay: 1.0, dmg: m.dmg, radius: 68, color: '#ff5a2c' }); m.suppressCd = 2.6; Sfx.play('bowfire'); }
       }
       return;

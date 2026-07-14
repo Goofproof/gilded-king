@@ -79,6 +79,17 @@ const Sfx = (() => {
     roll:     () => { noise(0.14, 0.22, 'bandpass', 500, 2500); },
     bowdraw:  () => { noise(0.18, 0.1, 'bandpass', 300, 900); tone('sine', 150, 260, 0.15, 0.05, 0.06); },
     bowfire:  () => { noise(0.07, 0.3, 'highpass', 1500, 4000); tone('square', 700, 200, 0.005, 0.07, 0.12); },
+    // #138 the gunner used to fire 'bowfire' 12x/sec - a machine gun that went 'twang'.
+    // A real round is PERCUSSIVE: a low thump for weight, a punchy body that snaps down
+    // in pitch (that is the 'pow'), and a bright high crack transient. The slight v()
+    // variance per round stops the stream reading as one flat buzzing tone.
+    gunfire:  () => { const k = v();
+      tone('sine',   95 * k, 46,  0.001, 0.055, 0.22);            // low thump (the weight)
+      tone('square', 240 * k, 80, 0.001, 0.05,  0.14);            // body, snaps down = 'pow'
+      noise(0.026, 0.30, 'highpass', 2400, 6800);                 // bright crack transient
+    },
+    // the barrel spinning up before a burst - a short rising whine + mechanical whir
+    gunspin:  () => { tone('sawtooth', 130, 360, 0.02, 0.62, 0.09); noise(0.62, 0.045, 'bandpass', 500, 1400); },
     door:     () => { tone('square', 90, 55, 0.01, 0.3, 0.3); noise(0.25, 0.15, 'lowpass', 500, 80); },
     unlock:   () => { tone('triangle', 350, 700, 0.01, 0.15, 0.2); tone('triangle', 520, 1050, 0.01, 0.15, 0.16, 0.1); },
     levelup:  () => { [440, 554, 659, 880].forEach((f, i) => tone('triangle', f, f, 0.01, 0.22, 0.2, i * 0.09)); },
