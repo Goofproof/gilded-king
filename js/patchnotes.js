@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.24', title: 'Enchant Table Moved', date: '2026-07-14',
       sha: 'eebcb3a',
       items: [
-        'Shop: move the enchant table out of the doorway (Sam).',
+        'The enchant table in the shop moved. It used to sit right in the bottom doorway, jammed against the wall; now it lines up with the other stalls where you can actually get to it.',
       ],
     },
     {
