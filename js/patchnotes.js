@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.17';
+  const VERSION = 'v2.18';
 
   const NOTES = [
+    {
+      v: 'v2.18', title: 'The End of the Book', date: '2026-07-14',
+      sha: '06421d5',
+      items: [
+        'PARADISO: the heavens, and the end of the book.',
+        'Character sheet rebuilt: THE PORTRAIT (multi-agent design bake-off).',
+      ],
+    },
     {
       v: 'v2.17', title: 'Mobile, Quests and the Climb', date: '2026-07-14',
       sha: '1e8d984',
