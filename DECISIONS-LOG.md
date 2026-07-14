@@ -6,6 +6,35 @@ records those calls and the reasoning, newest first. None of these block a rever
 
 ---
 
+## Layer 3 / PURGATORIO - the calls I made while Sam was asleep (2026-07-14)
+Sam handed this off as an overnight /loop and pre-decided the big three: yes we
+climb; ONE continuous run (not a separate mode); Purgatorio only tonight, with
+"what is at the top" left for his son. Everything below is mine.
+
+- **The turn happens at floor 13, not at a boss.** The nine circles are floors
+  4-12. Rather than gate the mountain behind another Warden fight (there is already
+  one every 3rd floor), you simply reach the bottom and go THROUGH it. Breaking the
+  ice is the beat; it does not need a health bar attached to it.
+- **The mountain stays inside `Descent.isDescent()`.** That reads wrong at first
+  glance, and it is deliberate: `isDescent()` means "past the King", i.e. the
+  endless region, and it gates the threat curve, the elites, the boss cadence and
+  the mythic shops. If the mountain fell outside it, all of that would silently
+  switch off at floor 13 and the climb would be trivial. What changes up there is
+  the SCENERY and the RULES, not the difficulty machinery. Guarded by a test.
+- **Score stays `g.floorNum`.** The readout flips from depth to altitude, but the
+  number the leaderboard sorts on never changes direction, so nothing downstream
+  had to learn about climbing.
+- **Terrace rules are penances, not torments.** Hell's rules are done TO you and
+  are cruel; each terrace rule is the sin turned into its own cure (Pride takes
+  away your dodge roll, Sloth punishes standing still, Avarice makes gold worthless
+  and pays in XP instead). This is the line I used to decide what each one does.
+- **The shore carries NO rule and NO mutator.** It is the one floor in the entire
+  endless region where nothing is hunting you. A mutator there would step on the
+  only quiet moment the game has. Guarded by a test.
+- **Seven terraces cycle** (Pride ... Lust, then "HIGHER"), same as the circles did,
+  so the climb is endless. Paradiso is not built - it is a later night.
+
+
 ## #49 magic increment 2 - shipped 2 of 3 parts, utility deferred (2026-07-12)
 - #49a wand DPS balance + Magic scaling: shipped (see the RESOLVED note under the
   magic-audit section below).

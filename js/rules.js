@@ -245,6 +245,10 @@ const Rules = (() => {
 
   // how many mutators a floor carries. Depth is floors below the King.
   function mutatorCount(floorNum) {
+    // THE SHORE carries nothing at all. You have just come up through the bottom of
+    // Hell; it is the one floor in the whole endless region where the game lets you
+    // stand still and look at the sky. A mutator here would step on the beat.
+    if (typeof Ascent !== 'undefined' && Ascent.onShore(floorNum)) return 0;
     const d = floorNum - (typeof Descent !== 'undefined' ? Descent.FIRST_FLOOR : 4);
     if (d < 2) return 0;    // the first two circles are clean - learn the place first
     if (d < 11) return 1;

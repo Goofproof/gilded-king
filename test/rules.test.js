@@ -32,9 +32,14 @@ describe('Floor rules: determinism (co-op safety)', () => {
 });
 
 describe('Floor rules: the nine circles', () => {
-  it('every descent floor carries exactly one circle rule, and floors 1-3 carry none', () => {
+  it('every circle of Hell carries exactly one rule; floors 1-3 and the shore carry none', () => {
     for (let f = 1; f <= 3; f++) expect(Rules.forFloor(f, 1).circle, `floor ${f}`).toBeNull();
-    for (let f = 4; f <= 30; f++) expect(Rules.forFloor(f, 1).circle, `floor ${f}`).toBeTruthy();
+    for (let f = 4; f <= 12; f++) expect(Rules.forFloor(f, 1).circle, `circle ${f}`).toBeTruthy();
+    // floor 13 is the shore of Mount Purgatory: you have just come up out of the
+    // bottom of Hell, and it is the one floor in the endless region with no rule at
+    // all. The terraces above it pick back up (covered in ascent.test.js).
+    expect(Rules.forFloor(13, 1).circle, 'the shore is a breather').toBeNull();
+    for (let f = 14; f <= 20; f++) expect(Rules.forFloor(f, 1).circle, `terrace ${f}`).toBeTruthy();
   });
 
   it('the circle rule matches the circle you are actually standing in', () => {

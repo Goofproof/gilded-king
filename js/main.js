@@ -377,6 +377,25 @@
     g.floorRule = g.rules.list.length
       ? { lines: g.rules.list.map(r => ({ name: r.name, desc: r.desc, color: r.color })), t: 5.5 }
       : null;
+
+    // ===================== BREAKING THROUGH THE ICE =========================
+    // The single biggest beat in the game: you reach the bottom of Hell, and the
+    // bottom of Hell is not a wall. You go THROUGH it, gravity turns over, and you
+    // come out under a sky. The run stops falling and starts climbing.
+    //
+    // Toad's joke has been curdling the whole way down ("the castle is inside you
+    // now"). Here it finally breaks, and he says the only straight thing he has
+    // ever said to you.
+    if (typeof Ascent !== 'undefined' && Ascent.onShore(g.floorNum)) {
+      g.floorBanner = { text: 'YOU BREAK THROUGH THE BOTTOM OF HELL', t: 5.0,
+                        sub: 'gravity turns over. the falling stops.' };
+      g.toadMsg = { text: Ascent.SHORE_LINE, t: 7 };
+      Fx.shake(11, 0.9);
+      Sfx.play('roar');
+      // the ice giving way beneath you, and then the light
+      Fx.burst(PF.x + PF.w / 2, PF.y + PF.h / 2, ['#7fd4ff', '#cfeeff', '#ffffff'], 48,
+        { speed: 260, life: 1.3, glow: true, size: 2.6 });
+    }
     Sfx.setAmbient(theme.ambient);
     // Bulwark armor: a shield charm greets you on every floor
     if (g.player.armorMods.bulwark) {
@@ -3814,14 +3833,17 @@
       c.save();
       c.globalAlpha = a;
       c.textAlign = 'center';
+      // on the mountain the toad's line is not a taunt from below any more, so the
+      // colour warms and the sub-line turns around with the rest of the game
+      const climbing = typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum);
       c.font = 'bold 26px monospace';
       c.fillStyle = '#1a0a04';
       c.fillText(g.toadMsg.text, W / 2 + 2, H / 2 - 58);
-      c.fillStyle = '#ff8a3d';
+      c.fillStyle = climbing ? '#9fc6e8' : '#ff8a3d';
       c.fillText(g.toadMsg.text, W / 2, H / 2 - 60);
       c.font = '14px monospace';
-      c.fillStyle = '#ffcc88';
-      c.fillText('the Descent yawns open below', W / 2, H / 2 - 34);
+      c.fillStyle = climbing ? '#cfe6ff' : '#ffcc88';
+      c.fillText(climbing ? 'the mountain rises above you' : 'the Descent yawns open below', W / 2, H / 2 - 34);
       c.restore();
     }
 
