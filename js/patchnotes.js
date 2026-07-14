@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.29';
+  const VERSION = 'v2.30';
 
   const NOTES = [
+    {
+      v: 'v2.30', title: 'Formations spread out so one swing can\'t clear them', date: '2026-07-14',
+      sha: '5576933',
+      items: [
+        'Formations: spread ranks into an anti-cleave crescent (Sam).',
+      ],
+    },
     {
       v: 'v2.29', title: 'Chest Vacuum, Sloth, Multishot', date: '2026-07-14',
       sha: '2424718',
