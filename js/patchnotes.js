@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.49';
+  const VERSION = 'v2.50';
 
   const NOTES = [
+    {
+      v: 'v2.50', title: 'The bear is a bigger target, and a tougher one', date: '2026-07-14',
+      sha: 'f049a61',
+      items: [
+        'The bear is a bigger target now, and its hide makes up for it.',
+      ],
+    },
     {
       v: 'v2.49', title: 'See what you shifted into', date: '2026-07-14',
       sha: 'a28fc68',
