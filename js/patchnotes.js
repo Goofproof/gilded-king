@@ -26,11 +26,12 @@ const PatchNotes = (() => {
       v: 'v2.17', title: 'Mobile, Quests and the Climb', date: '2026-07-14',
       sha: '1e8d984',
       items: [
-        'Level-up: say so when a stat is FULLY EVOLVED (Sam\'s request).',
-        'Random quest encounters: a stranger in a room, with an offer (Sam\'s request).',
-        'Cape: movement animation OFF, and prestige you can actually SEE.',
-        'Leaderboard: the global board now carries the LOADOUT (Sam).',
-        'MOBILE: it plays on a phone now (Sam).',
+        'IT PLAYS ON YOUR PHONE. A thumbstick on the left, your abilities on the right, and it aims for you. Just open the same link on a phone.',
+        'A STRANGER IS WAITING IN THE DUNGEON, and they want something. THE PACT makes the whole floor harder right now, and pays you a MYTHIC if you clear it anyway. THE VOW: clear the floor without being hit even once. THE HUNT: twelve of them, before you take the stairs. THE TITHE: hand over half your gold and get back something better. You can always walk away.',
+        'YOUR CAPE now hangs still and drifts gently, instead of thrashing about while you run.',
+        'AND EVERY PRESTIGE IS A DIFFERENT CAPE at last: its own colour, longer and wider each time, and a gold CHEVRON for every level so anyone can count your rank at a glance. (Two prestiges used to change it by about two pixels. Sorry.)',
+        'The level-up screen now tells you when a stat is FULLY EVOLVED, instead of promising an evolution that was never coming.',
+        'The global leaderboard now shows what the top scorers were actually RUNNING - their weapons, armour, evolutions and powers. Go and see how they did it.',
       ],
     },
     {
