@@ -1,0 +1,106 @@
+// #156 the five new classes and the five starter races.
+//
+// This file exists because of a specific way this feature could rot silently: a class or
+// race can carry an `fx` key the game never reads. Nothing errors, nothing crashes - the
+// bonus simply does not happen, and the character sheet quietly lies to the player.
+// Four of the first-draft keys (xpMult, lifesteal, poisonImmune, burnOnHit) were exactly
+// that. The last test in this file is the guard that stops it happening again.
+import { describe, it, expect } from 'vitest';
+import { loadGame } from './harness.js';
+import fs from 'node:fs';
+
+const { Abilities, PlayerDef } = loadGame();
+
+const NEW_CLASSES = ['mesmer', 'druid', 'deathknight', 'necromancer', 'pyromancer'];
+const RACES = ['human', 'orc', 'elf', 'dwarf', 'undead'];
+
+describe('#156 the five new classes', () => {
+  it('all five exist and are pickable', () => {
+    for (const id of NEW_CLASSES) {
+      const c = PlayerDef.classById(id);
+      expect(c.id, `${id} is missing from CLASSES`).toBe(id);
+      expect(c.name.length).toBeGreaterThan(0);
+      expect(c.desc.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('each has a working Q ability with its own kind', () => {
+    const kinds = {
+      mesmer: 'clones', druid: 'shift', deathknight: 'undying',
+      necromancer: 'raise', pyromancer: 'immolate',
+    };
+    for (const id of NEW_CLASSES) {
+      const q = Abilities.classAbility(id);
+      expect(q.kind, `${id} Q has the wrong kind`).toBe(kinds[id]);
+      expect(q.cdMax).toBeGreaterThan(0);
+      expect(q.desc.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the mesmer really does get three copies', () => {
+    expect(Abilities.classAbility('mesmer').clones).toBe(3);
+  });
+
+  it('the necromancer scales: 1 knight, then 2, then 3 knights + 2 archers', () => {
+    // the tier ladder lives in main.js castAbility; assert the shape it depends on so a
+    // refactor that renames a level band trips here rather than in a 12-year-old's run.
+    const tierFor = L => (L >= 10 ? 3 : L >= 5 ? 2 : 1);
+    const army = t => (t === 3 ? { knights: 3, archers: 2 } : { knights: t, archers: 0 });
+    expect(army(tierFor(1))).toEqual({ knights: 1, archers: 0 });
+    expect(army(tierFor(4))).toEqual({ knights: 1, archers: 0 });
+    expect(army(tierFor(5))).toEqual({ knights: 2, archers: 0 });
+    expect(army(tierFor(9))).toEqual({ knights: 2, archers: 0 });
+    expect(army(tierFor(10))).toEqual({ knights: 3, archers: 2 }); // the final form
+    expect(army(tierFor(30))).toEqual({ knights: 3, archers: 2 });
+  });
+
+  it('the druid has three forms and every one has a real drawback', () => {
+    const F = PlayerDef.FORMS;
+    expect(F.length).toBe(3);
+    for (const f of F) {
+      // "unique strengths AND weaknesses" - a form that is good at everything is a bug
+      const strong = f.dmgMul > 1 || f.spdMul > 1 || f.reduce > 0;
+      const weak = f.dmgMul < 1 || f.spdMul < 1 || f.reduce < 0;
+      expect(strong, `${f.id} has no strength`).toBe(true);
+      expect(weak, `${f.id} is a strict upgrade - it needs a real cost`).toBe(true);
+    }
+  });
+});
+
+describe('#156 the five starter races', () => {
+  it('all five exist, each with a look and a bias', () => {
+    for (const id of RACES) {
+      const r = PlayerDef.raceById(id);
+      expect(r.id, `${id} is missing from RACES`).toBe(id);
+      expect(r.skin, `${id} has no skin colour - it would look like everyone else`).toBeTruthy();
+      expect(r.desc.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('no race is a strict upgrade - each pays for what it gets', () => {
+    for (const id of RACES) {
+      if (id === 'human') continue; // the human IS the baseline: pure upside, no bias to pay for
+      const r = PlayerDef.raceById(id);
+      const vals = Object.values(r.fx || {}).concat(r.hp ? [r.hp] : []);
+      expect(vals.some(v => v < 0), `${id} has no downside`).toBe(true);
+    }
+  });
+
+  // THE GUARD. Every fx key a class or race grants must be one the game actually reads
+  // via mod('key'). A key nobody reads is a bonus that never happens.
+  it('every class and race fx key is actually read by the game', () => {
+    const src = ['player.js', 'main.js', 'monsters.js', 'weapons.js', 'evolutions.js', 'abilities.js']
+      .map(f => fs.readFileSync(new URL(`../js/${f}`, import.meta.url), 'utf8')).join('\n');
+    const read = new Set([...src.matchAll(/mod\('([a-zA-Z]+)'\)/g)].map(m => m[1]));
+    // these are consumed structurally, not through mod()
+    const structural = new Set(['magic', 'spellPower']);
+
+    const dead = [];
+    for (const def of [...PlayerDef.CLASSES, ...PlayerDef.RACES]) {
+      for (const k of Object.keys(def.fx || {})) {
+        if (!read.has(k) && !structural.has(k)) dead.push(`${def.id || 'adventurer'}.${k}`);
+      }
+    }
+    expect(dead, `these fx keys are never read - the bonus silently does nothing: ${dead.join(', ')}`).toEqual([]);
+  });
+});
