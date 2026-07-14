@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.19';
+  const VERSION = 'v2.20';
 
   const NOTES = [
+    {
+      v: 'v2.20', title: 'The Fourth Slot', date: '2026-07-14',
+      sha: 'f0e31d0',
+      items: [
+        'The FOURTH SLOT: trinkets (Sam).',
+      ],
+    },
     {
       v: 'v2.19', title: 'Pause Menu Fix', date: '2026-07-14',
       sha: '837a242',
