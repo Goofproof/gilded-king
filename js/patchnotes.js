@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.23';
+  const VERSION = 'v2.24';
 
   const NOTES = [
+    {
+      v: 'v2.24', title: 'Enchant Table Moved', date: '2026-07-14',
+      sha: 'eebcb3a',
+      items: [
+        'Shop: move the enchant table out of the doorway (Sam).',
+      ],
+    },
     {
       v: 'v2.23', title: 'Co-op: Rooms and Doors', date: '2026-07-14',
       sha: '46d60e5',
