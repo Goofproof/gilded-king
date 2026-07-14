@@ -603,8 +603,11 @@
       // the hooded merchant already drawn in drawShop so you press the visible NPC.
       keeper: { x: PF.x + PF.w / 2, y: PF.y + 62 },
       haggled: false,
-      // #60 enchant table: spend gold + shards to re-roll your weapon's enchants
-      enchTable: { x: PF.x + PF.w / 2, y: PF.y + PF.h - 58 },
+      // #60 enchant table: spend gold + shards to re-roll your weapon's enchants.
+      // Moved (Sam) off the bottom-centre - it used to sit in the SOUTH door lane and
+      // right against the bottom wall - to the right end of the services row, clear of
+      // every door lane and every other stall.
+      enchTable: { x: PF.x + 720, y: PF.y + 320 },
       enchUses: 0,
     };
     for (const it of room.shopStock.items) {
