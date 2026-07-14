@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.25', title: 'Machine Gun Sound', date: '2026-07-14',
       sha: '5cdf7de',
       items: [
-        'Audio: the machine-gunner sounds like a machine gun, not a bow (Sam).',
+        'The machine-gunner enemy finally SOUNDS like a machine gun. It used to fire off the bow twang twelve times a second; now every round is a real percussive crack, with a rising whine as it spins up.',
       ],
     },
     {
