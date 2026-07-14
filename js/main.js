@@ -3761,7 +3761,7 @@
 
       if (!dead && pr.from === 'enemy') {
         if (Math.hypot(pr.x - p.x, pr.y - p.y) < p.r + pr.r) {
-          p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g);
+          p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g, pr.owner); // #144 thorns bite the shooter
           dead = true;
         } else { // INCIDENTAL: an enemy arrow can catch a mercenary in its flight path
           for (const merc of g.mercs) {

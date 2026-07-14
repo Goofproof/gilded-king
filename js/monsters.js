@@ -793,7 +793,10 @@ const Monsters = (() => {
   function fireProjectile(g, m, angle, speed, dmg, color, r, opts = {}) {
     const x = m.x + Math.cos(angle) * (m.r + 6), y = m.y + Math.sin(angle) * (m.r + 6);
     const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
-    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6 });
+    // #144 (Sam) owner ref so THORNS can bite back at the SHOOTER, not just a melee toucher.
+    // Guest-mirrored bolts (the 'proj' message) carry no owner, so the reflect only ever
+    // runs host-side where monster HP is authoritative - no co-op divergence.
+    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6 });
     // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
     // and updateProjectiles already resolves from:'enemy' damage vs the local player)
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) {

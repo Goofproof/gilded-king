@@ -724,9 +724,14 @@ const PlayerDef = (() => {
       Fx.shake(6, 0.25);
       Sfx.play('hurt');
       Fx.burst(this.x, this.y, '#ff5555', 10, { speed: 150, life: 0.4 });
-      // thorns bite back at whoever touched you
+      // thorns bite back at whoever hit you - #144: a ranged shooter too, not just a
+      // melee toucher (src is the projectile's owner). A spark at the source sells the
+      // reprisal when the shooter is across the room.
       if (src && !src.dead && this.mod('thorns')) {
         src.takeHit(this.mod('thorns'), { sx: this.x, sy: this.y, fromPlayer: true }, g);
+        if (Math.hypot(src.x - this.x, src.y - this.y) > this.r + 40) {
+          Fx.burst(src.x, src.y, ['#7CFC6B', '#d8ffcf'], 6, { speed: 90, life: 0.3, glow: true, size: 2.4 });
+        }
       }
       // Bombardier Reflex: retaliation blast
       if (this.mod('retaliateNova')) {
