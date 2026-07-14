@@ -1657,16 +1657,26 @@ const UI = (() => {
     c.fillText('P / Esc to resume · C sheet · M mute', W / 2, H / 2 - 8);
     // #87 END RUN: retire on your terms - banks ALL your essence (carried + coins) and
     // posts your score, then the results screen. The graceful alternative to force-dying.
-    const er = { x: W / 2 - 120, y: H / 2 + 20, w: 240, h: 42, action: 'retire' };
+    // The box was 240px wide and 'END RUN · bank essence + score' MEASURES 247px at bold
+    // 15px monospace, so the label spilled out of both sides of its own border (Sam
+    // caught it). Both buttons are now 340 wide - the same width, so they line up - and
+    // each label is split into a title and a smaller sub-line, which also lets the
+    // second button finally explain what abandoning actually costs you.
+    const BW = 340, BX = W / 2 - BW / 2;
+    const er = { x: BX, y: H / 2 + 18, w: BW, h: 48, action: 'retire' };
     c.fillStyle = 'rgba(255,210,76,0.10)'; c.fillRect(er.x, er.y, er.w, er.h);
     c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(er.x, er.y, er.w, er.h);
     c.font = 'bold 15px monospace'; c.fillStyle = '#ffd24c';
-    c.fillText('END RUN · bank essence + score', W / 2, er.y + 26);
+    c.fillText('END RUN', W / 2, er.y + 21);
+    c.font = '11px monospace'; c.fillStyle = 'rgba(255,210,76,0.72)';
+    c.fillText('bank your essence and post your score', W / 2, er.y + 37);
     // abandon to title (only essence already banked at checkpoints is kept; no score)
-    const r = { x: W / 2 - 120, y: H / 2 + 72, w: 240, h: 34, action: 'menu' };
+    const r = { x: BX, y: H / 2 + 78, w: BW, h: 44, action: 'menu' };
     c.strokeStyle = '#6a7688'; c.lineWidth = 1.5; c.strokeRect(r.x, r.y, r.w, r.h);
     c.font = 'bold 13px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('abandon to menu', W / 2, r.y + 22);
+    c.fillText('ABANDON TO MENU', W / 2, r.y + 19);
+    c.font = '10px monospace'; c.fillStyle = '#6a7688';
+    c.fillText('no score, and you keep only what you already banked', W / 2, r.y + 34);
     c.restore();
     return [er, r];
   }
