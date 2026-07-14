@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.22';
+  const VERSION = 'v2.23';
 
   const NOTES = [
+    {
+      v: 'v2.23', title: 'Co-op: Rooms and Doors', date: '2026-07-14',
+      sha: '46d60e5',
+      items: [
+        'Co-op: fix the plate teleport-back, the walk-off-the-map, and a stranded follower.',
+        'Co-op: room-clear self-heals via the room snapshot.',
+      ],
+    },
     {
       v: 'v2.22', title: 'Co-op: Weapons and Pause', date: '2026-07-14',
       sha: '4ac7b11',
