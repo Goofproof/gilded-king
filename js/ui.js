@@ -814,6 +814,11 @@ const UI = (() => {
 
     const rects = [startR, coopR];
 
+    // #156 the bottom of the class blurb. The companion picker (the stable) sits under
+    // it and MOVES DOWN when a wordy class wraps to more lines, instead of being
+    // overlapped by it. Seeded with the old fixed value for the no-classes case.
+    let spineBottom = 391;
+
     // --- #156 RACE picker: five bloods, five faces. A small always-on bias plus a look.
     // Sits ABOVE the class strip because you are a Dwarf who became a Warrior, not the
     // other way round.
@@ -910,15 +915,23 @@ const UI = (() => {
 
       const gridBottom = y0 + chh;   // 350, exactly where the old grid ended
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
+      // #156 WRAP the blurbs. They were drawn as ONE unbroken line, so the wordier
+      // classes (summoner and engineer already, plus all five new ones) ran straight
+      // under the Top Raiders and Loadout panels, which are painted afterwards and so
+      // swallowed the text. MAXW is the corridor between those panels (196..764), with
+      // a margin. Nothing here may ever exceed it again.
+      const MAXW = 520;
       c.textAlign = 'center';
       c.font = '11px monospace'; c.fillStyle = chosen.color;
-      c.fillText(chosen.desc, cx0, gridBottom + 15);
+      let ty = wrapCentered(c, chosen.desc, cx0, gridBottom + 15, MAXW, 13);
       if (chosen.q) {
         c.font = 'bold 11px monospace'; c.fillStyle = '#9ecbff';
-        c.fillText('Q ability · ' + chosen.q, cx0, gridBottom + 29);
+        ty += 3;
+        c.fillText('Q ability · ' + chosen.q, cx0, ty);
         c.font = '10px monospace'; c.fillStyle = '#8fa3bf';
-        c.fillText(chosen.qDesc, cx0, gridBottom + 41);
+        ty = wrapCentered(c, chosen.qDesc, cx0, ty + 13, MAXW, 12);
       }
+      spineBottom = ty;   // everything below the class block flows from here
     }
 
     // (ESSENCE/permanent-boosts moved to the bottom dock, below)
@@ -931,8 +944,9 @@ const UI = (() => {
     if (roster.length) {
       c.textAlign = 'center';
       c.font = 'bold 11px monospace'; c.fillStyle = '#8fd0a0';
-      c.fillText(`PICK A COMPANION  ·  ${unlocked.length}/${roster.length}`, W / 2, 406);
-      const chip = 24, cgap = 12, r = chip / 2, cyp = 428;
+      const petLabelY = spineBottom + 18;   // #156 the stable flows UNDER the class blurb
+      c.fillText(`PICK A COMPANION  ·  ${unlocked.length}/${roster.length}`, W / 2, petLabelY);
+      const chip = 24, cgap = 12, r = chip / 2, cyp = petLabelY + 22;
       const rowW = roster.length * chip + (roster.length - 1) * cgap;
       let px = (W - rowW) / 2;
       for (const pet of roster) {
