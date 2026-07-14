@@ -46,5 +46,8 @@ if (!out('git', ['status', '--porcelain'])) {
 }
 
 console.log('\n=== 4/4  push ===');
-run('git', ['push', 'origin', 'master:main', '--force-with-lease']);
+// A plain fast-forward is the normal case and cannot clobber anyone. Only reach
+// for `git push origin master:main --force-with-lease` by hand if history really
+// has diverged - don't make force the default here.
+run('git', ['push', 'origin', 'master:main']);
 console.log('\n  Live in ~1-3 min at https://goofproof.github.io/gilded-king/ (hard-refresh to bust cache).\n');
