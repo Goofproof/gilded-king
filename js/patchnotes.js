@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.36', title: 'Ultimates match your build and shake the whole dungeon', date: '2026-07-14',
       sha: '69b3f32',
       items: [
-        'Ultimates: build-weighted offer, flashy dungeon-wide cast, bigger tuning (Sam).',
+        'Ultimates got a big upgrade. The three ultimates you get to choose from now lean toward the build you have been making, so if you stacked crit and damage you are far more likely to be offered the huge CATACLYSM blast, while a gold-hungry build sees the MIDAS wave. You can still get any of them, but the choices feel like yours now.',
+        'Casting an ultimate is a real event now. The whole screen flashes in the ultimate color, its name slams across the middle in giant letters, and everything shakes, so the whole dungeon knows you just let one loose. In co-op your teammates see the flash too.',
+        'Ultimates also hit harder and last longer, with a longer cooldown to match, so each one is a rarer and bigger moment.',
       ],
     },
     {
