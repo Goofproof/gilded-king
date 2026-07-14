@@ -26,7 +26,10 @@ const PatchNotes = (() => {
       v: 'v2.20', title: 'The Fourth Slot', date: '2026-07-14',
       sha: 'f0e31d0',
       items: [
-        'The FOURTH SLOT: trinkets (Sam).',
+        'A FOURTH SLOT, for a TRINKET. You already carry two weapons and armour. Now there is a fourth thing, and it is not more armour.',
+        'A trinket is one powerful GIFT with one real PRICE, and you choose whether the trade is worth it. Damocles Thread gives you +45% damage but cuts a third of your health. Pascal Wager gives you huge crits but takes away every second chance. Ariadne Thread maps the whole floor the moment you arrive, but there is no gold left in a maze you have already solved. Ten in all, and every one is a decision.',
+        'Find them in the shops. Hover any trinket to read exactly what it gives and what it costs before you commit.',
+        'Also: the quest giver finally has an E to interact tooltip, so you know you can talk to them.',
       ],
     },
     {
