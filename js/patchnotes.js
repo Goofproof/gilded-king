@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.44', title: 'Twin portals: brave the Nightmare for a richer haul', date: '2026-07-14',
       sha: 'e375348',
       items: [
-        'Twin portals: a Nightmare path at every descent exit (Sam, #13).',
+        'At the end of every floor on the way down, there are now TWO ways forward. The normal exit takes you to the next floor like always. But a second, glowing red NIGHTMARE portal opens right beside it. Take that one and the next floor is much deadlier (enemies are tankier, hit harder, and more of them are elites), but it pays out a lot more gold and XP. It is a real risk-for-reward choice, and in co-op the whole party follows whoever steps through.',
       ],
     },
     {
