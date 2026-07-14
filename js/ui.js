@@ -1390,7 +1390,12 @@ const UI = (() => {
     scores.slice(0, 10).forEach((s, i) => {
       const y = py + 95 + i * 29;
       const isNew = g.newScoreRank === i + 1;
-      const hasSnap = !!(s.snap && s.snap.avatar);
+      // #139 a row is clickable if its snapshot has ANYTHING to show - a portrait OR a
+      // loadout. GLOBAL scores deliberately carry no avatar (too big to store), only the
+      // loadout, so the old `&& s.snap.avatar` gate made every global loadout un-openable
+      // - which is exactly why Sam never saw them. The viewer already draws a class crest
+      // when there is no portrait.
+      const hasSnap = !!(s.snap && (s.snap.avatar || s.snap.className || (s.snap.weapons && s.snap.weapons.length) || (s.snap.evos && s.snap.evos.length)));
       if (hasSnap) { g.scoreRects.push({ x: px + 80, y: y - 16, w: 200, h: 24, snap: s.snap, initials: s.initials }); anyClickable = true; }
       c.fillStyle = isNew ? '#ffd24c' : i === 0 ? '#e8b52f' : '#c8d2e0';
       c.textAlign = 'right';
