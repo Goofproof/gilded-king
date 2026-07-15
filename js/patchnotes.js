@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.72';
+  const VERSION = 'v2.73';
 
   const NOTES = [
+    {
+      v: 'v2.73', title: 'Trap rooms: that chest is bait', date: '2026-07-15',
+      sha: '51aea42',
+      items: [
+        'Trap rooms: a locked chest that springs an ambush - doors slam, wave spawns, clear to unseal, chest yields loot (#181).',
+      ],
+    },
     {
       v: 'v2.72', title: 'New mob: the snowman', date: '2026-07-15',
       sha: 'd16cb23',
