@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.66';
+  const VERSION = 'v2.67';
 
   const NOTES = [
+    {
+      v: 'v2.67', title: 'Co-op: see your teammate\'s army', date: '2026-07-15',
+      sha: 'd98400a',
+      items: [
+        'Co-op: teammates now see each other\'s skeletons, clones, mercs, elementals and pets (#174).',
+      ],
+    },
     {
       v: 'v2.66', title: 'Co-op: reconnect-proof', date: '2026-07-15',
       sha: '6eab0f9',
