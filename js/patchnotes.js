@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.52', title: 'Class fixes: stronger Mesmer clones, a real Necromancer, no more Owl', date: '2026-07-15',
       sha: 'f81f30c',
       items: [
-        'Class balance: buff Mesmer clones, differentiate Necromancer, drop the redundant Owl (Sam).',
+        'Three class fixes from playtesting. The MESMER\'s mirror-image clones were way too weak: they now have more than double the health, move much faster, and hit as hard as you do, so they actually fight for you instead of popping instantly. The NECROMANCER now feels like a real necromancer: on top of Raise Dead, enemies you kill rise back up as skeletons to serve you, so you build an army straight off the battlefield. And the DRUID lost the Owl form, which was just a slower, weaker Wolf. You now shift between two clear opposites: the tanky Bear and the fast, hard-hitting Wolf.',
       ],
     },
     {
