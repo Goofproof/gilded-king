@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.61', title: 'Training barracks no longer breaks the game', date: '2026-07-15',
       sha: 'ce2e87f',
       items: [
-        'Barracks anti-abuse: per-run global cost + hard cap of 12 trainings (#167).',
+        'The TRAINING BARRACKS got a big rebalance. Before, every barracks room started its prices back at 30 gold, so anyone rich enough could stack up huge stat boosts on every floor and blow through the whole dungeon. Now the price climbs every single time you train, no matter which barracks you are in, and you can only train 12 times in a whole run. Once you hit the limit the stations read MAXED. The barracks is still a great way to spend gold, but it will not carry you to the end by itself anymore.',
       ],
     },
     {
