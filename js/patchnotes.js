@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.72', title: 'New mob: the snowman', date: '2026-07-15',
       sha: 'd16cb23',
       items: [
-        'Snowman mob: freezes you solid, icicle is the fastest enemy shot in the game (540 vs old top 430) (#180).',
+        'A SNOWMAN now haunts the deeper floors: three balls of snow, coal eyes, carrot nose. He waddles slowly, but do not let that fool you. He rears back, takes aim, and fires an ICICLE that is the fastest shot any monster has, faster than anything you have dodged before. If it hits, you are FROZEN solid in a block of ice for a moment while everything closes in. The long wind-up is your warning: when the snowman leans back, MOVE.',
       ],
     },
     {
