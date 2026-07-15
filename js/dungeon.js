@@ -150,6 +150,9 @@ const Dungeon = (() => {
     if (floorNum >= 2 && rnd() < 0.7) claim('barracks');
     // a secret mythic-only shop opens every 5th floor of the Descent
     if (typeof Descent !== 'undefined' && Descent.isMythicFloor(floorNum)) claim('mythicshop');
+    // #181 (Sam) TRAP ROOM: looks like a treasure room on the map, but the chest is
+    // bait - opening it slams the doors and springs an ambush. Seeded, co-op safe.
+    if (floorNum >= 2 && rnd() < 0.45) claim('trap');
     const nTreasure = TREASURE_ROOMS[0] + ((rnd() * (TREASURE_ROOMS[1] - TREASURE_ROOMS[0] + 1)) | 0);
     for (let i = 0; i < nTreasure; i++) claim('treasure');
 

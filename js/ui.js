@@ -585,7 +585,7 @@ const UI = (() => {
     // rooms
     for (const r of rooms) {
       const x = px(r), y = py(r);
-      const colors = { start: '#8899bb', combat: '#4a5468', treasure: '#c9a227', shop: '#d98e3d', boss: '#b03050', stairs: '#3dbf9d', mythicshop: '#ff2fb0' };
+      const colors = { start: '#8899bb', combat: '#4a5468', treasure: '#c9a227', shop: '#d98e3d', boss: '#b03050', stairs: '#3dbf9d', mythicshop: '#ff2fb0', trap: '#c9a227' }; // #181 a trap room WEARS treasure gold - that is the bait
       c.fillStyle = colors[r.type] || '#4a5468';
       c.fillRect(x, y, cell, cell);
       if (!r.cleared && (r.type === 'combat' || r.type === 'boss')) {
@@ -593,7 +593,7 @@ const UI = (() => {
         c.fillRect(x, y, cell, cell);
       }
       // room-type glyphs, readable at the bigger cell size
-      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!', mythicshop: '✦', barracks: '⚔' }[r.type];
+      const glyph = { shop: '$', stairs: '↓', treasure: '◆', boss: '!', mythicshop: '✦', barracks: '⚔', trap: '◆' }[r.type]; // #181 trap shows the treasure diamond too
       if (glyph) {
         const gs = Math.max(11, Math.round(cell * 0.66)); // glyph scales with the (now adaptive) cell
         c.font = `bold ${gs}px monospace`; c.textAlign = 'center';

@@ -614,6 +614,11 @@
       if (room.type === 'mythicshop') rollMythicShopStock(room); else rollShopStock(room);
     }
     if (room.type === 'barracks' && !room.barracks) rollBarracksStock(room); // #75
+    // #181 (Sam) TRAP ROOM: a locked chest waits dead-center. Nothing spawns on entry -
+    // the ambush is armed by OPENING the chest.
+    if (room.type === 'trap' && !room.trapChest) {
+      room.trapChest = { x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, opened: false, looted: false };
+    }
     if (room.type === 'treasure' && !room.spawned) {
       room.spawned = true;
       g.player.addXp(10, g); // treasure rooms grant bonus XP on discovery
@@ -898,9 +903,31 @@
     if (g.coop && pk && pk.gid && typeof Net !== 'undefined') Net.send({ t: 'gearget', gid: pk.gid });
   }
 
+  // #181 (Sam) spring the trap-room ambush. Host-authoritative like every spawn:
+  // the opener broadcasts, the pinned host spawns, guests get the wave via snapshots.
+  function springTrap(initiator) {
+    const room = g.room;
+    if (!room || room.type !== 'trap' || !room.trapChest || room.trapChest.opened) return;
+    room.trapChest.opened = true;
+    room.cleared = false;
+    Sfx.play('door'); Sfx.play('roar');
+    Fx.shake(10, 0.4);
+    g.floorBanner = { text: 'IT WAS A TRAP', t: 2.4, sub: 'kill them all to unseal the doors' };
+    if (isRunHost()) {
+      room.spawned = true;
+      // a trap wave hits harder than a normal room: one tier up, and one extra body
+      g.monsters = Monsters.spawnForRoom(room, g.floorNum + 1, g);
+      coopScaleMonsters(g.monsters);
+      progressionScaleMonsters(g.monsters);
+      nightmareScaleMonsters(g.monsters);
+      for (const m of g.monsters) m.netId = ++g.netMobId;
+    }
+    if (initiator && g.coop && typeof Net !== 'undefined') Net.send({ t: 'trapopen', gx: room.gx, gy: room.gy });
+  }
+
   function checkRoomCleared() {
     if (g.room.cleared) return;
-    if ((g.room.type === 'combat' || g.room.type === 'boss') && g.room.spawned &&
+    if ((g.room.type === 'combat' || g.room.type === 'boss' || g.room.type === 'trap') && g.room.spawned &&
         g.monsters.every(m => m.dead)) {
       g.room.cleared = true;
       g.player.roomsCleared++;
@@ -911,6 +938,19 @@
       // Higher alarm = tougher rooms (more bodies/elites/formations) but richer rewards
       // (loot rarity + XP). Capped so deep-floor + max-alarm stays beatable.
       g.alarm = Math.min(8, (g.alarm || 0) + 1);
+      // #181 the trap survived: the chest finally gives up its loot (host drops; the
+      // 'gear'/'pk' broadcasts mirror it to the party)
+      if (g.room.type === 'trap' && g.room.trapChest && g.room.trapChest.opened && !g.room.trapChest.looted) {
+        g.room.trapChest.looted = true;
+        if (isRunHost()) {
+          const ch = g.room.trapChest, tier = Monsters.tierFor(g.floorNum, g.room.dist);
+          dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.5 }), ch.x - 26, ch.y + 8);
+          dropGear('armorItem', Weapons.rollArmor(tier, { minRarity: 2 }), ch.x + 26, ch.y + 8);
+          for (let i = 0; i < 14; i++) spawnPickup('coin', ch.x, ch.y);
+        }
+        Fx.burst(g.room.trapChest.x, g.room.trapChest.y, ['#ffd24c', '#fff', '#c9a227'], 30, { speed: 220, life: 0.8, glow: true });
+        Fx.text(g.room.trapChest.x, g.room.trapChest.y - 34, 'THE CHEST YIELDS', '#ffd24c', 14);
+      }
       vacuumPickups(); // room-clear reward: every dropped coin flies to you
       Sfx.play('unlock');
       Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
@@ -1432,6 +1472,10 @@
       consider(et.x, et.y, { kind: 'enchantTable', et });
     }
     // #75 training barracks stations
+    // #181 the trap chest is interactable until it is opened
+    if (g.room.type === 'trap' && g.room.trapChest && !g.room.trapChest.opened) {
+      consider(g.room.trapChest.x, g.room.trapChest.y, { kind: 'trapChest' });
+    }
     if (g.room.type === 'barracks' && g.room.barracks) {
       for (const st of g.room.barracks.stations) consider(st.x, st.y, { kind: 'trainStation', st });
     }
@@ -1630,6 +1674,12 @@
       openEnchantTable(t.et);
     }
 
+    // #181 (Sam) the TRAP CHEST: open it and the doors slam, the ambush springs.
+    // Kill everything and the chest gives up its loot.
+    if (t.kind === 'trapChest') {
+      springTrap(true);
+      return;
+    }
     // #75 TRAINING BARRACKS: spend gold at a station for a run-only stat boost
     if (t.kind === 'trainStation') {
       const st = t.st, cost = barracksCost();
@@ -2978,6 +3028,14 @@
       }
     });
     // tethered party: a peer moved through a door - everyone follows to that room
+    // #181 someone opened a trap chest: everyone's chest opens; the pinned host spawns
+    Net.on('trapopen', m => {
+      if (!g.coop || !g.dungeon) return;
+      const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
+      if (!room || room.type !== 'trap' || !room.trapChest) return;
+      if (g.room === room) springTrap(false);
+      else room.trapChest.opened = true; // opened remotely before I arrived
+    });
     // #175 drop a follow from a different floor (stale packet around a floor transition)
     Net.on('room', m => { if (g.coop && g.dungeon && (m.fl === undefined || m.fl === g.floorNum)) coopEnterRoom(m.gx, m.gy, m.dir, false); });
     // host advanced the floor - regenerate the shared floor and follow (a floor change
@@ -5658,6 +5716,7 @@
     // shop furnishing
     if ((room.type === 'shop' || room.type === 'mythicshop') && room.shopStock) drawShop(c, room);
     if (room.type === 'barracks' && room.barracks) drawBarracks(c, room);
+    if (room.type === 'trap' && room.trapChest) drawTrapChest(c, room.trapChest);
 
     // hireable mercenary standing in the room
     if (room.merc && !room.merc.hired) drawMercNPC(c, room.merc);
@@ -5867,6 +5926,39 @@
       c.fillText('sealed', 0, 44);
     }
     c.restore();
+  }
+
+  // #181 (Sam) the trap chest: fat, gilded, and sitting alone in the middle of an
+  // empty room - exactly the kind of thing a smart raider should be suspicious of.
+  function drawTrapChest(c, ch) {
+    c.save();
+    c.translate(ch.x, ch.y);
+    c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 14, 24, 7, 0, 0, Math.PI * 2); c.fill();
+    if (!ch.opened) {
+      c.fillStyle = '#6a4a2a'; c.fillRect(-22, -8, 44, 24);            // body
+      c.fillStyle = '#7d5a35'; c.fillRect(-22, -16, 44, 10);           // lid
+      c.strokeStyle = '#c9a227'; c.lineWidth = 2;
+      c.strokeRect(-22, -16, 44, 32);
+      c.beginPath(); c.moveTo(-22, -6); c.lineTo(22, -6); c.stroke();  // lid seam
+      c.fillStyle = '#ffd24c'; c.fillRect(-4, -9, 8, 10);              // the LOCK
+      c.fillStyle = '#0a0a0a'; c.fillRect(-1.5, -6, 3, 4);             // keyhole
+      const t = Date.now() / 500;
+      c.globalAlpha = 0.5 + Math.sin(t) * 0.25;                         // tempting shimmer
+      c.strokeStyle = '#ffe08a'; c.lineWidth = 1;
+      c.strokeRect(-25, -19, 50, 38);
+      c.globalAlpha = 1;
+    } else {
+      c.fillStyle = '#4a3520'; c.fillRect(-22, -8, 44, 24);            // body, darker
+      c.fillStyle = '#33261a'; c.fillRect(-24, -26, 48, 12);           // lid thrown back
+      c.strokeStyle = '#8a7340'; c.lineWidth = 1.5;
+      c.strokeRect(-22, -8, 44, 24);
+      c.fillStyle = '#141414'; c.fillRect(-18, -6, 36, 8);             // dark maw
+    }
+    c.restore();
+    if (!ch.opened) {
+      c.textAlign = 'center'; c.font = 'bold 10px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText('A LOCKED CHEST', ch.x, ch.y - 30);
+    }
   }
 
   // #75 the training barracks: a drill sergeant + five stat stations
@@ -6095,7 +6187,8 @@
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
     if (t.kind === 'enchantTable') { x = t.et.x; y = t.et.y - 34; label = 'E - enchant weapon (swap an enchant)'; }
-    if (t.kind === 'trainStation') { x = t.st.x; y = t.st.y - 46; label = `E - train ${t.st.stat} ${t.st.label} (${30 + 20 * t.st.uses}g)`; }
+    if (t.kind === 'trainStation') { x = t.st.x; y = t.st.y - 46; label = barracksMaxed() ? 'fully trained this run' : `E - train ${t.st.stat} ${t.st.label} (${barracksCost()}g)`; } // #167 the REAL per-run price
+    if (t.kind === 'trapChest') { x = t.st ? t.st.x : g.room.trapChest.x; y = g.room.trapChest.y - 44; label = 'E - open the chest'; } // #181
     if (t.kind === 'merc') { x = g.room.merc.x; y = g.room.merc.y - 42; label = `E - hire ${g.room.merc.cost}c`; }
     if (t.kind === 'pet') { x = g.room.pet.x; y = g.room.pet.y - 34; label = g.player.pet ? `E - stable ${g.room.pet.name}` : `E - befriend ${g.room.pet.name}`; }
     if (t.kind === 'stairs' || t.kind === 'portal' || t.kind === 'descentPortal' || t.kind === 'nightmareExit') return; // these draw their own prompt
