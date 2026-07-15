@@ -112,6 +112,13 @@ compound; Q loses by construction.
   yours is temporary and earned by the plague. Reuses the #207 rise path + _lastHitBy
   poison attribution, so it syncs in co-op from day one.
 
+## Build status: ALL FIVE WAVES SHIPPED 2026-07-15 (v2.95 framework, v2.96 MIGHT,
+v2.97 AGILITY, v2.98 ARCANE, v2.99 VIGOR). Every milestone live-verified in the dbg
+harness; cleric party-heal verified over the real relay two-tab (heal 35->95 exact,
+cure + shield + circle all landed on the guest). Notes: owl was ALREADY removed
+(#158) so the owlbear is an added third form; DK wither restores monster damage on
+cloud exit; paladin overheal stacks a 3rd shield charge.
+
 ## Build plan (waves, each its own release + kid-readable patch note)
 
 0. **Framework release:** rank system (rank = ruling-stat points), per-point channels,
