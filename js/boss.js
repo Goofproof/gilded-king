@@ -43,6 +43,7 @@ const Boss = (() => {
     const hp = Math.round(st.hp * hpMul);
     const b = {
       type: 'boss', variant,
+      skin: (d && d.skin) || null, // #188 (Sam) bespoke Dante model key (charon..lucifer)
       name: d ? d.name : 'THE MIMIC KING',
       x: PF.x + PF.w / 2, y: PF.y + PF.h * 0.35,
       r: st.r, hp, maxHp: hp, st,
@@ -506,7 +507,11 @@ const Boss = (() => {
 
     c.save();
     c.translate(b.x, b.y - b.hop);
-    if (b.variant === 'colossus') drawColossus(b, c, g);
+    // #188 (Sam) each circle guardian is DRAWN as its Dante character now; the generic
+    // king/colossus/matriarch bodies remain for the floor-3 King and the deep Wardens.
+    const skinFn = b.skin && SKINS[b.skin];
+    if (skinFn) skinFn(b, c, g);
+    else if (b.variant === 'colossus') drawColossus(b, c, g);
     else if (b.variant === 'matriarch') drawMatriarch(b, c, g);
     else drawKing(b, c, g);
 
@@ -531,6 +536,201 @@ const Boss = (() => {
     const n = parseInt(hex.slice(1), 16);
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
   }
+
+  // #188 (Sam) THE NINE GUARDIANS OF HELL, drawn as their Dante characters.
+  // Every function draws in the boss-local frame (0,0 = centre), scales off b.r,
+  // honours the damage flash, and keeps the palette so the circle's colour reads.
+  function bossEyes(b, c, x1, y1, x2, y2, r, col) {
+    const a = b.facing || 0, ex = Math.cos(a) * 2, ey = Math.sin(a) * 2;
+    c.fillStyle = col;
+    c.beginPath(); c.arc(x1 + ex, y1 + ey, r, 0, Math.PI * 2); c.arc(x2 + ex, y2 + ey, r, 0, Math.PI * 2); c.fill();
+  }
+  const SKINS = {
+    charon(b, c) { // the hooded ferryman, oar in hand
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      const rock = Math.sin(b.t * 1.6) * 0.2;
+      c.save(); c.rotate(-0.6 + rock);
+      c.strokeStyle = '#5a4a38'; c.lineWidth = 5 * s; c.beginPath(); c.moveTo(-b.r * 1.5, 8 * s); c.lineTo(b.r * 1.6, -10 * s); c.stroke();
+      c.fillStyle = '#5a4a38'; c.beginPath(); c.ellipse(b.r * 1.6, -10 * s, 9 * s, 16 * s, 0.5, 0, Math.PI * 2); c.fill();
+      c.restore();
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.moveTo(0, -b.r * 1.25);
+      c.quadraticCurveTo(b.r * 0.95, -b.r * 0.2, b.r * 0.75, b.r);
+      for (let i = 3; i >= -3; i--) c.lineTo(i * b.r * 0.25, b.r - Math.abs(Math.sin(i * 2.1)) * 8 * s);
+      c.quadraticCurveTo(-b.r * 0.95, -b.r * 0.2, 0, -b.r * 1.25);
+      c.fill();
+      c.fillStyle = flash ? '#eee' : b.pal.lidLo;
+      c.beginPath(); c.arc(0, -b.r * 0.62, b.r * 0.42, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#d8d2c2';
+      c.beginPath(); c.arc(0, -b.r * 0.6, b.r * 0.26, 0, Math.PI * 2); c.fill();
+      bossEyes(b, c, -b.r * 0.1, -b.r * 0.64, b.r * 0.1, -b.r * 0.64, 3 * s, '#9fe8ff');
+      c.fillStyle = b.pal.trim; c.beginPath(); c.arc(0, -b.r * 0.5, 3.4 * s, 0, Math.PI * 2); c.fill(); // the coin
+    },
+    minos(b, c) { // the judge, his TAIL coiled around his seat
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r * 1.1, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = flash ? '#fff' : b.pal.lid; c.lineWidth = 9 * s; c.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        c.beginPath(); c.ellipse(0, b.r * (0.55 - i * 0.16), b.r * (0.9 - i * 0.14), b.r * 0.2, 0, 0.15, Math.PI - 0.15); c.stroke();
+      }
+      const tw = Math.sin(b.t * 3) * 0.3;
+      c.beginPath(); c.moveTo(b.r * 0.75, b.r * 0.2); c.quadraticCurveTo(b.r * 1.25, -b.r * 0.3 + tw * 20, b.r * 1.05, -b.r * 0.85 + tw * 12); c.stroke();
+      c.fillStyle = b.pal.trim; c.beginPath(); c.moveTo(b.r * 1.05, -b.r * 0.98); c.lineTo(b.r * 1.22, -b.r * 0.72); c.lineTo(b.r * 0.9, -b.r * 0.75); c.closePath(); c.fill();
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.moveTo(-b.r * 0.55, b.r * 0.5); c.lineTo(-b.r * 0.35, -b.r * 0.7); c.lineTo(b.r * 0.35, -b.r * 0.7); c.lineTo(b.r * 0.55, b.r * 0.5); c.closePath(); c.fill();
+      c.fillStyle = flash ? '#eee' : b.pal.lid; c.beginPath(); c.arc(0, -b.r * 0.85, b.r * 0.3, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = b.pal.crown; c.lineWidth = 3 * s; c.beginPath(); c.arc(0, -b.r * 0.95, b.r * 0.22, Math.PI, 0); c.stroke();
+      bossEyes(b, c, -b.r * 0.11, -b.r * 0.86, b.r * 0.11, -b.r * 0.86, 3 * s, b.pal.trim);
+    },
+    cerberus(b, c) { // three starving heads on one dark mass
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.85, b.r * 1.2, b.r * 0.32, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.ellipse(0, b.r * 0.25, b.r * 1.05, b.r * 0.7, 0, 0, Math.PI * 2); c.fill();
+      for (let i = -1; i <= 1; i++) {
+        const hx = i * b.r * 0.62, hy = -b.r * (i === 0 ? 0.72 : 0.5);
+        const hr = b.r * (i === 0 ? 0.34 : 0.28);
+        const bite = Math.max(0, Math.sin(b.t * 5 + i * 2.1)) * hr * 0.5;
+        c.fillStyle = flash ? '#eee' : b.pal.lid;
+        c.beginPath(); c.moveTo(i * b.r * 0.3, b.r * 0.1); c.lineTo(hx - hr * 0.5, hy); c.lineTo(hx + hr * 0.5, hy); c.closePath(); c.fill();
+        c.beginPath(); c.arc(hx, hy, hr, 0, Math.PI * 2); c.fill();
+        c.fillStyle = flash ? '#ddd' : b.pal.lidLo;
+        c.beginPath(); c.ellipse(hx, hy + hr * 0.5 + bite * 0.5, hr * 0.75, hr * 0.4 + bite * 0.4, 0, 0, Math.PI); c.fill();
+        c.fillStyle = '#e8e2d0';
+        for (let t2 = -2; t2 <= 2; t2++) { c.beginPath(); c.moveTo(hx + t2 * hr * 0.28, hy + hr * 0.45); c.lineTo(hx + t2 * hr * 0.28 + 2 * s, hy + hr * 0.45 + 5 * s); c.lineTo(hx + t2 * hr * 0.28 + 4 * s, hy + hr * 0.45); c.fill(); }
+        bossEyes(b, c, hx - hr * 0.35, hy - hr * 0.25, hx + hr * 0.35, hy - hr * 0.25, 3 * s, '#ff4444');
+      }
+    },
+    plutus(b, c) { // the bloated hoarder, crusted in coins
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r * 1.2, b.r * 0.32, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = b.pal.trim;
+      c.beginPath(); c.ellipse(0, b.r * 0.75, b.r * 1.15, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = b.pal.crown;
+      for (let i = -3; i <= 3; i++) { c.beginPath(); c.arc(i * b.r * 0.3, b.r * (0.72 - Math.abs(Math.sin(i * 3.7)) * 0.1), 4 * s, 0, Math.PI * 2); c.fill(); }
+      const bre = 1 + Math.sin(b.t * 2.2) * 0.04;
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.ellipse(0, -b.r * 0.05, b.r * 0.95 * bre, b.r * 0.85 * bre, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = b.pal.trim;
+      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + 0.5; c.beginPath(); c.arc(Math.cos(a) * b.r * 0.55, -b.r * 0.05 + Math.sin(a) * b.r * 0.5, 4.5 * s, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = flash ? '#eee' : b.pal.lid;
+      c.beginPath(); c.arc(0, -b.r * 0.85, b.r * 0.26, 0, Math.PI * 2); c.fill();
+      bossEyes(b, c, -b.r * 0.1, -b.r * 0.87, b.r * 0.1, -b.r * 0.87, 3.2 * s, b.pal.crown);
+      c.fillStyle = '#1a1208'; c.beginPath(); c.ellipse(0, -b.r * 0.72, 5 * s * (1 + Math.sin(b.t * 7) * 0.5), 3 * s, 0, 0, Math.PI * 2); c.fill(); // babbling
+    },
+    phlegyas(b, c) { // the wrathful boatman, punting across Styx
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r * 1.25, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#ddd' : '#3d2b1a';
+      c.beginPath(); c.moveTo(-b.r * 1.2, b.r * 0.45); c.quadraticCurveTo(0, b.r * 1.05, b.r * 1.2, b.r * 0.45); c.lineTo(b.r * 0.95, b.r * 0.3); c.quadraticCurveTo(0, b.r * 0.75, -b.r * 0.95, b.r * 0.3); c.closePath(); c.fill();
+      const drive = Math.sin(b.t * 2.4) * 0.25;
+      c.save(); c.rotate(0.5 + drive);
+      c.strokeStyle = '#4a3520'; c.lineWidth = 4.5 * s; c.beginPath(); c.moveTo(0, -b.r * 1.3); c.lineTo(0, b.r * 1.3); c.stroke();
+      c.restore();
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.moveTo(-b.r * 0.5, b.r * 0.4); c.lineTo(-b.r * 0.4, -b.r * 0.55); c.lineTo(b.r * 0.4, -b.r * 0.55); c.lineTo(b.r * 0.5, b.r * 0.4); c.closePath(); c.fill();
+      c.fillStyle = flash ? '#eee' : b.pal.lid; c.beginPath(); c.arc(0, -b.r * 0.75, b.r * 0.28, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(255,110,40,0.8)';
+      for (let i = 0; i < 5; i++) { const fx = Math.sin(b.t * 6 + i * 1.7) * b.r * 0.35; const fy = -b.r * (0.95 + (i % 2) * 0.12) - Math.abs(Math.sin(b.t * 4 + i)) * 6 * s; c.beginPath(); c.ellipse(fx, fy, 3.5 * s, 7 * s, 0, 0, Math.PI * 2); c.fill(); }
+      bossEyes(b, c, -b.r * 0.1, -b.r * 0.77, b.r * 0.1, -b.r * 0.77, 3.2 * s, '#ffdd66');
+    },
+    medusa(b, c) { // the gorgon: a crown of living snakes
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.moveTo(0, -b.r * 0.4); c.quadraticCurveTo(b.r * 0.85, b.r * 0.1, b.r * 0.6, b.r); c.lineTo(-b.r * 0.6, b.r); c.quadraticCurveTo(-b.r * 0.85, b.r * 0.1, 0, -b.r * 0.4); c.fill();
+      c.fillStyle = flash ? '#eee' : '#b8c8a8';
+      c.beginPath(); c.ellipse(0, -b.r * 0.55, b.r * 0.32, b.r * 0.38, 0, 0, Math.PI * 2); c.fill();
+      for (let i = 0; i < 8; i++) {
+        const a0 = Math.PI * (0.15 + i * 0.1) + Math.PI;
+        const wig = Math.sin(b.t * 4 + i * 1.3) * 0.35;
+        const bx = Math.cos(a0) * b.r * 0.3, by = -b.r * 0.55 + Math.sin(a0) * b.r * 0.34;
+        const tx = bx + Math.cos(a0 + wig) * b.r * 0.55, ty = by + Math.sin(a0 + wig) * b.r * 0.55;
+        c.strokeStyle = flash ? '#fff' : b.pal.lid; c.lineWidth = 3.6 * s; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(bx, by); c.quadraticCurveTo(bx + Math.cos(a0) * b.r * 0.35, by + Math.sin(a0) * b.r * 0.35 - 6 * s, tx, ty); c.stroke();
+        c.fillStyle = b.pal.trim; c.beginPath(); c.arc(tx, ty, 2.6 * s, 0, Math.PI * 2); c.fill();
+      }
+      bossEyes(b, c, -b.r * 0.12, -b.r * 0.58, b.r * 0.12, -b.r * 0.58, 3.6 * s, b.pal.trim);
+      c.strokeStyle = 'rgba(255,106,44,0.35)'; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(0, -b.r * 0.58, b.r * 0.45 + Math.sin(b.t * 3) * 3, 0, Math.PI * 2); c.stroke(); // the gaze
+    },
+    minotaur(b, c) { // the bull of Crete: horns, ring, rage
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r * 1.15, b.r * 0.32, 0, 0, Math.PI * 2); c.fill();
+      const heave = Math.sin(b.t * 3.2) * 0.03;
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.ellipse(0, b.r * 0.1, b.r * (1.0 + heave), b.r * 0.75, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#eee' : b.pal.lid;
+      c.beginPath(); c.ellipse(0, -b.r * 0.55, b.r * 0.42, b.r * 0.5, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#ddd' : b.pal.lidLo;
+      c.beginPath(); c.ellipse(0, -b.r * 0.32, b.r * 0.26, b.r * 0.18, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = b.pal.crown; c.lineWidth = 2.5 * s;
+      c.beginPath(); c.arc(0, -b.r * 0.24, 4.5 * s, 0.2, Math.PI - 0.2); c.stroke();
+      c.strokeStyle = '#e8e2d0'; c.lineWidth = 6 * s; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-b.r * 0.38, -b.r * 0.75); c.quadraticCurveTo(-b.r * 0.95, -b.r * 1.0, -b.r * 0.7, -b.r * 1.3); c.stroke();
+      c.beginPath(); c.moveTo(b.r * 0.38, -b.r * 0.75); c.quadraticCurveTo(b.r * 0.95, -b.r * 1.0, b.r * 0.7, -b.r * 1.3); c.stroke();
+      bossEyes(b, c, -b.r * 0.18, -b.r * 0.6, b.r * 0.18, -b.r * 0.6, 3 * s, '#ff2a4a');
+      c.fillStyle = 'rgba(230,230,240,0.35)';
+      const puff = Math.max(0, Math.sin(b.t * 3.2));
+      c.beginPath(); c.arc(-5 * s, -b.r * 0.28 + 4 * s, 3 * s * puff, 0, Math.PI * 2); c.arc(5 * s, -b.r * 0.28 + 4 * s, 3 * s * puff, 0, Math.PI * 2); c.fill();
+    },
+    geryon(b, c) { // fraud: an honest face on a serpent with a stinger
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r * 1.2, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = flash ? '#fff' : b.pal.body; c.lineWidth = 12 * s; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(0, b.r * 0.2);
+      c.quadraticCurveTo(-b.r * 0.9, b.r * 0.55, -b.r * 1.15, b.r * 0.05);
+      c.quadraticCurveTo(-b.r * 1.35, -b.r * 0.45, -b.r * 0.85, -b.r * 0.6); c.stroke();
+      c.fillStyle = b.pal.trim;
+      for (let i = 0; i < 4; i++) { const k = i / 3; const px = -b.r * (0.25 + k * 0.8), py = b.r * (0.35 - k * 0.75) + Math.sin(k * 5) * 6 * s; c.beginPath(); c.arc(px, py, 2.6 * s, 0, Math.PI * 2); c.fill(); }
+      const st2 = Math.sin(b.t * 2.8) * 0.15;
+      c.strokeStyle = flash ? '#eee' : b.pal.lid; c.lineWidth = 7 * s;
+      c.beginPath(); c.moveTo(-b.r * 0.85, -b.r * 0.6); c.quadraticCurveTo(-b.r * 0.55, -b.r * (1.15 + st2), -b.r * 0.15, -b.r * (1.0 + st2)); c.stroke();
+      c.fillStyle = b.pal.trim;
+      c.beginPath(); c.moveTo(-b.r * 0.15, -b.r * (1.12 + st2)); c.lineTo(b.r * 0.05, -b.r * (0.95 + st2)); c.lineTo(-b.r * 0.22, -b.r * (0.88 + st2)); c.closePath(); c.fill();
+      c.fillStyle = flash ? '#ddd' : b.pal.lidLo;
+      c.beginPath(); c.moveTo(b.r * 0.1, -b.r * 0.35); c.lineTo(b.r * 0.95, -b.r * 0.85); c.lineTo(b.r * 0.75, -b.r * 0.25); c.closePath(); c.fill();
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.ellipse(b.r * 0.1, -b.r * 0.15, b.r * 0.4, b.r * 0.5, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#d8c8a8';
+      c.beginPath(); c.arc(b.r * 0.1, -b.r * 0.62, b.r * 0.26, 0, Math.PI * 2); c.fill();
+      bossEyes(b, c, b.r * 0.0, -b.r * 0.64, b.r * 0.2, -b.r * 0.64, 2.6 * s, '#4a5468');
+      c.strokeStyle = '#4a5468'; c.lineWidth = 1.6 * s;
+      c.beginPath(); c.arc(b.r * 0.1, -b.r * 0.56, 5 * s, 0.3, Math.PI - 0.3); c.stroke(); // the gentle, false smile
+    },
+    lucifer(b, c) { // the emperor: three faces, frozen to the waist
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.95, b.r * 1.3, b.r * 0.32, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(150,210,240,0.5)';
+      c.beginPath(); c.moveTo(-b.r * 1.2, b.r * 0.9);
+      for (let i = -3; i <= 3; i++) c.lineTo(i * b.r * 0.35 + 6 * s, b.r * (0.25 + Math.abs(Math.sin(i * 2.3)) * 0.2));
+      c.lineTo(b.r * 1.2, b.r * 0.9); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(220,245,255,0.7)'; c.lineWidth = 1.5; c.stroke();
+      const beat = Math.sin(b.t * 1.4) * 0.18;
+      c.fillStyle = flash ? '#ddd' : b.pal.lidLo;
+      for (const sgn of [-1, 1]) {
+        c.beginPath(); c.moveTo(sgn * b.r * 0.3, -b.r * 0.4);
+        c.lineTo(sgn * b.r * (1.35 + beat), -b.r * (0.95 + beat * 0.5));
+        c.lineTo(sgn * b.r * (1.15 + beat), -b.r * 0.35);
+        c.lineTo(sgn * b.r * (1.3 + beat * 0.6), -b.r * 0.0);
+        c.lineTo(sgn * b.r * 0.45, b.r * 0.05); c.closePath(); c.fill();
+      }
+      c.fillStyle = flash ? '#fff' : b.pal.body;
+      c.beginPath(); c.ellipse(0, -b.r * 0.15, b.r * 0.62, b.r * 0.72, 0, 0, Math.PI * 2); c.fill();
+      const hy = -b.r * 0.78, hr = b.r * 0.24;
+      c.fillStyle = '#2a2a30'; c.beginPath(); c.arc(-hr * 1.35, hy + 2 * s, hr * 0.82, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#c8b878'; c.beginPath(); c.arc(hr * 1.35, hy + 2 * s, hr * 0.82, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#8a2030'; c.beginPath(); c.arc(0, hy, hr, 0, Math.PI * 2); c.fill();
+      bossEyes(b, c, -hr * 0.4, hy - 2 * s, hr * 0.4, hy - 2 * s, 2.8 * s, b.pal.trim);
+      c.fillStyle = '#e8f4ff';
+      c.beginPath(); c.arc(-hr * 1.35, hy, 2 * s, 0, Math.PI * 2); c.arc(hr * 1.35, hy, 2 * s, 0, Math.PI * 2); c.fill();
+      c.fillStyle = b.pal.crown;
+      c.beginPath(); c.moveTo(-hr * 1.6, hy - hr * 0.8);
+      for (let i = 0; i < 5; i++) { c.lineTo(-hr * 1.6 + (i + 0.5) * hr * 0.64, hy - hr * 1.5); c.lineTo(-hr * 1.6 + (i + 1) * hr * 0.64, hy - hr * 0.8); }
+      c.closePath(); c.fill();
+    },
+  };
 
   // --- MIMIC KING: giant crowned chest -----------------------------------------
   function drawKing(b, c, g) {

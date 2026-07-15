@@ -149,15 +149,15 @@ const Descent = (() => {
   // matriarch) fits the guardian, and wearing its circle's colours. Every name is a
   // real figure from the Inferno a kid can google. Indexed by circle (floor-4 = 0..8).
   const CIRCLE_BOSSES = [
-    { name: 'CHARON, FERRYMAN OF THE DEAD', subtitle: 'he takes the coin from every mouth', variant: 'colossus', hpMul: 1.0,  ult: 'crossing', pal: { body: '#4a4e57', lidLo: '#31353c', lid: '#5a5f6a', trim: '#8f97a3', crown: '#c7ccd4', jewel: [160, 170, 185] } },
-    { name: 'MINOS, JUDGE OF THE DAMNED',   subtitle: 'his tail coils once for every circle you will fall', variant: 'matriarch', hpMul: 1.0, ult: 'judgment', pal: { body: '#4a1f5e', lidLo: '#331545', lid: '#5c2874', trim: '#c060ff', crown: '#d98aff', jewel: [200, 90, 255] } },
-    { name: 'CERBERUS, THE THREE-THROATED HOUND', subtitle: 'three heads, and every one is starving', variant: 'king', hpMul: 1.1, ult: 'triplebite', pal: { body: '#3d4a1f', lidLo: '#28320f', lid: '#4e5c28', trim: '#9aae4a', crown: '#c3d86a', jewel: [154, 174, 74] } },
-    { name: 'PLUTUS, WARDEN OF THE HOARD',  subtitle: 'Pape Satan, pape Satan aleppe', variant: 'king', hpMul: 1.05, ult: 'goldstorm', pal: { body: '#5a4a1c', lidLo: '#3d3212', lid: '#6d5a24', trim: '#ffd24c', crown: '#ffe08a', jewel: [255, 210, 76] } },
-    { name: 'PHLEGYAS, THE WRATHFUL',       subtitle: 'he burned a temple once, and never cooled', variant: 'colossus', hpMul: 1.05, ult: 'wrath', pal: { body: '#5a1e1e', lidLo: '#3d1414', lid: '#6d2828', trim: '#ff4444', crown: '#ff7a6a', jewel: [255, 68, 68] } },
-    { name: 'MEDUSA OF THE IRON WALLS',     subtitle: 'do not meet her eyes', variant: 'matriarch', hpMul: 1.05, ult: 'gaze', pal: { body: '#5a2e12', lidLo: '#3d1e0c', lid: '#6d3a18', trim: '#ff6a2c', crown: '#ffa06a', jewel: [255, 106, 44] } },
-    { name: 'THE MINOTAUR OF CRETE',        subtitle: 'the shame of Crete, penned in a maze of blood', variant: 'colossus', hpMul: 1.15, ult: 'gore', pal: { body: '#5a1420', lidLo: '#3d0d16', lid: '#6d1a28', trim: '#ff2a4a', crown: '#ff6a8a', jewel: [255, 42, 74] } },
-    { name: 'GERYON, THE BEAST OF FRAUD',   subtitle: 'the face of an honest man, the tail of a scorpion', variant: 'matriarch', hpMul: 1.1, ult: 'deceit', pal: { body: '#1e5045', lidLo: '#12362e', lid: '#286058', trim: '#6effc0', crown: '#a0ffd8', jewel: [110, 255, 192] } },
-    { name: 'LUCIFER, EMPEROR OF HELL',     subtitle: 'three faces, three traitors, one frozen king', variant: 'king', hpMul: 1.5, dmgMul: 1.15, ult: 'cocytus', pal: { body: '#1a2630', lidLo: '#0a1016', lid: '#26384a', trim: '#7fd4ff', crown: '#cfeeff', jewel: [127, 212, 255] } },
+    { name: 'CHARON, FERRYMAN OF THE DEAD', subtitle: 'he takes the coin from every mouth', variant: 'colossus', skin: 'charon', hpMul: 1.0,  ult: 'crossing', pal: { body: '#4a4e57', lidLo: '#31353c', lid: '#5a5f6a', trim: '#8f97a3', crown: '#c7ccd4', jewel: [160, 170, 185] } },
+    { name: 'MINOS, JUDGE OF THE DAMNED',   subtitle: 'his tail coils once for every circle you will fall', variant: 'matriarch', skin: 'minos', hpMul: 1.0, ult: 'judgment', pal: { body: '#4a1f5e', lidLo: '#331545', lid: '#5c2874', trim: '#c060ff', crown: '#d98aff', jewel: [200, 90, 255] } },
+    { name: 'CERBERUS, THE THREE-THROATED HOUND', subtitle: 'three heads, and every one is starving', variant: 'king', skin: 'cerberus', hpMul: 1.1, ult: 'triplebite', pal: { body: '#3d4a1f', lidLo: '#28320f', lid: '#4e5c28', trim: '#9aae4a', crown: '#c3d86a', jewel: [154, 174, 74] } },
+    { name: 'PLUTUS, WARDEN OF THE HOARD',  subtitle: 'Pape Satan, pape Satan aleppe', variant: 'king', skin: 'plutus', hpMul: 1.05, ult: 'goldstorm', pal: { body: '#5a4a1c', lidLo: '#3d3212', lid: '#6d5a24', trim: '#ffd24c', crown: '#ffe08a', jewel: [255, 210, 76] } },
+    { name: 'PHLEGYAS, THE WRATHFUL',       subtitle: 'he burned a temple once, and never cooled', variant: 'colossus', skin: 'phlegyas', hpMul: 1.05, ult: 'wrath', pal: { body: '#5a1e1e', lidLo: '#3d1414', lid: '#6d2828', trim: '#ff4444', crown: '#ff7a6a', jewel: [255, 68, 68] } },
+    { name: 'MEDUSA OF THE IRON WALLS',     subtitle: 'do not meet her eyes', variant: 'matriarch', skin: 'medusa', hpMul: 1.05, ult: 'gaze', pal: { body: '#5a2e12', lidLo: '#3d1e0c', lid: '#6d3a18', trim: '#ff6a2c', crown: '#ffa06a', jewel: [255, 106, 44] } },
+    { name: 'THE MINOTAUR OF CRETE',        subtitle: 'the shame of Crete, penned in a maze of blood', variant: 'colossus', skin: 'minotaur', hpMul: 1.15, ult: 'gore', pal: { body: '#5a1420', lidLo: '#3d0d16', lid: '#6d1a28', trim: '#ff2a4a', crown: '#ff6a8a', jewel: [255, 42, 74] } },
+    { name: 'GERYON, THE BEAST OF FRAUD',   subtitle: 'the face of an honest man, the tail of a scorpion', variant: 'matriarch', skin: 'geryon', hpMul: 1.1, ult: 'deceit', pal: { body: '#1e5045', lidLo: '#12362e', lid: '#286058', trim: '#6effc0', crown: '#a0ffd8', jewel: [110, 255, 192] } },
+    { name: 'LUCIFER, EMPEROR OF HELL',     subtitle: 'three faces, three traitors, one frozen king', variant: 'king', skin: 'lucifer', hpMul: 1.5, dmgMul: 1.15, ult: 'cocytus', pal: { body: '#1a2630', lidLo: '#0a1016', lid: '#26384a', trim: '#7fd4ff', crown: '#cfeeff', jewel: [127, 212, 255] } },
   ];
 
   // Called when a descent boss is created. Reads/advances g.circleBossSeen and
@@ -171,7 +171,7 @@ const Descent = (() => {
     const guardian = CIRCLE_BOSSES[g.floorNum - FIRST_FLOOR];
     if (guardian && g.floorNum <= HELL_LAST) {
       return {
-        anger, variant: guardian.variant, pal: guardian.pal,
+        anger, variant: guardian.variant, skin: guardian.skin, pal: guardian.pal, // #188 bespoke Dante model
         name: guardian.name, subtitle: guardian.subtitle, ult: guardian.ult,
         hpMul: t.hp * (guardian.hpMul || 1),
         dmgMul: t.dmg * (guardian.dmgMul || 1),
