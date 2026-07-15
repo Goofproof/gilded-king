@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.95';
+  const VERSION = 'v2.96';
 
   const NOTES = [
+    {
+      v: 'v2.96', title: 'The MIGHT classes get their rank rewards', date: '2026-07-15',
+      sha: '88920d5',
+      items: [
+        'Q wave 1, MIGHT milestones (#227): warrior R4 shield x2 / R8 double knockback / R12 WALL SLAM; barbarian R4 fear +15% / R8 ally rage / R12 cornered enemies COWER; adventurer R4 roll refund / R8 heal on cast / R12 party adrenaline.',
+      ],
+    },
     {
       v: 'v2.95', title: 'Your class ability grows with your class stat now', date: '2026-07-15',
       sha: '1bc2c4b',
