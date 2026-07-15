@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.57', title: 'The title screen has a theme song', date: '2026-07-15',
       sha: '98745e8',
       items: [
-        'Title music: play the menu song (Sam\'s son\'s GarageBand track) (Sam, #163).',
+        'The main menu has a theme song now, made just for the game. It starts playing on the title screen as soon as you click or press a key (browsers will not play sound until you do), and it stops the moment you begin a run. You can silence it with the mute button like everything else.',
       ],
     },
     {
