@@ -26,7 +26,10 @@ const PatchNotes = (() => {
       v: 'v2.92', title: 'Co-op runs heal themselves now', date: '2026-07-15',
       sha: '7c76880',
       items: [
-        'Phase C co-op platform: reliable event bus (#221 - buffered sends, replay on reconnect, seq dedup; 26 event types), 5s keyframe reconcile (floor/alarm/room flags heal silently), stable-uid targeting on kill/rise (#222), relay close-handshake ACK + client forceReopen (#223 - client closes hung in CLOSING forever).',
+        'The big one: important co-op messages can no longer get lost. Before this, if your WiFi hiccuped at the wrong instant, the message saying "we went down a floor" or "your teammate revived you" could vanish into the void and the game had no way to notice. Now every important event is remembered, and the moment your connection comes back, everything you missed is delivered, each thing exactly once, never twice. Kills, revives, floor changes, XP, mimics, trap doors, level-up locks: all of it.',
+        'The host now also sends a little "state of the world" report every few seconds: which floor we are on, the alarm level, which rooms are cleared, which traps have sprung. If your copy of the dungeon ever drifts out of step, it quietly snaps back within seconds instead of staying wrong for the rest of the run. If a future bug sneaks in, it now heals itself instead of ruining your game.',
+        'Found and fixed a deep connection bug while testing: when the game hung up a dead connection on purpose, the server never said goodbye back, so the reconnect could stall for a very long time. Reconnects after a hiccup are now near-instant.',
+        'Kill rewards now find you even if your connection blipped at the exact moment you landed the killing blow.',
       ],
     },
     {
