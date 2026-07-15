@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.93';
+  const VERSION = 'v2.94';
 
   const NOTES = [
+    {
+      v: 'v2.94', title: 'The leaderboard learns your name', date: '2026-07-15',
+      sha: '506a958',
+      items: [
+        'Leaderboard shows your character\'s NAME (#225): server was truncating every posted name to 3 letters; caps unified at 12 chars.',
+      ],
+    },
     {
       v: 'v2.93', title: 'Friendly fire: the first taste of PVP', date: '2026-07-15',
       sha: '2d41ff0',
