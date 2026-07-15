@@ -1387,7 +1387,11 @@
     }
     return n;
   }
-  function plateNeeded() { return Math.floor(coopPlayers() / 2) + 1; } // majority
+  // #196 (Sam, live playtest) the plate must count the LIVE party: coopPlayers() floors
+  // at 2 (correct for monster scaling), so when a teammate LEFT the run, the survivor
+  // could never satisfy a 2-person plate and the whole run was stuck.
+  function livePartyCount() { return (g.coop && typeof Net !== 'undefined') ? Math.max(1, Net.playerCount) : 1; }
+  function plateNeeded() { return Math.floor(livePartyCount() / 2) + 1; } // majority of who is actually here
 
   function tryRoomExit() {
     const p = g.player;
@@ -1736,6 +1740,8 @@
       const win = Math.random() < 0.5;
       const factor = win ? 0.7 : 1.3;
       for (const it of stock.items) it.price = Math.max(1, Math.round(it.price * factor));
+      // #198 tell the party: one haggle per shop, same outcome on every screen
+      if (g.coop && typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'haggle', gx: g.room.gx, gy: g.room.gy, win: win ? 1 : 0 });
       if (win) {
         g.shopMsg = { text: 'Haggled! Every price drops 30%', t: 2.2 };
         Sfx.play('buy');
@@ -2003,6 +2009,14 @@
       p.heal(p.maxHp * (a.heal || 0.4));
       const R = a.radius || 240;
       for (const merc of g.mercs) { if (!merc.dead && Math.hypot(merc.x - p.x, merc.y - p.y) < R) merc.hp = Math.min(merc.maxHp, merc.hp + merc.maxHp * (a.heal || 0.4)); }
+      // #197 (Sam, live playtest) Mend finally heals TEAMMATES in range too. Their client
+      // owns their hp, so we send the heal and they apply it (mirror of the 'phit' flow).
+      if (g.coop && typeof Net !== 'undefined' && Net.connected) {
+        for (const [id, rp] of g.remotePlayers) {
+          if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.send({ t: 'pheal', to: id, frac: a.heal || 0.4 });
+        }
+      }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#9effc0'], 30, { speed: 180, life: 0.7, glow: true });
     } else if (a.kind === 'turret') {
       // #78 Engineer: build a turret at the player's feet (charge consumed above-guarded)
@@ -3165,6 +3179,24 @@
       }
     });
     // tethered party: a peer moved through a door - everyone follows to that room
+    // #197 a cleric teammate Mended you: apply their heal to your own champion
+    Net.on('pheal', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      g.player.heal(g.player.maxHp * Math.max(0, Math.min(1, +m.frac || 0.4)));
+      Fx.burst(g.player.x, g.player.y, ['#9effc0', '#fff'], 18, { speed: 140, life: 0.5, glow: true });
+      Fx.text(g.player.x, g.player.y - 30, 'MENDED', '#9effc0', 13);
+    });
+    // #198 a teammate haggled: same 50/50 outcome lands on YOUR copy of that shop too
+    Net.on('haggle', m => {
+      if (!g.coop || !g.dungeon) return;
+      const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
+      if (!room || !room.shopStock || room.shopStock.haggled) return;
+      room.shopStock.haggled = true;
+      const factor = m.win ? 0.7 : 1.3;
+      for (const it of room.shopStock.items) it.price = Math.max(1, Math.round(it.price * factor));
+      g.shopMsg = { text: m.win ? 'Your partner haggled: every price drops 30%' : 'Your partner pushed the keeper: prices +30%', t: 2.4 };
+      Sfx.play(m.win ? 'buy' : 'error');
+    });
     // #191 a guest pyromancer cast Immolate: the HOST owns the monsters, so the burn
     // lands here and flows back to every screen via the snapshot burn flag.
     Net.on('immolate', m => {
