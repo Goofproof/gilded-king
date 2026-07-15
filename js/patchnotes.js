@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.54';
+  const VERSION = 'v2.55';
 
   const NOTES = [
+    {
+      v: 'v2.55', title: 'Level-ups wait until the fight is over', date: '2026-07-15',
+      sha: '0dc86c6',
+      items: [
+        'Level-ups and upgrades wait until the room is cleared (Sam, #161).',
+      ],
+    },
     {
       v: 'v2.54', title: 'Type a real name on the leaderboard', date: '2026-07-15',
       sha: 'd8862e2',
