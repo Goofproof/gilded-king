@@ -87,42 +87,81 @@ const Eulogy = (() => {
   function forSnap(s) {
     if (!s) return [];
     const name = (s.initials || '???').toUpperCase();
-    // #178 (Sam) the board RANK salts the seed: two raiders with similar identities
-    // (or the same raider viewed at #1 vs #3) can no longer land on the same verse.
+    // #178 the board RANK salts the seed; #208 (Sam) the OPENERS are structurally
+    // different poems now - a boast, a warning, a ledger entry, a tavern tale - not
+    // ten rewordings of the same Homeric invocation.
     const r = rng(hash(name + '|' + (s.score || 0) + '|' + (s.className || '') + '|' + (s.rank != null ? s.rank : '')));
     const classEp = pick(r, classEpithets(s.className));
     const statEp = signature(r, s);
     const weapon = (s.weapons && s.weapons.length) ? cleanWeapon(s.weapons[0]) : null;
     const ult = s.ult ? titleCase(s.ult) : null;
     const place = floorName(s.floor);
+    const kills = num(s.kills, 0);
 
     const lines = [];
-    // L1: the invocation (#178 pool doubled)
-    lines.push(pick(r, [
-      `Sing, Muse, of ${name} the ${classEp},`, `Of ${name} the ${classEp} the Muses sing,`, `Remember ${name}, ${classEp},`,
-      `Tell again the tale of ${name} the ${classEp},`, `Let the halls repeat the name of ${name}, ${classEp},`, `${name} the ${classEp} went down into the deep,`,
-    ]));
-    // L2: the signature stat + the weapon that carried it (#178 pool doubled)
+    // L1: ten STRUCTURALLY different ways into the tale (#208). The board rank walks
+    // the list so neighbouring raiders on the top-5 never open the same way.
+    const L1 = [
+      `Sing of ${name} the ${classEp},`,
+      `They still argue about ${name} in the taverns,`,
+      `The dungeon remembers ${name}, ${classEp},`,
+      `${kills > 0 ? kills : 'Uncounted'} monsters learned the name ${name},`,
+      `Down where the light gives up, ${name} kept walking,`,
+      `No one ordered ${name} to go so deep. ${titleCase(String(name).toLowerCase())} went anyway,`,
+      `Write this in the ledger of the fallen: ${name}, ${classEp},`,
+      `Ask the walls about ${name} - they are still shaking,`,
+      `${name} did not come for the gold. Not only for the gold,`,
+      `Some doors should stay shut. ${name} opened every one,`,
+    ];
+    // Top-5 GUARANTEE: each rank owns a disjoint PAIR of templates (rank 0 -> 0/1,
+    // rank 1 -> 2/3, ...), the seed picks within the pair - so the board's five
+    // openers can never repeat a structure. Deeper ranks pick freely.
+    if (s.rank != null && s.rank >= 0 && s.rank < 5) {
+      lines.push(L1[(s.rank * 2 + ((r() * 2) | 0)) % L1.length]);
+    } else {
+      lines.push(pick(r, L1));
+    }
+    // L2: the signature stat + the weapon that carried it
     lines.push(weapon
       ? pick(r, [
         `${statEp}, who bore ${weapon}.`, `${statEp}, ${weapon} in hand.`, `who carried ${weapon}, ${statEp}.`,
         `${statEp}, and ${weapon} never left their grip.`, `with ${weapon} raised, ${statEp}.`, `${statEp}, whose ${weapon} the dark learned to fear.`,
       ])
       : pick(r, [`${statEp}, and unafraid.`, `${statEp}, and empty-handed still they went.`, `${statEp}, needing no blade at all.`]));
-    // L3: the ultimate they loosed (skipped if none recorded) (#178 pool doubled)
+    // L3: the ultimate they loosed (skipped if none recorded) - no 'vault', ever (#208)
     if (ult) lines.push(pick(r, [
-      `who loosed the ${ult} upon the host,`, `and called the ${ult} down from the vault,`, `whose ${ult} unmade the dark,`,
-      `who spoke the ${ult} and the room went quiet,`, `and the ${ult} answered when they called,`, `whose ${ult} the deep still remembers,`,
+      `who loosed the ${ult} upon the host,`,
+      `who spoke the ${ult} and the room went quiet,`,
+      `and the ${ult} answered when they called,`,
+      `whose ${ult} the deep still remembers,`,
+      `and when the ${ult} came down, even the walls flinched,`,
+      `who saved the ${ult} for exactly the right moment,`,
     ]));
-    // L4: the fall, named by the place it happened (#178 pool doubled)
+    // L4: the fall, named by the place it happened
     lines.push(place
       ? pick(r, [
-        `then in the ${place} the deep closed over ${name}.`, `till the ${place} took ${name} into the long dark.`, `and fell in the ${place}, and was still.`,
-        `but the ${place} keeps ${name} now, and does not give back.`, `and in the ${place} the song of ${name} went out.`, `yet even ${name} lay down at last, in the ${place}.`,
+        `Then the ${place} closed over ${name}.`, `The ${place} keeps ${name} now, and does not give back.`,
+        `In the ${place} the song of ${name} went out.`, `Even ${name} lay down at last, in the ${place}.`,
+        `The ${place} was one door too many.`, `Somewhere in the ${place}, the story stops mid-sentence.`,
       ])
       : (s.floor != null ? `and fell upon floor ${s.floor}, and was still.` : `and passed into the long dark.`));
     return lines;
   }
 
-  return { forSnap };
+  // #208 a plain-text version of the whole feat, for the SHARE button: the headline,
+  // the numbers, the poem, and the game link - ready to paste anywhere.
+  function shareText(s, gameUrl) {
+    if (!s) return '';
+    const name = (s.initials || '???').toUpperCase();
+    const parts = [
+      `${name} the ${titleCase(s.className || 'Adventurer')} - Dungeon of the Gilded King`,
+      `Score ${num(s.score, 0)} · Level ${num(s.level, 0)} · Floor ${num(s.floor, 0)} · ${num(s.kills, 0)} kills`,
+      '',
+      ...forSnap(s),
+    ];
+    if (gameUrl) parts.push('', 'Beat it: ' + gameUrl);
+    return parts.join('\n');
+  }
+
+  return { forSnap, shareText };
 })();

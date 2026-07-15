@@ -1665,6 +1665,23 @@ const UI = (() => {
       y += 2;
     }
 
+    // #208 (Sam) SHARE the feat: copies the headline + numbers + poem for bragging
+    // rights. The rect is stashed on g so the click handler can hit it before the
+    // any-click-closes rule fires.
+    {
+      const bw = 150, bh = 24, bx = W / 2 - bw / 2, by2 = y + 6;
+      const copied = (g.snapCopiedT || 0) > 0;
+      c.fillStyle = copied ? 'rgba(110,231,160,0.18)' : 'rgba(255,210,76,0.12)';
+      c.fillRect(bx, by2, bw, bh);
+      c.strokeStyle = copied ? '#6ee7a0' : '#c9a227'; c.lineWidth = 1.5;
+      c.strokeRect(bx, by2, bw, bh);
+      c.textAlign = 'center'; c.font = 'bold 11px monospace';
+      c.fillStyle = copied ? '#6ee7a0' : '#ffd24c';
+      c.fillText(copied ? 'COPIED!' : 'SHARE THIS FEAT', W / 2, by2 + 16);
+      g.snapShareRect = { x: bx, y: by2, w: bw, h: bh };
+      y = by2 + bh + 2;
+    }
+
     // --- border sized to the content, then the footer inside it ---
     const ph = Math.min(H - py - 8, (y + 26) - py);
     c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);

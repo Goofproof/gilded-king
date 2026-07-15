@@ -2871,7 +2871,20 @@
     // panel. Close it here so it works from either: click/Esc returns to whatever is
     // underneath (the full board, or the title itself).
     if (g.snapView) {
-      if (input.mouse.clicked || input.pressed('Escape')) { g.snapView = null; Sfx.play('ui'); }
+      if (g.snapCopiedT > 0) g.snapCopiedT -= 1 / 60;
+      // #208 the SHARE button eats its click before the close-on-any-click rule
+      if (input.mouse.clicked && g.snapShareRect) {
+        const r = g.snapShareRect;
+        if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+          const text = (typeof Eulogy !== 'undefined' && Eulogy.shareText) ? Eulogy.shareText(g.snapView, UI.GAME_URL) : '';
+          if (text && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => { g.snapCopiedT = 1.8; }).catch(() => { g.snapCopiedT = 0; });
+          }
+          Sfx.play('ui');
+          return;
+        }
+      }
+      if (input.mouse.clicked || input.pressed('Escape')) { g.snapView = null; g.snapShareRect = null; Sfx.play('ui'); }
       return;
     }
     if (g.showPatch) {
@@ -2896,7 +2909,7 @@
             // #178 (Sam) global slim snaps carry no floor - the ENTRY does. Merge it, plus
             // the board rank so each top raider's eulogy verse is salted differently.
             g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap,
-              { floor: (r.snap.floor != null ? r.snap.floor : r.floor), rank: r.rank });
+              { floor: (r.snap.floor != null ? r.snap.floor : r.floor), rank: r.rank, score: r.score }); // #208 score rides along for the share text
             Sfx.play('ui');
             return;
           }
@@ -2965,7 +2978,7 @@
           if (r.action === 'raiderSnap') { // #149 open a top-5 raider's loadout snapshot from the main page
             const img = new Image(); img.src = r.snap.avatar || '';
             g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap,
-              { floor: (r.snap.floor != null ? r.snap.floor : r.floor), rank: r.rank }); // #178
+              { floor: (r.snap.floor != null ? r.snap.floor : r.floor), rank: r.rank, score: r.score }); // #208 score rides along for the share text // #178
             Sfx.play('ui'); return;
           }
           if (r.action === 'patchnotes') { g.showPatch = true; g.patchScroll = 0; Sfx.play('ui'); }
