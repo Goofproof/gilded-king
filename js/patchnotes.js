@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.80';
+  const VERSION = 'v2.81';
 
   const NOTES = [
+    {
+      v: 'v2.81', title: 'More co-op fixes from tonight\'s playtest', date: '2026-07-15',
+      sha: 'b3e0935',
+      items: [
+        'Playtest hotfix 2: door plates count the LIVE party so a departed teammate can\'t lock the run (#196); cleric Mend heals party members in range (#197); haggle outcome lands on every player\'s shop (#198).',
+      ],
+    },
     {
       v: 'v2.80', title: 'Co-op playtest hotfixes', date: '2026-07-15',
       sha: '2393d80',
