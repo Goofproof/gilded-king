@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.62', title: 'The doppelganger is a real fight now', date: '2026-07-15',
       sha: '2f79e62',
       items: [
-        'Doppelganger mini-boss: much tankier (survives opening ultimate), acts instantly, strafes instead of standing still (#168).',
+        'The DOPPELGANGER that wears your face is a real fight now. It used to pop in one blast and just stand there, so you never actually dueled your shadow. Now it has roughly three times the health, so it survives your opening ultimate and trades blows with you. It comes at you the instant you walk in, and its ranged copy circles and strafes instead of standing still like a target dummy. Beating your twin finally means something.',
       ],
     },
     {
