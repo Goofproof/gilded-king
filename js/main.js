@@ -686,6 +686,24 @@
   function onKill(m) {
     const p = g.player;
     p.kills++;
+    // #158 (Sam) NECROMANCER: what sets it apart from the summoner - the dead you make RISE
+    // to serve. A share of your kills reanimate as skeletons ON THE SPOT, up to a growing
+    // cap, so the army is built from the battlefield, not conjured from nothing.
+    if (p.class && p.class.id === 'necromancer' && !m.isBoss && m.type !== 'goblin') {
+      const cap = 3 + 2 * (p.undeadTier || 1);            // 5 / 7 / 9 as Raise Dead tiers up
+      const alive = g.mercs.filter(s => s.bone && !s.dead).length;
+      if (alive < cap && Math.random() < 0.4) {
+        const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
+        const scale = 1 + 0.10 * arc + 0.05 * ((p.level | 0) - 1);
+        const s = makeMercFollower({ cls: 'blade' }, g.floorNum);
+        s.bone = true; s.color = '#cfe6cf';
+        s.dmg = Math.round(s.dmg * scale); s.maxHp = s.hp = Math.round(s.maxHp * scale);
+        s.x = m.x; s.y = m.y;                              // rises where it fell
+        g.mercs.push(s);
+        Fx.text(m.x, m.y - 18, 'RISE', '#9ae6a0', 11);
+        Fx.burst(m.x, m.y, ['#9ae6a0', '#e6efe6', '#3a5a40'], 12, { speed: 120, life: 0.5, glow: true });
+      }
+    }
     // #156 PYROMANCER: the fire spreads from the dying to the living. A monster that
     // dies while burning lights everything near it - a room can chain itself down.
     if (g.pyroSpread && g.pyroSpread.t > 0 && m.burn) {
@@ -1850,6 +1868,10 @@
       // follower so they already move, get hit, and get targeted; the clone flag gives
       // them a lifespan and the death blast.
       const n = a.clones || 3;
+      // #158 (Sam) clones were far too weak - fragile, slow, and barely scratched. They are
+      // COPIES OF YOU now: real HP, your move speed, and a real bite scaled to YOUR damage,
+      // so they hold aggro AND kill, not just soak a hit and pop.
+      const pdmg = Math.round((p.weapon && p.weapon.dmg || 14) * (p.stats.dmgMul || 1));
       for (let i = 0; i < n; i++) {
         const ang = (i / n) * Math.PI * 2;
         const cl = makeMercFollower({ cls: 'blade' }, g.floorNum);
@@ -1858,7 +1880,10 @@
         cl.blastDmg = Math.round((a.dmg || 70) * (p.stats.dmgMul || 1));
         cl.blastR = a.radius || 130;
         cl.color = a.color;
-        cl.maxHp = cl.hp = Math.max(1, Math.round(p.maxHp * 0.25)); // fragile decoys
+        cl.maxHp = cl.hp = Math.max(1, Math.round(p.maxHp * 0.55));   // sturdy, not a wet decoy
+        cl.speed = Math.round(cl.speed * 1.6);                          // keeps up and chases in
+        cl.dmg = Math.max(cl.dmg * 2, Math.round(pdmg * 0.7));          // hits like you
+        cl.atkRate = 0.34;                                             // and swings almost twice as often
         cl.x = p.x + Math.cos(ang) * 46; cl.y = p.y + Math.sin(ang) * 46;
         g.mercs.push(cl);
       }

@@ -44,8 +44,8 @@ const PlayerDef = (() => {
       desc: 'Starts with a wand. Magic 2 and +10% move speed. Fights with copies of itself.', magic: 2, fx: { spd: 0.10, spellPower: 0.08 },
       q: 'Mirror Image',  qDesc: 'Split into three copies. Enemies chase them instead of you, and each one detonates when it dies.' },
     { id: 'druid',       name: 'Druid',        color: '#7fd47f', icon: '❦', arch: 'wand',
-      desc: 'Starts with a wand. Magic 1, +10 HP. Shifts between three animal forms.', magic: 1, hp: 10, fx: { regenFlat: 0.4 },
-      q: 'Shapeshift',    qDesc: 'Cycle Bear (tanky, slow, huge hits), Wolf (fast, frail, bleeds) and Owl (flies over everything, weak but untouchable).' },
+      desc: 'Starts with a wand. Magic 1, +10 HP. Shifts between two animal forms.', magic: 1, hp: 10, fx: { regenFlat: 0.4 },
+      q: 'Shapeshift',    qDesc: 'Cycle Bear (tanky, slow, hits like a truck) and Wolf (fast, frail, bleeds fangs). Shift to suit the room.' },
     { id: 'deathknight', name: 'Death Knight', color: '#8fd6d0', icon: '☨', arch: 'heavy',
       desc: 'Starts with a heavy weapon. +25 HP. Enemies dying near you feed you, and you refuse to die once per cast.', hp: 25, fx: { soulFeast: 3, reduce: 0.05 },
       q: 'Unholy Rune',   qDesc: 'LIFE AFTER DEATH. Carve a rune - the next hit that would kill you leaves you at 1 HP instead, and the room pays for it.' },
@@ -84,7 +84,6 @@ const PlayerDef = (() => {
   // which is the whole point of the class: you shift to suit the room.
   //   Bear - walks into everything and survives it, but slow.
   //   Wolf - fast and bleeds enemies, but made of paper.
-  //   Owl  - untouchable and quick, but barely hurts anything. For getting OUT.
   // #157 Each form carries its OWN LOOK, not just its own numbers. The player must never
   // have to remember which shape they are in: the body recolours, changes size, and grows
   // a head you can name from across the room, and a badge sits on the HUD. Three separate
@@ -99,12 +98,11 @@ const PlayerDef = (() => {
     { id: 'bear', name: 'Bear Form', color: '#a8763f', dmgMul: 1.45, spdMul: 0.82, reduce: 0.34,
       body: '#8a5a2b', cloak: '#5d3a19', accent: '#ffcf8a', scale: 1.28, tag: 'BEAR',
       note: 'A big, slow target - but the hide turns almost everything.' },
-    { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.15, spdMul: 1.30, reduce: -0.12, bleed: true,
+    { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.25, spdMul: 1.32, reduce: -0.12, bleed: true,
       body: '#98a2b3', cloak: '#5a6172', accent: '#e8f0ff', scale: 0.92, tag: 'WOLF',
       note: 'Fast, lean and bleeding fangs, but every hit hurts you more.' },
-    { id: 'owl',  name: 'Owl Form',  color: '#e6dcc0', dmgMul: 0.55, spdMul: 1.22, reduce: 0.10, evasive: true,
-      body: '#c9bb96', cloak: '#8a7c5c', accent: '#fff3c4', scale: 0.86, tag: 'OWL',
-      note: 'Tiny and hard to touch. Barely scratches. This is your escape.' },
+    // #158 (Sam) OWL removed - it was just a slower, weaker Wolf. Bear (tank) and Wolf
+    // (glass-cannon melee) are two clean opposite forms; shift to suit the room.
   ];
   const formById = id => FORMS.find(f => f.id === id) || null;
 
