@@ -2958,6 +2958,11 @@
       Fx.burst(m.x, m.y, ['#ffd24c', '#fff', '#ff6655'], 40, { speed: 260, life: 0.9, glow: true });
       if (m.king) g.kingSlain = true;
       g.winTimer = 2.6;
+      // #175 (Sam) CRITICAL: the guest must open the descent portal after the celebration,
+      // exactly like the host. Without pendingDescent the winTimer's else-branch fired
+      // onVictory() and dumped the GUEST to the victory/name-entry screen mid-run while
+      // the host kept playing. Found live in the two-instance harness.
+      g.pendingDescent = { toadIdx: m.toad || 0 };
       if (typeof Descent !== 'undefined' && m.toad !== undefined) g.toadMsg = { text: Descent.toadLine(m.toad), t: 4 };
     });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)
