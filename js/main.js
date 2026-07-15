@@ -1777,25 +1777,20 @@
     // forges your HELD weapon's archetype (a bow-user gets a bow); the mannequin
     // tailors armor. minRarity 2, so a craft is never vendor trash.
     if (t.kind === 'craftWeapon' || t.kind === 'craftArmor') {
+      // #206 (Sam) like the enchant table, crafting shows THREE rolled options first.
+      // You pay only when you pick one; Esc walks away free.
       const st = t.st, tier = Monsters.tierFor(g.floorNum, g.room.dist);
       const gold = Math.round((50 + 25 * (tier - 1)) * Math.pow(1.4, st.uses));
       const shards = Math.round((6 + 2 * (tier - 1)) * Math.pow(1.4, st.uses));
       if (p.coins < gold) { g.shopMsg = { text: `Crafting needs ${gold} gold`, t: 1.5 }; Sfx.play('error'); return; }
       if ((p.shards || 0) < shards) { g.shopMsg = { text: `Crafting needs ${shards} shards (X salvages gear into shards)`, t: 2 }; Sfx.play('error'); return; }
-      p.coins -= gold; p.shards -= shards; st.uses++;
-      let made;
-      if (t.kind === 'craftWeapon') {
-        const arch = (p.weapon && p.weapon.archetype) || undefined;
-        made = Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.35, archetype: arch });
-        dropGear('weapon', made, st.x, st.y + 34);
-      } else {
-        made = Weapons.rollArmor(tier, { minRarity: 2, luck: 0.35 });
-        dropGear('armorItem', made, st.x, st.y + 34);
-      }
-      g.shopMsg = { text: `Forged: ${Weapons.displayName(made)}`, t: 2.4 };
-      Fx.burst(st.x, st.y, ['#ffd24c', '#ff8a3d', '#fff'], 24, { speed: 180, life: 0.6, glow: true });
-      Fx.shake(5, 0.2);
-      Sfx.play('upgrade');
+      const isW = t.kind === 'craftWeapon';
+      const arch = isW ? ((p.weapon && p.weapon.archetype) || undefined) : undefined;
+      const items = [];
+      for (let i = 0; i < 3; i++) items.push(isW ? Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.35, archetype: arch }) : Weapons.rollArmor(tier, { minRarity: 2, luck: 0.35 }));
+      g.craftPick = { st, isW, items, gold, shards };
+      g.state = 'craftpick'; g.overlayT = 0; p.drawT = -1;
+      Sfx.play('ui');
       return;
     }
     // #60 ENCHANT TABLE: spend gold + shards to disenchant + re-roll your active
@@ -2774,7 +2769,7 @@
     // majority-gather door plates unable to fire without them, the other player was
     // sealed in the room. Both "we can't see each other" and "we can't leave" at once.
     if (g.coop && (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' ||
-        g.state === 'rpick' || g.state === 'pause' || g.state === 'charsheet' || g.state === 'enchantpick' || g.state === 'offer')) {
+        g.state === 'rpick' || g.state === 'pause' || g.state === 'charsheet' || g.state === 'enchantpick' || g.state === 'offer' || g.state === 'craftpick')) {
       broadcastSelf(dt); interpRemotes(dt);
       if (isCoopGuest()) updateGuestMobs(dt);
     }
@@ -2789,6 +2784,7 @@
       case 'ultpick': g.overlayT += dt; if (peekCharSheet()) break; updateUltPick(); break;
       case 'rpick': g.overlayT += dt; if (peekCharSheet()) break; updateRPick(); break;
       case 'enchantpick': g.overlayT += dt; updateEnchantPick(); break;
+      case 'craftpick': g.overlayT += dt; updateCraftPick(); break; // #206
       case 'offer': g.overlayT += dt; updateOffer(); break;
       case 'levelwait': g.overlayT += dt; updateLevelWait(dt); break;
       case 'pause':
@@ -3413,6 +3409,32 @@
     }
     enterRoom(room, myDir);
     if (initiator) Net.send({ t: 'room', gx, gy, dir, fl: g.floorNum }); // #175 floor-stamped
+  }
+
+  // #206 the crafting pick: click one of the three to pay and forge it; Esc/E leaves free
+  function updateCraftPick() {
+    const cp = g.craftPick, p = g.player;
+    if (!cp) { g.state = 'play'; return; }
+    if (input.pressed('Escape') || input.pressed('KeyE')) { g.craftPick = null; g.state = 'play'; Sfx.play('ui'); return; }
+    let idx = -1;
+    if (input.pressed('Digit1')) idx = 0;
+    if (input.pressed('Digit2')) idx = 1;
+    if (input.pressed('Digit3')) idx = 2;
+    if (idx < 0 && input.mouse.clicked) {
+      for (const r of (g.uiRects || [])) {
+        if (r.action === 'craft' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { idx = r.idx; break; }
+      }
+    }
+    if (idx < 0 || !cp.items[idx]) return;
+    if (p.coins < cp.gold || (p.shards || 0) < cp.shards) { g.shopMsg = { text: 'You can no longer afford this', t: 1.6 }; Sfx.play('error'); g.craftPick = null; g.state = 'play'; return; }
+    p.coins -= cp.gold; p.shards -= cp.shards; cp.st.uses++;
+    const made = cp.items[idx];
+    dropGear(cp.isW ? 'weapon' : 'armorItem', made, cp.st.x, cp.st.y + 34);
+    g.shopMsg = { text: `Forged: ${Weapons.displayName(made)}`, t: 2.4 };
+    Fx.burst(cp.st.x, cp.st.y, ['#ffd24c', '#ff8a3d', '#fff'], 24, { speed: 180, life: 0.6, glow: true });
+    Fx.shake(5, 0.2);
+    Sfx.play('upgrade');
+    g.craftPick = null; g.state = 'play';
   }
 
   function updateLobby() {
@@ -5336,6 +5358,7 @@
     if (g.state === 'ultpick') g.uiRects = UI.drawUltPick(c, g);
     if (g.state === 'rpick') g.uiRects = UI.drawRPick(c, g);
     if (g.state === 'enchantpick') g.uiRects = UI.drawEnchantPick(c, g);
+    if (g.state === 'craftpick') g.uiRects = UI.drawCraftPick(c, g); // #206
     if (g.state === 'levelwait') drawLevelWait(c);
     if (g.state === 'pause') g.uiRects = UI.drawPause(c, g);
     // the co-op menu overlay draws over a LIVE world (g.state is still 'play')

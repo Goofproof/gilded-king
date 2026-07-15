@@ -2100,6 +2100,44 @@ const UI = (() => {
     return { text: `${bestStat} · ${bestGap} more points to your next evolution`, color: col };
   }
 
+  // #206 (Sam) the crafting pick: three rolled items side by side, enchant-table style.
+  // Click a card (or 1-3) to pay and forge it; Esc walks away without paying.
+  function drawCraftPick(c, g) {
+    const cp = g.craftPick; if (!cp) return [];
+    const rects = [];
+    const e = overlayEase(g);
+    c.save();
+    c.globalAlpha = e;
+    c.fillStyle = 'rgba(6,5,10,0.9)'; c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    c.font = 'bold 26px monospace'; c.fillStyle = '#ff8a3d';
+    c.fillText(cp.isW ? 'THE FORGE OFFERS' : 'THE TAILOR OFFERS', W / 2, 84);
+    c.font = '12px monospace'; c.fillStyle = '#9fb0c8';
+    c.fillText(`pick one: ${cp.gold} gold + ${cp.shards} shards  ·  Esc to walk away free`, W / 2, 108);
+    const cw = 270, gap = 22, x0 = W / 2 - (cw * 3 + gap * 2) / 2, cy0 = 150, chh = 250;
+    for (let i = 0; i < cp.items.length; i++) {
+      const it = cp.items[i], cx = x0 + i * (cw + gap);
+      c.fillStyle = 'rgba(14,16,24,0.96)'; c.fillRect(cx, cy0, cw, chh);
+      c.strokeStyle = it.color; c.lineWidth = 2; c.strokeRect(cx, cy0, cw, chh);
+      c.textAlign = 'center';
+      c.font = 'bold 12px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText(`${i + 1}`, cx + cw / 2, cy0 + 22);
+      c.font = 'bold 13px monospace'; c.fillStyle = it.color;
+      let y = wrapCentered(c, it.name, cx + cw / 2, cy0 + 46, cw - 24, 17);
+      c.font = 'bold 11px monospace'; c.fillStyle = '#cdd4e2';
+      c.fillText(it.rarityName, cx + cw / 2, y + 4); y += 22;
+      c.font = '12px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(cp.isW ? `${it.dmg} damage · ${it.archetype}` : `${Math.round((it.defense || 0) * 100)}% damage reduction`, cx + cw / 2, y); y += 20;
+      c.font = '10px monospace'; c.fillStyle = '#9ecbff';
+      for (const en of (it.enchants || []).slice(0, 4)) {
+        c.fillText(en.name + (en.level ? ' ' + ['I','II','III','IV','V'][en.level - 1] : ''), cx + cw / 2, y); y += 14;
+      }
+      rects.push({ x: cx, y: cy0, w: cw, h: chh, action: 'craft', idx: i });
+    }
+    c.restore();
+    return rects;
+  }
+
   function drawCharSheet(c, g) {
     const p = g.player, e = overlayEase(g);
     const rects = [];
@@ -2460,5 +2498,5 @@ const UI = (() => {
     c.restore();
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, scrollClasses, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
+  return { META_UPGRADES, metaCost, GAME_URL, scrollClasses, drawCraftPick, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
 })();
