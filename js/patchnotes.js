@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.51';
+  const VERSION = 'v2.52';
 
   const NOTES = [
+    {
+      v: 'v2.52', title: 'Class fixes: stronger Mesmer clones, a real Necromancer, no more Owl', date: '2026-07-15',
+      sha: 'f81f30c',
+      items: [
+        'Class balance: buff Mesmer clones, differentiate Necromancer, drop the redundant Owl (Sam).',
+      ],
+    },
     {
       v: 'v2.51', title: 'Every Hell boss now has a signature ultimate', date: '2026-07-14',
       sha: '5cf2ce9',
