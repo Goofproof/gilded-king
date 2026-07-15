@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.96';
+  const VERSION = 'v2.97';
 
   const NOTES = [
+    {
+      v: 'v2.97', title: 'The AGILITY classes get their rank rewards', date: '2026-07-15',
+      sha: '079a282',
+      items: [
+        'Q wave 2, AGILITY milestones (#228): ranger R1 real volley / R4 arrow circle / R8 pierce / R12 two dashes; rogue R4 kill-reset / R8 shadowstep / R12 vanish on kill; engineer R4 slowing shots / R8 element turrets / R12 TESLA COIL; turrets now visible to co-op teammates (review #9).',
+      ],
+    },
     {
       v: 'v2.96', title: 'The MIGHT classes get their rank rewards', date: '2026-07-15',
       sha: '88920d5',
