@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.67';
+  const VERSION = 'v2.68';
 
   const NOTES = [
+    {
+      v: 'v2.68', title: 'Co-op: boss kills no longer eject your teammate', date: '2026-07-15',
+      sha: 'a131540',
+      items: [
+        'Co-op: a Descent boss kill no longer dumps the GUEST to the victory screen mid-run (#175).',
+      ],
+    },
     {
       v: 'v2.67', title: 'Co-op: see your teammate\'s army', date: '2026-07-15',
       sha: 'd98400a',
