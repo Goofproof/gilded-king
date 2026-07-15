@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.83', title: 'Scrap trinkets for shards', date: '2026-07-15',
       sha: '43d04cf',
       items: [
-        'Trinkets can be scrapped with X: shards scale off the trinket\'s gold price (#201).',
+        'You can now scrap TRINKETS with X, just like weapons and armor. Pressing X on a dropped trinket used to do nothing at all. Now it breaks into salvage shards, and the fancier the trinket, the more shards you get. More fuel for honing and the crafting corner.',
       ],
     },
     {
