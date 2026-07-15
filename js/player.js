@@ -695,6 +695,7 @@ const PlayerDef = (() => {
       this.hp = this.maxHp;
       this.coins = 0; this.essenceRun = 0; this.shards = 0;
       this.justiceDue = 0; // #139 accumulated Jupiter-justice recoil, applied capped per frame
+      this.bleed = null;   // #166 a damage-over-time (the magic panther's claws)
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
@@ -1150,6 +1151,16 @@ const PlayerDef = (() => {
       const totalRegen = (g.rules && g.rules.noRegen) ? 0 : stats.regen + this.mod('regenFlat');
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
+      // #166 (Sam) BLEED (the magic panther's claws): a short DoT that chips HP away.
+      if (this.bleed && this.bleed.t > 0) {
+        this.bleed.t -= dt; this.bleed.tick -= dt;
+        if (this.bleed.tick <= 0) {
+          this.bleed.tick = 0.5;
+          this.hp -= this.bleed.dps * 0.5;
+          if (typeof Fx !== 'undefined') Fx.burst(this.x, this.y, ['#c81e2e', '#ff5a5a'], 3, { speed: 60, life: 0.35 });
+        }
+        if (this.bleed.t <= 0) this.bleed = null;
+      }
       // #139 apply accumulated JUPITER JUSTICE (rules.js), capped per frame. Justice
       // fires once per enemy hit, so a cleave into a crowd used to stack thousands of
       // recoil in a single swing and gib you (Sam, -3671 hp). Cap it to 10% of max HP

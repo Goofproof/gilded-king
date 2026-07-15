@@ -50,6 +50,9 @@ const Monsters = (() => {
     // headgear + weapon and fights in your style (melee lunge if you carry a blade,
     // kite-and-shoot if you carry a bow/wand/staff). Turning your own kit against you.
     doppel:   { hp: 44, dmg: 14, speed: 92,  r: 13, xp: 14, coins: [3, 6] },
+    // #166 (Sam) magic panther: stalks, turns invisible, teleports to flank you, and its
+    // raking strike leaves you BLEEDING. Fast and slippery, not especially tanky.
+    panther:  { hp: 40, dmg: 16, speed: 138, r: 13, xp: 16, coins: [4, 8] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
@@ -59,8 +62,8 @@ const Monsters = (() => {
     3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -248,6 +251,15 @@ const Monsters = (() => {
     if (Math.hypot(p.x - m.x, p.y - m.y) < m.r + p.r + 2) {
       g.hurtTarget(p, m.dmg * mult, m.x, m.y, m); // PR-2: local player OR a remote peer
       m.contactCd = 0.8;
+      // #166 (Sam) the panther's rake leaves you BLEEDING - damage over time on top of the hit.
+      // p may be a party-target WRAPPER ({ref, isRemote}) or the bare player; bleed the local one.
+      if (m.type === 'panther') {
+        const localP = (p && 'bleed' in p) ? p : (p && p.ref && !p.isRemote ? p.ref : null);
+        if (localP) {
+          localP.bleed = { t: 3.5, dps: Math.max(3, Math.round(m.dmg * 0.4)), tick: 0.5 };
+          if (typeof Fx !== 'undefined') Fx.text(localP.x, localP.y - 30, 'BLEED', '#ff5a5a', 12);
+        }
+      }
     }
   }
 
@@ -517,6 +529,32 @@ const Monsters = (() => {
             Sfx.play('bowfire');
           }
         }
+        break;
+      }
+      case 'panther': {
+        // #166 (Sam) MAGIC PANTHER: stalk, then VANISH and teleport to your flank, reappear,
+        // and RAKE - the strike leaves you bleeding. Slippery: watch where it reappears.
+        if (m.invisT === undefined) { m.invisT = 0; m.tpCd = 1.5 + Math.random() * 2; }
+        m.tpCd -= dt;
+        m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.invisT > 0) { // cloaked: glide to the chosen flank, then reappear
+          m.invisT -= dt;
+          if (m.tpTarget) { m.x += (m.tpTarget.x - m.x) * Math.min(1, dt * 8); m.y += (m.tpTarget.y - m.y) * Math.min(1, dt * 8); }
+          if (m.invisT <= 0) { m.tpTarget = null; Fx.burst(m.x, m.y, ['#7a3aa0', '#c060ff', '#fff'], 14, { speed: 150, life: 0.5, glow: true }); Sfx.play('mimic'); }
+          break;
+        }
+        if (m.tpCd <= 0) { // VANISH and pick a flanking teleport spot near you
+          m.invisT = 0.65; m.tpCd = 3.5 + Math.random() * 2;
+          const a = m.facing + (Math.random() < 0.5 ? 1 : -1) * (1.6 + Math.random() * 0.9);
+          m.tpTarget = {
+            x: Math.max(PF.x + 24, Math.min(PF.x + PF.w - 24, p.x + Math.cos(a) * 78)),
+            y: Math.max(PF.y + 24, Math.min(PF.y + PF.h - 24, p.y + Math.sin(a) * 78)),
+          };
+          Fx.burst(m.x, m.y, ['#4a1f5e', '#7a3aa0'], 12, { speed: 120, life: 0.4 });
+          break;
+        }
+        moveToward(m, p.x, p.y, dt, m.speed);
+        tryContactHit(m, g, p); // rake on contact (bleed applied inside tryContactHit)
         break;
       }
       case 'doppel': {
@@ -1235,6 +1273,7 @@ const Monsters = (() => {
       case 'gunner': drawGunner(c, m, flash, ex, ey); break;
       case 'mage': drawMage(c, m, flash, ex, ey); break;
       case 'doppel': drawDoppelganger(c, m, flash, ex, ey); break;
+      case 'panther': drawPanther(c, m, flash, ex, ey); break;
       case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
@@ -1505,6 +1544,42 @@ const Monsters = (() => {
       c.globalAlpha = k * 0.6; c.strokeStyle = '#c9a3ff'; c.lineWidth = 2;
       c.beginPath(); c.arc(0, 0, m.r + (1 - k) * 10, 0, Math.PI * 2); c.stroke();
       c.globalAlpha = 1;
+    }
+  }
+  // #166 (Sam) MAGIC PANTHER: a sleek violet cat that fades to a ghost while cloaked
+  // and reappears at your flank in a burst of sparks.
+  function drawPanther(c, m, flash, ex, ey) {
+    const inv = m.invisT > 0 ? Math.max(0.12, 1 - (m.invisT / 0.65) * 0.86) : 1;
+    c.save();
+    c.globalAlpha *= inv;
+    const fa = m.facing || 0;
+    // shadow
+    c.fillStyle = 'rgba(0,0,0,0.28)'; c.beginPath(); c.ellipse(0, 11, 14, 4, 0, 0, Math.PI * 2); c.fill();
+    // body: an ellipse stretched along the direction it faces
+    c.save(); c.rotate(fa);
+    c.fillStyle = flash ? '#fff' : '#231636';
+    c.beginPath(); c.ellipse(0, 0, m.r * 1.25, m.r * 0.78, 0, 0, Math.PI * 2); c.fill();
+    // tail
+    c.strokeStyle = flash ? '#fff' : '#231636'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(-m.r * 1.1, 0); c.quadraticCurveTo(-m.r * 1.9, -m.r * 0.5, -m.r * 1.7, -m.r); c.stroke();
+    c.restore();
+    // head at the front
+    const hx = Math.cos(fa) * m.r * 0.95, hy = Math.sin(fa) * m.r * 0.95;
+    c.fillStyle = flash ? '#eee' : '#3a2450';
+    c.beginPath(); c.arc(hx, hy, m.r * 0.55, 0, Math.PI * 2); c.fill();
+    // ears
+    c.beginPath(); c.arc(hx - Math.sin(fa) * m.r * 0.4, hy + Math.cos(fa) * m.r * 0.4, m.r * 0.2, 0, Math.PI * 2);
+    c.arc(hx + Math.sin(fa) * m.r * 0.4, hy - Math.cos(fa) * m.r * 0.4, m.r * 0.2, 0, Math.PI * 2); c.fill();
+    // glowing eyes
+    c.fillStyle = '#c060ff'; c.shadowColor = '#c060ff'; c.shadowBlur = 6;
+    c.beginPath(); c.arc(hx + ex - Math.sin(fa) * 2.5, hy + ey + Math.cos(fa) * 2.5, 2, 0, Math.PI * 2);
+    c.arc(hx + ex + Math.sin(fa) * 2.5, hy + ey - Math.cos(fa) * 2.5, 2, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.restore();
+    // cloaking shimmer ring so a sharp player can still spot the ghost
+    if (m.invisT > 0) {
+      c.strokeStyle = `rgba(192,96,255,${0.35 * inv})`; c.lineWidth = 1;
+      c.beginPath(); c.arc(0, 0, m.r * 1.5, 0, Math.PI * 2); c.stroke();
     }
   }
   function drawTank(c, m, flash, ex, ey) {
