@@ -2796,6 +2796,7 @@
       rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
       rp.cw = Array.isArray(m.cw) ? m.cw : null;                  // #117 cape wind vector
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
+      rp.form = m.fm || '';                                       // #162 druid form id
       rp.last = g.time;
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
       // lingers. Evict any OTHER entry that shares this stable uid so it can't clone.
@@ -3100,6 +3101,7 @@
       mv: p.moving ? 1 : 0,                            // so your cape waves for others too
       cw: [Math.round(p.capeWind.x), Math.round(p.capeWind.y)], // #117 cape wind vector for peers
       cl: (p.class && p.class.id) || '',              // #98 so peers render your class headgear
+      fm: (p.form && p.form.id) || '',                // #162 (Sam) so peers see your druid shape
       u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
     });
   }
@@ -3138,18 +3140,23 @@
       c.translate(rp.x, rp.y);
       // prestige cape (behind the body) - so teammates see each other's capes
       if (rp.pr > 0 && PlayerDef.capeAt) PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x, rp.cw ? rp.cw[0] : 0, rp.cw ? rp.cw[1] : 0);
+      // #162 (Sam) a shifted druid teammate reads as their BEAST - the body recolours and
+      // resizes and grows the animal head, exactly like their own screen shows it.
+      const form = rp.form && PlayerDef.formById ? PlayerDef.formById(rp.form) : null;
+      const R = form ? Math.round(13 * form.scale) : 13;
       c.fillStyle = 'rgba(0,0,0,0.35)';
-      c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#2c3e60'; c.beginPath(); c.arc(0, 2, 13, 0, Math.PI * 2); c.fill();
-      c.fillStyle = rp.wc || '#4a6fa5'; c.beginPath(); c.arc(0, -2, 11, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(0, R - 2, R * 0.85, R * 0.27, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = form ? form.cloak : '#2c3e60'; c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
+      c.fillStyle = form ? form.body : (rp.wc || '#4a6fa5'); c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
       c.save(); c.rotate(rp.facing || 0);
       c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
-      c.fillStyle = '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
+      c.fillStyle = form ? form.accent : '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
       c.restore();
-      // #98 class headgear - so teammates see each other's class cosmetics
-      if (rp.cl && PlayerDef.classFeature) PlayerDef.classFeature(c, rp.cl, 13);
+      // #98/#162 the head: a druid form's animal head, else class headgear
+      if (form && PlayerDef.drawFormHead) PlayerDef.drawFormHead(c, form.id, R);
+      else if (rp.cl && PlayerDef.classFeature) PlayerDef.classFeature(c, rp.cl, 13);
       // held weapon (aimed where they're facing) - so teammates see each other's weapons
-      if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, 13);
+      if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R);
       c.restore();
       c.textAlign = 'center';
       c.fillStyle = '#7fd4ff'; c.font = 'bold 10px monospace';
