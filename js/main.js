@@ -248,6 +248,8 @@
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
     netReady: false,             // Net handlers wired once
     posSendT: 0,                 // position-broadcast throttle
+    friendlyFire: false,         // #224 PVP Phase 0: swords and arrows hurt teammates (host lobby toggle)
+    lobbyFF: false,              // the host's pending choice on the lobby screen
     // #32 co-op synchronized level-up gate. MONOTONIC busy/done COUNTERS (not
     // level-tags or playerCount, both of which soft-lock; not a reset Set, which
     // wipes an already-arrived signal): each peer sends {lvlbusy} when a pick cycle
@@ -3168,7 +3170,7 @@
       // each pinned themself and broadcast. Deterministic tie-break: the LOWER clientId
       // keeps the pin; the other adopts their run. Both sides apply the same rule.
       if (g.coop && g.runHostU === g.clientId && m.hu && Date.now() - (g.runStartT || 0) < 3000) {
-        if (m.hu < g.clientId) { startCoop(m.seed, m.hu); }
+        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff); }
         return; // higher id: ignore theirs - they adopt ours by this same rule
       }
       // #173 a reconnecting client that KEPT its run must not restart it: same seed,
@@ -3177,7 +3179,7 @@
       // #194 pulled into the new party run while typing a high-score name: bank the
       // score with whatever was typed so PLAY AGAIN never eats a kid's high score
       if (g.state === 'initials') { try { commitInitials(); } catch (e) { /* score save must never block the restart */ } }
-      startCoop(m.seed, m.hu || null);
+      startCoop(m.seed, m.hu || null, m.ff);
     });
     // #173 LATE-JOIN / REJOIN: a peer connected mid-run (fresh player, or a teammate whose
     // page reloaded). The pinned host hands them the run: a targeted 'start' with the seed
@@ -3185,7 +3187,7 @@
     // room-follow pulls them into the host's room from there.
     Net.on('peer-join', m => {
       if (!g.coop || !isRunHost() || !g.dungeon) return;
-      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id });
+      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0 });
       Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
     });
     // #100 a teammate's chat line
@@ -3512,7 +3514,8 @@
     Sfx.play('ui');
   }
 
-  function startCoop(seed, hostU) {
+  function startCoop(seed, hostU, ff) {
+    g.friendlyFire = !!ff; // #224 friendly fire rides the run start so every client agrees
     g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
@@ -3682,8 +3685,9 @@
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
           if (r.action === 'lobby-start') { // host picks the shared run seed
             const seed = (Math.random() * 1e9) | 0;
-            Net.sendR({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); return; // #173 pin authority
+            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF); return; // #173 pin authority
           }
+          if (r.action === 'lobby-ff') { g.lobbyFF = !g.lobbyFF; Sfx.play('ui'); } // #224
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
       }
@@ -3903,7 +3907,9 @@
     for (const m of g.mercs) {
       if (m.clone && !m.dead) list.push({ x: m.x, y: m.y, r: 12, ref: m, isRemote: false, id: 'clone' });
     }
-    if (g.coop && typeof Net !== 'undefined' && isRunHost() && g.room) {
+    // #224 with FRIENDLY FIRE on, every client enumerates its peers (a guest must be
+    // able to aim at the host); without it, only the host does (monster AI targeting).
+    if (g.coop && typeof Net !== 'undefined' && (isRunHost() || g.friendlyFire) && g.room) {
       for (const [id, rp] of g.remotePlayers) {
         if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed || rp.invis) continue; // #212 a vanished peer is untargetable
         if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
@@ -4925,6 +4931,18 @@
             else { dead = true; pr._primary = m; break; } // remember the struck target so the blast doesn't double-hit it
           }
         }
+        // #224 FRIENDLY FIRE (PVP Phase 0): your shots also test teammates. The attacker
+        // resolves the hit against its own lerped view of the peer; the victim applies
+        // it through the normal phit -> player.damage path (armor + iframes intact).
+        if (!dead && g.friendlyFire && g.coop) {
+          for (const t of partyTargets()) {
+            if (!t.isRemote) continue;
+            if (Math.hypot(pr.x - t.x, pr.y - t.y) < (t.r || 13) + pr.r) {
+              hurtTarget(t, pr.dmg, pr.x - pr.vx * 0.02, pr.y - pr.vy * 0.02);
+              dead = true; break;
+            }
+          }
+        }
       }
       if (dead) {
         // #16 staff fireball: bursts on impact for AOE + burn to nearby monsters
@@ -4940,6 +4958,13 @@
           for (const m of g.monsters) {
             if (m.dead || m.airborne || m === pr._primary) continue; // the direct target already ate the full hit
             if (Math.hypot(pr.x - m.x, pr.y - m.y) < pr.blast + m.r) m.takeHit(pr.dmg * 0.8, { sx: pr.x, sy: pr.y, knock: 110, flame: pr.flame, chill: pr.chill, venom: pr.venom, chain: pr.chain, crit: pr.crit, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+          }
+          // #224 FRIENDLY FIRE: the fireball's blast catches teammates too (80% like monsters)
+          if (g.friendlyFire && g.coop) {
+            for (const t of partyTargets()) {
+              if (!t.isRemote) continue;
+              if (Math.hypot(pr.x - t.x, pr.y - t.y) < pr.blast + (t.r || 13)) hurtTarget(t, pr.dmg * 0.8, pr.x, pr.y);
+            }
           }
         }
         if (pr.glue) spawnGluePuddle(pr.x, pr.y); // #179 the blob leaves its sticky mark wherever it ends up
@@ -7077,7 +7102,7 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); },
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF); }, // #224 mirrors the lobby-start click incl. friendly fire
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
     // testing: pretend a net message arrived (drives the real Net.on handlers)
     mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },

@@ -1967,6 +1967,12 @@ const UI = (() => {
       c.font = '13px monospace'; c.fillStyle = '#cdd4e2';
       c.fillText(`players in lobby: ${Net.playerCount}`, W / 2, 290);
       btn(W / 2 - 130, 320, 260, 50, 'START GAME', 'lobby-start', '127,212,255');
+      // #224 PVP Phase 0: the host arms friendly fire for the whole run
+      btn(W / 2 - 130, 384, 260, 36, `FRIENDLY FIRE: ${g.lobbyFF ? 'ON' : 'OFF'}`, 'lobby-ff', g.lobbyFF ? '255,90,90' : '143,163,191');
+      if (g.lobbyFF) {
+        c.font = '11px monospace'; c.fillStyle = '#c98080';
+        c.fillText('swords and arrows hurt your friends. chaos mode.', W / 2, 438);
+      }
     } else if (lb.mode === 'join') {
       c.font = '13px monospace'; c.fillStyle = '#8fa3bf';
       c.fillText('type your friend\'s 4-letter code', W / 2, 180);

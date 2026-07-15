@@ -1482,6 +1482,24 @@ const PlayerDef = (() => {
           }, g);
           if (landed) { this.onHitLanded(crit, g); hitAny = true; } // blocked hits earn nothing
         }
+        // #224 FRIENDLY FIRE (PVP Phase 0): the same sweep tests teammates. Attacker
+        // resolves the hit against its own view; the victim applies it (phit path,
+        // with their armor and iframes). Never yourself, never your own clones.
+        if (g.friendlyFire && g.coop && g.partyTargets) {
+          for (const t of g.partyTargets()) {
+            if (!t.isRemote) continue;
+            const dx = t.x - this.x, dy = t.y - this.y;
+            const d = Math.hypot(dx, dy);
+            if (d > w.range + (t.r || 13)) continue;
+            const diff = Math.abs(((Math.atan2(dy, dx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+            if (diff > w.arc / 2) continue;
+            if (g.room.walls && g.room.walls.length && Dungeon.segBlocked(this.x, this.y, t.x, t.y, g.room.walls)) continue;
+            const { dmg, crit } = this.computeDmg(w.dmg * dmgScale, null, g);
+            g.hurtTarget(t, dmg, this.x, this.y, this);
+            this.onHitLanded(crit, g);
+            hitAny = true;
+          }
+        }
       };
       swingOnce(1);
       // Echo evolutions: light swings sometimes strike twice (second at half power)

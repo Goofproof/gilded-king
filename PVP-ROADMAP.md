@@ -1,4 +1,11 @@
-# PVP Roadmap: The Gilded Hunt (extraction mode)
+# PVP Roadmap: The Gilded Hunt
+
+REFRAME (Sam, 2026-07-15): battle royale, not extraction. "Since there is nothing to
+extract per se, this is more like a battle royale, fortnite style." This SIMPLIFIES
+Phase 2: no extract portals, no stash/satchel economy. Random spawns + gear up +
+closing swarm + last champion standing. The convergence engine (swarm + Gilded King
+bounty), sound-through-doors, loss-softening (a loss must still bank something) and
+gear normalization all carry over unchanged.
 
 Research base (2026-07-15): a 25-agent verified research pass (5 lenses + code inventory,
 18 load-bearing claims re-fetched and adversarially verified: 7 CONFIRMED, 11 PARTLY, 0
