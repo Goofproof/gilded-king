@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.59', title: 'Poison Miasma is a real ultimate now', date: '2026-07-15',
       sha: '74be435',
       items: [
-        'Poison Miasma ultimate: on par with the big ults (Sam, #165).',
+        'The POISON MIASMA ultimate is a real heavy-hitter now. It was a weak little cloud; now it does double the damage per second, lasts longer, and covers a much bigger area, so it rots a whole room to death like Meteor, Inferno and Cataclysm do. If you like the poison build, it finally pays off.',
       ],
     },
     {
