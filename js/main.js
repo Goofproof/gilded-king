@@ -3642,6 +3642,7 @@
     updateProjectiles(dt);
     updatePickups(dt);
     updateMines(dt);
+    updateStalactites(dt);   // #164 falling stalactites on the underground floors
     updateTurrets(dt);
     updateSummons(dt);
     updateUltFx(dt);
@@ -4225,6 +4226,54 @@
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(mn.x), y: Math.round(mn.y), r: mn.blastR });
   }
 
+  // #164 (Sam) FALLING STALACTITES: on the underground floors (the Descent), a stalactite
+  // shears off the ceiling every few seconds, telegraphed by a growing ground-shadow, then
+  // drops and crushes anything standing under it. A dodge hazard, not an instakill.
+  function updateStalactites(dt) {
+    if (typeof Descent === 'undefined' || !Descent.isDescent(g.floorNum)) { if (g.stalactites) g.stalactites.length = 0; return; }
+    g.stalactites = g.stalactites || [];
+    g.stalT = (g.stalT || 0) - dt;
+    if (g.stalT <= 0 && g.state === 'play' && g.player && !g.player.dead) {
+      g.stalT = 2.6 + Math.random() * 2.4;
+      const p = g.player, nearP = Math.random() < 0.55;
+      let x = nearP ? p.x + (Math.random() * 180 - 90) : PF.x + 40 + Math.random() * (PF.w - 80);
+      let y = nearP ? p.y + (Math.random() * 180 - 90) : PF.y + 40 + Math.random() * (PF.h - 80);
+      x = Math.max(PF.x + 22, Math.min(PF.x + PF.w - 22, x));
+      y = Math.max(PF.y + 22, Math.min(PF.y + PF.h - 22, y));
+      g.stalactites.push({ x, y, t: 0, fell: false, boom: 0 });
+    }
+    const DMG = Math.round(14 + g.floorNum * 1.6), DELAY = 1.15, R = 38;
+    for (let i = g.stalactites.length - 1; i >= 0; i--) {
+      const s = g.stalactites[i];
+      s.t += dt;
+      if (!s.fell && s.t >= DELAY) {
+        s.fell = true;
+        Fx.shake(5, 0.22); Sfx.play('explode');
+        Fx.burst(s.x, s.y, ['#7a6a5a', '#3a2a1a', '#aaa'], 20, { speed: 240, life: 0.5, grav: 320 });
+        for (const t of g.partyTargets()) if (Math.hypot(t.x - s.x, t.y - s.y) < R + t.r) g.hurtTarget(t, DMG, s.x, s.y, null);
+      }
+      if (s.fell && (s.boom += dt) >= 0.4) g.stalactites.splice(i, 1);
+    }
+  }
+  function drawStalactites(c) {
+    for (const s of (g.stalactites || [])) {
+      if (!s.fell) {
+        const k = Math.min(1, s.t / 1.15);
+        c.fillStyle = `rgba(0,0,0,${0.14 + 0.34 * k})`;
+        c.beginPath(); c.ellipse(s.x, s.y, 8 + 14 * k, 4 + 7 * k, 0, 0, Math.PI * 2); c.fill();
+        const rockY = s.y - (1 - k) * 300;
+        c.fillStyle = '#4a3a28'; c.beginPath();
+        c.moveTo(s.x, rockY + 18); c.lineTo(s.x - 10, rockY - 10); c.lineTo(s.x + 10, rockY - 10); c.closePath(); c.fill();
+        c.fillStyle = '#6a5a48'; c.beginPath();
+        c.moveTo(s.x, rockY + 8); c.lineTo(s.x - 5, rockY - 4); c.lineTo(s.x + 5, rockY - 4); c.closePath(); c.fill();
+      } else {
+        const b = Math.min(1, s.boom / 0.4);
+        c.strokeStyle = `rgba(140,120,100,${0.6 * (1 - b)})`; c.lineWidth = 3 * (1 - b) + 1;
+        c.beginPath(); c.arc(s.x, s.y, 16 + 26 * b, 0, Math.PI * 2); c.stroke();
+      }
+    }
+  }
+
   // ULTIMATE room-effects (meteor / lightning storm / poison cloud / caltrops)
   function updateUltFx(dt) {
     if (g.midasT > 0) g.midasT -= dt;
@@ -4428,6 +4477,7 @@
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);
+    drawStalactites(c);   // #164 falling stalactites (underground floors)
     drawUltFx(c);
 
     // actors
