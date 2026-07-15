@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.58', title: 'Watch the ceiling: falling stalactites underground', date: '2026-07-15',
       sha: '3afee02',
       items: [
-        'Falling stalactites on the underground floors (Sam, #164).',
+        'The underground floors now have falling stalactites. Every few seconds a rock breaks off the ceiling, and a dark shadow on the ground shows exactly where it is about to land. Get out of the shadow before it drops or it will crush you. It hits harder the deeper you go, so keep one eye on the ceiling.',
       ],
     },
     {
