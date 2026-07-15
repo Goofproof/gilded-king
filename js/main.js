@@ -769,25 +769,42 @@
   }
 
   // ============================ KILLS / LOOT ============================
+  // #207 raise one skeleton at (x, y) for the LOCAL player, honouring their cap/scaling
+  function riseSkeleton(x, y) {
+    const p = g.player; if (!p) return;
+    const cap = 3 + 2 * (p.undeadTier || 1);            // 5 / 7 / 9 as Raise Dead tiers up
+    const alive = g.mercs.filter(s => s.bone && !s.dead).length;
+    if (alive >= cap) return;
+    const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
+    const scale = 1 + 0.10 * arc + 0.05 * ((p.level | 0) - 1);
+    const s = makeMercFollower({ cls: 'blade' }, g.floorNum);
+    s.bone = true; s.color = '#cfe6cf';
+    s.dmg = Math.round(s.dmg * scale); s.maxHp = s.hp = Math.round(s.maxHp * scale);
+    s.x = x; s.y = y;                                    // rises where it fell
+    g.mercs.push(s);
+    Fx.text(x, y - 18, 'RISE', '#9ae6a0', 11);
+    Fx.burst(x, y, ['#9ae6a0', '#e6efe6', '#3a5a40'], 12, { speed: 120, life: 0.5, glow: true });
+  }
+
   function onKill(m) {
     const p = g.player;
     p.kills++;
     // #158 (Sam) NECROMANCER: what sets it apart from the summoner - the dead you make RISE
     // to serve. A share of your kills reanimate as skeletons ON THE SPOT, up to a growing
     // cap, so the army is built from the battlefield, not conjured from nothing.
-    if (p.class && p.class.id === 'necromancer' && !m.isBoss && m.type !== 'goblin') {
-      const cap = 3 + 2 * (p.undeadTier || 1);            // 5 / 7 / 9 as Raise Dead tiers up
-      const alive = g.mercs.filter(s => s.bone && !s.dead).length;
-      if (alive < cap && Math.random() < 0.4) {
-        const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
-        const scale = 1 + 0.10 * arc + 0.05 * ((p.level | 0) - 1);
-        const s = makeMercFollower({ cls: 'blade' }, g.floorNum);
-        s.bone = true; s.color = '#cfe6cf';
-        s.dmg = Math.round(s.dmg * scale); s.maxHp = s.hp = Math.round(s.maxHp * scale);
-        s.x = m.x; s.y = m.y;                              // rises where it fell
-        g.mercs.push(s);
-        Fx.text(m.x, m.y - 18, 'RISE', '#9ae6a0', 11);
-        Fx.burst(m.x, m.y, ['#9ae6a0', '#e6efe6', '#3a5a40'], 12, { speed: 120, life: 0.5, glow: true });
+    // #207 (Sam, playtest) the rise belongs to whoever LANDED the kill. Before, this
+    // only ever checked the host's class: a GUEST necromancer never raised a single
+    // skeleton in co-op, and a host necro reanimated from the guest's kills too.
+    if (!m.isBoss && m.type !== 'goblin') {
+      const killerRp = m._lastHitBy ? g.remotePlayers.get(m._lastHitBy) : null;
+      if (killerRp) {
+        // a REMOTE player's kill: if they are the necromancer, send the rise to THEM
+        // (their client owns their mercs, their cap, their scaling). One 40% roll here.
+        if (killerRp.cl === 'necromancer' && Math.random() < 0.4 && typeof Net !== 'undefined') {
+          Net.send({ t: 'rise', to: m._lastHitBy, x: Math.round(m.x), y: Math.round(m.y) });
+        }
+      } else if (p.class && p.class.id === 'necromancer' && Math.random() < 0.4) {
+        riseSkeleton(m.x, m.y);
       }
     }
     // #156 PYROMANCER: the fire spreads from the dying to the living. A monster that
@@ -3222,10 +3239,18 @@
     Net.on('hit', m => {
       if (g.coop && isRunHost()) {
         const mon = g.monsters.find(x => x.netId === m.i && !x.dead);
-        if (mon) mon.takeHit(m.dmg, { sx: m.sx, sy: m.sy, knock: m.k || 0, flame: m.fl, chill: m.ch, venom: m.vn, crit: m.cr, fromPlayer: true, hitSfx: m.hs }, g);
+        if (mon) {
+          mon._lastHitBy = m.from; // #207 so a kill credits the RIGHT player's class perks
+          mon.takeHit(m.dmg, { sx: m.sx, sy: m.sy, knock: m.k || 0, flame: m.fl, chill: m.ch, venom: m.vn, crit: m.cr, fromPlayer: true, hitSfx: m.hs }, g);
+        }
       }
     });
     // tethered party: a peer moved through a door - everyone follows to that room
+    // #207 your kill raised a skeleton (you are the necromancer; the host rolled it)
+    Net.on('rise', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      riseSkeleton(m.x, m.y);
+    });
     // #197 a cleric teammate Mended you: apply their heal to your own champion
     Net.on('pheal', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
