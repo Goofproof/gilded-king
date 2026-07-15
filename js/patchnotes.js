@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.75', title: 'Wrath smoke + the dungeon fights back', date: '2026-07-15',
       sha: '5b45e5e',
       items: [
-        'Wrath terrace gets drifting smoke banks so it reads nothing like Envy (#184); an alert dungeon reacts - primed mobs facing your door at alarm 4+, pre-laid glue traps at alarm 5+ (#185).',
+        'The TERRACE OF WRATH finally looks like wrath instead of a copy of Envy. Banks of bitter black smoke now drift visibly across the whole room, and monsters loom out of them. Envy stays a clean circle of darkness around you; Wrath is a room full of rolling smoke. Two very different kinds of blind.',
+        'The dungeon FIGHTS BACK now. Clear enough rooms on a floor and the alarm goes up: from then on, monsters are not standing around waiting when you walk in. They are already facing your door with weapons up and they come at you almost instantly. Push the alarm even higher and the dungeon starts laying GLUE TRAPS by your door before you even arrive. The message on your screen says it best: THEY KNEW YOU WERE COMING.',
       ],
     },
     {
