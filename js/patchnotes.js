@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.82', title: 'Level up without stopping the fight', date: '2026-07-15',
       sha: 'f5fccaa',
       items: [
-        'Level-ups no longer pause the game: each level banks a POINT spent in the character menu (C) with three rolled cards per point (#199); the trap chest loses its label (#200).',
+        'BIG CHANGE to leveling up: the game does not stop anymore. When you level up, you bank a POINT (you will see a gold message at the bottom of the screen). Open the character menu with C whenever YOU want, and spend your points there: three cards per point, click the one you like, and if you have more points you immediately get three fresh cards for the next one. No more choice screens freezing you mid-fight, and in co-op nobody gets stuck waiting while their teammate reads the options. Evolutions and the ultimate offer still get their own big moment screens.',
+        'The trap room\'s chest no longer has a sign over it. A chest that announces itself is bad bait.',
       ],
     },
     {
