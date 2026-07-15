@@ -202,7 +202,7 @@ const Abilities = (() => {
     { id: 'timestop',  name: 'TIME STOP',       color: '#9ecbff', kind: 'sleep',   dur: 5,   cdMax: 26, aff: ['spd', 'roll'],                     desc: 'Freeze every enemy in place for a few seconds' },
     { id: 'blizzard',  name: 'DEEP FREEZE',     color: '#7fe0ff', kind: 'freeze',  dmg: 120, dur: 6,   cdMax: 22, aff: ['magic', 'hp'],            desc: 'The whole room ices over - enemies crawl and take frost damage' },
     { id: 'storm',     name: 'LIGHTNING STORM', color: '#ffe27a', kind: 'storm',   dmg: 150, strikes: 16, dur: 3.4, cdMax: 24, aff: ['crit', 'magic'], desc: 'Lightning hammers random enemies across the room' },
-    { id: 'miasma',    name: 'POISON MIASMA',   color: '#8ef06e', kind: 'poison',  dps: 75,  dur: 7,   cdMax: 22, aff: ['magic', 'regen'],         desc: 'A creeping poison cloud rots everything in the room' },
+    { id: 'miasma',    name: 'POISON MIASMA',   color: '#8ef06e', kind: 'poison',  dps: 150, dur: 8,   cdMax: 22, aff: ['magic', 'regen'],         desc: 'A vast, roiling poison cloud rots everything in the room' },
     { id: 'vanish',    name: 'VANISH',          color: '#b6c0d0', kind: 'vanish',  dur: 6,   cdMax: 22, aff: ['roll', 'spd'],                     desc: 'Turn invisible - enemies lose track of you' },
     { id: 'midas',     name: 'MIDAS WAVE',      color: '#ffd24c', kind: 'midas',   dmg: 150, radius: 210, cdMax: 20, aff: ['coin'],                desc: 'A golden blast - every enemy here drops DOUBLE gold' },
     { id: 'caltrops',  name: 'CALTROPS',        color: '#c9a227', kind: 'caltrops', dur: 8,  cdMax: 20, aff: ['spd', 'roll'],                     desc: 'Scatter caltrops that cripple every enemy in the room' },

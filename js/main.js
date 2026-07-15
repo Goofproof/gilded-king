@@ -4333,7 +4333,7 @@
         e.tick -= dt;
         if (e.tick <= 0) {
           e.tick = 0.5;
-          for (const m of [...g.monsters]) { if (m.dead || m.airborne) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < 155 + m.r) m.takeHit(e.dps * 0.5, { sx: e.x, sy: e.y, fromPlayer: true, hitSfx: 'hitLight' }, g); }
+          for (const m of [...g.monsters]) { if (m.dead || m.airborne) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < 210 + m.r) m.takeHit(e.dps * 0.5, { sx: e.x, sy: e.y, fromPlayer: true, hitSfx: 'hitLight' }, g); } // #165 bigger, deadlier cloud
         }
         if (e.t >= e.dur) g.ultFx.splice(i, 1);
       } else if (e.type === 'caltrops') {
@@ -4388,8 +4388,8 @@
         c.fillStyle = '#2a1810'; c.beginPath(); c.arc(bx, by, 5, 0, Math.PI * 2); c.fill();
         c.fillStyle = '#ffe08a'; c.beginPath(); c.arc(bx + 1.5, by - 5, 1.8 + Math.random(), 0, Math.PI * 2); c.fill(); // fuse spark
       } else if (e.type === 'poison') {
-        c.save(); c.globalAlpha = 0.2 * Math.min(1, (e.dur - e.t) * 1.5); c.fillStyle = e.color;
-        c.beginPath(); c.arc(e.x, e.y, 155, 0, Math.PI * 2); c.fill(); c.restore();
+        c.save(); c.globalAlpha = 0.24 * Math.min(1, (e.dur - e.t) * 1.5); c.fillStyle = e.color;
+        c.beginPath(); c.arc(e.x, e.y, 210, 0, Math.PI * 2); c.fill(); c.restore();
       } else if (e.type === 'caltrops') {
         c.fillStyle = e.color;
         for (let s = 0; s < 12; s++) { const a = s * 2.3, rr = 45 + (s % 4) * 40; c.beginPath(); c.arc(PF.x + PF.w / 2 + Math.cos(a) * rr, PF.y + PF.h / 2 + Math.sin(a) * rr * 0.7, 2.5, 0, Math.PI * 2); c.fill(); }
