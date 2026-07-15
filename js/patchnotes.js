@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.93', title: 'Friendly fire: the first taste of PVP', date: '2026-07-15',
       sha: '2d41ff0',
       items: [
-        'PVP Phase 0: FRIENDLY FIRE lobby toggle (#224) - host arms it for the run, swords/arrows/fireball blasts hit teammates via the attacker-resolved phit path; roadmap reframed to battle royale per Sam.',
+        'The first step toward player-vs-player is here: FRIENDLY FIRE. On the host lobby screen there is a new toggle under START GAME. Flip it ON and for that whole run your swords, arrows and fireball blasts hurt your teammates just like they hurt monsters, with their armor and dodge-invincibility still protecting them. It works both ways, so watch your aim and watch your back.',
+        'Normal co-op is completely unchanged: the toggle starts OFF every time, and with it off nobody can hurt a teammate, same as always.',
+        'This is chaos mode for now, but it is also the foundation. The plan on the workbench: a proper battle royale mode where you both spawn in far corners of the dungeon, gear up fast, and the last champion standing takes the crown.',
       ],
     },
     {
