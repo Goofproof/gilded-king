@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.87', title: 'Guest necromancers raise their dead', date: '2026-07-15',
       sha: '8350ec5',
       items: [
-        'Necromancer in co-op: the rise belongs to whoever landed the kill (#207).',
+        'NECROMANCER fix for co-op. If you played necromancer as the second player, your kills never raised skeletons at all (the game was only checking the host). Now the skeleton rises for whoever actually landed the kill: your kills feed YOUR army, your teammate\'s kills feed theirs. Every skeleton belongs to exactly one player, which also puts an end to the weird minion doubling some of you saw.',
       ],
     },
     {
