@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.87';
+  const VERSION = 'v2.88';
 
   const NOTES = [
+    {
+      v: 'v2.88', title: 'Better legends, and a way to brag', date: '2026-07-15',
+      sha: '8714521',
+      items: [
+        'Eulogy rework: ten structurally different openers with a disjoint-window guarantee (the top 5 can never share a shape), \'vault\' banned from every line, sharper verses; SHARE THIS FEAT button on the raider card copies the headline + stats + poem + game link to the clipboard (#208).',
+      ],
+    },
     {
       v: 'v2.87', title: 'Guest necromancers raise their dead', date: '2026-07-15',
       sha: '8350ec5',
