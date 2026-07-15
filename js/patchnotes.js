@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.95', title: 'Your class ability grows with your class stat now', date: '2026-07-15',
       sha: '1bc2c4b',
       items: [
-        'Q rank system (#226, Q-DESIGN wave 0): rank = ruling-stat points, per-point signature channels, percent-of-maxHp riders on all damage Qs (bosses 1/3), milestone ladder in the Q tooltip.',
+        'Big one for every class: your Q ability has a RANK now, and your rank is simply how many points you have put into your class\'s main stat. A mage\'s ARCANE, a warrior\'s MIGHT, a ranger\'s AGILITY, a cleric\'s VIGOR. Every point makes your Q better at the thing it is FOR: the warrior\'s bash shoves harder, the barbarian\'s roar lasts longer, the mage\'s nova reaches further, heals heal more, dashes go farther, turrets fire faster.',
+        'Damage abilities also stopped falling behind on deep floors. Every damaging Q now carves off a percentage of each enemy\'s health on top of its normal damage, so Arcane Nova still takes a real bite out of a floor-25 horror instead of tickling it. Bosses only give up a third of that bonus, so nothing melts the big fights.',
+        'Hover your Q icon to see your rank AND the ladder of secret upgrades waiting at ranks 4, 8 and 12. They say "coming soon" because they are: each batch arrives in an upcoming update, and some of them are ridiculous. Start saving your stat points.',
       ],
     },
     {
