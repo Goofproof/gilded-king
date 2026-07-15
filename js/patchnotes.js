@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.91', title: 'Your teammate looks like themselves again, not their weapon', date: '2026-07-15',
       sha: 'fc687e8',
       items: [
-        'Co-op: teammate\'s body was painted the WEAPON\'s color (#220) - peers now wear their real colors (evolution recolor synced via presence).',
+        'Fixed the co-op costume mix-up: your teammate\'s body was being painted the color of whatever WEAPON they were holding, so a friend with a golden hammer looked like a golden blob and changed color with every weapon swap. Teammates now wear their true colors: their normal blue, their beast shape if they are a shifted druid, or their evolution robes once their build recolors them. You can even tell what path your teammate evolved down just by looking at them, exactly like on their own screen.',
       ],
     },
     {
