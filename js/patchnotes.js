@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.70', title: 'Softer music, darker darkness, better eulogies', date: '2026-07-15',
       sha: 'd40c5af',
       items: [
-        'Menu music fades + quieter (#176); Envy shroud survives level-up overlays (#177); eulogy card: unique rank-salted poems, class-crest portrait fallback, floor from the entry (#178).',
+        'The title-screen song is quieter now and gently fades in when you arrive and fades out when you start a run, instead of cutting on and off.',
+        'On the Terrace of Envy the darkness no longer switches off while you pick a level-up. The blindness holds through every menu, the way a terrace of sewn-shut eyes should.',
+        'The fallen-raider cards got three fixes. Every top raider now gets their OWN eulogy poem (no more repeats). If a card has no saved portrait it draws your class portrait instead of an empty circle. And the card now always knows which floor the raider fell on.',
       ],
     },
     {
