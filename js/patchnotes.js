@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.91';
+  const VERSION = 'v2.92';
 
   const NOTES = [
+    {
+      v: 'v2.92', title: 'Co-op runs heal themselves now', date: '2026-07-15',
+      sha: '7c76880',
+      items: [
+        'Phase C co-op platform: reliable event bus (#221 - buffered sends, replay on reconnect, seq dedup; 26 event types), 5s keyframe reconcile (floor/alarm/room flags heal silently), stable-uid targeting on kill/rise (#222), relay close-handshake ACK + client forceReopen (#223 - client closes hung in CLOSING forever).',
+      ],
+    },
     {
       v: 'v2.91', title: 'Your teammate looks like themselves again, not their weapon', date: '2026-07-15',
       sha: 'fc687e8',
