@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.92';
+  const VERSION = 'v2.93';
 
   const NOTES = [
+    {
+      v: 'v2.93', title: 'Friendly fire: the first taste of PVP', date: '2026-07-15',
+      sha: '2d41ff0',
+      items: [
+        'PVP Phase 0: FRIENDLY FIRE lobby toggle (#224) - host arms it for the run, swords/arrows/fireball blasts hit teammates via the attacker-resolved phit path; roadmap reframed to battle royale per Sam.',
+      ],
+    },
     {
       v: 'v2.92', title: 'Co-op runs heal themselves now', date: '2026-07-15',
       sha: '7c76880',
