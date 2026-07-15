@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.81';
+  const VERSION = 'v2.82';
 
   const NOTES = [
+    {
+      v: 'v2.82', title: 'Level up without stopping the fight', date: '2026-07-15',
+      sha: 'f5fccaa',
+      items: [
+        'Level-ups no longer pause the game: each level banks a POINT spent in the character menu (C) with three rolled cards per point (#199); the trap chest loses its label (#200).',
+      ],
+    },
     {
       v: 'v2.81', title: 'More co-op fixes from tonight\'s playtest', date: '2026-07-15',
       sha: 'b3e0935',
