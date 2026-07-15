@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.90';
+  const VERSION = 'v2.91';
 
   const NOTES = [
+    {
+      v: 'v2.91', title: 'Your teammate looks like themselves again, not their weapon', date: '2026-07-15',
+      sha: 'fc687e8',
+      items: [
+        'Co-op: teammate\'s body was painted the WEAPON\'s color (#220) - peers now wear their real colors (evolution recolor synced via presence).',
+      ],
+    },
     {
       v: 'v2.90', title: 'Co-op: your kills count for YOU, mimics wake for everyone, steadier connections', date: '2026-07-15',
       sha: '87b7328',
