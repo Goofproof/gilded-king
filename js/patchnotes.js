@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.55', title: 'Level-ups wait until the fight is over', date: '2026-07-15',
       sha: '0dc86c6',
       items: [
-        'Level-ups and upgrades wait until the room is cleared (Sam, #161).',
+        'Level-up cards, evolution picks and the ultimate choice no longer pop up in the middle of a fight. They now wait politely until you have cleared the room, so a choice screen never freezes you while enemies are still swinging at you. In a safe room like a shop, they still appear right away.',
       ],
     },
     {
