@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.98';
+  const VERSION = 'v2.99';
 
   const NOTES = [
+    {
+      v: 'v2.99', title: 'The VIGOR classes complete the rank system', date: '2026-07-15',
+      sha: '9ff7051',
+      items: [
+        'Q wave 4, VIGOR milestones (#230): paladin cleanse + stacking overheal shield; cleric cures/consecrated circle/party shields (party-heal verified live over the relay); druid gains THE OWLBEAR (arcane form, swipes feed on ARCANE) + heal-on-shift + form moves + Primal Mastery; death knight Q rebuilt as MIASMA (wither cloud, Black Wind follow, rot-feeds-you regen, poison kills rise as 30s skeletons).',
+      ],
+    },
     {
       v: 'v2.98', title: 'The ARCANE classes get their rank rewards', date: '2026-07-15',
       sha: 'd9161a6',
