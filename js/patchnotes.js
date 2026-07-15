@@ -26,7 +26,12 @@ const PatchNotes = (() => {
       v: 'v2.97', title: 'The AGILITY classes get their rank rewards', date: '2026-07-15',
       sha: '079a282',
       items: [
-        'Q wave 2, AGILITY milestones (#228): ranger R1 real volley / R4 arrow circle / R8 pierce / R12 two dashes; rogue R4 kill-reset / R8 shadowstep / R12 vanish on kill; engineer R4 slowing shots / R8 element turrets / R12 TESLA COIL; turrets now visible to co-op teammates (review #9).',
+        'The AGILITY rank rewards are live. Put points into AGILITY and hover your Q.',
+        'RANGER, Tumble Volley: the volley is finally REAL. From your very first AGILITY point, tumbling looses 3 arrows at the nearest enemies, at your bow\'s full damage. Rank 4 upgrades it to a complete CIRCLE of twelve arrows. Rank 8 makes them pierce through bodies. Rank 12 gives you TWO tumbles back to back before the cooldown starts.',
+        'ROGUE, Eviscerate: rank 4 means a killing blow resets the cooldown instantly, so a wounded room is a chain of executions. Rank 8 is the Shadowstep: cast at an enemy out of reach and you appear BEHIND them as the blade lands. Rank 12: every kill with it turns you invisible for a breath. Kill, disappear, reposition.',
+        'ENGINEER, Deploy Turret: rank 4 turret shots slow whatever they hit. Rank 8 turrets inherit your weapon\'s element: fire wand, fire turrets. Rank 12 crowns your oldest turret a TESLA COIL, gold, crackling, and chaining lightning between enemies.',
+        'Also fixed in co-op: your teammates can finally SEE your turrets. They were invisible to everyone but you this whole time.',
+        'ARCANE is next: four mirror clones that fight back, a second elemental, and the necromancer\'s bone golem.',
       ],
     },
     {
