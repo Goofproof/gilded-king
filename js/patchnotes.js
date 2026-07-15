@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.88', title: 'Better legends, and a way to brag', date: '2026-07-15',
       sha: '8714521',
       items: [
-        'Eulogy rework: ten structurally different openers with a disjoint-window guarantee (the top 5 can never share a shape), \'vault\' banned from every line, sharper verses; SHARE THIS FEAT button on the raider card copies the headline + stats + poem + game link to the clipboard (#208).',
+        'The fallen-raider poems got a real rewrite. They are not all Homer anymore: some read like tavern arguments, some like warnings, some like entries in a ledger of the fallen. The five poems on the top-5 board are now guaranteed to each open a different way, and a certain overused word is gone for good.',
+        'There is a SHARE THIS FEAT button on every raider card now. Click it and the whole thing (name, class, score, floor, kills, the poem, and a link to the game) is copied, ready to paste to your friends as bragging rights.',
       ],
     },
     {
