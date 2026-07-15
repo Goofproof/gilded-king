@@ -708,6 +708,10 @@
       // right against the bottom wall - to the right end of the services row, clear of
       // every door lane and every other stall.
       enchTable: { x: PF.x + 720, y: PF.y + 320 },
+      // #187 (Sam) the CRAFTING CORNER, right beside the enchant table: an anvil that
+      // forges a weapon of the archetype you are holding, and a mannequin that tailors
+      // armor. Costs gold + salvage shards; price climbs per use so it cannot be spammed.
+      craft: { anvil: { x: PF.x + 795, y: PF.y + 320, uses: 0 }, dummy: { x: PF.x + 848, y: PF.y + 320, uses: 0 } },
       enchUses: 0,
     };
     for (const it of room.shopStock.items) {
@@ -1531,6 +1535,12 @@
       const et = g.room.shopStock.enchTable;
       consider(et.x, et.y, { kind: 'enchantTable', et });
     }
+    // #187 crafting stations (regular shops)
+    if (g.room.type === 'shop' && g.room.shopStock && g.room.shopStock.craft) {
+      const cr = g.room.shopStock.craft;
+      consider(cr.anvil.x, cr.anvil.y, { kind: 'craftWeapon', st: cr.anvil });
+      consider(cr.dummy.x, cr.dummy.y, { kind: 'craftArmor', st: cr.dummy });
+    }
     // #75 training barracks stations
     // #181 the trap chest is interactable until it is opened
     if (g.room.type === 'trap' && g.room.trapChest && !g.room.trapChest.opened) {
@@ -1739,6 +1749,31 @@
       }
     }
 
+    // #187 (Sam) CRAFTING: gold + shards in, a freshly-rolled piece out. The anvil
+    // forges your HELD weapon's archetype (a bow-user gets a bow); the mannequin
+    // tailors armor. minRarity 2, so a craft is never vendor trash.
+    if (t.kind === 'craftWeapon' || t.kind === 'craftArmor') {
+      const st = t.st, tier = Monsters.tierFor(g.floorNum, g.room.dist);
+      const gold = Math.round((50 + 25 * (tier - 1)) * Math.pow(1.4, st.uses));
+      const shards = Math.round((6 + 2 * (tier - 1)) * Math.pow(1.4, st.uses));
+      if (p.coins < gold) { g.shopMsg = { text: `Crafting needs ${gold} gold`, t: 1.5 }; Sfx.play('error'); return; }
+      if ((p.shards || 0) < shards) { g.shopMsg = { text: `Crafting needs ${shards} shards (X salvages gear into shards)`, t: 2 }; Sfx.play('error'); return; }
+      p.coins -= gold; p.shards -= shards; st.uses++;
+      let made;
+      if (t.kind === 'craftWeapon') {
+        const arch = (p.weapon && p.weapon.archetype) || undefined;
+        made = Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.35, archetype: arch });
+        dropGear('weapon', made, st.x, st.y + 34);
+      } else {
+        made = Weapons.rollArmor(tier, { minRarity: 2, luck: 0.35 });
+        dropGear('armorItem', made, st.x, st.y + 34);
+      }
+      g.shopMsg = { text: `Forged: ${Weapons.displayName(made)}`, t: 2.4 };
+      Fx.burst(st.x, st.y, ['#ffd24c', '#ff8a3d', '#fff'], 24, { speed: 180, life: 0.6, glow: true });
+      Fx.shake(5, 0.2);
+      Sfx.play('upgrade');
+      return;
+    }
     // #60 ENCHANT TABLE: spend gold + shards to disenchant + re-roll your active
     // weapon's enchants (a gamble to improve your gear). Cost climbs each use.
     if (t.kind === 'enchantTable') {
@@ -6182,6 +6217,30 @@
       c.fillText('ENCHANT', 0, 30);
       c.restore();
     }
+    // #187 the crafting corner: an ANVIL (weapons) and a MANNEQUIN (armor)
+    if (room.shopStock.craft) {
+      const cr = room.shopStock.craft;
+      c.save(); c.translate(cr.anvil.x, cr.anvil.y);
+      c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 14, 22, 7, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#4a4e57'; c.fillRect(-16, 2, 32, 8);           // anvil base
+      c.fillStyle = '#5d6675'; c.fillRect(-19, -6, 38, 9);          // anvil body
+      c.beginPath(); c.moveTo(19, -6); c.lineTo(29, -4); c.lineTo(19, 3); c.closePath(); c.fill(); // the horn
+      const gk = 0.5 + Math.sin(g.time * 4) * 0.3;
+      c.globalAlpha = gk; c.fillStyle = '#ff8a3d';
+      c.beginPath(); c.arc(-4, -8, 2.5, 0, Math.PI * 2); c.fill();  // a hot ember on it
+      c.globalAlpha = 1;
+      c.font = '10px monospace'; c.textAlign = 'center'; c.fillStyle = 'rgba(255,138,61,0.8)';
+      c.fillText('FORGE', 0, 30);
+      c.restore();
+      c.save(); c.translate(cr.dummy.x, cr.dummy.y);
+      c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 14, 14, 5, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#6a4a2a'; c.fillRect(-1.5, -2, 3, 16);         // the stand
+      c.fillStyle = '#8fa3bf'; c.beginPath(); c.arc(0, -12, 7, 0, Math.PI * 2); c.fill(); // torso form
+      c.fillStyle = '#aab8cf'; c.fillRect(-9, -10, 18, 10);         // shoulders
+      c.font = '10px monospace'; c.textAlign = 'center'; c.fillStyle = 'rgba(143,163,191,0.8)';
+      c.fillText('TAILOR', 0, 30);
+      c.restore();
+    }
 
     for (const it of room.shopStock.items) {
       if (it.sold) continue;
@@ -6346,6 +6405,13 @@
     if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'trinketPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip ${t.pk.trinket.name}`; } // #134 (the info card shows the gift/price)
     if (t.kind === 'potionPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E take potion'; } // #186
+    if (t.kind === 'craftWeapon' || t.kind === 'craftArmor') { // #187
+      const tier2 = Monsters.tierFor(g.floorNum, g.room.dist);
+      const gold2 = Math.round((50 + 25 * (tier2 - 1)) * Math.pow(1.4, t.st.uses));
+      const shards2 = Math.round((6 + 2 * (tier2 - 1)) * Math.pow(1.4, t.st.uses));
+      x = t.st.x; y = t.st.y - 44;
+      label = `E - craft ${t.kind === 'craftWeapon' ? 'a weapon' : 'armor'} (${gold2}g + ${shards2}◈)`;
+    }
     if (t.kind === 'encounter') { x = t.e.x; y = t.e.y - 34; label = 'E to interact'; } // the quest giver (Sam)
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }
