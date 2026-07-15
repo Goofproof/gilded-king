@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.66', title: 'Co-op: reconnect-proof', date: '2026-07-15',
       sha: '6eab0f9',
       items: [
-        'Co-op overhaul: pinned run authority, rejoin after reload, non-adjacent catch-up, host watchdog (#173).',
+        'Big co-op stability update. If your game crashes or your page reloads mid-run, you can now rejoin with the same room code and land right back in the run with your friend, on the same floor. A short WiFi blip no longer scrambles the game (that was the real cause of duplicated players and empty rooms with no monsters). If you fall way behind your teammate, the game now catches you up to their room even across the map. And if the host truly leaves, you get a clear "host left" message instead of a frozen empty dungeon.',
       ],
     },
     {
