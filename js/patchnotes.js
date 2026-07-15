@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.65', title: 'Co-op: no more phantom mobs locking the room', date: '2026-07-15',
       sha: 'f9f80a4',
       items: [
-        'Co-op: room-tag mob snapshots so a guest in a different room stops rendering phantom, unkillable mobs that locked the room (#172).',
+        'Fixed a big co-op bug. Sometimes one player would see a monster that could not be hurt and would not die, and it kept the doors locked so nobody could leave the room. It happened when the two players were briefly in different rooms and one of them kept seeing the other room\'s monsters like ghosts. Now the game keeps track of which room each monster is really in, so you only ever see the monsters in the room you are actually standing in.',
       ],
     },
     {
