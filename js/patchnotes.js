@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.79';
+  const VERSION = 'v2.80';
 
   const NOTES = [
+    {
+      v: 'v2.80', title: 'Co-op playtest hotfixes', date: '2026-07-15',
+      sha: '2393d80',
+      items: [
+        'Live playtest batch: wall-stuck mobs eject (#190); pyro burn syncs + guest Immolate lands (#191); presence stays alive on pick screens with a CHOOSING tag (#192); mines visible to player 2 (#193); co-op PLAY AGAIN keeps the party together (#194); blip reconnect no longer resets the non-host to the first room (#195).',
+      ],
+    },
     {
       v: 'v2.79', title: 'Spring cleaning under the hood', date: '2026-07-15',
       sha: '2a10353',
