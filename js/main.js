@@ -86,17 +86,28 @@
       return id;
     } catch { return 'c' + Math.random().toString(36).slice(2, 10); }
   }
+  // #159 (Sam) ONE ENTRY PER NAME: a person cannot be both first and second. Keeps each
+  // name's BEST score only. Assumes the input is already sorted highest-first.
+  function dedupByName(scores) {
+    const seen = new Set(), out = [];
+    for (const e of scores) {
+      const k = String(e.initials || '').trim().toUpperCase();
+      if (k && seen.has(k)) continue;
+      seen.add(k); out.push(e);
+    }
+    return out;
+  }
   function loadScores() {
     let stored = [];
     try { const s = JSON.parse(localStorage.getItem('drl_scores')); if (Array.isArray(s)) stored = s.filter(validScore); } catch { }
     let seeded = false;
     try { seeded = localStorage.getItem('drl_scores_seeded') === '1'; } catch { }
     if (!seeded) {
-      stored = [...stored, ...SEED_SCORES].sort((a, b) => b.score - a.score).slice(0, SCORE_CAP);
-      try { localStorage.setItem('drl_scores', JSON.stringify(stored)); localStorage.setItem('drl_scores_seeded', '1'); } catch { }
-    } else {
-      stored = stored.slice(0, SCORE_CAP);
+      stored = [...stored, ...SEED_SCORES];
+      try { localStorage.setItem('drl_scores_seeded', '1'); } catch { }
     }
+    stored = dedupByName(stored.sort((a, b) => b.score - a.score)).slice(0, SCORE_CAP);
+    if (!seeded) { try { localStorage.setItem('drl_scores', JSON.stringify(stored)); } catch { } }
     return stored;
   }
   function saveScores(scores) {
@@ -1146,7 +1157,7 @@
       const scores = loadScores();
       scores.push(entry);
       scores.sort((a, b) => b.score - a.score);
-      g.scores = scores.slice(0, SCORE_CAP);
+      g.scores = dedupByName(scores).slice(0, SCORE_CAP); // #159 one entry per name
       saveScores(g.scores);
       g.newScoreRank = g.scores.findIndex(s => s.score === g.essenceEarned && s.initials === name) + 1;
       Sfx.play('upgrade');
@@ -1170,14 +1181,7 @@
   function displayBoard(globalTop) {
     const all = [...(Array.isArray(globalTop) ? globalTop : []), ...SEED_SCORES].filter(validScore);
     all.sort((a, b) => b.score - a.score);
-    const seen = new Set(), out = [];
-    for (const e of all) {
-      const k = `${e.initials}|${e.score}|${e.floor || 0}`;
-      if (seen.has(k)) continue;                 // drop exact dupes (same name+score+floor)
-      seen.add(k); out.push(e);
-      if (out.length >= SCORE_CAP) break;
-    }
-    return out;
+    return dedupByName(all).slice(0, SCORE_CAP); // #159 one entry per name, best kept
   }
   function submitGlobalScore(entry) {
     const url = leaderboardUrl(); if (!url) return;
