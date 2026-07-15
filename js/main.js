@@ -3154,6 +3154,7 @@
       rp.busy = !!m.bz;                                           // #192 they are on a menu
       rp.invis = !!m.iv;                                          // #212 vanished (untargetable)
       rp.loot = m.lo || 0;                                        // #213 their looting level
+      rp.bodyC = m.bc || 0; rp.cloakC = m.cc || 0;                // #220 their real robe colours
       rp.last = g.time;
       if (m.u && g.runHostU && m.u === g.runHostU) g.lastHostSeenT = g.time; // #173 host liveness
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
@@ -3660,6 +3661,7 @@
     if (g.posSendT > 0) return;
     g.posSendT = 0.066;
     const p = g.player;
+    const ep = PlayerDef.evoPalFor ? PlayerDef.evoPalFor(p) : null; // #220 evolution robe recolour
     Net.send({
       t: 'p', x: Math.round(p.x), y: Math.round(p.y), f: +p.facing.toFixed(2),
       r: [g.room.gx, g.room.gy], fl: g.floorNum, hp: Math.round(p.hp), mh: Math.round(p.maxHp),
@@ -3676,6 +3678,7 @@
       bz: (g.state !== 'play') ? 1 : 0,               // #192 frozen in a menu (peers show CHOOSING)
       iv: p.invisT > 0 ? 1 : 0,                       // #212 vanished: monsters must not hunt me
       lo: Weapons.has(p.weapon, 'looting') || 0,      // #213 my looting level (kill drops read the killer's)
+      bc: ep ? ep.body : 0, cc: ep ? ep.cloak : 0,    // #220 my TRUE body/cloak colours (evolution recolour)
     });
   }
 
@@ -3736,8 +3739,11 @@
       const R = form ? Math.round(13 * form.scale) : 13;
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, R - 2, R * 0.85, R * 0.27, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = form ? form.cloak : '#2c3e60'; c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
-      c.fillStyle = form ? form.body : (rp.wc || '#4a6fa5'); c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
+      // #220 (Sam) the BODY was painted with rp.wc - the WEAPON's colour - so a teammate's
+      // whole champion turned gold/purple with every weapon swap. The body now wears their
+      // real colours: druid form, else the evolution recolour, else the default blue.
+      c.fillStyle = form ? form.cloak : (rp.cloakC || '#2c3e60'); c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
+      c.fillStyle = form ? form.body : (rp.bodyC || '#4a6fa5'); c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
       c.save(); c.rotate(rp.facing || 0);
       c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
       c.fillStyle = form ? form.accent : '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
@@ -3780,8 +3786,8 @@
         c.fillStyle = '#1c1c22';
         c.beginPath(); c.arc(-2.6, -1.5, 1.7, 0, Math.PI * 2); c.arc(2.6, -1.5, 1.7, 0, Math.PI * 2); c.fill();
       } else if (mn.k === 'c') {   // mesmer clone: their owner's colours, shimmering
-        c.fillStyle = '#2c3e60'; c.beginPath(); c.arc(0, 1, 10, 0, Math.PI * 2); c.fill();
-        c.fillStyle = rp.wc || '#4a6fa5'; c.beginPath(); c.arc(0, -1, 8, 0, Math.PI * 2); c.fill();
+        c.fillStyle = rp.cloakC || '#2c3e60'; c.beginPath(); c.arc(0, 1, 10, 0, Math.PI * 2); c.fill();
+        c.fillStyle = rp.bodyC || '#4a6fa5'; c.beginPath(); c.arc(0, -1, 8, 0, Math.PI * 2); c.fill(); // #220 owner's REAL body colour, not their weapon's
         c.strokeStyle = 'rgba(255,94,219,0.5)'; c.lineWidth = 1;
         c.beginPath(); c.arc(0, 0, 11, 0, Math.PI * 2); c.stroke();
       } else if (mn.k === 's') {   // elemental: a glowing blob in its element's colour

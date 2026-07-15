@@ -2028,5 +2028,13 @@ const PlayerDef = (() => {
     }
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait };
+  // #220 the recolour a TEAMMATE should paint this champion with: the evolution
+  // palette takes over the robes at stage 2+, exactly like the owner's own screen.
+  function evoPalFor(p) {
+    if (Math.min(4, p.evoCount || 0) < 2) return null;
+    const dom = p.dominantStat ? p.dominantStat() : null;
+    return (dom && EVO_PAL[dom]) || null;
+  }
+
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, evoPalFor };
 })();
