@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.76', title: 'Pocket a potion for later', date: '2026-07-15',
       sha: '30b961a',
       items: [
-        'Carried potion slot: buy or loot ONE flask, drink it with H when you need it, HUD shows the slot; rare mob drop (#186).',
+        'You can CARRY A POTION now. Buying one at the shop no longer drinks it on the spot: it goes into a new flask slot in your gear bar (fifth from the left), and you drink it whenever you want with H. Heals 40 health. You can only carry one at a time, so spend it wisely. Monsters also very rarely drop a flask, so keep an eye out for a little red bottle on the ground.',
       ],
     },
     {
