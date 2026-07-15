@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.52';
+  const VERSION = 'v2.53';
 
   const NOTES = [
+    {
+      v: 'v2.53', title: 'Leaderboard shows each player once', date: '2026-07-15',
+      sha: 'ecc1892',
+      items: [
+        'Leaderboard: one entry per name, best score kept (Sam, #159).',
+      ],
+    },
     {
       v: 'v2.52', title: 'Class fixes: stronger Mesmer clones, a real Necromancer, no more Owl', date: '2026-07-15',
       sha: 'f81f30c',
