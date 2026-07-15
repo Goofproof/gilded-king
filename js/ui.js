@@ -2332,6 +2332,32 @@ const UI = (() => {
       }
     }
 
+    // #199 (Sam) SPEND YOUR LEVEL-UP POINTS HERE. Level-ups bank points instead of
+    // pausing the game; the sheet offers three rolled cards per point. Click to take.
+    if (g.levelUpQueue > 0 && g.pendingChoices) {
+      const bandY = H - 118, cw2 = 268, gap = 18;
+      const x0 = W / 2 - (cw2 * 3 + gap * 2) / 2;
+      c.fillStyle = 'rgba(20,16,4,0.92)'; c.fillRect(0, bandY - 26, W, 124);
+      c.strokeStyle = 'rgba(255,210,76,0.4)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, bandY - 26); c.lineTo(W, bandY - 26); c.stroke();
+      c.textAlign = 'center'; c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`LEVEL UP  ·  ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} to spend  ·  click a card`, W / 2, bandY - 9);
+      for (let i = 0; i < g.pendingChoices.length; i++) {
+        const ch = g.pendingChoices[i], cx2 = x0 + i * (cw2 + gap);
+        const hov = false;
+        c.fillStyle = 'rgba(12,14,22,0.95)'; c.fillRect(cx2, bandY, cw2, 74);
+        c.strokeStyle = ch.color || '#ffd24c'; c.lineWidth = 1.5; c.strokeRect(cx2, bandY, cw2, 74);
+        c.textAlign = 'center';
+        c.font = 'bold 13px monospace'; c.fillStyle = ch.color || '#ffd24c';
+        c.fillText(`${ch.icon || ''} ${ch.name}`, cx2 + cw2 / 2, bandY + 24);
+        c.font = '11px monospace'; c.fillStyle = '#c8d2e0';
+        c.fillText(ch.desc || '', cx2 + cw2 / 2, bandY + 44);
+        c.font = '9px monospace'; c.fillStyle = '#7a8698';
+        c.fillText(ch.stat || '', cx2 + cw2 / 2, bandY + 62);
+        rects.push({ x: cx2, y: bandY, w: cw2, h: 74, action: 'spendCard', idx: i });
+      }
+    }
+
     // ------------------------------------------------------------------- footer
     c.textAlign = 'center';
     c.font = '10px monospace'; c.fillStyle = '#667';

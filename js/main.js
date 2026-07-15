@@ -363,7 +363,7 @@
     g.evoQueue = [];
     g.evoChoices = null;
     g.leveling = false; g.peerBusy = {}; g.peerDone = {}; // #32 gate reset
-    g.levelWaitT = 0; g.pendingCoopRoom = null;
+    g.levelWaitT = 0; g.pendingCoopRoom = null; g.pendingChoices = null; // #199
     g.rerollCount = 0; g.rerollDenyT = 0; // #20 paid-reroll counter
     g.winTimer = -1;
     g.deathTimer = -1;
@@ -2796,6 +2796,24 @@
           if (input.pressed('Digit' + (i + 1))) { g.charDetail = Evolutions.STATS[i]; Sfx.play('ui'); }
         }
         if (input.pressed('Digit0')) { g.charDetail = null; Sfx.play('ui'); }
+        // #199 spend banked level-up points right here: three rolled cards at the foot
+        // of the sheet; click one (its rect carries action 'spendCard').
+        if (g.levelUpQueue > 0 && !g.pendingChoices) g.pendingChoices = pickUpgrades();
+        if (g.levelUpQueue <= 0) g.pendingChoices = null;
+        if (g.pendingChoices && input.mouse.clicked && g.uiRects) {
+          for (const r of g.uiRects) {
+            if (r.action === 'spendCard' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+              const ch = g.pendingChoices[r.idx];
+              if (ch) {
+                applyUpgrade(ch);          // note: applyUpgrade ends in state 'play'...
+                g.state = 'charsheet';     // ...but we stay on the sheet to keep spending
+                g.levelUpQueue--;
+                g.pendingChoices = g.levelUpQueue > 0 ? pickUpgrades() : null;
+              }
+              break;
+            }
+          }
+        }
         // #85 close: return to whatever we peeked FROM (a level-up/evolution/ultimate
         // pick), else back to play
         if (input.pressed('KeyC') || input.pressed('Escape') || input.pressed('KeyP')) { g.state = g.charReturn || 'play'; g.charReturn = null; g.charDetail = null; }
@@ -4109,24 +4127,16 @@
         return;
       }
     }
-    // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
-    // skipped once the boss is down (victory is seconds away) or the player is dead.
-    if (g.levelUpQueue > 0 && roomClear && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
-      beginLevelCycle();
-      g.levelUpQueue--;
-      g.levelChoices = pickUpgrades();
-      g.levelRerolled = false; // one reroll per level-up
-      g.hoverChoice = -1;
-      g.state = 'levelup';
-      g.overlayT = 0;
-      p.drawT = -1; // a held bow draw must not survive the overlay and fire on resume
-      return;
-    }
+    // #199 (Sam) LEVEL-UPS NO LONGER PAUSE THE GAME. Each level banks a POINT you
+    // spend in the character menu (C) whenever you like. This removes the mid-fight
+    // freeze AND the whole family of co-op desyncs the pick screens caused (a frozen
+    // picker vanishing, gates stranding the party, fusion desyncs). Evolutions and
+    // the ultimate offer keep their own screens - they are rare, big moments.
     // offer the ULTIMATE on its own beat, a couple levels AFTER R was forged (never
     // simultaneously - Sam: avoid information overload). #10 the 3 picks are now WEIGHTED
     // toward your build (evolution history + Q/R kinds), so the offer feels like yours.
     if (p.abilityR && !p.abilityUlt && p.ultAtLevel && p.level >= p.ultAtLevel &&
-        !g.ultChoices && g.evoQueue.length === 0 && g.levelUpQueue === 0 &&
+        !g.ultChoices && g.evoQueue.length === 0 && // #199 unspent points don't delay the ult offer
         roomClear && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       g.ultChoices = Abilities.rollUltimates(3, {
         evo: p.evoHistory || [],
@@ -4140,7 +4150,7 @@
     }
     // #32 co-op: once the whole pick sequence is drained, don't slip back into play
     // alone - hold at the gate until every teammate has also finished choosing
-    if (g.coop && g.leveling && g.evoQueue.length === 0 && g.levelUpQueue === 0 &&
+    if (g.coop && g.leveling && g.evoQueue.length === 0 && // #199 points spend at leisure, never gate the party
         !p.dead && g.winTimer <= 0) {
       finishLevelCycle();
     }
@@ -5155,6 +5165,14 @@
 
     // interaction prompt + info card
     if (g.state === 'play') drawInteractPrompt(c);
+    // #199 banked level-up points: a steady nudge, never a freeze
+    if (g.state === 'play' && g.levelUpQueue > 0) {
+      const pulse = 0.7 + Math.sin(Date.now() / 300) * 0.3;
+      c.save(); c.globalAlpha = pulse; c.textAlign = 'center';
+      c.font = 'bold 13px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`LEVEL UP! press C to spend ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''}`, W / 2, H - 26);
+      c.restore();
+    }
 
     // vignette when hurt
     if (g.player && g.player.hp / g.player.maxHp < 0.3) {
@@ -6247,10 +6265,7 @@
       c.fillStyle = '#141414'; c.fillRect(-18, -6, 36, 8);             // dark maw
     }
     c.restore();
-    if (!ch.opened) {
-      c.textAlign = 'center'; c.font = 'bold 10px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('A LOCKED CHEST', ch.x, ch.y - 30);
-    }
+    // #200 (Sam) no label: a chest that ANNOUNCES itself is worse bait
   }
 
   // #75 the training barracks: a drill sergeant + five stat stations
