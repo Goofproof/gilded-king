@@ -56,11 +56,14 @@ const Eulogy = (() => {
   // (no leading article, no full clause) - e.g. "NAME the bronze-girt".
   function classEpithets(className) {
     const n = String(className || '').toLowerCase();
-    if (/barbar|warrior|paladin|knight/.test(n)) return ['bronze-girt', 'shield-breaker', 'line-stormer'];
-    if (/mage|cleric|summon|sorc|wizard|priest/.test(n)) return ['spell-wrought', 'storm-tongued', 'flame-speaker'];
-    if (/rang|engine|hunt|archer/.test(n)) return ['far-shooter', 'keen-eyed', 'dark-looser'];
-    if (/rogue|thief|assassin|shadow/.test(n)) return ['shadow-shod', 'swift-knived', 'wall-ghost'];
-    return ['wanderer', 'far-travelled', 'deep-roader'];
+    // #178 (Sam) pools doubled: with 3 options per slot two raiders collided on whole
+    // verses far too often ("poem was the same as a prior poem").
+    if (/barbar|warrior|paladin|knight|death/.test(n)) return ['bronze-girt', 'shield-breaker', 'line-stormer', 'iron-hearted', 'wall-of-the-host', 'first-through-the-gate'];
+    if (/mage|cleric|summon|sorc|wizard|priest|pyro|necro|mesmer/.test(n)) return ['spell-wrought', 'storm-tongued', 'flame-speaker', 'rune-fingered', 'sky-caller', 'keeper-of-the-old-words'];
+    if (/rang|engine|hunt|archer/.test(n)) return ['far-shooter', 'keen-eyed', 'dark-looser', 'string-singer', 'never-missing', 'stalker-of-the-tree-line'];
+    if (/rogue|thief|assassin|shadow/.test(n)) return ['shadow-shod', 'swift-knived', 'wall-ghost', 'lock-whisperer', 'unseen-until-too-late', 'silent-stepping'];
+    if (/druid/.test(n)) return ['beast-shaped', 'twice-skinned', 'friend-of-fang-and-claw', 'moon-called', 'wild-hearted', 'root-and-antler'];
+    return ['wanderer', 'far-travelled', 'deep-roader', 'stranger-to-fear', 'lantern-bearer', 'last-of-the-lightfoot'];
   }
 
   // the raider's SIGNATURE stat: whichever of dmg / speed / crit / coins / magic
@@ -84,7 +87,9 @@ const Eulogy = (() => {
   function forSnap(s) {
     if (!s) return [];
     const name = (s.initials || '???').toUpperCase();
-    const r = rng(hash(name + '|' + (s.score || 0) + '|' + (s.className || '')));
+    // #178 (Sam) the board RANK salts the seed: two raiders with similar identities
+    // (or the same raider viewed at #1 vs #3) can no longer land on the same verse.
+    const r = rng(hash(name + '|' + (s.score || 0) + '|' + (s.className || '') + '|' + (s.rank != null ? s.rank : '')));
     const classEp = pick(r, classEpithets(s.className));
     const statEp = signature(r, s);
     const weapon = (s.weapons && s.weapons.length) ? cleanWeapon(s.weapons[0]) : null;
@@ -92,17 +97,29 @@ const Eulogy = (() => {
     const place = floorName(s.floor);
 
     const lines = [];
-    // L1: the invocation
-    lines.push(pick(r, [`Sing, Muse, of ${name} the ${classEp},`, `Of ${name} the ${classEp} the Muses sing,`, `Remember ${name}, ${classEp},`]));
-    // L2: the signature stat + the weapon that carried it
+    // L1: the invocation (#178 pool doubled)
+    lines.push(pick(r, [
+      `Sing, Muse, of ${name} the ${classEp},`, `Of ${name} the ${classEp} the Muses sing,`, `Remember ${name}, ${classEp},`,
+      `Tell again the tale of ${name} the ${classEp},`, `Let the halls repeat the name of ${name}, ${classEp},`, `${name} the ${classEp} went down into the deep,`,
+    ]));
+    // L2: the signature stat + the weapon that carried it (#178 pool doubled)
     lines.push(weapon
-      ? pick(r, [`${statEp}, who bore ${weapon}.`, `${statEp}, ${weapon} in hand.`, `who carried ${weapon}, ${statEp}.`])
-      : `${statEp}, and unafraid.`);
-    // L3: the ultimate they loosed (skipped if none recorded)
-    if (ult) lines.push(pick(r, [`who loosed the ${ult} upon the host,`, `and called the ${ult} down from the vault,`, `whose ${ult} unmade the dark,`]));
-    // L4: the fall, named by the place it happened
+      ? pick(r, [
+        `${statEp}, who bore ${weapon}.`, `${statEp}, ${weapon} in hand.`, `who carried ${weapon}, ${statEp}.`,
+        `${statEp}, and ${weapon} never left their grip.`, `with ${weapon} raised, ${statEp}.`, `${statEp}, whose ${weapon} the dark learned to fear.`,
+      ])
+      : pick(r, [`${statEp}, and unafraid.`, `${statEp}, and empty-handed still they went.`, `${statEp}, needing no blade at all.`]));
+    // L3: the ultimate they loosed (skipped if none recorded) (#178 pool doubled)
+    if (ult) lines.push(pick(r, [
+      `who loosed the ${ult} upon the host,`, `and called the ${ult} down from the vault,`, `whose ${ult} unmade the dark,`,
+      `who spoke the ${ult} and the room went quiet,`, `and the ${ult} answered when they called,`, `whose ${ult} the deep still remembers,`,
+    ]));
+    // L4: the fall, named by the place it happened (#178 pool doubled)
     lines.push(place
-      ? pick(r, [`then in the ${place} the deep closed over ${name}.`, `till the ${place} took ${name} into the long dark.`, `and fell in the ${place}, and was still.`])
+      ? pick(r, [
+        `then in the ${place} the deep closed over ${name}.`, `till the ${place} took ${name} into the long dark.`, `and fell in the ${place}, and was still.`,
+        `but the ${place} keeps ${name} now, and does not give back.`, `and in the ${place} the song of ${name} went out.`, `yet even ${name} lay down at last, in the ${place}.`,
+      ])
       : (s.floor != null ? `and fell upon floor ${s.floor}, and was still.` : `and passed into the long dark.`));
     return lines;
   }

@@ -2646,7 +2646,10 @@
         for (const r of (g.scoreRects || [])) {
           if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
             const img = new Image(); img.src = r.snap.avatar;
-            g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap);
+            // #178 (Sam) global slim snaps carry no floor - the ENTRY does. Merge it, plus
+            // the board rank so each top raider's eulogy verse is salted differently.
+            g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap,
+              { floor: (r.snap.floor != null ? r.snap.floor : r.floor), rank: r.rank });
             Sfx.play('ui');
             return;
           }
@@ -2706,7 +2709,8 @@
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
           if (r.action === 'raiderSnap') { // #149 open a top-5 raider's loadout snapshot from the main page
             const img = new Image(); img.src = r.snap.avatar || '';
-            g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap);
+            g.snapView = Object.assign({ initials: r.initials, _img: img }, r.snap,
+              { floor: (r.snap.floor != null ? r.snap.floor : r.floor), rank: r.rank }); // #178
             Sfx.play('ui'); return;
           }
           if (r.action === 'patchnotes') { g.showPatch = true; g.patchScroll = 0; Sfx.play('ui'); }
@@ -4721,7 +4725,12 @@
     // with iron wire, and so, more or less, do you. Everything past a short radius
     // goes black. Drawn over the whole world but UNDER the HUD - you keep your
     // health bar and your minimap, you just cannot see the room you are standing in.
-    if (g.rules && g.rules.vision !== Infinity && g.player && g.state === 'play') {
+    // #177 (Sam) the shroud must survive the pick overlays: it used to vanish the moment
+    // a level-up opened (state != 'play'), floodlighting the whole room through the
+    // half-transparent menu - free wallhacks on the blind terrace.
+    const shroudState = g.state === 'play' || g.state === 'levelup' || g.state === 'evolution' ||
+      g.state === 'ultpick' || g.state === 'rpick' || g.state === 'levelwait' || g.state === 'pause' || g.state === 'charsheet';
+    if (g.rules && g.rules.vision !== Infinity && g.player && shroudState) {
       const R = g.rules.vision;
       const grad = c.createRadialGradient(g.player.x, g.player.y, R * 0.45, g.player.x, g.player.y, R);
       grad.addColorStop(0, 'rgba(6,8,8,0)');

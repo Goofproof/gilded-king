@@ -80,6 +80,7 @@ function slimSnap(s) {
       if (typeof v === 'number' && isFinite(v)) sp[k] = Math.max(0, Math.min(99, v | 0));
     }
   }
+  const numIn = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
   return {
     cls: str(s.cls, 16),          // so the viewer can draw the class crest in place of the portrait
     className: str(s.className, 24),
@@ -87,6 +88,16 @@ function slimSnap(s) {
     kills: Math.max(0, Math.min(99999, s.kills | 0)),
     prestige: Math.max(0, Math.min(99, s.prestige | 0)),
     maxHp: Math.max(0, Math.min(99999, s.maxHp | 0)),
+    // #178 the snapshot viewer's headline, STATS block and eulogy read these; stripping
+    // them here is why a global card said "fell on floor ?" with zeroed stats.
+    floor: Math.max(0, Math.min(999, s.floor | 0)),
+    essence: Math.max(0, Math.min(1e9, s.essence | 0)),
+    coins: Math.max(0, Math.min(1e9, s.coins | 0)),
+    dmgMul: numIn(s.dmgMul, 0, 99, 1),
+    spdMul: numIn(s.spdMul, 0, 99, 1),
+    crit: numIn(s.crit, 0, 100, 0),
+    coinMul: numIn(s.coinMul, 0, 99, 1),
+    magic: numIn(s.magic, 0, 99, 1),
     weapons: strs(s.weapons, 2, 64),
     armor: str(s.armor, 64) || null,
     evos: strs(s.evos, 8, 40),

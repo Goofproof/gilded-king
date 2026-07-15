@@ -1017,7 +1017,7 @@ const UI = (() => {
             const w = c.measureText(label).width;
             c.font = '10px monospace'; c.fillStyle = '#8a7340';
             c.fillText('🔍', px + 22 + w, ry - 1);
-            rects.push({ x: px + 12, y: ry - 12, w: pw - 24, h: 18, action: 'raiderSnap', snap: s.snap, initials: s.initials });
+            rects.push({ x: px + 12, y: ry - 12, w: pw - 24, h: 18, action: 'raiderSnap', snap: s.snap, initials: s.initials, floor: s.floor, score: s.score, rank: i });
           }
         });
       }
@@ -1525,7 +1525,7 @@ const UI = (() => {
       // - which is exactly why Sam never saw them. The viewer already draws a class crest
       // when there is no portrait.
       const hasSnap = !!(s.snap && (s.snap.avatar || s.snap.className || (s.snap.weapons && s.snap.weapons.length) || (s.snap.evos && s.snap.evos.length)));
-      if (hasSnap) { g.scoreRects.push({ x: px + 80, y: y - 16, w: 200, h: 24, snap: s.snap, initials: s.initials }); anyClickable = true; }
+      if (hasSnap) { g.scoreRects.push({ x: px + 80, y: y - 16, w: 200, h: 24, snap: s.snap, initials: s.initials, floor: s.floor, score: s.score, rank: i }); anyClickable = true; }
       c.fillStyle = isNew ? '#ffd24c' : i === 0 ? '#e8b52f' : '#c8d2e0';
       c.textAlign = 'right';
       c.fillText(`${i + 1}.`, px + 70, y);
@@ -1576,6 +1576,13 @@ const UI = (() => {
     c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(ax, ay, av, av);
     if (hasAvatar) {
       c.drawImage(s._img, ax + 5, ay + 5, av - 10, av - 10);
+    } else if (s.cls && PlayerDef.drawClassPortrait) {
+      // #178 (Sam) global raiders carry no PNG, but the server keeps `cls` for exactly
+      // this: draw the procedural class portrait (same art as the character sheet)
+      // instead of an empty laurel. Every card has a face now.
+      c.save();
+      try { PlayerDef.drawClassPortrait(c, s.cls, ax + av / 2, ay + av / 2, 26); } catch (e) { /* never let art kill the card */ }
+      c.restore();
     } else {
       c.save(); c.translate(ax + av / 2, ay + av / 2 - 6); c.globalAlpha = 0.85;
       c.strokeStyle = '#c9a227'; c.lineWidth = 2;

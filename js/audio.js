@@ -590,22 +590,40 @@ const Sfx = (() => {
   // the browser is still blocking autoplay, it silently does nothing and the game is fine.
   // Browsers refuse audio until a user gesture, so the song starts on the first click/key
   // (ensure() retries it then).
-  let menuEl = null, menuWanted = false;
+  let menuEl = null, menuWanted = false, menuFade = null;
+  const MENU_VOL = 0.32; // #176 (Sam) was 0.55 - too loud over the title screen
   function menuAudio() {
     if (menuEl) return menuEl;
     menuEl = new Audio('music/main-menu.m4a');
-    menuEl.loop = true; menuEl.preload = 'auto'; menuEl.volume = 0.55;
+    menuEl.loop = true; menuEl.preload = 'auto'; menuEl.volume = 0;
     return menuEl;
+  }
+  // #176 (Sam) fade the song in and out instead of hard cuts. One shared interval;
+  // starting a new fade cancels the old one so rapid menu<->game flips can't fight.
+  function fadeMenuTo(target, ms, thenPause) {
+    const a = menuAudio();
+    if (menuFade) { clearInterval(menuFade); menuFade = null; }
+    const step = 40, from = a.volume, n = Math.max(1, Math.round(ms / step));
+    let i = 0;
+    menuFade = setInterval(() => {
+      i++;
+      a.volume = Math.max(0, Math.min(1, from + (target - from) * (i / n)));
+      if (i >= n) { clearInterval(menuFade); menuFade = null; if (thenPause) a.pause(); }
+    }, step);
   }
   function tryPlayMenu() {
     if (!menuWanted || muted) return;
     const a = menuAudio();
-    if (!a.paused) return;
+    if (!a.paused) { fadeMenuTo(MENU_VOL, 600); return; } // mid-fade-out return: fade back up
     const p = a.play();
-    if (p && p.catch) p.catch(() => {}); // still locked - ensure() will retry on the next gesture
+    if (p && p.then) p.then(() => fadeMenuTo(MENU_VOL, 1200)).catch(() => {}); // fade in; locked -> retry on next gesture
+    else fadeMenuTo(MENU_VOL, 1200);
   }
   function startMenuMusic() { menuWanted = true; tryPlayMenu(); }
-  function stopMenuMusic() { menuWanted = false; if (menuEl) menuEl.pause(); }
+  function stopMenuMusic() {
+    menuWanted = false;
+    if (menuEl && !menuEl.paused) fadeMenuTo(0, 700, true); // fade out, then pause
+  }
 
   return {
     ensure() { ensure(); tryPlayMenu(); }, // #163 a gesture also unlocks the menu song
