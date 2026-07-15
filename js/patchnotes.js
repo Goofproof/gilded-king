@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.94';
+  const VERSION = 'v2.95';
 
   const NOTES = [
+    {
+      v: 'v2.95', title: 'Your class ability grows with your class stat now', date: '2026-07-15',
+      sha: '1bc2c4b',
+      items: [
+        'Q rank system (#226, Q-DESIGN wave 0): rank = ruling-stat points, per-point signature channels, percent-of-maxHp riders on all damage Qs (bosses 1/3), milestone ladder in the Q tooltip.',
+      ],
+    },
     {
       v: 'v2.94', title: 'The leaderboard learns your name', date: '2026-07-15',
       sha: '506a958',
