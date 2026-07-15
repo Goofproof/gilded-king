@@ -837,7 +837,7 @@
     // local kill runs them here. (m._lastHitBy is stamped by the 'hit' handler.)
     const killerRp = m._lastHitBy ? g.remotePlayers.get(m._lastHitBy) : null;
     if (killerRp && typeof Net !== 'undefined') {
-      Net.send({ t: 'kill', to: m._lastHitBy, x: Math.round(m.x), y: Math.round(m.y), ty: m.type, el: m.elite ? 1 : 0 });
+      Net.sendR({ t: 'kill', to: m._lastHitBy, tu: killerRp.u || 0, x: Math.round(m.x), y: Math.round(m.y), ty: m.type, el: m.elite ? 1 : 0 }); // #222 tu: stable uid, in case their socket id changed
     } else {
       killerPerks(m.x, m.y, m.type, m.elite);
     }
@@ -852,7 +852,7 @@
         // a REMOTE player's kill: if they are the necromancer, send the rise to THEM
         // (their client owns their mercs, their cap, their scaling). One 40% roll here.
         if (killerRp.cl === 'necromancer' && Math.random() < 0.4 && typeof Net !== 'undefined') {
-          Net.send({ t: 'rise', to: m._lastHitBy, x: Math.round(m.x), y: Math.round(m.y) });
+          Net.sendR({ t: 'rise', to: m._lastHitBy, tu: killerRp.u || 0, x: Math.round(m.x), y: Math.round(m.y) }); // #222
         }
       } else if (p.class && p.class.id === 'necromancer' && Math.random() < 0.4) {
         riseSkeleton(m.x, m.y);
@@ -877,7 +877,7 @@
     p.addXp(alarmXp, g);
     // co-op: the whole party levels off shared kills (kills only ever happen on
     // the host, so it grants everyone the same XP)
-    if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'xp', a: alarmXp });
+    if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'xp', a: alarmXp });
     Fx.burst(m.x, m.y, ['#fff', '#ffd24c', '#ff6655'], 14, { speed: 180, life: 0.5 });
     Sfx.play('kill');
     // #26: catching the loot goblin pays out a jackpot (its coins are set high in BASE)
@@ -1018,7 +1018,7 @@
   function consumeGear(pk) {
     const i = g.pickups.indexOf(pk);
     if (i >= 0) g.pickups.splice(i, 1);
-    if (g.coop && pk && pk.gid && typeof Net !== 'undefined') Net.send({ t: 'gearget', gid: pk.gid });
+    if (g.coop && pk && pk.gid && typeof Net !== 'undefined') Net.sendR({ t: 'gearget', gid: pk.gid });
   }
 
   // #181 (Sam) spring the trap-room ambush. Host-authoritative like every spawn:
@@ -1040,7 +1040,7 @@
       nightmareScaleMonsters(g.monsters);
       for (const m of g.monsters) m.netId = ++g.netMobId;
     }
-    if (initiator && g.coop && typeof Net !== 'undefined') Net.send({ t: 'trapopen', gx: room.gx, gy: room.gy });
+    if (initiator && g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'trapopen', gx: room.gx, gy: room.gy });
   }
 
   function checkRoomCleared() {
@@ -1076,7 +1076,7 @@
       if (ALARM_FLAVOR[g.alarm]) Fx.text(W / 2, H / 2 - 36, ALARM_FLAVOR[g.alarm], '#ff8a3d', 14);
       // P1-D: guests never run onKill/checkRoomCleared - tell them the room cleared so
       // their coins vacuum and their doors unseal
-      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum, al: g.alarm }); // #216 floor-stamped + carries the alarm
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum, al: g.alarm }); // #216 floor-stamped + carries the alarm
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
         // this floor has a boss only on floor 3 (the King) and on Circle Warden
         // floors in the Descent; every other floor ends in a stairs portal.
@@ -1888,7 +1888,7 @@
       g.floorNum++;
       g.player.heal(20); // breather between floors
       // tethered party: bring everyone down to the same next floor
-      if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
+      if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
       startFloor();
     }
 
@@ -1945,7 +1945,7 @@
       g.toadMsg = null;
       bankEssenceCheckpoint();
       g.floorNum++;
-      if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
+      if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed });
       p.heal(25); // a breath before the next circle
       startFloor();
     }
@@ -1963,7 +1963,7 @@
       g.floorNum++;
       // co-op is host-authoritative: whoever takes the portal pulls the party, and the
       // nightmare flag rides the shared floor message so everyone lands on the same floor.
-      if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: 1 });
+      if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: 1 });
       p.heal(20);
       startFloor();
     }
@@ -2096,7 +2096,7 @@
       if (g.coop && typeof Net !== 'undefined' && Net.connected) {
         for (const [id, rp] of g.remotePlayers) {
           if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
-          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.send({ t: 'pheal', to: id, frac: a.heal || 0.4 });
+          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.sendR({ t: 'pheal', to: id, frac: a.heal || 0.4 });
         }
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#9effc0'], 30, { speed: 180, life: 0.7, glow: true });
@@ -2215,7 +2215,7 @@
       // heard about it, so Immolate did zero real damage in co-op. Forward to the host,
       // whose monsters are the truth; the burn flag then flows back via snapshots.
       if (isCoopGuest()) {
-        Net.send({ t: 'immolate', dps: Math.round(dps), dur });
+        Net.sendR({ t: 'immolate', dps: Math.round(dps), dur });
         lit = g.monsters.filter(m => !m.dead).length;
       } else {
         for (const m of g.monsters) {
@@ -2237,7 +2237,7 @@
     // exclude damage here - the guest's own proxy hits already forward per-monster.
     if (isCoopGuest() && typeof Net !== 'undefined' &&
         ['inferno', 'sleep', 'freeze', 'fear', 'midas', 'caltrops'].includes(a.kind)) {
-      Net.send({ t: 'ultfx', k: a.kind, x: Math.round(p.x), y: Math.round(p.y),
+      Net.sendR({ t: 'ultfx', k: a.kind, x: Math.round(p.x), y: Math.round(p.y),
                  radius: Math.round(a.radius || 0), dur: +(a.dur || 0), dps: Math.round(a.dps || 0) });
     }
     if (_qScaled) Object.assign(a, _qScaled); // #109 restore base Q values after the scaled cast
@@ -2330,7 +2330,7 @@
       g.room.cleared = false; // doors slam shut until it's dead
     }
     if (!fromNet && g.coop && typeof Net !== 'undefined' && g.room) {
-      Net.send({ t: 'mimicwake', gx: g.room.gx, gy: g.room.gy, ci: (g.room.chests || []).indexOf(ch), fl: g.floorNum });
+      Net.sendR({ t: 'mimicwake', gx: g.room.gx, gy: g.room.gy, ci: (g.room.chests || []).indexOf(ch), fl: g.floorNum });
     }
   }
 
@@ -3185,8 +3185,8 @@
     // room-follow pulls them into the host's room from there.
     Net.on('peer-join', m => {
       if (!g.coop || !isRunHost() || !g.dungeon) return;
-      Net.send({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id });
-      Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
+      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id });
+      Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
     });
     // #100 a teammate's chat line
     Net.on('chat', m => { if (!g.coop) return; pushChat((m.nm && m.nm.trim()) || m.from || 'peer', m.text || '', false); });
@@ -3286,6 +3286,40 @@
         vacuumPickups(); Sfx.play('unlock'); Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
       }
     });
+    // #221 (Phase C) the keyframe lands: re-converge the durable floor state. Applied
+    // SILENTLY (no fx) - if nothing diverged, nothing visibly happens.
+    Net.on('key', m => {
+      if (!isCoopGuest() || !g.dungeon) return;
+      if (m.fl !== g.floorNum) {
+        // the host is on another floor - maybe a lost 'floor' message. Adopt it only
+        // after TWO consecutive mismatched keyframes AND while idle (never yank a
+        // player out of an evolution/ultimate pick - that destroys the pick, #14).
+        g.keyFloorMiss = (g.keyFloorMiss || 0) + 1;
+        if (g.keyFloorMiss >= 2 && g.state === 'play' && !g.leveling) {
+          g.keyFloorMiss = 0;
+          releaseLevelGate();
+          g.floorNum = m.fl; g.nightmareNext = !!m.nm;
+          startFloor(); g.state = 'play';
+        }
+        return;
+      }
+      g.keyFloorMiss = 0;
+      if (m.al !== undefined) g.alarm = m.al;
+      for (const rs of m.rooms || []) {
+        const room = g.dungeon.rooms.find(r => r.gx === rs.gx && r.gy === rs.gy);
+        if (!room) continue;
+        if (rs.cl && !room.cleared) {
+          room.cleared = true;
+          if (room === g.room) vacuumPickups(); // same convergence the 'roomclear' path does, minus the fanfare
+        }
+        if (rs.tc && room.trapChest && !room.trapChest.opened) room.trapChest.opened = true;
+        if (rs.mi && room.chests) {
+          for (let i = 0; i < room.chests.length; i++) {
+            if ((rs.mi >> i) & 1 && !room.chests[i].opened) room.chests[i].opened = true;
+          }
+        }
+      }
+    });
     // co-op: play a peer's attack visual so you can SEE them fighting
     Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
     // #32 gate: a teammate opened a pick cycle (busy) / closed one (done). Monotonic
@@ -3360,12 +3394,14 @@
     });
     // #213 your kill: run YOUR perks (kill count, procs, quest + achievement counters)
     Net.on('kill', m => {
-      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      // #222 accept by socket id OR stable uid - a reconnect mid-fight changes the
+      // socket id, and the kill credit must still find its owner
+      if ((m.to !== Net.id && !(m.tu && m.tu === g.clientId)) || !g.player || g.player.dead) return;
       killerPerks(m.x, m.y, m.ty, !!m.el);
     });
     // #207 your kill raised a skeleton (you are the necromancer; the host rolled it)
     Net.on('rise', m => {
-      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      if ((m.to !== Net.id && !(m.tu && m.tu === g.clientId)) || !g.player || g.player.dead) return; // #222
       riseSkeleton(m.x, m.y);
     });
     // #197 a cleric teammate Mended you: apply their heal to your own champion
@@ -3646,7 +3682,7 @@
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
           if (r.action === 'lobby-start') { // host picks the shared run seed
             const seed = (Math.random() * 1e9) | 0;
-            Net.send({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); return; // #173 pin authority
+            Net.sendR({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); return; // #173 pin authority
           }
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
@@ -3880,7 +3916,7 @@
   // over the wire ({t:'phit'} that the peer self-filters on Net.id).
   function hurtTarget(target, dmg, sx, sy, src) {
     if (!target || !target.isRemote) { if (g.player && !g.player.dead) g.player.damage(dmg, sx, sy, g, src); return; }
-    if (typeof Net !== 'undefined') Net.send({ t: 'phit', to: target.id, dmg: Math.round(dmg), sx: Math.round(sx || 0), sy: Math.round(sy || 0) });
+    if (typeof Net !== 'undefined') Net.sendR({ t: 'phit', to: target.id, dmg: Math.round(dmg), sx: Math.round(sx || 0), sy: Math.round(sy || 0) });
   }
   g.partyTargets = partyTargets;
   g.hurtTarget = hurtTarget;
@@ -3892,10 +3928,10 @@
     p.downed = true;
     Fx.text(p.x, p.y - 40, 'DOWNED - hold on!', '#7fd4ff', 15);
     Sfx.play('hurt');
-    if (typeof Net !== 'undefined') Net.send({ t: 'downed', id: Net.id });
+    if (typeof Net !== 'undefined') Net.sendR({ t: 'downed', id: Net.id });
     // #32: if we're downed with a level cycle still open, forfeit it so a waiting
     // teammate isn't stranded on the gate (our picks resume when we're revived)
-    if (g.leveling) { g.leveling = false; if (typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'lvldone' }); }
+    if (g.leveling) { g.leveling = false; if (typeof Net !== 'undefined' && Net.connected) Net.sendR({ t: 'lvldone' }); }
   }
   function reviveLocal() {
     const p = g.player;
@@ -3915,7 +3951,7 @@
       if (Math.hypot(rp.x - p.x, rp.y - p.y) < 46) {
         rp.reviveT = (rp.reviveT || 0) + dt;
         Fx.burst(rp.x, rp.y, ['#7fd4ff'], 1, { speed: 20, life: 0.3 });
-        if (rp.reviveT >= 3) { rp.reviveT = 0; rp.downed = false; Net.send({ t: 'revive', id }); Fx.text(rp.x, rp.y - 30, 'REVIVED!', '#6ee7a0', 14); }
+        if (rp.reviveT >= 3) { rp.reviveT = 0; rp.downed = false; Net.sendR({ t: 'revive', id }); Fx.text(rp.x, rp.y - 30, 'REVIVED!', '#6ee7a0', 14); }
       } else rp.reviveT = 0;
     }
   }
@@ -3933,7 +3969,7 @@
     g.essenceEarned = g.player.essenceRun + fromCoins;
     g.meta.essence += (g.player.essenceRun - g.essenceCheckpoint) + fromCoins;
     saveMeta();
-    Net.send({ t: 'gameover', floor: g.floorNum, king: g.kingSlain ? 1 : 0 });
+    Net.sendR({ t: 'gameover', floor: g.floorNum, king: g.kingSlain ? 1 : 0 });
     endToScreen('dead');
   }
   function coopGameOver(m) {
@@ -3997,7 +4033,28 @@
     Net.send({ t: 'gearsnap', room: [g.room.gx, g.room.gy], fl: g.floorNum, list, cleared: !!g.room.cleared }); // #216 floor-stamped
   }
 
-  // host: broadcast a compact snapshot of every monster (~15 Hz)
+  // #221 (co-op review Phase C) the KEYFRAME: every ~5s the host broadcasts the
+  // durable SHARED state of the floor - floor number, alarm, and each room's
+  // cleared / trap-sprung / mimic-opened flags. Guests re-converge on it silently.
+  // After this, an effect that misses its net path degrades to "heals within
+  // seconds" instead of "diverges for the rest of the run" (Fiedler: divergence is
+  // expected and healed, never fatal). Regular chest 'opened' state is deliberately
+  // NOT here: chest loot is per-player by design (#97).
+  function broadcastKeyframe(dt) {
+    if (!g.coop || typeof Net === 'undefined' || !isRunHost() || !Net.connected || !g.dungeon) return;
+    g.keySendT = (g.keySendT || 0) - dt;
+    if (g.keySendT > 0) return;
+    g.keySendT = 5;
+    const rooms = [];
+    for (const r of g.dungeon.rooms) {
+      const mi = (r.chests || []).reduce((b, ch, i) => b | ((ch.mimic && ch.opened) ? (1 << i) : 0), 0);
+      const tc = (r.trapChest && r.trapChest.opened) ? 1 : 0;
+      if (r.cleared || tc || mi) rooms.push({ gx: r.gx, gy: r.gy, cl: r.cleared ? 1 : 0, tc, mi });
+    }
+    Net.send({ t: 'key', fl: g.floorNum, al: g.alarm, nm: g.floorNightmare ? 1 : 0, rooms });
+  }
+
+    // host: broadcast a compact snapshot of every monster (~15 Hz)
   function broadcastMobs(dt) {
     if (!g.coop || typeof Net === 'undefined' || !isRunHost() || !Net.connected) return;
     g.mobSendT -= dt;
@@ -4084,7 +4141,7 @@
       if (v === undefined || v === null || typeof v === 'function' || typeof v === 'object') continue;
       o[key] = v;
     }
-    Net.send({ t: 'hit', i: mon.netId, dmg: Math.round(dmg),
+    Net.sendR({ t: 'hit', i: mon.netId, dmg: Math.round(dmg),
       sx: Math.round((opts && opts.sx) || mon.x), sy: Math.round((opts && opts.sy) || mon.y), o });
     mon.flash = 0.12;
     Fx.text(mon.x + (Math.random() * 16 - 8), mon.y - mon.r - 6, Math.round(dmg), opts && opts.crit ? '#ffd24c' : '#fff', opts && opts.crit ? 16 : 12);
@@ -4330,7 +4387,7 @@
     if (g.coop) {
       broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
       checkStrandedFollow(dt);
-      if (isCoopGuest()) { updateGuestMobs(dt); checkHostAlive(); } else { broadcastMobs(dt); broadcastGear(dt); checkPartyWipe(); }
+      if (isCoopGuest()) { updateGuestMobs(dt); checkHostAlive(); } else { broadcastMobs(dt); broadcastGear(dt); broadcastKeyframe(dt); checkPartyWipe(); }
     }
 
     if (g.winTimer > 0) {
@@ -4410,7 +4467,7 @@
   function beginLevelCycle() {
     if (g.leveling) return;
     g.leveling = true;
-    if (typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'lvlbusy' });
+    if (typeof Net !== 'undefined' && Net.connected) Net.sendR({ t: 'lvlbusy' });
   }
   // a peer is "still picking" while its busy count outruns its done count. You may
   // resume only when NO peer is still picking. Counters are monotonic, so this is
@@ -4430,7 +4487,7 @@
   function finishLevelCycle() {
     g.leveling = false;
     if (typeof Net === 'undefined' || !Net.connected) { g.state = 'play'; return; }
-    Net.send({ t: 'lvldone' }); // exactly one done per busy - WebSocket/TCP is reliable+ordered
+    Net.sendR({ t: 'lvldone' }); // exactly one done per busy - WebSocket/TCP is reliable+ordered
     // always hold in levelwait: updateLevelWait's 0.35s grace lets a co-leveler's
     // lvlbusy arrive and be counted before we can resume (never resume-before-wait)
     g.state = 'levelwait'; g.overlayT = 0; g.levelWaitT = 0;
@@ -4750,7 +4807,7 @@
       r.action === 'again' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h);
     if ((input.pressed('Enter') || clickedAgain) && g.coop && typeof Net !== 'undefined' && Net.connected) {
       const seed = (Math.random() * 1e9) | 0;
-      Net.send({ t: 'start', seed, hu: g.clientId });
+      Net.sendR({ t: 'start', seed, hu: g.clientId });
       startCoop(seed, g.clientId);
       return;
     }
@@ -7020,7 +7077,7 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.send({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); },
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); },
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
     // testing: pretend a net message arrived (drives the real Net.on handlers)
     mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },

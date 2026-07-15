@@ -215,6 +215,11 @@ export class Room {
   }
 
   onClose(ws) {
+    // #223 complete the closing handshake. A client that calls close() sends a close
+    // frame and then WAITS for ours; without this reply its socket hangs in CLOSING
+    // (readyState 2) - no close event, so its auto-reconnect never fires. Verified
+    // against wrangler dev: close() stalled >12s until this ACK was added.
+    try { ws.close(1000, 'bye'); } catch (e) { /* already gone */ }
     const s = this.sessions.get(ws);
     if (!s) return;
     this.sessions.delete(ws);
