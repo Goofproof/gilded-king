@@ -2035,6 +2035,19 @@
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
+      // #228 rogue R8 SHADOWSTEP: cast at range and you step BEHIND the nearest
+      // target before the blade lands - gap-closer and execute in one press.
+      if (_qGates && _qGates.cls === 'rogue' && _qGates.rank >= 8) {
+        let best = null, bd = 1e9;
+        for (const m of g.monsters) { if (m.dead || m.airborne || m.spawnT > 0) continue; const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } }
+        if (best && bd > (a.radius || 115) && bd < 340) {
+          const ang = Math.atan2(best.y - p.y, best.x - p.x);
+          p.x = Math.max(PF.x + p.r, Math.min(PF.x + PF.w - p.r, best.x + Math.cos(ang) * (best.r + p.r + 6)));
+          p.y = Math.max(PF.y + p.r, Math.min(PF.y + PF.h - p.r, best.y + Math.sin(ang) * (best.r + p.r + 6)));
+          Fx.burst(p.x, p.y, ['#2a2a35', '#ffd24c'], 14, { speed: 150, life: 0.4, glow: true });
+        }
+      }
+      let qKills = 0;
       let dmg = (a.dmg || 60) * dmgMul;
       if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
       const R = a.radius || 150;
@@ -2048,6 +2061,12 @@
         // #227 warrior R12 WALL SLAM: shoved into a wall within the window = hit again
         if (_qGates && _qGates.cls === 'warrior' && _qGates.rank >= 12) m._slam = { dmg: Math.round(hitDmg), t: 0.6 };
         m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        if (m.dead) qKills++;
+      }
+      // #228 rogue: R4 a kill RESETS the cooldown (chain executions); R12 kills grant Vanish
+      if (_qGates && _qGates.cls === 'rogue' && qKills > 0) {
+        if (_qGates.rank >= 4) { a._resetCd = true; Fx.text(p.x, p.y - 40, 'RESET', '#ffd24c', 12); }
+        if (_qGates.rank >= 12) { p.invisT = Math.max(p.invisT || 0, 1.5); Fx.text(p.x, p.y - 54, 'VANISH', '#b6c0d0', 12); }
       }
     } else if (a.kind === 'dash') {
       const ang = p.facing, dist = a.dist || 260;
@@ -2065,6 +2084,27 @@
             hit.add(m);
           }
         }
+      }
+      // #228 (Q wave 2) ranger: THE VOLLEY IS REAL. Arrows loose from the middle of
+      // the tumble at your WEAPON's damage (so they scale with gear, deliberately no
+      // rider). R1: 3 arrows at the nearest enemies. R4: a full circle. R8: pierce.
+      if (_qGates && _qGates.cls === 'ranger' && _qGates.rank >= 1) {
+        const vx = (p.x + tx) / 2, vy = (p.y + ty) / 2;
+        const wdmg = Math.round(((p.weapon && p.weapon.dmg) || 12) * (p.stats.dmgMul || 1));
+        const pierce = _qGates.rank >= 8 ? 3 : 0;
+        const shots = [];
+        if (_qGates.rank >= 4) {
+          for (let k = 0; k < 12; k++) shots.push((k / 12) * Math.PI * 2);
+        } else {
+          const near = g.monsters.filter(m => !m.dead && !m.airborne && m.spawnT <= 0)
+            .sort((A, B) => Math.hypot(A.x - vx, A.y - vy) - Math.hypot(B.x - vx, B.y - vy)).slice(0, 3);
+          for (const t of near) shots.push(Math.atan2(t.y - vy, t.x - vx));
+        }
+        for (const sa of shots) {
+          g.projectiles.push({ x: vx, y: vy, vx: Math.cos(sa) * 520, vy: Math.sin(sa) * 520, r: 4,
+            dmg: wdmg, from: 'player', color: '#6ee7a0', life: 1.1, arrow: true, hitSet: new Set(), pierce, crit: false });
+        }
+        if (shots.length) { Sfx.play('bowfire'); Fx.burst(vx, vy, ['#6ee7a0', '#fff'], 10, { speed: 160, life: 0.35, glow: true }); }
       }
       p.x = tx; p.y = ty;
       p.iframes = Math.max(p.iframes, (a.iframe || 0.4) + (a.iframeAfter || 0));
@@ -2141,7 +2181,9 @@
       // carries the percent rider so turrets stay a real weapon on deep floors
       const tn = (typeof Abilities !== 'undefined' && Abilities.Q_TUNE && Abilities.Q_TUNE.engineer) || {};
       const rate = 0.7 / (1 + ((tn.perPoint && tn.perPoint.rateMul) || 0) * agi);
-      g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: rate, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0, qRider: tn.rider || 0 });
+      // #228 R4: shots slow what they hit; R8: turrets inherit your weapon's element
+      g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: rate, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0, qRider: tn.rider || 0,
+        qSlow: agi >= 4, elem: agi >= 8 ? elementFromWeapon(p) : null });
       Fx.burst(p.x, p.y, [a.color, '#fff'], 16, { speed: 120, life: 0.4 });
       Fx.text(p.x, p.y - 30, 'TURRET', a.color, 12);
     } else if (a.kind === 'summon') {
@@ -2307,6 +2349,16 @@
     // powers turn with it. Applied here, at the ONE place a cooldown is armed.
     const haste = p.trinketFlag('abilityHaste') ? (p.trinket.abilityCd || 0) : 0;
     a.cd = a.cdMax * (1 - haste);
+    // #228 rogue R4: the execute chained a kill - the blade is instantly ready again
+    if (a._resetCd) { a.cd = 0; a._resetCd = false; }
+    // #228 ranger R12: TWO tumbles in the tank. Resting a full cooldown restores both;
+    // spending the first leaves the second ready almost immediately.
+    if (_qGates && _qGates.cls === 'ranger' && _qGates.rank >= 12) {
+      if (g.time - (a._lastQ === undefined ? -999 : a._lastQ) > a.cdMax) a._stock = 2;
+      a._stock = (a._stock === undefined ? 2 : a._stock) - 1;
+      a._lastQ = g.time;
+      if (a._stock > 0) a.cd = 0.2;
+    }
     // #78 the summon's cooldown does NOT run while the elemental lives - it starts the
     // moment the elemental dies (killSummon sets a.cd). Until then Q is gated, not on cd.
     if (a.kind === 'summon') a.cd = 0; // (the necromancer's 'raise' does NOT get this - it is on a real cooldown)
@@ -2528,8 +2580,12 @@
       p.turretRecharge[i] -= dt;
       if (p.turretRecharge[i] <= 0) { p.turretRecharge.splice(i, 1); if (p.turretCharges < mx) p.turretCharges++; }
     }
+    // #228 R12 TESLA COIL: the OLDEST living turret is the landmark - its shots chain
+    const tesla12 = p.class && p.class.id === 'engineer' && ((p.statPoints && p.statPoints.AGILITY) | 0) >= 12;
+    let teslaSet = false;
     for (const tr of g.turrets) {
-      if (tr.dead) continue;
+      if (tr.dead) { tr.tesla = false; continue; }
+      tr.tesla = tesla12 && !teslaSet; if (tr.tesla) teslaSet = true;
       tr.t += dt;
       if (tr.atkCd > 0) tr.atkCd -= dt;
       if (tr.flash > 0) tr.flash -= dt;
@@ -2546,7 +2602,9 @@
         tr.facing = Math.atan2(target.y - tr.y, target.x - tr.x);
         if (tr.atkCd <= 0) {
           const a = tr.facing;
-          g.projectiles.push({ x: tr.x + Math.cos(a) * 12, y: tr.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 4, dmg: tr.dmg, from: 'player', color: '#ffd24c', life: 1.2, arrow: true, hitSet: new Set(), crit: false, qRider: tr.qRider || 0 }); // #226
+          g.projectiles.push({ x: tr.x + Math.cos(a) * 12, y: tr.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 4, dmg: tr.dmg, from: 'player',
+            color: tr.tesla ? '#ffe27a' : '#ffd24c', life: 1.2, arrow: true, hitSet: new Set(), crit: false, qRider: tr.qRider || 0,
+            chill: !!tr.qSlow, flame: tr.elem === 'fire', venom: tr.elem === 'poison', chain: tr.elem === 'lightning' || !!tr.tesla, knock: tr.elem === 'earth' ? 140 : 0 }); // #226/#228
           tr.atkCd = tr.atkRate; tr.recoil = 0.12; Sfx.play('bowfire');
         }
       }
@@ -2560,8 +2618,13 @@
     for (const ang of [-2.4, -0.7, 1.6]) { c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * 11, 6 + Math.abs(Math.sin(ang)) * 4); c.stroke(); }
     c.save(); c.rotate(tr.facing); c.fillStyle = '#3a3f48';                // barrel toward target (recoils)
     c.fillRect(3 - (tr.recoil > 0 ? 3 : 0), -3, 13, 6); c.restore();
-    c.fillStyle = tr.flash > 0 ? '#fff' : '#8a7a4a'; c.beginPath(); c.arc(0, -3, 8, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#c9a227'; c.beginPath(); c.arc(0, -3, 4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = tr.flash > 0 ? '#fff' : (tr.tesla ? '#b8962a' : '#8a7a4a'); c.beginPath(); c.arc(0, -3, 8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = tr.tesla ? '#ffe27a' : '#c9a227'; c.beginPath(); c.arc(0, -3, 4, 0, Math.PI * 2); c.fill();
+    if (tr.tesla) { // #228 the coil crackles so the landmark reads at a glance
+      c.strokeStyle = 'rgba(255,226,122,0.8)'; c.lineWidth = 1.5;
+      const ph = (tr.t * 7) % (Math.PI * 2);
+      c.beginPath(); c.moveTo(Math.cos(ph) * 8, -3 + Math.sin(ph) * 8); c.lineTo(Math.cos(ph + 2.3) * 11, -3 + Math.sin(ph + 2.3) * 11); c.stroke();
+    }
     if (tr.hp < tr.maxHp) { const w = 20; c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(-w / 2, -18, w, 3); c.fillStyle = tr.hp / tr.maxHp > 0.4 ? '#5cd65c' : '#e05555'; c.fillRect(-w / 2, -18, w * Math.max(0, tr.hp / tr.maxHp), 3); }
     c.restore();
   }
@@ -3790,6 +3853,8 @@
       mn.push({ k: m.bone ? 'b' : (m.clone ? 'c' : 'm'), x: Math.round(m.x), y: Math.round(m.y) });
     }
     if (g.summon && !g.summon.dead) mn.push({ k: 's', x: Math.round(g.summon.x), y: Math.round(g.summon.y), e: g.summon.elem || 'earth' });
+    // #228 (COOP-REVIEW #9) an engineer's turrets were INVISIBLE to teammates
+    for (const tr of g.turrets) if (!tr.dead) mn.push({ k: 't', x: Math.round(tr.x), y: Math.round(tr.y), f: +(tr.facing || 0).toFixed(2), tl: tr.tesla ? 1 : 0 });
     const pet = g.player && g.player.pet;
     if (pet) mn.push({ k: 'p', x: Math.round(pet.x), y: Math.round(pet.y), pc: pet.color || '#6ee7a0' });
     return mn.length ? mn : undefined;
@@ -3892,6 +3957,11 @@
         c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8;
         c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill();
         c.shadowBlur = 0;
+      } else if (mn.k === 't') {   // #228 a teammate's turret: tripod + barrel
+        c.strokeStyle = '#5a4a2a'; c.lineWidth = 2;
+        for (const ang of [-2.4, -0.7, 1.6]) { c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * 9, 5 + Math.abs(Math.sin(ang)) * 3); c.stroke(); }
+        c.save(); c.rotate(mn.f || 0); c.fillStyle = '#3a3f48'; c.fillRect(2, -2, 10, 4); c.restore();
+        c.fillStyle = mn.tl ? '#ffe27a' : '#c9a227'; c.beginPath(); c.arc(0, -3, 5, 0, Math.PI * 2); c.fill();
       } else if (mn.k === 'p') {   // pet: a small bright companion dot
         c.fillStyle = mn.pc || '#6ee7a0';
         c.beginPath(); c.arc(0, 0, 6, 0, Math.PI * 2); c.fill();
