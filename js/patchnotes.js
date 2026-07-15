@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.68';
+  const VERSION = 'v2.69';
 
   const NOTES = [
+    {
+      v: 'v2.69', title: 'Co-op hardening: floor-stamped room follows', date: '2026-07-15',
+      sha: 'f943fb3',
+      items: [
+        'Co-op: floor-stamp room follows so a stale cross-floor packet can\'t teleport you; document the two-instance test protocol (#175).',
+      ],
+    },
     {
       v: 'v2.68', title: 'Co-op: boss kills no longer eject your teammate', date: '2026-07-15',
       sha: 'a131540',
