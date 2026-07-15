@@ -122,3 +122,31 @@ use it to advance a co-op floor, take the real stairs/portal instead.
 - Old dev servers stack: multiple python http.servers can bind 8471 simultaneously
   (allow_reuse_address) and the OLDEST answers. Kill strays with Get-NetTCPConnection
   -LocalPort 8471 before trusting what you fetch.
+- Automation tabs are THROTTLED by Chrome when hidden/occluded: setInterval clamps
+  to >=1s (once/min after ~5min hidden), so keepalive pings and reconnect backoff
+  timers fire late in the harness. A tab pair idling between pumps WILL churn
+  through silence-close/reconnect cycles (socket ids advance p1 -> p3 -> p5...).
+  This is a harness artifact, not a bug: visible tabs run timers at full rate. Test
+  reconnect-sensitive logic in Node instead (see scratchpad bus_test.mjs pattern:
+  load net.js via new Function with WebSocket/localStorage/location shims).
+
+## The damage doctrine (#224, from the verified PVP research - every new effect conforms)
+
+1. **Attacker resolves, victim applies.** Whoever initiates a hit rolls the damage
+   locally (their gear, their crits, their view of the target) and ships the RESULT:
+   guest->monster via 'hit' (forwardHit), host->player via hurtTarget/'phit',
+   player->player (friendly fire) via the same hurtTarget path. The receiver applies
+   it through its own takeHit/player.damage - armor, iframes, thorns all run on the
+   victim's side. Never route a hit through a third party for validation: in a
+   host-authoritative game that hands the host a full round-trip advantage.
+2. **Intents, not outcomes, for host-owned state.** Anything the host simulates
+   (monsters, alarm, room flags, gear on the ground) only changes via a message the
+   host applies to its own sim; guests never assert world outcomes directly.
+3. **State outlives a snapshot interval -> it rides a snapshot/keyframe, not an
+   event.** Events are for one-shot facts (a hit landed, a chest sprung); anything
+   with a duration (burn timers, alarm, cleared flags) must be healable by the 5s
+   keyframe or the 15Hz snapshots, so a lost packet degrades to "corrects within
+   seconds," never "diverges for the run".
+4. **Critical events ride Net.sendR** (buffered + replayed + deduped), cosmetic and
+   superseded-by-the-next-one messages ride plain Net.send. When in doubt: if losing
+   the message once would break or unbalance the run, sendR.

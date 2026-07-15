@@ -156,3 +156,39 @@ is additive.
 - Extraction loss-softening analysis (fetched): https://naavik.co/f2p-mobile/extraction-shooters/ ,
   https://leprestore.com/guides/eft/escape-from-tarkov-insurance-explained/
 - netplayjs, rollback without strict determinism (PARTLY): https://github.com/rameshvarun/netplayjs
+
+## Phase 1 implementation spec (drafted 2026-07-15, ready to build)
+
+**The Duel Room, "TRIAL BY COMBAT":** a lobby mode next to the FF toggle. Best-of-5
+rounds in a flat hazard-free arena, mirrored loadouts, first to 3 takes the match.
+
+Build order (each step testable in the two-tab harness):
+1. **Mode plumbing.** 'duel' rides the 'start' message like ff does (m.duel). startCoop
+   sets g.duelMode; newRun in duel mode generates a single arena room (new room type
+   'arena': big open rect, no doors, no chests, no monsters, torches for looks).
+2. **Mirrored loadouts.** The host's seed rolls ONE weapon+armor kit; both clients
+   equip identical copies (seeded roll = same result, or the host ships the kit in
+   the start message: `kit: {w: <weapon obj>, a: <armor obj>}` - shipping it is
+   simpler and rejoin-safe). Classes stay as picked (class variety is the fun);
+   levels/meta bonuses reset to baseline for the match: new Player with meta null.
+3. **Menu-invulnerability carve-out (the mandatory exploit fix).** In duel mode the
+   'phit' handler applies damage even when the victim is on a menu, EXCEPT during
+   the between-rounds banner. Simplest rule: g.duelMode disables pause/charsheet
+   freezing entirely (opening menus doesn't stop the sim for you).
+4. **Round lifecycle.** Reuse downed as round-loss: when a player goes downed in
+   duel mode, do NOT allow revive; host announces {t:'round', winner, score} (sendR);
+   both clients show the banner, reset positions to opposite arena corners, restore
+   full hp, 3-2-1-FIGHT countdown (inputs locked), next round. First to 3: reuse the
+   score-snap flow with a DUEL CHAMPION banner instead of the eulogy.
+5. **Scoring/stats.** Track duel W-L per name in localStorage next to high scores;
+   a simple lifetime "duel record" line on the title screen feeds the sibling-rivalry
+   loop (research: bragging surfaces carry family PVP).
+
+Known traps from the research + code inventory to respect:
+- Ties: each client owns its own hp, so simultaneous downs can disagree. The HOST's
+  view of round outcome is authoritative (single announcer via sendR), even though
+  hits stay attacker-resolved.
+- Keep monsters/hazards OUT of the arena (host-owned objects judge the guest against
+  its 66ms-stale ghost - unfair in a duel; fine to revisit in Phase 3).
+- Rounds must reset cooldowns/ult charge or the loser compounds (comeback-friendly).
+- The swarm/objective variants (king-of-the-shrine) are Phase 2 upgrades, not v1.
