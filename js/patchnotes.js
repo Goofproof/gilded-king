@@ -26,7 +26,13 @@ const PatchNotes = (() => {
       v: 'v2.90', title: 'Co-op: your kills count for YOU, mimics wake for everyone, steadier connections', date: '2026-07-15',
       sha: '87b7328',
       items: [
-        'Phase B co-op review fixes: kill credit routed to the killer (#213), mimic wake host-gated + broadcast (#214), trap wave deferred spawn (#215), alarm + floor stamps on sync messages (#216), play-again dual-press tie-break (#217), presence-based door plate count (#218), socket keepalive (#219).',
+        'Your kills belong to YOU now. Before this, when the second player landed the killing blow, the HOST got the kill count, the life-steal, the speed boost, the achievement progress and the bonus gold chance. Now whoever actually got the kill gets all of it: kill streaks, Vampiric healing, Momentum speed, Soul Feast, quest progress, everything. Gold drops even check the killer\'s own Looting enchant.',
+        'Mimics are a shared surprise now. When one player opens a chest with teeth, the chest snaps open on BOTH screens and the mimic is real for both of you. Before, only the player who opened it saw the monster, and the game quietly deleted their reward a second later. Same fix for trap rooms: the ambush always springs, even if your teammate opened the chest while you were rooms away.',
+        'The alarm level (the thing that makes floors angrier and loot richer) finally syncs to the second player. Both of you now see the same danger and get the same loot bonuses.',
+        'Fixed a rare mix-up where messages from the PREVIOUS floor could mess with the floor you just arrived on. Every sync message is now stamped with its floor and old ones get thrown away.',
+        'Fixed the standoff where both players pressed PLAY AGAIN at the same moment and the game froze with each waiting for the other. Now the game instantly picks one of you to lead and you both drop into the same fresh run.',
+        'Door pressure plates now count the players who are actually still playing. A teammate who retired to the menu no longer seals you behind a two-player door alone.',
+        'The connection now sends a tiny heartbeat every few seconds. If the line goes quiet (flaky WiFi, sleeping laptop), the game notices in seconds instead of waiting around, hangs up and reconnects on its own.',
       ],
     },
     {
