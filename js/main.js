@@ -883,6 +883,19 @@
         }
       }
     }
+    // #230 DK R12: anything the MIASMA's poison kills rises as the death knight's
+    // skeleton for 30 seconds - a rolling wave of the recently dead (cap 6)
+    if (m._dkRise && p.class && p.class.id === 'deathknight' && !m.isBoss) {
+      const dkCount = g.mercs.filter(x => x.dkTemp && !x.dead).length;
+      if (dkCount < 6) {
+        const sk = makeMercFollower({ cls: 'blade' }, g.floorNum);
+        sk.bone = true; sk.dkTemp = true; sk.life = 30; sk.color = '#9fb8a0';
+        sk.x = m.x; sk.y = m.y;
+        g.mercs.push(sk);
+        Fx.text(m.x, m.y - 20, 'RISE', '#7aa06a', 12);
+        Fx.burst(m.x, m.y, ['#7aa06a', '#9fb8a0'], 12, { speed: 120, life: 0.5, glow: true });
+      }
+    }
     // (#213 undead heal, hunt counter and Ach.kill moved into killerPerks above)
     // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
     let alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
@@ -2131,6 +2144,14 @@
       if (a.refundRoll) p.rollCd = 0;
       Fx.shake(4, 0.15);
     } else if (a.kind === 'buff') {
+      // #230 paladin: R8 the cast CLEANSES; R12 overhealing grants a bonus shield
+      if (_qGates && _qGates.cls === 'paladin') {
+        if (_qGates.rank >= 8) { p.bleed = null; p.slowT = 0; p.slowMul = 1; p.blindT = 0; Fx.text(p.x, p.y - 46, 'CLEANSED', '#ffe08a', 12); }
+        if (_qGates.rank >= 12 && a.heal && p.hp + p.maxHp * a.heal > p.maxHp) {
+          _qGates.oh = 1; // consumed by the castShield line below, AFTER the base charges
+          Fx.text(p.x, p.y - 60, 'OVERHEAL SHIELD', '#ffe08a', 11);
+        }
+      }
       if (a.heal) p.heal(p.maxHp * a.heal);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 26, { speed: 170, life: 0.7, glow: true });
     } else if (a.kind === 'meteor') {
@@ -2181,12 +2202,25 @@
       p.heal(p.maxHp * (a.heal || 0.4));
       const R = a.radius || 240;
       for (const merc of g.mercs) { if (!merc.dead && Math.hypot(merc.x - p.x, merc.y - p.y) < R) merc.hp = Math.min(merc.maxHp, merc.hp + merc.maxHp * (a.heal || 0.4)); }
+      // #230 cleric milestones: R4 heals also CURE (bleed/slow); R8 consecrates the
+      // ground (a 4s regen circle, mirrored to teammates who heal their OWN champion
+      // standing in it); R12 everyone healed gains a shield charge.
+      if (_qGates && _qGates.cls === 'cleric') {
+        if (_qGates.rank >= 4) { p.bleed = null; p.slowT = 0; p.slowMul = 1; }
+        if (_qGates.rank >= 8) {
+          g.ultFx.push({ type: 'qregen', x: p.x, y: p.y, t: 0, dur: 4, radius: 140, hps: Math.round(p.maxHp * 0.02) });
+          if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'qzone', x: Math.round(p.x), y: Math.round(p.y), dur: 4, radius: 140, fl: g.floorNum });
+        }
+        if (_qGates.rank >= 12) p.buffs.shield = Math.max(p.buffs.shield || 0, 1);
+      }
       // #197 (Sam, live playtest) Mend finally heals TEAMMATES in range too. Their client
       // owns their hp, so we send the heal and they apply it (mirror of the 'phit' flow).
       if (g.coop && typeof Net !== 'undefined' && Net.connected) {
         for (const [id, rp] of g.remotePlayers) {
           if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
-          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.sendR({ t: 'pheal', to: id, frac: a.heal || 0.4 });
+          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.sendR({ t: 'pheal', to: id, frac: a.heal || 0.4,
+            cl: (_qGates && _qGates.cls === 'cleric' && _qGates.rank >= 4) ? 1 : 0,
+            sh: (_qGates && _qGates.cls === 'cleric' && _qGates.rank >= 12) ? 1 : 0 });
         }
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#9effc0'], 30, { speed: 180, life: 0.7, glow: true });
@@ -2282,6 +2316,47 @@
       Fx.text(p.x, p.y - 32, label, col, 14);
       if (p.form && p.form.note) Fx.text(p.x, p.y - 16, p.form.note, col, 9);
       Fx.burst(p.x, p.y, [col, '#fff', '#7fd47f'], 22, { speed: 170, life: 0.5, glow: true });
+      // #230 druid milestones: R4 shifting heals 5%; R8 each form gains a MOVE (on a
+      // 6s internal gate); R12 PRIMAL MASTERY - EVERY shift fires the move for free.
+      if (_qGates && p.form) {
+        if (_qGates.rank >= 4) p.heal(p.maxHp * 0.05);
+        const moveOk = _qGates.rank >= 12 || (_qGates.rank >= 8 && g.time - (a._moveT === undefined ? -99 : a._moveT) > 6);
+        if (_qGates.rank >= 8 && moveOk) {
+          a._moveT = g.time;
+          const fid = p.form.id;
+          if (fid === 'bear') {          // ROAR: everything close flinches
+            for (const m of g.monsters) { if (!m.dead && !m.isBoss && Math.hypot(m.x - p.x, m.y - p.y) < 180 + m.r) m.stagger = Math.max(m.stagger || 0, 0.8); }
+            Fx.text(p.x, p.y - 46, 'ROAR', '#a8763f', 13); Fx.shake(5, 0.2); Sfx.play('roar');
+          } else if (fid === 'wolf') {   // POUNCE: a short lunge that rakes what it crosses
+            const ang = p.facing, d0 = 120;
+            const tx = Math.max(PF.x + p.r, Math.min(PF.x + PF.w - p.r, p.x + Math.cos(ang) * d0));
+            const ty = Math.max(PF.y + p.r, Math.min(PF.y + PF.h - p.r, p.y + Math.sin(ang) * d0));
+            const dx2 = tx - p.x, dy2 = ty - p.y, len2 = dx2 * dx2 + dy2 * dy2 || 1;
+            for (const m of g.monsters) {
+              if (m.dead || m.airborne || m.spawnT > 0) continue;
+              const t2 = Math.max(0, Math.min(1, ((m.x - p.x) * dx2 + (m.y - p.y) * dy2) / len2));
+              if (Math.hypot(m.x - (p.x + dx2 * t2), m.y - (p.y + dy2 * t2)) < m.r + p.r + 6) m.takeHit(Math.round(14 * (p.stats.dmgMul || 1)), { sx: p.x, sy: p.y, knock: 90, fromPlayer: true, hitSfx: 'hitLight' }, g);
+            }
+            p.x = tx; p.y = ty;
+            Fx.text(p.x, p.y - 40, 'POUNCE', '#c8d0de', 12);
+          } else if (fid === 'owlbear') { // WING BUFFET: a violent gust
+            for (const m of g.monsters) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - p.x, m.y - p.y) < 120 + m.r) m.takeHit(Math.round(10 * (p.stats.dmgMul || 1)), { sx: p.x, sy: p.y, knock: 320, fromPlayer: true, hitSfx: 'hitLight' }, g); }
+            Fx.text(p.x, p.y - 46, 'WING BUFFET', '#c9a86a', 12); Fx.shake(4, 0.15);
+          }
+        }
+      }
+
+    } else if (a.kind === 'miasma') {
+      // #230 DEATH KNIGHT: MIASMA. A cloud of rot - poison DoT (with the %/s rider)
+      // and WITHER: everything inside deals 20% less damage. R4 it follows you,
+      // R8 the rot feeds you, R12 what the poison kills rises for you.
+      const rk = _qGates ? _qGates.rank : 0;
+      g.ultFx.push({ type: 'miasma', x: p.x, y: p.y, t: 0, dur: a.dur || 8, radius: a.radius || 180,
+        dps: (a.dps || 25) * (p.stats.dmgMul || 1), rider: a.qRider || 0,
+        follow: rk >= 4, regen: rk >= 8, rise: rk >= 12 });
+      Fx.text(p.x, p.y - 32, rk >= 4 ? 'THE BLACK WIND' : 'MIASMA', a.color, 14);
+      Fx.burst(p.x, p.y, ['#7aa06a', '#4a6a3a', '#2a3a24'], 30, { speed: 140, life: 0.9 });
+      Sfx.play('burn');
 
     } else if (a.kind === 'undying') {
       // DEATH KNIGHT: LIFE AFTER DEATH. Arm the rune - the next killing blow leaves you
@@ -2383,7 +2458,7 @@
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
     // #227 warrior R4 (and later paladin R4): the holy/steel shield holds 2 charges
-    if (a.castShield) p.buffs.shield = Math.max(p.buffs.shield || 0, (_qGates && (_qGates.cls === 'warrior' || _qGates.cls === 'paladin') && _qGates.rank >= 4) ? 2 : 1);
+    if (a.castShield) p.buffs.shield = Math.max(p.buffs.shield || 0, ((_qGates && (_qGates.cls === 'warrior' || _qGates.cls === 'paladin') && _qGates.rank >= 4) ? 2 : 1) + ((_qGates && _qGates.oh) ? 1 : 0)); // #230 overheal stacks a 3rd charge
     // #227 adventurer milestones: the everyman's rush earns real perks
     if (_qGates && _qGates.cls === '') {
       if (_qGates.rank >= 4) p.rollCd = 0;
@@ -2547,6 +2622,11 @@
     // #156 clones burn down and blow up: on expiry OR on death they detonate. Done first
     // so a clone that died to a hit this frame still pays out its blast.
     for (const merc of g.mercs) {
+      // #230 the DK's plague-born skeletons crumble after their 30 seconds
+      if (merc.dkTemp && !merc.dead && merc.life !== undefined) {
+        merc.life -= dt;
+        if (merc.life <= 0) { merc.dead = true; Fx.burst(merc.x, merc.y, ['#9fb8a0', '#4a5a4a'], 10, { speed: 90, life: 0.5 }); }
+      }
       if (!merc.clone) continue;
       if (!merc.dead && merc.life !== undefined) {
         merc.life -= dt;
@@ -3622,8 +3702,17 @@
     Net.on('pheal', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
       g.player.heal(g.player.maxHp * Math.max(0, Math.min(1, +m.frac || 0.4)));
+      if (m.cl) { g.player.bleed = null; g.player.slowT = 0; g.player.slowMul = 1; } // #230 cleric R4 cure
+      if (m.sh) g.player.buffs.shield = Math.max(g.player.buffs.shield || 0, 1);    // #230 cleric R12 shield
       Fx.burst(g.player.x, g.player.y, ['#9effc0', '#fff'], 18, { speed: 140, life: 0.5, glow: true });
       Fx.text(g.player.x, g.player.y - 30, 'MENDED', '#9effc0', 13);
+    });
+    // #230 a cleric teammate consecrated ground: the same circle appears on YOUR
+    // screen and heals YOUR champion standing in it (each client owns its own hp)
+    Net.on('qzone', m => {
+      if (!g.coop || !g.player) return;
+      if (m.fl !== undefined && m.fl !== g.floorNum) return;
+      g.ultFx.push({ type: 'qregen', x: +m.x || 0, y: +m.y || 0, t: 0, dur: Math.min(8, +m.dur || 4), radius: Math.min(300, +m.radius || 140), hps: Math.round(g.player.maxHp * 0.02) });
     });
     // #198 a teammate haggled: same 50/50 outcome lands on YOUR copy of that shop too
     Net.on('haggle', m => {
@@ -5394,10 +5483,40 @@
   // ULTIMATE room-effects (meteor / lightning storm / poison cloud / caltrops)
   function updateUltFx(dt) {
     if (g.midasT > 0) g.midasT -= dt;
+    // #230 WITHER wears off: restore a monster's strength when it leaves the miasma
+    for (const m of g.monsters) {
+      if (m._wT > 0) { m._wT -= dt; if (m._wT <= 0 && m._wBase) { m.dmg = m._wBase; m._wBase = null; } }
+    }
     if (g.ultFlash && g.ultFlash.t > 0) g.ultFlash.t -= dt; // #10 fade the ult-cast flash
     for (let i = g.ultFx.length - 1; i >= 0; i--) {
       const e = g.ultFx[i];
       e.t += dt;
+      if (e.type === 'qregen') {         // #230 cleric R8: consecrated ground
+        if (e.t >= e.dur) { g.ultFx.splice(i, 1); continue; }
+        const p2 = g.player;
+        if (p2 && !p2.dead && Math.hypot(p2.x - e.x, p2.y - e.y) < e.radius) p2.heal((e.hps || 2) * dt, true);
+        continue;
+      }
+      if (e.type === 'miasma') {         // #230 death knight: the rot cloud
+        if (e.follow) { e.x = g.player.x; e.y = g.player.y; }
+        if (e.t >= e.dur) { g.ultFx.splice(i, 1); continue; }
+        if (Math.floor(e.t / 0.5) !== Math.floor((e.t - dt) / 0.5)) {
+          for (const m of g.monsters) {
+            if (m.dead || m.spawnT > 0) continue;
+            if (Math.hypot(m.x - e.x, m.y - e.y) > e.radius + m.r) continue;
+            m.poison = { t: 1.4, dps: e.dps + (e.rider ? m.maxHp * e.rider * (m.isBoss ? 1 / 3 : 1) : 0), tick: m.poison ? m.poison.tick : 0 };
+            if (e.rise) m._dkRise = 1;   // a poison death rises for the DK (onKill)
+            if (!m._wBase) { m._wBase = m.dmg; m.dmg = Math.max(1, Math.round(m.dmg * 0.8)); } // WITHER
+            m._wT = 0.8;
+          }
+        }
+        if (e.regen) { // R8: the rot feeds you while anything is withering in it
+          let rotting = 0;
+          for (const m of g.monsters) if (!m.dead && m._wT > 0) rotting++;
+          if (rotting > 0 && g.player && !g.player.dead) g.player.heal(3 * dt, true);
+        }
+        continue;
+      }
       if (e.type === 'qslow') {          // #229 mage R4: a lingering slow field
         if (e.t < e.dur) {
           for (const m of g.monsters) { if (m.dead) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) { m.chillT = Math.max(m.chillT || 0, 0.3); m.chillMul = 0.45; } }
@@ -5491,6 +5610,17 @@
     }
   }
   function drawUltFx(c) {
+    // #229/#230 the rank-milestone ZONES: translucent breathing circles
+    for (const e of g.ultFx) {
+      if (e.type === 'qslow' || e.type === 'qregen' || e.type === 'miasma') {
+        c.save();
+        c.globalAlpha = 0.14 + 0.05 * Math.sin((e.t || 0) * 5);
+        c.fillStyle = e.type === 'miasma' ? '#5a7a4a' : (e.type === 'qregen' ? '#8effc0' : '#b06bff');
+        c.beginPath(); c.arc(e.x, e.y, e.radius || 100, 0, Math.PI * 2); c.fill();
+        c.globalAlpha = 0.45; c.strokeStyle = c.fillStyle; c.lineWidth = 2; c.stroke();
+        c.restore();
+      }
+    }
     for (const e of g.ultFx) {
       if (e.type === 'meteor') {
         if (e.boom !== undefined) {

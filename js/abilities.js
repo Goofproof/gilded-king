@@ -149,9 +149,12 @@ const Abilities = (() => {
     mesmer:      { name: 'Mirror Image',  color: '#c78bff', kind: 'clones', clones: 3, dur: 8, cdMax: 11, dmg: 70, radius: 130,
                    desc: 'Split into three copies - enemies chase them instead of you, and each one detonates when it dies' },
     druid:       { name: 'Shapeshift',    color: '#7fd47f', kind: 'shift', cdMax: 1.2,
-                   desc: 'Cycle Bear (tanky, slow, huge hits), Wolf (fast, frail, bleeds) and Owl (flies, weak, untouchable)' },
-    deathknight: { name: 'Unholy Rune',   color: '#8fd6d0', kind: 'undying', dur: 12, cdMax: 18, dmg: 150, radius: 240,
-                   desc: 'LIFE AFTER DEATH - the next killing blow leaves you at 1 HP instead, and the room pays for it' },
+                   desc: 'Cycle Bear (tank), Wolf (fast, bleeds) and OWLBEAR (arcane bruiser - swipes grow with ARCANE)' },
+    // #230 (Q-DESIGN, Sam) Unholy Rune retired: a cheat-death only pays off when you
+    // were about to lose, so it could never be used SKILLFULLY. The death knight's Q
+    // is now MIASMA - a plague that lands the moment you press it.
+    deathknight: { name: 'Miasma',        color: '#7aa06a', kind: 'miasma', dur: 8, radius: 180, dps: 25, cdMax: 14,
+                   desc: 'Exhale a cloud of rot - everything inside WITHERS (deals 20% less damage) and decays' },
     necromancer: { name: 'Raise Dead',    color: '#9ae6a0', kind: 'raise', cdMax: 10,
                    desc: 'Raise a skeletal knight. The grave gives more as you level: two knights, then three knights and two archers' },
     pyromancer:  { name: 'Immolate',      color: '#ff8a3d', kind: 'immolate', dps: 60, dur: 6, cdMax: 14, dmg: 90,
@@ -206,7 +209,7 @@ const Abilities = (() => {
     paladin:     { rider: 0,    perPoint: { heal: 0.01 } },
     cleric:      { rider: 0,    perPoint: { heal: 0.01, radius: 6 } },
     druid:       { rider: 0,    perPoint: {} },          // forms rework in the VIGOR wave
-    deathknight: { rider: 0.10, perPoint: { dur: 0.25 } }, // Miasma replaces this kit in the VIGOR wave
+    deathknight: { rider: 0.02, perPoint: { dps: 3 } }, // #230 Miasma: rider is rot %/s, points feed the poison
   };
 
   function qRank(classId, statPoints) {
@@ -228,10 +231,10 @@ const Abilities = (() => {
     mesmer:      [{ at: 4, txt: 'FOUR clones', impl: true }, { at: 8, txt: 'Clones echo your attacks', impl: true }, { at: 12, txt: 'Recast to swap with a clone', impl: true }],
     necromancer: [{ at: 4, txt: 'Two knights', impl: true }, { at: 8, txt: '3 knights + 2 archers', impl: true }, { at: 12, txt: 'A BONE GOLEM joins', impl: true }],
     pyromancer:  [{ at: 4, txt: 'Bigger spread from the dying', impl: true }, { at: 8, txt: 'Fire immunity while it burns', impl: true }, { at: 12, txt: 'Burning enemies EXPLODE on death', impl: true }],
-    paladin:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: false }, { at: 8, txt: 'Cast cleanses burns/bleeds/slows', impl: false }, { at: 12, txt: 'Overheal becomes armor', impl: false }],
-    cleric:      [{ at: 4, txt: 'Heals cure poison and bleed', impl: false }, { at: 8, txt: 'Leaves a consecrated regen circle', impl: false }, { at: 12, txt: 'Healed allies gain a shield', impl: false }],
-    druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: false }, { at: 8, txt: 'Each form gains a MOVE', impl: false }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: false }],
-    deathknight: [{ at: 4, txt: 'THE BLACK WIND: it follows you', impl: false }, { at: 8, txt: 'Regenerate while enemies rot', impl: false }, { at: 12, txt: 'Poison kills RISE as your skeletons', impl: false }],
+    paladin:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: true }, { at: 8, txt: 'Cast cleanses bleeds and slows', impl: true }, { at: 12, txt: 'Overheal grants a bonus shield', impl: true }],
+    cleric:      [{ at: 4, txt: 'Heals cure poison and bleed', impl: true }, { at: 8, txt: 'Leaves a consecrated regen circle', impl: true }, { at: 12, txt: 'Healed allies gain a shield', impl: true }],
+    druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: true }, { at: 8, txt: 'Each form gains a MOVE', impl: true }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: true }],
+    deathknight: [{ at: 4, txt: 'THE BLACK WIND: it follows you', impl: true }, { at: 8, txt: 'Regenerate while enemies rot', impl: true }, { at: 12, txt: 'Poison kills RISE as your skeletons', impl: true }],
   };
 
   function classAbility(classId) {

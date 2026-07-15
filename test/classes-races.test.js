@@ -26,7 +26,7 @@ describe('#156 the five new classes', () => {
 
   it('each has a working Q ability with its own kind', () => {
     const kinds = {
-      mesmer: 'clones', druid: 'shift', deathknight: 'undying',
+      mesmer: 'clones', druid: 'shift', deathknight: 'miasma', // #230 Unholy Rune retired for Miasma (Q-DESIGN, Sam)
       necromancer: 'raise', pyromancer: 'immolate',
     };
     for (const id of NEW_CLASSES) {
@@ -93,13 +93,14 @@ describe('#156 the five new classes', () => {
     expect(bear.reduce, 'the hide must be SIGNIFICANT, not a token 5%').toBeGreaterThanOrEqual(0.30);
   });
 
-  it('#158 the druid has two forms and every one has a real drawback', () => {
+  it('#230 the druid has THREE forms and every one has a real drawback', () => {
     const F = PlayerDef.FORMS;
-    expect(F.length).toBe(2);
+    expect(F.length).toBe(3); // bear, wolf, and the OWLBEAR (Q-DESIGN, Sam)
     for (const f of F) {
-      // "unique strengths AND weaknesses" - a form that is good at everything is a bug
+      // "unique strengths AND weaknesses" - a form that is good at everything is a bug.
+      // A scale above 1 is a REAL cost: #157 makes the drawn size the hitbox.
       const strong = f.dmgMul > 1 || f.spdMul > 1 || f.reduce > 0;
-      const weak = f.dmgMul < 1 || f.spdMul < 1 || f.reduce < 0;
+      const weak = f.dmgMul < 1 || f.spdMul < 1 || f.reduce < 0 || f.scale > 1;
       expect(strong, `${f.id} has no strength`).toBe(true);
       expect(weak, `${f.id} is a strict upgrade - it needs a real cost`).toBe(true);
     }

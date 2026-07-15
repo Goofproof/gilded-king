@@ -101,8 +101,14 @@ const PlayerDef = (() => {
     { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.25, spdMul: 1.32, reduce: -0.12, bleed: true,
       body: '#98a2b3', cloak: '#5a6172', accent: '#e8f0ff', scale: 0.92, tag: 'WOLF',
       note: 'Fast, lean and bleeding fangs, but every hit hurts you more.' },
-    // #158 (Sam) OWL removed - it was just a slower, weaker Wolf. Bear (tank) and Wolf
-    // (glass-cannon melee) are two clean opposite forms; shift to suit the room.
+    // #158 (Sam) OWL removed - it was just a slower, weaker Wolf.
+    // #230 (Q-DESIGN, Sam) THE OWLBEAR takes the third slot: the ARCANE form. A
+    // hulking feathered beast whose swipes are magic - its damage feeds on the
+    // druid's ARCANE points (computeDmg), bridging druid into caster builds. It
+    // trades the old owl's evasion for magical muscle.
+    { id: 'owlbear', name: 'Owlbear Form', color: '#c9a86a', dmgMul: 1.1, spdMul: 1.0, reduce: 0.12, arcaneFed: true,
+      body: '#8a744a', cloak: '#5d4c2a', accent: '#ffe9b0', scale: 1.15, tag: 'OWLBEAR',
+      note: 'Feathers, claws and arcane muscle - swipes grow with ARCANE.' },
   ];
   const formById = id => FORMS.find(f => f.id === id) || null;
 
@@ -116,7 +122,22 @@ const PlayerDef = (() => {
   // #157 the animal head, at the head origin, head radius r. Replaces the druid's antlers
   // while shifted - you are wearing the beast, not a circlet.
   function drawFormHead(c, id, r) {
-    if (id === 'bear') {
+    if (id === 'owlbear') {
+      // #230 the owlbear: feather tufts high like horns, huge round amber eyes, a beak
+      c.fillStyle = '#5d4c2a';                                   // tufts
+      c.beginPath(); c.moveTo(-r * 0.85, -r * 0.5); c.lineTo(-r * 0.55, -r * 1.15); c.lineTo(-r * 0.25, -r * 0.6); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r * 0.85, -r * 0.5); c.lineTo(r * 0.55, -r * 1.15); c.lineTo(r * 0.25, -r * 0.6); c.closePath(); c.fill();
+      c.fillStyle = '#8a744a';                                   // feathered brow
+      c.beginPath(); c.ellipse(0, -r * 0.35, r * 0.8, r * 0.45, 0, Math.PI, 0); c.fill();
+      c.fillStyle = '#ffcf5a';                                   // the eyes: huge, amber, unblinking
+      c.beginPath(); c.arc(-r * 0.34, -r * 0.28, r * 0.26, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.34, -r * 0.28, r * 0.26, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#140c05';
+      c.beginPath(); c.arc(-r * 0.34, -r * 0.28, r * 0.11, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(r * 0.34, -r * 0.28, r * 0.11, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#c9a227';                                   // the beak
+      c.beginPath(); c.moveTo(-r * 0.16, 0); c.lineTo(r * 0.16, 0); c.lineTo(0, r * 0.42); c.closePath(); c.fill();
+    } else if (id === 'bear') {
       c.fillStyle = '#5d3a19';                                  // two round ears, high and wide
       c.beginPath(); c.arc(-r * 0.72, -r * 0.72, r * 0.36, 0, Math.PI * 2); c.fill();
       c.beginPath(); c.arc(r * 0.72, -r * 0.72, r * 0.36, 0, Math.PI * 2); c.fill();
@@ -942,7 +963,13 @@ const PlayerDef = (() => {
     // one damage formula for every player attack: melee and arrows both route here
     computeDmg(base, target, g) {
       let dmg = base * this.stats.dmgMul * (1 + this.mod('dmg'));
-      if (this.form) dmg *= this.form.dmgMul;   // #156 druid form
+      if (this.form) {
+        // #230 forms get statier with VIGOR (the druid's per-point channel), and the
+        // OWLBEAR's swipes additionally feed on ARCANE - it is the mage-based form.
+        const vig = (this.statPoints && this.statPoints.VIGOR) || 0;
+        dmg *= this.form.dmgMul * (1 + 0.02 * vig);
+        if (this.form.arcaneFed) dmg *= 1 + 0.05 * ((this.statPoints && this.statPoints.ARCANE) || 0);
+      }
       if (this.buffs.rageT > 0) dmg *= 1.35;
       if (this.mod('lowHpRage') && this.hp <= this.maxHp * 0.35) dmg *= 1 + this.mod('lowHpRage');
       if (target) {
