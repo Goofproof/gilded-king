@@ -77,6 +77,7 @@ const Rules = (() => {
       // becomes the room's threat, which flips how you fight it.
       player(p, dt, g) {
         if (!g.room || !g.room.obstacles) return;
+        if (p.fireImmuneT > 0) return; // #229 pyromancer R8: fireproof while Immolate burns
         p._pyreCd = Math.max(0, (p._pyreCd || 0) - dt);
         if (p._pyreCd > 0) return;
         for (const o of g.room.obstacles) {
@@ -201,6 +202,7 @@ const Rules = (() => {
                   || p.y < PF.y + M || p.y > PF.y + PF.h - M;
         p._fireCd = Math.max(0, (p._fireCd || 0) - dt);
         if (!near) return;
+        if (p.fireImmuneT > 0) return; // #229 pyromancer R8: the burning margin spares you
         if (p._fireCd > 0) return;
         p._fireCd = 0.7;
         p.damage(5, p.x, p.y, g);

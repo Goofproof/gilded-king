@@ -379,7 +379,7 @@
     // reset Descent state
     g.mercs = [];
     g.turrets = [];
-    g.summon = null;
+    g.summon = null; g.summon2 = null; // #229
     g.kingSlain = false;
     g.circleBossSeen = 0;
     g.descentPortal = null;
@@ -559,6 +559,7 @@
     // summoner's NEW side (must run AFTER the player is placed at the door, or it
     // gets stranded at the previous room's exit)
     if (g.summon && !g.summon.dead) { g.summon.x = p.x - 26; g.summon.y = p.y + 18; }
+    if (g.summon2 && !g.summon2.dead) { g.summon2.x = p.x + 26; g.summon2.y = p.y + 18; } // #229
 
     if (room.type === 'boss' && !room.cleared) {
       g.state = 'bossintro';
@@ -863,12 +864,22 @@
     // #156 PYROMANCER: the fire spreads from the dying to the living. A monster that
     // dies while burning lights everything near it - a room can chain itself down.
     if (g.pyroSpread && g.pyroSpread.t > 0 && m.burn) {
-      const R = 120;
+      const R = 120 * (g.pyroSpread.rm || 1); // #229 R4: the fire leaps farther from the dying
       for (const o of g.monsters) {
         if (o.dead || o === m || o.burn) continue;
         if (Math.hypot(o.x - m.x, o.y - m.y) < R) {
           o.burn = { t: g.pyroSpread.dur, tick: 0, dps: g.pyroSpread.dps };
           Fx.burst(o.x, o.y, ['#ff8a3d', '#ffd24c'], 10, { speed: 120, life: 0.4, glow: true });
+        }
+      }
+      // #229 R12: a burning death is an EXPLOSION - self-scaling (15% of the dead
+      // monster's max HP) so the chain reaction works at every depth
+      if (g.pyroSpread.boom) {
+        Fx.burst(m.x, m.y, ['#ff5a2c', '#ffcc44', '#fff'], 26, { speed: 260, life: 0.5, glow: true });
+        Fx.shake(3, 0.12); Sfx.play('explode');
+        for (const o of g.monsters) {
+          if (o.dead || o === m || o.airborne || o.spawnT > 0) continue;
+          if (Math.hypot(o.x - m.x, o.y - m.y) < 90 + o.r) o.takeHit(Math.max(6, Math.round(m.maxHp * 0.15)), { sx: m.x, sy: m.y, knock: 130, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
         }
       }
     }
@@ -1994,7 +2005,10 @@
     // #78/#92 Summoner: while the elemental is alive Q no longer errors - once it's
     // been out a moment, Q EMPOWERS the current elemental (earth=stone shield,
     // fire=nova, lightning=chain storm, poison=toxic cloud) on its own cooldown.
-    if (a.kind === 'summon' && g.summon && !g.summon.dead) {
+    // #229 summoner R8: TWO elementals - if the first lives and the second slot is
+    // open, Q summons the second instead of empowering
+    const _sumRank = (a.kind === 'summon' && a.classQ && typeof Abilities !== 'undefined' && Abilities.qRank) ? Abilities.qRank('summoner', p.statPoints) : 0;
+    if (a.kind === 'summon' && g.summon && !g.summon.dead && !(_sumRank >= 8 && (!g.summon2 || g.summon2.dead))) {
       const s = g.summon;
       if ((s.empowerCd || 0) > 0) { g.shopMsg = { text: `Empower charging (${Math.ceil(s.empowerCd)}s)`, t: 1.2 }; Sfx.play('error'); return; }
       empowerSummon(s, p);
@@ -2061,7 +2075,13 @@
         // #227 warrior R12 WALL SLAM: shoved into a wall within the window = hit again
         if (_qGates && _qGates.cls === 'warrior' && _qGates.rank >= 12) m._slam = { dmg: Math.round(hitDmg), t: 0.6 };
         m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        if (_qGates && _qGates.cls === 'mage' && _qGates.rank >= 12 && !m.dead) { m.chillT = Math.max(m.chillT || 0, 2.5); m.chillMul = 0.5; } // #229 R12: everything hit is CHILLED
         if (m.dead) qKills++;
+      }
+      // #229 mage: R4 the nova leaves a 2s SLOW FIELD; R8 a second, smaller pulse
+      if (_qGates && _qGates.cls === 'mage') {
+        if (_qGates.rank >= 4) g.ultFx.push({ type: 'qslow', x: p.x, y: p.y, t: 0, dur: 2, radius: R, color: a.color });
+        if (_qGates.rank >= 8) g.ultFx.push({ type: 'qpulse', x: p.x, y: p.y, t: 0, delay: 0.5, dmg: Math.round(dmg * 0.5), radius: Math.round(R * 0.75), rider: (a.qRider || 0) * 0.5, color: a.color });
       }
       // #228 rogue: R4 a kill RESETS the cooldown (chain executions); R12 kills grant Vanish
       if (_qGates && _qGates.cls === 'rogue' && qKills > 0) {
@@ -2191,7 +2211,12 @@
       const elem = elementFromWeapon(p);
       const arc = (p.statPoints && p.statPoints.ARCANE) || 0;
       const scale = 1 + 0.12 * arc + 0.06 * Math.max(0, g.floorNum - 1) + 0.05 * (p.level - 1); // #109 also grows with level
-      g.summon = makeElemental(elem, p.x - 24, p.y + 16, scale);
+      // #229 fill the open slot (second elemental homes to your other side)
+      const mk = makeElemental(elem, p.x - 24, p.y + 16, scale);
+      mk.aura = _sumRank >= 4;      // R4: its element radiates
+      mk.explode = _sumRank >= 12;  // R12: a parting gift on death
+      if (g.summon && !g.summon.dead && _sumRank >= 8) { mk.hdx = 26; g.summon2 = mk; }
+      else { mk.hdx = -26; g.summon = mk; }
       Fx.text(p.x, p.y - 30, elem.toUpperCase() + ' ELEMENTAL', a.color, 12);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 22, { speed: 160, life: 0.5, glow: true });
 
@@ -2201,7 +2226,25 @@
       // targeting in updateMonsters), and when one dies it detonates. Built on the merc
       // follower so they already move, get hit, and get targeted; the clone flag gives
       // them a lifespan and the death blast.
-      const n = a.clones || 3;
+      // #229 R12: recasting with clones alive SWAPS you with the farthest one - a
+      // planned blink - on a 1s micro-cooldown instead of a resummon.
+      if (_qGates && _qGates.rank >= 12) {
+        const live = g.mercs.filter(m => m.clone && !m.dead);
+        if (live.length) {
+          let far = live[0], fd = -1;
+          for (const c2 of live) { const d = Math.hypot(c2.x - p.x, c2.y - p.y); if (d > fd) { fd = d; far = c2; } }
+          const ox = p.x, oy = p.y;
+          p.x = far.x; p.y = far.y; far.x = ox; far.y = oy;
+          Fx.burst(p.x, p.y, ['#c78bff', '#fff'], 16, { speed: 180, life: 0.4, glow: true });
+          Fx.burst(far.x, far.y, ['#c78bff', '#fff'], 16, { speed: 180, life: 0.4, glow: true });
+          Sfx.play('ui');
+          a._swapCd = true;
+          if (_qScaled) Object.assign(a, _qScaled);
+          a.cd = 1.0; a._swapCd = false;
+          return; // the swap IS the cast
+        }
+      }
+      const n = (a.clones || 3) + ((_qGates && _qGates.rank >= 4) ? 1 : 0); // #229 R4: FOUR clones
       // #158 (Sam) clones were far too weak - fragile, slow, and barely scratched. They are
       // COPIES OF YOU now: real HP, your move speed, and a real bite scaled to YOUR damage,
       // so they hold aggro AND kill, not just soak a hit and pop.
@@ -2253,7 +2296,10 @@
       //   5-9   two skeletal knights
       //   10+   THREE knights and TWO archers - the final form
       const L = p.level | 0;
-      const tier = L >= 10 ? 3 : L >= 5 ? 2 : 1;
+      // #229 (Q-DESIGN, approved) the army ladder is keyed to ARCANE RANK now, not
+      // level: rank 0-3 one knight, 4-7 two, 8+ the full 3+2, 12+ adds the GOLEM.
+      const rk = _qGates ? _qGates.rank : 0;
+      const tier = rk >= 8 ? 3 : rk >= 4 ? 2 : 1;
       p.undeadTier = tier;
       const knights = tier === 3 ? 3 : tier;
       const archers = tier === 3 ? 2 : 0;
@@ -2274,6 +2320,19 @@
       };
       const total = knights + archers;
       for (let i = 0; i < knights; i++) raise('blade', i, total);
+      // #229 R12: a BONE GOLEM - huge, slow, and monsters can't ignore it (it taunts
+      // by standing in partyTargets like a mesmer clone does)
+      if (rk >= 12) {
+        const gm = makeMercFollower({ cls: 'blade' }, g.floorNum);
+        gm.bone = true; gm.golem = true; gm.color = '#8a9a8a';
+        gm.r = 18; gm.speed = Math.round((gm.speed || 80) * 0.6);
+        gm.dmg = Math.round(gm.dmg * scale * 1.6);
+        gm.maxHp = gm.hp = Math.round(gm.maxHp * scale * 4);
+        gm.x = p.x; gm.y = p.y - 44;
+        g.mercs.push(gm);
+        Fx.text(gm.x, gm.y - 30, 'THE GOLEM RISES', '#9ae6a0', 13);
+        Fx.burst(gm.x, gm.y, ['#9ae6a0', '#e6efe6', '#3a5a40'], 26, { speed: 170, life: 0.7, glow: true });
+      }
       for (let i = 0; i < archers; i++) raise('bow', knights + i, total);
       const label = tier === 3 ? 'THE DEAD RISE - 3 KNIGHTS, 2 ARCHERS'
                   : tier === 2 ? 'TWO SKELETAL KNIGHTS RISE'
@@ -2301,8 +2360,10 @@
           m.burn = { t: dur, tick: 0, dps: dps + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0) };
           lit++;
         }
-        g.pyroSpread = { t: dur + 4, dps, dur };
+        g.pyroSpread = { t: dur + 4, dps, dur, rm: (_qGates && _qGates.rank >= 4) ? 1.6 : 1, boom: !!(_qGates && _qGates.rank >= 12) };
       }
+      // #229 R8: while your inferno burns, Hell's own fire cannot touch you
+      if (_qGates && _qGates.rank >= 8) { p.fireImmuneT = Math.max(p.fireImmuneT || 0, dur); Fx.text(p.x, p.y - 46, 'FIREPROOF', '#ffd24c', 11); }
       Fx.burst(p.x, p.y, ['#ff8a3d', '#ffd24c', '#ff3d1f'], 40, { speed: 240, life: 0.8, glow: true });
       Fx.text(p.x, p.y - 32, lit ? 'EVERYTHING MUST BURN' : 'NOTHING LEFT TO BURN', a.color, 15);
       Fx.shake(10, 0.35);
@@ -2699,8 +2760,21 @@
     s.dead = true;
     Fx.burst(s.x, s.y, [ELEM_COLOR[s.elem], '#fff'], 20, { speed: 160, life: 0.5, glow: true });
     Sfx.play('hitHeavy');
+    // #229 R12: the elemental EXPLODES in its element as it dies
+    if (s.explode) {
+      Fx.burst(s.x, s.y, [ELEM_COLOR[s.elem], '#fff'], 34, { speed: 280, life: 0.6, glow: true });
+      Fx.shake(5, 0.2); Sfx.play('explode');
+      for (const m of g.monsters) {
+        if (m.dead || m.airborne || m.spawnT > 0) continue;
+        if (Math.hypot(m.x - s.x, m.y - s.y) > 130 + m.r) continue;
+        m.takeHit(s.dmg * 4, { sx: s.x, sy: s.y, knock: 180, fromPlayer: true, hitSfx: 'hitHeavy',
+          flame: s.elem === 'fire' ? 2 : 0, venom: s.elem === 'poison' ? 2 : 0, chain: s.elem === 'lightning' ? 1 : 0, chill: s.elem === 'earth' }, g);
+      }
+    }
     const a = g.player.ability;
-    if (a && a.kind === 'summon') a.cd = a.cdMax; // NOW the resummon cooldown begins
+    // #229 with two slots, the resummon cooldown starts when the LAST one falls
+    const anyAlive = (g.summon && !g.summon.dead) || (g.summon2 && !g.summon2.dead);
+    if (a && a.kind === 'summon' && !anyAlive) a.cd = a.cdMax;
   }
   function summonMove(s, tx, ty, dt, mul) {
     const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy) || 1;
@@ -2710,7 +2784,11 @@
     g.projectiles.push(Object.assign({ x: s.x + Math.cos(ang) * 12, y: s.y + Math.sin(ang) * 12, vx: Math.cos(ang) * 520, vy: Math.sin(ang) * 520, r: 4, dmg: s.dmg, from: 'player', color, life: 1.2, arrow: true, hitSet: new Set(), crit: false }, opts || {}));
   }
   function updateSummons(dt) {
-    const s = g.summon; if (!s || s.dead) return;
+    updateOneSummon(g.summon, dt);
+    updateOneSummon(g.summon2, dt); // #229 the second elemental
+  }
+  function updateOneSummon(s, dt) {
+    if (!s || s.dead) return;
     const p = g.player;
     s.t += dt;
     if (s.atkCd > 0) s.atkCd -= dt;
@@ -2725,7 +2803,18 @@
     let target = null, td = 1e9;
     for (const m of g.monsters) { if (m.dead || m.spawnT > 0 || m.airborne) continue; const d = Math.hypot(m.x - s.x, m.y - s.y); if (d < td) { td = d; target = m; } }
     const hasT = target && td < 360;
-    const home = () => summonMove(s, p.x - 26, p.y + 18, dt, 0.9);
+    const home = () => summonMove(s, p.x + (s.hdx || -26), p.y + 18, dt, 0.9);
+    // #229 R4 AURA: the element radiates from the elemental's body (ticked ~2x/s)
+    if (s.aura && Math.floor(s.t / 0.5) !== Math.floor((s.t - dt) / 0.5)) {
+      for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0 || Math.hypot(m.x - s.x, m.y - s.y) > 80 + m.r) continue;
+        if (s.elem === 'fire') m.burn = m.burn || { t: 1.2, tick: 0, dps: Math.round(s.dmg * 0.6) };
+        else if (s.elem === 'earth') { m.chillT = Math.max(m.chillT || 0, 0.6); m.chillMul = 0.55; }
+        else if (s.elem === 'poison') m.poison = m.poison || { t: 1.5, dps: Math.round(s.dmg * 0.6), tick: 0 };
+        else if (s.elem === 'lightning') m.takeHit(Math.max(1, Math.round(s.dmg * 0.25)), { sx: s.x, sy: s.y, fromPlayer: true, hitSfx: 'hitLight' }, g);
+      }
+      Fx.burst(s.x, s.y, [ELEM_COLOR[s.elem]], 3, { speed: 60, life: 0.5, glow: true });
+    }
     if (s.elem === 'earth') {
       if (hasT) { s.facing = Math.atan2(target.y - s.y, target.x - s.x); if (td > s.range) summonMove(s, target.x, target.y, dt); else if (s.atkCd <= 0) { target.takeHit(s.dmg, { sx: s.x, sy: s.y, knock: 120, fromPlayer: true, hitSfx: 'hitHeavy' }, g); s.atkCd = s.atkRate; } }
       else if (Math.hypot(p.x - s.x, p.y - s.y) > 40) home();
@@ -2748,7 +2837,11 @@
     s.y = Math.max(PF.y + 10, Math.min(PF.y + PF.h - 10, s.y));
   }
   function drawSummon(c) {
-    const s = g.summon; if (!s || s.dead) return;
+    drawOneSummon(c, g.summon);
+    drawOneSummon(c, g.summon2); // #229
+  }
+  function drawOneSummon(c, s) {
+    if (!s || s.dead) return;
     const col = ELEM_COLOR[s.elem];
     c.save(); c.translate(s.x, s.y);
     c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, s.r * 0.8, s.r * 0.9, s.r * 0.35, 0, 0, Math.PI * 2); c.fill();
@@ -3853,6 +3946,7 @@
       mn.push({ k: m.bone ? 'b' : (m.clone ? 'c' : 'm'), x: Math.round(m.x), y: Math.round(m.y) });
     }
     if (g.summon && !g.summon.dead) mn.push({ k: 's', x: Math.round(g.summon.x), y: Math.round(g.summon.y), e: g.summon.elem || 'earth' });
+    if (g.summon2 && !g.summon2.dead) mn.push({ k: 's', x: Math.round(g.summon2.x), y: Math.round(g.summon2.y), e: g.summon2.elem || 'earth' }); // #229
     // #228 (COOP-REVIEW #9) an engineer's turrets were INVISIBLE to teammates
     for (const tr of g.turrets) if (!tr.dead) mn.push({ k: 't', x: Math.round(tr.x), y: Math.round(tr.y), f: +(tr.facing || 0).toFixed(2), tl: tr.tesla ? 1 : 0 });
     const pet = g.player && g.player.pet;
@@ -4033,6 +4127,7 @@
     // nearestTarget() in monsters.js finds them with no AI change.
     for (const m of g.mercs) {
       if (m.clone && !m.dead) list.push({ x: m.x, y: m.y, r: 12, ref: m, isRemote: false, id: 'clone' });
+      if (m.golem && !m.dead) list.push({ x: m.x, y: m.y, r: 18, ref: m, isRemote: false, id: 'golem' }); // #229 the golem TAUNTS
     }
     // #224 with FRIENDLY FIRE on, every client enumerates its peers (a guest must be
     // able to aim at the host); without it, only the host does (monster AI targeting).
@@ -4053,6 +4148,22 @@
   }
   g.partyTargets = partyTargets;
   g.hurtTarget = hurtTarget;
+  // #229 mesmer R8: your clones ECHO your melee swings at 30% power around themselves
+  g.cloneEcho = (p2, w, scale) => {
+    if (!g.coop && false) return; // works solo and co-op alike
+    if (!p2.class || p2.class.id !== 'mesmer') return;
+    if (typeof Abilities === 'undefined' || !Abilities.qRank || Abilities.qRank('mesmer', p2.statPoints) < 8) return;
+    const dmg = Math.max(1, Math.round((w.dmg || 10) * (p2.stats.dmgMul || 1) * 0.3 * (scale || 1)));
+    for (const cl of g.mercs) {
+      if (!cl.clone || cl.dead) continue;
+      let any = false;
+      for (const m of g.monsters) {
+        if (m.dead || m.airborne || m.spawnT > 0) continue;
+        if (Math.hypot(m.x - cl.x, m.y - cl.y) < (w.range || 50) * 0.8 + m.r) { m.takeHit(dmg, { sx: cl.x, sy: cl.y, fromPlayer: true, hitSfx: 'hitLight' }, g); any = true; }
+      }
+      if (any) Fx.burst(cl.x, cl.y, ['#c78bff'], 5, { speed: 110, life: 0.3, glow: true });
+    }
+  };
   g.isRunHost = isRunHost; // #189 so monsters.js mirrors use the PINNED authority, not the relay's live host flag
 
   // P1-C: DOWNED / REVIVE / party-wipe -----------------------------------------
@@ -5287,6 +5398,24 @@
     for (let i = g.ultFx.length - 1; i >= 0; i--) {
       const e = g.ultFx[i];
       e.t += dt;
+      if (e.type === 'qslow') {          // #229 mage R4: a lingering slow field
+        if (e.t < e.dur) {
+          for (const m of g.monsters) { if (m.dead) continue; if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) { m.chillT = Math.max(m.chillT || 0, 0.3); m.chillMul = 0.45; } }
+        } else g.ultFx.splice(i, 1);
+        continue;
+      }
+      if (e.type === 'qpulse') {         // #229 mage R8: the aftershock
+        if (e.t >= e.delay) {
+          Fx.burst(e.x, e.y, [e.color || '#b06bff', '#fff'], 24, { speed: 260, life: 0.4, glow: true });
+          Fx.shake(4, 0.15); Sfx.play('heavy');
+          for (const m of g.monsters) {
+            if (m.dead || m.airborne || m.spawnT > 0) continue;
+            if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + m.r) m.takeHit(e.dmg + (e.rider ? m.maxHp * e.rider * (m.isBoss ? 1 / 3 : 1) : 0), { sx: e.x, sy: e.y, knock: 90, fromPlayer: true, hitSfx: 'hitLight' }, g);
+          }
+          g.ultFx.splice(i, 1);
+        }
+        continue;
+      }
       if (e.type === 'meteor') {
         // #145 (Sam) COLOSSAL meteor: on impact, land the blast once, then keep the fx
         // alive a beat as an expanding shockwave ring + fireball (drawUltFx reads e.boom).
@@ -5323,6 +5452,7 @@
           for (const merc of g.mercs) if (!merc.dead && Math.hypot(merc.x - e.x, merc.y - e.y) < e.radius) damageMerc(merc, e.dmg);
           for (const tr of g.turrets) if (!tr.dead && Math.hypot(tr.x - e.x, tr.y - e.y) < e.radius) { tr.hp -= e.dmg; tr.flash = 0.12; }
           if (g.summon && !g.summon.dead && Math.hypot(g.summon.x - e.x, g.summon.y - e.y) < e.radius) g.summon.hp -= e.dmg;
+          if (g.summon2 && !g.summon2.dead && Math.hypot(g.summon2.x - e.x, g.summon2.y - e.y) < e.radius) g.summon2.hp -= e.dmg; // #229
           // #113 shrapnel bombs also spray a ring of fragments from the impact point
           if (e.shrapnel) {
             const n = 9;

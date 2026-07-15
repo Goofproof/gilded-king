@@ -1149,6 +1149,7 @@ const PlayerDef = (() => {
       if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
       if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
+      if (this.fireImmuneT > 0) this.fireImmuneT -= dt; // #229 pyro R8
       if (this.ability && this.ability.cd > 0) this.ability.cd -= dt;
       if (this.abilityR && this.abilityR.cd > 0) this.abilityR.cd -= dt;
       if (this.abilityUlt && this.abilityUlt.cd > 0) this.abilityUlt.cd -= dt;
@@ -1502,6 +1503,7 @@ const PlayerDef = (() => {
         }
       };
       swingOnce(1);
+      if (g.cloneEcho) g.cloneEcho(this, w, 1); // #229 mesmer R8: the copies swing with you
       // Echo evolutions: light swings sometimes strike twice (second at half power)
       if (w.archetype === 'light' && this.mod('echo') && Math.random() < this.mod('echo')) {
         swingOnce(0.5);
