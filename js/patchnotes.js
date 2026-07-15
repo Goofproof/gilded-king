@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.86';
+  const VERSION = 'v2.87';
 
   const NOTES = [
+    {
+      v: 'v2.87', title: 'Guest necromancers raise their dead', date: '2026-07-15',
+      sha: '8350ec5',
+      items: [
+        'Necromancer in co-op: the rise belongs to whoever landed the kill (#207).',
+      ],
+    },
     {
       v: 'v2.86', title: 'The forge shows its work before you pay', date: '2026-07-15',
       sha: '6860e1a',
