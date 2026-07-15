@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.74';
+  const VERSION = 'v2.75';
 
   const NOTES = [
+    {
+      v: 'v2.75', title: 'Wrath smoke + the dungeon fights back', date: '2026-07-15',
+      sha: '5b45e5e',
+      items: [
+        'Wrath terrace gets drifting smoke banks so it reads nothing like Envy (#184); an alert dungeon reacts - primed mobs facing your door at alarm 4+, pre-laid glue traps at alarm 5+ (#185).',
+      ],
+    },
     {
       v: 'v2.74', title: 'Flash-blind bolts and a shadow over the forest', date: '2026-07-15',
       sha: '880ad3d',
