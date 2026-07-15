@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.67', title: 'Co-op: see your teammate\'s army', date: '2026-07-15',
       sha: 'd98400a',
       items: [
-        'Co-op: teammates now see each other\'s skeletons, clones, mercs, elementals and pets (#174).',
+        'In co-op you can finally see your teammate\'s whole army. A necromancer friend\'s skeletons, a mesmer\'s mirror clones, hired mercenaries, a summoner\'s elemental and even their pet all show up on your screen now, drawn slightly ghosted so you can tell whose units they are. No more invisible skeleton armies winning fights around you.',
       ],
     },
     {
