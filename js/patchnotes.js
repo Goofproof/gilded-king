@@ -26,8 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.63', title: 'Portal labels fixed, trinket tooltips added', date: '2026-07-15',
       sha: '18c6351',
       items: [
-        'Twin portal labels no longer overlap: shortened both, nightmare gets a second line (#169).',
-        'Equipped trinket now shows a hover tooltip (its gift + lore, no price) (#170).',
+        'Fixed the two exit portals at the bottom of each Hell floor. Their labels used to run into each other and become impossible to read. Now the normal one just says DESCEND and the red one says NIGHTMARE with a small "harder, richer" note under it, so you can always tell them apart.',
+        'You can now hover your mouse over the trinket in your gear slots (the little gem, fourth from the left) to see what it does and read its story, just like your weapons and armor. It no longer shows a price, since you already own it.',
       ],
     },
     {
