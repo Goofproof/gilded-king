@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.75';
+  const VERSION = 'v2.76';
 
   const NOTES = [
+    {
+      v: 'v2.76', title: 'Pocket a potion for later', date: '2026-07-15',
+      sha: '30b961a',
+      items: [
+        'Carried potion slot: buy or loot ONE flask, drink it with H when you need it, HUD shows the slot; rare mob drop (#186).',
+      ],
+    },
     {
       v: 'v2.75', title: 'Wrath smoke + the dungeon fights back', date: '2026-07-15',
       sha: '5b45e5e',
