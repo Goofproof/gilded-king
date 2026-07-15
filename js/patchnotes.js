@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.71';
+  const VERSION = 'v2.72';
 
   const NOTES = [
+    {
+      v: 'v2.72', title: 'New mob: the snowman', date: '2026-07-15',
+      sha: 'd16cb23',
+      items: [
+        'Snowman mob: freezes you solid, icicle is the fastest enemy shot in the game (540 vs old top 430) (#180).',
+      ],
+    },
     {
       v: 'v2.71', title: 'New mob: the glue gunner', date: '2026-07-15',
       sha: '78eea63',
