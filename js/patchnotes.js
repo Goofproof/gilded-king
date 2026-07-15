@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.81', title: 'More co-op fixes from tonight\'s playtest', date: '2026-07-15',
       sha: 'b3e0935',
       items: [
-        'Playtest hotfix 2: door plates count the LIVE party so a departed teammate can\'t lock the run (#196); cleric Mend heals party members in range (#197); haggle outcome lands on every player\'s shop (#198).',
+        'Three more fixes from tonight\'s co-op session. If a teammate leaves the run, the door plates now count only the players still here, so the rest of you can keep going instead of being locked in a room forever. The cleric\'s Mend finally heals TEAMMATES standing in range, not just the cleric (you will see MENDED pop up when a friend heals you). And when one player haggles with a shopkeeper, the win or the loss now hits BOTH players\' prices and both of you see the result.',
       ],
     },
     {
