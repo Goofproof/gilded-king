@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.73';
+  const VERSION = 'v2.74';
 
   const NOTES = [
+    {
+      v: 'v2.74', title: 'Flash-blind bolts and a shadow over the forest', date: '2026-07-15',
+      sha: '880ad3d',
+      items: [
+        'Glass mob empowered FLASH-bolt blinds you Envy-style (#182); a giant hawk shadow sweeps forest floors every 3rd room (#183).',
+      ],
+    },
     {
       v: 'v2.73', title: 'Trap rooms: that chest is bait', date: '2026-07-15',
       sha: '51aea42',
