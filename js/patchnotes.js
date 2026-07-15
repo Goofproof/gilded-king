@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.55';
+  const VERSION = 'v2.56';
 
   const NOTES = [
+    {
+      v: 'v2.56', title: 'See your co-op teammates shapeshift', date: '2026-07-15',
+      sha: 'b06b7e7',
+      items: [
+        'Co-op: see teammates\' druid shapeshifts (Sam, #162).',
+      ],
+    },
     {
       v: 'v2.55', title: 'Level-ups wait until the fight is over', date: '2026-07-15',
       sha: '0dc86c6',
