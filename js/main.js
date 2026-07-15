@@ -2824,7 +2824,7 @@
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
-    Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list); });
+    Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list, m.room); });
     // co-op: the guest levels off the host's shared kills
     Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
     // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id).
@@ -3388,7 +3388,10 @@
                   // PR-4: state fields so the real per-type draw animates telegraphs/windups/fuse on the guest
                   st: m.state, tg: +(m.telegraph || 0).toFixed(2), lg: m.lungeAngle !== undefined ? +m.lungeAngle.toFixed(2) : undefined, fu: m.fuse });
     }
-    Net.send({ t: 'mobs', list });
+    // #172 (Sam) room-tag every snapshot. A guest standing in a DIFFERENT room must not
+    // render these - that was the "phantom invulnerable mob" that only one player could
+    // see and that sealed the room shut.
+    Net.send({ t: 'mobs', room: g.room ? [g.room.gx, g.room.gy] : null, list });
     // P1-E: the boss rides its own message (crown/jaw/hop/shadow draw fields)
     const b = g.boss;
     if (b && !b.dead && b.netId) {
@@ -3400,7 +3403,17 @@
   }
 
   // guest: reconcile local proxies against the host's snapshot
-  function applyMobSnapshot(list) {
+  function applyMobSnapshot(list, room) {
+    // #172 (Sam) if the guest is not standing in the room the host snapshotted, these
+    // mobs belong somewhere the guest isn't. Rendering them was the phantom-mob room-lock.
+    // Drop every proxy and wait for the rooms to reconverge (the room-follow mechanic).
+    if (room && g.room && (g.room.gx !== room[0] || g.room.gy !== room[1])) {
+      for (let i = g.monsters.length - 1; i >= 0; i--) {
+        const m = g.monsters[i];
+        if (m.proxy && !m.isBoss) { m.dead = true; g.monsters.splice(i, 1); }
+      }
+      return;
+    }
     const seen = new Set();
     for (const s of list) {
       seen.add(s.i);
