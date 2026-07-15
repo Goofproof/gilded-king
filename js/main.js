@@ -2863,7 +2863,7 @@
     });
     // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
     // hit by / dodge (updateProjectiles resolves the damage vs the local player)
-    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, glue: !!m.gu, hitSet: null }); }); // #179 glue flag mirrors
+    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, glue: !!m.gu, freeze: !!m.fz, hitSet: null }); }); // #179/#180 glue + freeze flags mirror
     // P1-B: AoE blast visual (damage already arrived via phit); guest plays the boom
     Net.on('boom', m => { if (isCoopGuest()) { Fx.shake(9, 0.3); Sfx.play('explode'); Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 28, { speed: 260, life: 0.6, glow: true }); } });
     // #10 a teammate cast their ULTIMATE: flash our screen too (visual only, no sim impact)
@@ -4284,6 +4284,11 @@
           p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g, pr.owner); // #144 thorns bite the shooter
           // #179 (Sam) a glue blob GUMS you up: heavy slow for a couple of seconds
           if (pr.glue) { p.slowT = 2.2; p.slowMul = 0.55; if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - 30, 'GLUED', '#cdbf49', 12); }
+          // #180 (Sam) an icicle FREEZES you solid for a beat (i-frames stop chain-freezing)
+          if (pr.freeze) {
+            p.slowT = 0.7; p.slowMul = 0.04; p.frozenFxT = 0.7;
+            if (typeof Fx !== 'undefined') { Fx.text(p.x, p.y - 30, 'FROZEN', '#aee7ff', 13); Fx.burst(p.x, p.y, ['#bfefff', '#7fd4ff', '#fff'], 12, { speed: 90, life: 0.4, glow: true }); }
+          }
           dead = true;
         } else { // INCIDENTAL: an enemy arrow can catch a mercenary in its flight path
           for (const merc of g.mercs) {

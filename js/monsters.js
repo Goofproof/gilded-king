@@ -56,17 +56,21 @@ const Monsters = (() => {
     // #179 (Sam) glue gunner: a dude with a glue gun. The blob slows YOU on a hit and
     // leaves a sticky puddle on the floor that slows everything that walks through it.
     gluegunner: { hp: 34, dmg: 10, speed: 82, r: 12, xp: 14, coins: [4, 7] },
+    // #180 (Sam) snowman: waddles slowly and snipes with ICICLES - the fastest enemy
+    // shot in the game (540 px/s vs the old top of 430). A hit FREEZES you solid for
+    // a beat. Long telegraph is the counterplay: move when the arm rears back.
+    snowman:  { hp: 55, dmg: 12, speed: 55, r: 14, xp: 18, coins: [5, 9] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -566,6 +570,25 @@ const Monsters = (() => {
         tryContactHit(m, g, p); // rake on contact (bleed applied inside tryContactHit)
         break;
       }
+      case 'snowman': {
+        // #180 (Sam) SNOWMAN: shuffle toward you very slowly, then a LONG rear-back
+        // telegraph and an icicle faster than anything else the dungeon shoots.
+        if (dist > 260) moveToward(m, p.x, p.y, dt, m.speed);
+        else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'idle' && m.t > 2.6) { m.state = 'aim'; m.t = 0; }
+        if (m.state === 'aim') {
+          m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+          m.telegraph = 0.7 - m.t;
+          if (m.t >= 0.7) {
+            m.state = 'idle'; m.t = 0; m.telegraph = 0;
+            const shots = m.emp ? 3 : 1;
+            for (let k = 0; k < shots; k++) fireProjectile(g, m, m.facing + (k - (shots - 1) / 2) * 0.14, 540, m.dmg, '#bfefff', 5, { freeze: true, glow: true, life: 1.8 });
+            m.emp = false; Sfx.play('bowfire');
+          }
+        }
+        tryContactHit(m, g, p, 0.7);
+        break;
+      }
       case 'gluegunner': {
         // #179 (Sam) GLUE GUNNER: waddles into range, telegraphs, and lobs a slow fat
         // glue blob. The blob slows on a hit and leaves a sticky puddle where it lands
@@ -905,11 +928,11 @@ const Monsters = (() => {
     // #144 (Sam) owner ref so THORNS can bite back at the SHOOTER, not just a melee toucher.
     // Guest-mirrored bolts (the 'proj' message) carry no owner, so the reflect only ever
     // runs host-side where monster HP is authoritative - no co-op divergence.
-    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6, glue: opts.glue || false }); // #179 glue flag rides the bolt
+    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6, glue: opts.glue || false, freeze: opts.freeze || false }); // #179/#180 glue + freeze flags ride the bolt
     // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
     // and updateProjectiles already resolves from:'enemy' damage vs the local player)
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
-      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0, gu: opts.glue ? 1 : 0 });
+      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0, gu: opts.glue ? 1 : 0, fz: opts.freeze ? 1 : 0 });
     }
   }
 
@@ -1313,6 +1336,7 @@ const Monsters = (() => {
       case 'doppel': drawDoppelganger(c, m, flash, ex, ey); break;
       case 'panther': drawPanther(c, m, flash, ex, ey); break;
       case 'gluegunner': drawGluegunner(c, m, flash, ex, ey); break;
+      case 'snowman': drawSnowman(c, m, flash, ex, ey); break;
       case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
@@ -1620,6 +1644,29 @@ const Monsters = (() => {
       c.strokeStyle = `rgba(192,96,255,${0.35 * inv})`; c.lineWidth = 1;
       c.beginPath(); c.arc(0, 0, m.r * 1.5, 0, Math.PI * 2); c.stroke();
     }
+  }
+  // #180 (Sam) snowman: the classic three balls of snow, coal eyes, a carrot nose that
+  // aims at you, and stick arms. It rears back (telegraph) before every icicle.
+  function drawSnowman(c, m, flash, ex, ey) {
+    c.fillStyle = 'rgba(0,0,0,0.28)'; c.beginPath(); c.ellipse(0, 13, 12, 4, 0, 0, Math.PI * 2); c.fill();
+    const rear = m.telegraph > 0 ? Math.min(1, (0.7 - m.telegraph) / 0.7) : 0; // lean back while aiming
+    c.save();
+    if (rear) c.rotate(-rear * 0.12);
+    c.fillStyle = flash ? '#fff' : '#e8f2f8'; c.beginPath(); c.arc(0, 5, m.r, 0, Math.PI * 2); c.fill();          // base
+    c.fillStyle = flash ? '#eee' : '#f2f8fc'; c.beginPath(); c.arc(0, -6, m.r * 0.72, 0, Math.PI * 2); c.fill();  // middle
+    c.fillStyle = flash ? '#fff' : '#fafdff'; c.beginPath(); c.arc(0, -15, m.r * 0.48, 0, Math.PI * 2); c.fill(); // head
+    // stick arms
+    c.strokeStyle = '#6b4a2a'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-m.r * 0.7, -6); c.lineTo(-m.r * 1.4, -12); c.moveTo(m.r * 0.7, -6); c.lineTo(m.r * 1.4, -12); c.stroke();
+    // coal eyes + coal buttons
+    c.fillStyle = '#1c1c22';
+    c.beginPath(); c.arc(-2.4 + ex * 0.4, -16, 1.3, 0, Math.PI * 2); c.arc(2.4 + ex * 0.4, -16, 1.3, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(0, -7, 1.2, 0, Math.PI * 2); c.arc(0, -2, 1.2, 0, Math.PI * 2); c.arc(0, 3, 1.2, 0, Math.PI * 2); c.fill();
+    // carrot nose, aimed where it is about to shoot
+    c.save(); c.translate(0, -15); c.rotate(m.facing || 0);
+    c.fillStyle = '#e8842c'; c.beginPath(); c.moveTo(3, -1.6); c.lineTo(11 + rear * 3, 0); c.lineTo(3, 1.6); c.closePath(); c.fill();
+    c.restore();
+    c.restore();
   }
   // #179 (Sam) glue gunner: a squat workman in olive overalls hefting a fat-nozzled
   // glue gun, a drip of amber goo hanging off the tip.

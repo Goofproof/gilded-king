@@ -1154,6 +1154,7 @@ const PlayerDef = (() => {
 
       // #166 (Sam) BLEED (the magic panther's claws): a short DoT that chips HP away.
       if (this.slowT > 0) this.slowT -= dt; // #179 the glue dries off
+      if (this.frozenFxT > 0) this.frozenFxT -= dt; // #180 the ice shell melts
       if (this.bleed && this.bleed.t > 0) {
         this.bleed.t -= dt; this.bleed.tick -= dt;
         if (this.bleed.tick <= 0) {
@@ -1708,6 +1709,21 @@ const PlayerDef = (() => {
         c.save(); c.textAlign = 'center'; c.font = 'bold 12px monospace';
         c.fillStyle = Math.sin(Date.now() / 110) > 0 ? '#ff2020' : '#ff6060';
         c.fillText('TAUNTED!', this.x, this.y - this.r - 16);
+        c.restore();
+      }
+
+      // #180 (Sam) FROZEN: a pale ice block encases the champion while the snowman's
+      // icicle holds you. Drawn last, over everything, so the freeze reads instantly.
+      if (this.frozenFxT > 0) {
+        const k = Math.min(1, this.frozenFxT / 0.7);
+        c.save(); c.translate(this.x, this.y);
+        c.globalAlpha = 0.5 * k;
+        c.fillStyle = '#bfe6f5';
+        c.beginPath(); c.rect(-this.r - 5, -this.r - 8, (this.r + 5) * 2, (this.r + 8) * 2); c.fill();
+        c.globalAlpha = 0.85 * k; c.strokeStyle = '#e8f7ff'; c.lineWidth = 1.5;
+        c.strokeRect(-this.r - 5, -this.r - 8, (this.r + 5) * 2, (this.r + 8) * 2);
+        // a couple of crack lines
+        c.beginPath(); c.moveTo(-4, -this.r - 4); c.lineTo(2, 0); c.lineTo(-2, this.r + 2); c.stroke();
         c.restore();
       }
     }
