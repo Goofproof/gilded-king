@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.94', title: 'The leaderboard learns your name', date: '2026-07-15',
       sha: '506a958',
       items: [
-        'Leaderboard shows your character\'s NAME (#225): server was truncating every posted name to 3 letters; caps unified at 12 chars.',
+        'The global leaderboard now shows your character\'s actual NAME. Your name has been going up with every score since the rename update, but the board was quietly chopping it to the first 3 letters, arcade style, so SAMUEL showed up as SAM. Now up to 12 letters of your name make it onto the board. No typing when you die either: if you have a name, your score signs itself.',
+        'Old scores that were already saved as 3 letters stay 3 letters. Beat them and take the spot with your full name.',
       ],
     },
     {
