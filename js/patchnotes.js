@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.69', title: 'Co-op hardening: floor-stamped room follows', date: '2026-07-15',
       sha: 'f943fb3',
       items: [
-        'Co-op: floor-stamp room follows so a stale cross-floor packet can\'t teleport you; document the two-instance test protocol (#175).',
+        'One more co-op safety fix: right around a floor change, the game could briefly try to pull you toward your teammate\'s OLD room from the previous floor and drop you somewhere crazy. Every follow-your-teammate move now checks you are both on the same floor first.',
       ],
     },
     {
