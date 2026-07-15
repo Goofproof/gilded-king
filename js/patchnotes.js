@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.60', title: 'Magic panther: a cloaking cat that bleeds you', date: '2026-07-15',
       sha: '5ba7768',
       items: [
-        'Magic panther mob: cloaks, teleports to your flank, rake causes bleeding (#166).',
+        'A new MAGIC PANTHER prowls the deeper floors. It vanishes into thin air, blinks to your side or behind you, then reappears in a shower of purple sparks to rake you. Its claws leave you BLEEDING, so you keep losing health for a few seconds after it hits. Watch for the faint shimmer to spot where it went.',
       ],
     },
     {
