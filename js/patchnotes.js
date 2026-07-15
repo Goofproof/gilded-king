@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.78', title: 'The nine faces of Hell', date: '2026-07-15',
       sha: '915da2d',
       items: [
-        'Nine bespoke Hell boss models: Charon\'s oar, Minos\' coiled tail, three-headed Cerberus, coin-crusted Plutus, burning Phlegyas in his skiff, snake-haired Medusa, horned Minotaur, honest-faced Geryon with a stinger, three-faced Lucifer frozen in ice (#188).',
+        'Every boss in Hell finally LOOKS like the legend it is named after. CHARON is a hooded ferryman sweeping a great oar. MINOS the judge sits coiled in his own monstrous tail. CERBERUS is three snapping dog heads on one body, jaws working out of time with each other. PLUTUS is a bloated hoarder with coins embedded in his flesh, muttering to himself. PHLEGYAS burns as he punts his skiff across the Styx. MEDUSA has eight living snakes for hair, and you should not meet her eyes. THE MINOTAUR lowers two huge horns and breathes steam. GERYON has the calm, honest face of a kind man on the body of a winged serpent with a scorpion sting. And LUCIFER himself waits at the bottom, three faces under one crown, frozen to the waist in ice, beating wings that keep the lake frozen forever.',
       ],
     },
     {
