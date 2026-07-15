@@ -2805,7 +2805,7 @@
       if (!rp) { rp = { x: m.x, y: m.y }; g.remotePlayers.set(m.from, rp); }
       rp.tx = m.x; rp.ty = m.y;
       if (rp.x === undefined) { rp.x = m.x; rp.y = m.y; }
-      rp.facing = m.f; rp.room = m.r; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
+      rp.facing = m.f; rp.room = m.r; rp.floor = m.fl; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
       rp.cw = Array.isArray(m.cw) ? m.cw : null;                  // #117 cape wind vector
@@ -2973,7 +2973,8 @@
       }
     });
     // tethered party: a peer moved through a door - everyone follows to that room
-    Net.on('room', m => { if (g.coop && g.dungeon) coopEnterRoom(m.gx, m.gy, m.dir, false); });
+    // #175 drop a follow from a different floor (stale packet around a floor transition)
+    Net.on('room', m => { if (g.coop && g.dungeon && (m.fl === undefined || m.fl === g.floorNum)) coopEnterRoom(m.gx, m.gy, m.dir, false); });
     // host advanced the floor - regenerate the shared floor and follow (a floor change
     // trumps any pending level-up gate: clear it so nothing is left stranded)
     Net.on('floor', m => {
@@ -3070,7 +3071,12 @@
 
   function checkStrandedFollow(dt) {
     if (!g.coop || !g.room || !g.dungeon || g.state !== 'play' || g.transition) { g.strandT = 0; return; }
-    const mates = [...g.remotePlayers.values()].filter(rp => g.time - (rp.last || 0) < 3 && rp.room);
+    // #175 only mates on MY floor count: around a floor transition a peer's room report
+    // is briefly from the previous floor's map, and following those coordinates teleports
+    // you somewhere nonsensical on your own floor. (rp.floor may be undefined from an
+    // older client - treat that as matching.)
+    const mates = [...g.remotePlayers.values()].filter(rp =>
+      g.time - (rp.last || 0) < 3 && rp.room && (rp.floor === undefined || rp.floor === g.floorNum));
     if (!mates.length) { g.strandT = 0; return; }
     // are ALL of them in one room, and is it NOT my room?
     const r0 = mates[0].room;
@@ -3111,7 +3117,7 @@
       myDir = Object.keys(g.room.doors).find(dd => g.room.doors[dd] === room) || null;
     }
     enterRoom(room, myDir);
-    if (initiator) Net.send({ t: 'room', gx, gy, dir });
+    if (initiator) Net.send({ t: 'room', gx, gy, dir, fl: g.floorNum }); // #175 floor-stamped
   }
 
   function updateLobby() {
@@ -3163,7 +3169,7 @@
     const p = g.player;
     Net.send({
       t: 'p', x: Math.round(p.x), y: Math.round(p.y), f: +p.facing.toFixed(2),
-      r: [g.room.gx, g.room.gy], hp: Math.round(p.hp), mh: Math.round(p.maxHp),
+      r: [g.room.gx, g.room.gy], fl: g.floorNum, hp: Math.round(p.hp), mh: Math.round(p.maxHp),
       wc: p.weapon ? p.weapon.color : '#9ee7ff', dd: p.downed ? 1 : 0,
       nm: g.playerName || '',
       wa: p.weapon ? p.weapon.archetype : 'light',  // so peers can draw your weapon

@@ -89,3 +89,24 @@ dbg.mpRecv({t:'gearsnap', room:[gx,gy], list:[...]})   // feed a message through
 For a true end-to-end check, open two browser tabs (or two devices), host in one, join
 with the code in the other. Co-op rooms are ephemeral Durable Objects, so testing
 against the live relay is harmless.
+
+## Two-instance test harness (Claude, 2026-07-14)
+
+Repeatable protocol used to find #172/#173/#175. Two automation tabs on
+http://localhost:8471, driven via the `dbg` global (rAF is throttled in
+automation tabs, so ALWAYS advance the sim with `dbg.step(1/60)` loops -
+the page's own loop does not run):
+
+1. Tab A: `dbg.mpHost()` -> code. Tab B: `dbg.mpJoin(code)`. Wait ~1s each.
+2. Tab A: `dbg.mpStart()`. Both now share seed + pinned authority (g.runHostU).
+3. Pump each side alternately: `for(i=0;i<40;i++) dbg.step(1/60)` with a small
+   `setTimeout` between bursts so the relay round-trips land.
+4. Interact via real events in the same JS tick as a step:
+   `dispatchEvent(new KeyboardEvent('keydown',{code:'KeyE'})); dbg.step(1/60);`
+
+Verified flows (2026-07-14): join/start, mob snapshot sync + room-tag culling,
+guest hit forwarding, stairs + nightmare portal floor-follow, boss intro/sync/
+death (+ guest descent portal, #175), level-up gate hold + release, rejoin
+after page reload (targeted start+floor), minion sync, ghost eviction by
+clientId. Known harness artifact: `dbg.floor(n)` does NOT broadcast - never
+use it to advance a co-op floor, take the real stairs/portal instead.
