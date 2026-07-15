@@ -915,6 +915,8 @@
       dropGear('weapon', Weapons.rollWeapon(tier, { luck: 0.1 * (g.alarm || 0) }), m.x, m.y);
     } else if (Math.random() < 0.035 * (1 + 0.5 * looting) * (1 + 0.09 * (g.alarm || 0))) {
       dropGear('armorItem', Weapons.rollArmor(tier, { luck: 0.1 * (g.alarm || 0) }), m.x, m.y);
+    } else if (Math.random() < 0.02) {
+      spawnPickup('potionItem', m.x, m.y); // #186 a rare flask off a corpse ('pk' mirrors it in co-op)
     }
 
     checkRoomCleared();
@@ -1514,6 +1516,7 @@
       if (pk.kind === 'weapon') consider(pk.x, pk.y, { kind: 'weaponPickup', pk });
       if (pk.kind === 'armorItem') consider(pk.x, pk.y, { kind: 'armorPickup', pk });
       if (pk.kind === 'trinketItem') consider(pk.x, pk.y, { kind: 'trinketPickup', pk });
+      if (pk.kind === 'potionItem') consider(pk.x, pk.y, { kind: 'potionPickup', pk }); // #186
     }
     if ((g.room.type === 'shop' || g.room.type === 'mythicshop') && g.room.shopStock) {
       for (const it of g.room.shopStock.items) if (!it.sold) consider(it.x, it.y, { kind: 'shopItem', it });
@@ -1649,6 +1652,15 @@
       consumeGear(t.pk); // #96 despawn this drop for the whole party
     }
 
+    // #186 pick up a dropped flask (one slot; leave it if you already carry one)
+    if (t.kind === 'potionPickup') {
+      if (p.potion) { g.shopMsg = { text: 'You already carry a potion', t: 1.4 }; Sfx.play('error'); return; }
+      p.potion = true;
+      const i = g.pickups.indexOf(t.pk); if (i >= 0) g.pickups.splice(i, 1);
+      Fx.text(p.x, p.y - 30, 'POTION (press H)', '#ff5a6e', 12);
+      Sfx.play('buy');
+      return;
+    }
     if (t.kind === 'trinketPickup') {   // #134 the fourth slot
       p.equipTrinket(t.pk.trinket, g);
       consumeGear(t.pk);
@@ -1674,9 +1686,11 @@
         p.equipTrinket(it.trinket, g);
         Sfx.play('buy');
       } else if (it.kind === 'potion') {
-        if (p.hp >= p.maxHp) { g.shopMsg = { text: 'Already at full health', t: 1.2 }; Sfx.play('error'); return; }
+        // #186 (Sam) potions are CARRIED now, not drunk at the counter. One slot.
+        if (p.potion) { g.shopMsg = { text: 'You already carry a potion (press H to drink it)', t: 1.6 }; Sfx.play('error'); return; }
         p.coins -= it.price;
-        p.heal(POTION_HEAL);
+        p.potion = true;
+        g.shopMsg = { text: 'Potion pocketed - press H when you need it', t: 2 };
         Sfx.play('buy');
         it.price += 10; // each potion bought costs more (compounds, so heals can't be spammed)
       } else if (it.kind === 'reroll') {
@@ -3871,6 +3885,16 @@
           if (g.trainHoldCd <= 0) { interact(); g.trainHoldCd = 0.1; }
         }
       }
+      if (input.pressed('KeyH')) { // #186 drink the carried potion
+        if (!p.potion) { Fx.text(p.x, p.y - 34, 'NO POTION', '#a05555', 12); Sfx.play('error'); }
+        else if (p.hp >= p.maxHp) { Fx.text(p.x, p.y - 34, 'FULL HEALTH', '#8fa3bf', 12); Sfx.play('error'); }
+        else {
+          p.potion = false;
+          p.heal(POTION_HEAL);
+          Fx.burst(p.x, p.y, ['#ff5a6e', '#ffd2d8', '#fff'], 18, { speed: 130, life: 0.5, glow: true });
+          Sfx.play('buy');
+        }
+      }
       if (input.pressed('KeyF')) { // #51 toggle auto-attack
         p.autoAttack = !p.autoAttack;
         p.drawT = -1; // drop any held bow draw when switching off
@@ -4795,7 +4819,7 @@
     for (let i = g.pickups.length - 1; i >= 0; i--) {
       const pk = g.pickups[i];
       pk.t += dt;
-      if (pk.kind === 'weapon' || pk.kind === 'armorItem' || pk.kind === 'trinketItem') continue; // gear sits still; E to pick up
+      if (pk.kind === 'weapon' || pk.kind === 'armorItem' || pk.kind === 'trinketItem' || pk.kind === 'potionItem') continue; // gear sits still; E to pick up
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
@@ -6281,6 +6305,15 @@
       drawWeaponGlyph(c, pk.weapon, pk.x, pk.y + bobY, 1);
     } else if (pk.kind === 'armorItem') {
       drawArmorGlyph(c, pk.armor, pk.x, pk.y + bobY, 1);
+    } else if (pk.kind === 'potionItem') {
+      // #186 a little red flask: round body, cork, glint
+      c.save(); c.translate(pk.x, pk.y + bobY);
+      c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 9, 8, 3, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#c22a3e'; c.beginPath(); c.arc(0, 2, 7, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#8a1f2e'; c.fillRect(-2.5, -9, 5, 6);
+      c.fillStyle = '#b08050'; c.fillRect(-3, -12, 6, 4);
+      c.fillStyle = 'rgba(255,255,255,0.5)'; c.beginPath(); c.arc(-2.4, 0, 1.8, 0, Math.PI * 2); c.fill();
+      c.restore();
     } else if (pk.kind === 'trinketItem') {
       drawTrinketGlyph(c, pk.trinket, pk.x, pk.y + bobY, 1);
     }
@@ -6312,6 +6345,7 @@
     if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12,20][t.pk.weapon.rarIdx]}◈`; }
     if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'trinketPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip ${t.pk.trinket.name}`; } // #134 (the info card shows the gift/price)
+    if (t.kind === 'potionPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E take potion'; } // #186
     if (t.kind === 'encounter') { x = t.e.x; y = t.e.y - 34; label = 'E to interact'; } // the quest giver (Sam)
     if (t.kind === 'shopItem') { x = t.it.x; y = t.it.y - 52; label = 'E - buy'; }
     if (t.kind === 'shopkeeper') { x = t.k.x; y = t.k.y - 40; label = g.room.shopStock.haggled ? 'E - (haggled)' : 'E - haggle (50/50: -30% or +30%)'; }

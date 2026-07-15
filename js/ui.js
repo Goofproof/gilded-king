@@ -192,6 +192,7 @@ const UI = (() => {
     drawWeaponSlot(c, p.weapons.b, 62, H - 106, p.slot === 'b');
     drawArmorSlot(c, p.armor, 110, H - 106);
     drawTrinketSlot(c, p.trinket, 158, H - 106);
+    drawPotionSlot(c, p.potion, 206, H - 106); // #186 the fifth slot: your carried flask
     // MOBILE: there is no Tab, no F and no Q key, and the touch buttons already show
     // the abilities WITH their cooldowns (touch.js). Showing keyboard hints and a
     // second set of ability badges to a phone is just clutter sitting under the
@@ -377,6 +378,28 @@ const UI = (() => {
       c.fillText('armor', x + 21, y + 24);
     }
     c.restore();
+  }
+
+  // #186 (Sam) the potion slot: a red flask when you carry one, an empty outline with
+  // a hint when you don't. Press H to drink.
+  function drawPotionSlot(c, has, x, y) {
+    c.fillStyle = 'rgba(10,12,18,0.72)';
+    c.fillRect(x, y, 42, 42);
+    c.strokeStyle = has ? '#c22a3e' : '#3a4150'; c.lineWidth = 1.5;
+    c.strokeRect(x, y, 42, 42);
+    if (has) {
+      c.save(); c.translate(x + 21, y + 20);
+      c.fillStyle = '#c22a3e'; c.beginPath(); c.arc(0, 3, 9, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#8a1f2e'; c.fillRect(-3, -11, 6, 8);
+      c.fillStyle = '#b08050'; c.fillRect(-3.6, -14, 7.2, 4);
+      c.fillStyle = 'rgba(255,255,255,0.5)'; c.beginPath(); c.arc(-3, 0.5, 2.2, 0, Math.PI * 2); c.fill();
+      c.restore();
+      c.font = 'bold 9px monospace'; c.textAlign = 'center'; c.fillStyle = '#ffb0ba';
+      c.fillText('H', x + 36, y + 39);
+    } else {
+      c.font = '9px monospace'; c.textAlign = 'center'; c.fillStyle = '#4a5160';
+      c.fillText('potion', x + 21, y + 24);
+    }
   }
 
   // #134 the fourth slot: a trinket, drawn as a small faceted gem in its own colour so

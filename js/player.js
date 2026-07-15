@@ -698,6 +698,7 @@ const PlayerDef = (() => {
       this.bleed = null;   // #166 a damage-over-time (the magic panther's claws)
       this.slowT = 0; this.slowMul = 1; // #179 glued: a movement slow with a timer
       this.blindT = 0; // #182 flash-blinded: a temporary Envy-style vision shroud
+      this.potion = false; // #186 (Sam) ONE carried potion - buy it, save it, press H
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
