@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.69';
+  const VERSION = 'v2.70';
 
   const NOTES = [
+    {
+      v: 'v2.70', title: 'Softer music, darker darkness, better eulogies', date: '2026-07-15',
+      sha: 'd40c5af',
+      items: [
+        'Menu music fades + quieter (#176); Envy shroud survives level-up overlays (#177); eulogy card: unique rank-salted poems, class-crest portrait fallback, floor from the entry (#178).',
+      ],
+    },
     {
       v: 'v2.69', title: 'Co-op hardening: floor-stamped room follows', date: '2026-07-15',
       sha: 'f943fb3',
