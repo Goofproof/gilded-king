@@ -2189,8 +2189,10 @@
   function salvageNearest() {
     const t = nearestInteractable();
     if (!t || (t.kind !== 'weaponPickup' && t.kind !== 'armorPickup' && t.kind !== 'trinketPickup')) return;
-    const item = t.pk.weapon || t.pk.armor;
-    const val = SHARD_VALUE[item.rarIdx] || 1;
+    const item = t.pk.weapon || t.pk.armor || t.pk.trinket;
+    // #201 (Sam) trinkets have no rarity index - X on one crashed the lookup and the
+    // salvage silently did nothing. They scrap for shards off their gold price instead.
+    const val = t.pk.trinket ? Math.max(2, Math.round((item.price || 30) / 10)) : (SHARD_VALUE[item.rarIdx] || 1);
     g.player.shards += val;
     consumeGear(t.pk); // #96 salvaging also despawns this drop for the whole party
     Sfx.play('kill');
