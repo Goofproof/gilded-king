@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.64';
+  const VERSION = 'v2.65';
 
   const NOTES = [
+    {
+      v: 'v2.65', title: 'Co-op: no more phantom mobs locking the room', date: '2026-07-15',
+      sha: 'f9f80a4',
+      items: [
+        'Co-op: room-tag mob snapshots so a guest in a different room stops rendering phantom, unkillable mobs that locked the room (#172).',
+      ],
+    },
     {
       v: 'v2.64', title: 'Character sheet is readable again', date: '2026-07-15',
       sha: '9d7ee83',
