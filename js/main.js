@@ -5930,12 +5930,13 @@
     c.restore();
   }
 
-  function drawTrinketCard(c, tr, anchorX, anchorY) {
+  function drawTrinketCard(c, tr, anchorX, anchorY, owned) {
     const lines = [
       { text: tr.name, color: tr.color, bold: true },
       { text: 'Trinket · the fourth slot', color: '#8fa3bf' },
       { text: tr.gift, color: '#6ee7a0' },
-      { text: `${tr.price} gold`, color: '#e0894a' }, // #153 (Sam) was a raw number - drawGearCardLines .split()'d it and black-screened the game
+      // #170 (Sam) hovering the EQUIPPED trinket shows no price - you already own it.
+      ...(owned ? [] : [{ text: `${tr.price} gold`, color: '#e0894a' }]), // #153 (Sam) was a raw number - drawGearCardLines .split()'d it and black-screened the game
       ...(tr.lore ? [{ text: `"${tr.lore}"`, color: '#9a8f7a', italic: true }] : []),
     ];
     drawGearCardLines(c, lines, anchorX, anchorY);
@@ -6011,6 +6012,10 @@
         drawGearCard(c, s.item, s.x + sh / 2, sy - 4);
         break;
       }
+    }
+    // #170 (Sam) the trinket (the fourth slot at x=158) had no hover card. Now it does.
+    if (p.trinket && mx >= 158 && mx <= 158 + sh && my >= sy && my <= sy + sh) {
+      drawTrinketCard(c, p.trinket, 158 + sh / 2, sy - 4, true);
     }
     // ability badge tooltips (Q / R / Ultimate): what does each do? Use UI's own
     // badge layout so the hover zone always tracks the real badges (they moved to
