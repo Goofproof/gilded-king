@@ -26,7 +26,11 @@ const PatchNotes = (() => {
       v: 'v2.96', title: 'The MIGHT classes get their rank rewards', date: '2026-07-15',
       sha: '88920d5',
       items: [
-        'Q wave 1, MIGHT milestones (#227): warrior R4 shield x2 / R8 double knockback / R12 WALL SLAM; barbarian R4 fear +15% / R8 ally rage / R12 cornered enemies COWER; adventurer R4 roll refund / R8 heal on cast / R12 party adrenaline.',
+        'The first batch of Q rank rewards is HERE, for the MIGHT classes. Put points into MIGHT and watch your Q icon: the "coming soon" labels for these three classes are now real.',
+        'WARRIOR, Shield Bash: rank 4 gives your shield TWO charges. Rank 8 DOUBLES the knockback, and you will feel it. Rank 12 is the Wall Slam: any enemy you smash into a wall takes the whole bash a second time. Start herding them toward the walls.',
+        'BARBARIAN, War Shout: rank 4 makes frightened enemies take 15% extra damage, so roar first, swing second. Rank 8 shares your fury: teammates near your shout catch RAGE. Rank 12 is the corner trap: an enemy that flees into a wall and has nowhere left to run just cowers there, stunned, waiting for you.',
+        'ADVENTURER, Adrenaline: rank 4 refunds your roll every cast. Rank 8 adds a heal. Rank 12 spreads the whole rush to nearby teammates.',
+        'AGILITY classes are next: the ranger\'s volley is about to become very real.',
       ],
     },
     {
