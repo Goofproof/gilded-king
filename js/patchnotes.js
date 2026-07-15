@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.56';
+  const VERSION = 'v2.57';
 
   const NOTES = [
+    {
+      v: 'v2.57', title: 'The title screen has a theme song', date: '2026-07-15',
+      sha: '98745e8',
+      items: [
+        'Title music: play the menu song (Sam\'s son\'s GarageBand track) (Sam, #163).',
+      ],
+    },
     {
       v: 'v2.56', title: 'See your co-op teammates shapeshift', date: '2026-07-15',
       sha: 'b06b7e7',
