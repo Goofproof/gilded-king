@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.73', title: 'Trap rooms: that chest is bait', date: '2026-07-15',
       sha: '51aea42',
       items: [
-        'Trap rooms: a locked chest that springs an ambush - doors slam, wave spawns, clear to unseal, chest yields loot (#181).',
+        'TRAP ROOMS are in the dungeon now. On the map it looks exactly like a treasure room, and inside there is just one big locked chest sitting alone in the middle. Open it if you dare: the doors slam shut behind you and a nasty ambush pours in, a wave tougher than a normal room. Kill every last one and the doors unseal, and the chest finally gives up its prize: two pieces of quality gear and a pile of gold. Free loot is never free.',
       ],
     },
     {
