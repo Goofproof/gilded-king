@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.83';
+  const VERSION = 'v2.84';
 
   const NOTES = [
+    {
+      v: 'v2.84', title: 'Your name on the board, your face on the sheet', date: '2026-07-15',
+      sha: '04b09f7',
+      items: [
+        'Character sheet portrait shows your REAL class (id-string vs object bug) (#202); high scores list under YOUR NAME - no death-screen entry once a name is set, N on the title renames (#203); add scripts/serve_nocache.py (Chrome heuristically cached the plain http.server\'s JS for minutes, poisoning live verification).',
+      ],
+    },
     {
       v: 'v2.83', title: 'Scrap trinkets for shards', date: '2026-07-15',
       sha: '43d04cf',
