@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.56', title: 'See your co-op teammates shapeshift', date: '2026-07-15',
       sha: 'b06b7e7',
       items: [
-        'Co-op: see teammates\' druid shapeshifts (Sam, #162).',
+        'In co-op you can now see your teammates shapeshift. When a druid friend turns into a bear or a wolf, everyone sees the beast now, the right size, color and animal head, instead of their normal body.',
       ],
     },
     {
