@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.80', title: 'Co-op playtest hotfixes', date: '2026-07-15',
       sha: '2393d80',
       items: [
-        'Live playtest batch: wall-stuck mobs eject (#190); pyro burn syncs + guest Immolate lands (#191); presence stays alive on pick screens with a CHOOSING tag (#192); mines visible to player 2 (#193); co-op PLAY AGAIN keeps the party together (#194); blip reconnect no longer resets the non-host to the first room (#195).',
+        'A monster stuck inside a wall where you could not reach it (and it locked the doors forever) now pops itself free automatically.',
+        'Co-op fixes from tonight\'s playtest, thank you for the bug reports! The pyromancer\'s fire now shows up on your teammate\'s screen, and a non-host pyro\'s Immolate actually burns things now (before, it secretly did nothing). Mines on the ground are visible to BOTH players. A teammate picking their level-up no longer vanishes from your screen: they stay put with a little CHOOSING tag over their head, so you know why they stopped moving. PLAY AGAIN after a co-op run now starts a fresh run with the whole party together instead of splitting everyone up. And a WiFi hiccup no longer teleports the second player back to the first room.',
       ],
     },
     {
