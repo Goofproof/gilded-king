@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.85', title: 'Mythic armor actually protects + Q grows with your build', date: '2026-07-15',
       sha: 'f33c55b',
       items: [
-        'Mythic armor defense was rounded to ZERO - every mythic gave no reduction at all; now 0.19-0.28, above legendary (#204). Q abilities scale +4%/point with the class\'s PRIMARY stat (mage ARCANE, cleric VIGOR, ranger AGILITY, warrior MIGHT...) (#205).',
+        'Big fix: MYTHIC ARMOR was secretly giving ZERO damage reduction. A math bug rounded its protection away, so the rarest armor in the game protected worse than common gear. Every mythic now blocks 19 to 28 percent of damage, comfortably above legendary. If you own one, put it back on.',
+        'Your Q ability now grows with your CLASS STAT, not just your level. Every point you put into your class\'s main stat makes your Q hit 4 percent harder: a mage\'s ARCANE feeds Arcane Nova, a cleric\'s VIGOR makes Mend heal more, a ranger\'s AGILITY sharpens Tumble Volley, a warrior\'s MIGHT powers Shield Bash. Hover your Q icon to see which stat is yours. Building your class the way it wants to be built finally pays off in your ability too.',
       ],
     },
     {
