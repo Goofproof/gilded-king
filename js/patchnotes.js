@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.60';
+  const VERSION = 'v2.61';
 
   const NOTES = [
+    {
+      v: 'v2.61', title: 'Training barracks no longer breaks the game', date: '2026-07-15',
+      sha: 'ce2e87f',
+      items: [
+        'Barracks anti-abuse: per-run global cost + hard cap of 12 trainings (#167).',
+      ],
+    },
     {
       v: 'v2.60', title: 'Magic panther: a cloaking cat that bleeds you', date: '2026-07-15',
       sha: '5ba7768',
