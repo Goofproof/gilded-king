@@ -226,6 +226,25 @@ const Monsters = (() => {
     }
     if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w, m.px, m.py); if (q) { m.x = q.x; m.y = q.y; } }
     clampToField(m);
+    // #190 (Sam, player report) EJECT BACKSTOP. Wall rects sit flush against the field
+    // edge, so the clamp above could shove a wall-pushed mob straight back INSIDE the
+    // wall - where player shots die on the wall and the mob is unreachable, soft-locking
+    // the room ("i couldnt reach them and they're just stuck there"). If we still
+    // overlap a wall after the clamp, walk toward the room centre until free.
+    if (g.room.walls && g.room.walls.length) {
+      const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2;
+      for (let tries = 0; tries < 60; tries++) {
+        let inside = false;
+        for (const w of g.room.walls) {
+          // CENTRE-in-rect only: a grazing overlap is rectPush's job; a centre inside
+          // the wall is unambiguously stuck (and is what the soft-lock looks like).
+          if (m.x > w.x && m.x < w.x + w.w && m.y > w.y && m.y < w.y + w.h) { inside = true; break; }
+        }
+        if (!inside) break;
+        const dx = cx - m.x, dy = cy - m.y, d = Math.hypot(dx, dy) || 1;
+        m.x += (dx / d) * 8; m.y += (dy / d) * 8;
+      }
+    }
     return false;
   }
   // the edge point of a door on a given side (the loot goblin's escape route)

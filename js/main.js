@@ -2113,13 +2113,22 @@
       // spreads - a burning enemy that dies sets its neighbours alight (see monsters.js
       // death hook via g.pyroSpread).
       const dur = a.dur || 6;   // already level-scaled above
+      const dps = (a.dps || 60) * (p.stats.dmgMul || 1);
       let lit = 0;
-      for (const m of g.monsters) {
-        if (m.dead) continue;
-        m.burn = { t: dur, tick: 0, dps: (a.dps || 60) * (p.stats.dmgMul || 1) };
-        lit++;
+      // #191 (player report) a GUEST pyro was lighting its local PROXIES - the host never
+      // heard about it, so Immolate did zero real damage in co-op. Forward to the host,
+      // whose monsters are the truth; the burn flag then flows back via snapshots.
+      if (isCoopGuest()) {
+        Net.send({ t: 'immolate', dps: Math.round(dps), dur });
+        lit = g.monsters.filter(m => !m.dead).length;
+      } else {
+        for (const m of g.monsters) {
+          if (m.dead) continue;
+          m.burn = { t: dur, tick: 0, dps };
+          lit++;
+        }
+        g.pyroSpread = { t: dur + 4, dps, dur };
       }
-      g.pyroSpread = { t: dur + 4, dps: (a.dps || 60) * (p.stats.dmgMul || 1), dur };
       Fx.burst(p.x, p.y, ['#ff8a3d', '#ffd24c', '#ff3d1f'], 40, { speed: 240, life: 0.8, glow: true });
       Fx.text(p.x, p.y - 32, lit ? 'EVERYTHING MUST BURN' : 'NOTHING LEFT TO BURN', a.color, 15);
       Fx.shake(10, 0.35);
@@ -2720,10 +2729,21 @@
     // #123 advance the mythic-drop fanfare regardless of state/hit-stop
     if (g.mythicFx) { g.mythicFx.t += dt; if (g.mythicFx.t >= g.mythicFx.dur) g.mythicFx = null; }
 
+    // #192 (Sam, live playtest) KEEP PRESENCE ALIVE WHILE FROZEN. The pick screens,
+    // pause and the character sheet never sent 'p', so a player reading their level-up
+    // choices VANISHED from the teammate's screen within seconds - and with the
+    // majority-gather door plates unable to fire without them, the other player was
+    // sealed in the room. Both "we can't see each other" and "we can't leave" at once.
+    if (g.coop && (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' ||
+        g.state === 'rpick' || g.state === 'pause' || g.state === 'charsheet' || g.state === 'enchantpick' || g.state === 'offer')) {
+      broadcastSelf(dt); interpRemotes(dt);
+      if (isCoopGuest()) updateGuestMobs(dt);
+    }
     switch (g.state) {
       case 'title': updateTitle(); break;
       case 'lobby': updateLobby(); break;
       case 'play': updatePlay(dt); break;
+      // (co-op presence in frozen states is handled just above the switch - #192)
       // #85 press C during any pick to peek the character sheet, then return to the pick
       case 'levelup': g.overlayT += dt; if (peekCharSheet()) break; updateLevelUp(dt); break;
       case 'evolution': g.overlayT += dt; if (peekCharSheet()) break; updateEvolution(); break;
@@ -2973,6 +2993,7 @@
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
       rp.form = m.fm || '';                                       // #162 druid form id
       rp.mn = m.mn || null;                                       // #174 their minions
+      rp.busy = !!m.bz;                                           // #192 they are on a menu
       rp.last = g.time;
       if (m.u && g.runHostU && m.u === g.runHostU) g.lastHostSeenT = g.time; // #173 host liveness
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
@@ -2985,6 +3006,9 @@
       // #173 a reconnecting client that KEPT its run must not restart it: same seed,
       // already in this co-op run -> ignore (the targeted 'floor' that follows resyncs us)
       if (g.coop && g.state !== 'lobby' && g.coopSeed === m.seed) return;
+      // #194 pulled into the new party run while typing a high-score name: bank the
+      // score with whatever was typed so PLAY AGAIN never eats a kid's high score
+      if (g.state === 'initials') { try { commitInitials(); } catch (e) { /* score save must never block the restart */ } }
       startCoop(m.seed, m.hu || null);
     });
     // #173 LATE-JOIN / REJOIN: a peer connected mid-run (fresh player, or a teammate whose
@@ -3003,7 +3027,14 @@
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
-    Net.on('mobs', m => { if (isCoopGuest()) { g.lastHostSeenT = g.time; applyMobSnapshot(m.list, m.room); } });
+    Net.on('mobs', m => {
+      if (!isCoopGuest()) return;
+      g.lastHostSeenT = g.time;
+      applyMobSnapshot(m.list, m.room);
+      // #193 mirror the host's mines as draw-only proxies (drawMines reads x/y/armed/fuse/r)
+      if (m.room && g.room && (g.room.gx !== m.room[0] || g.room.gy !== m.room[1])) { g.mines = []; }
+      else g.mines = (m.mines || []).map(mn => ({ x: mn.x, y: mn.y, r: 8, armed: !!mn.a, fuse: mn.f ? 0 : -1, blastR: 105, dmg: 0, t: 0, armT: 0, proxy: true }));
+    });
     // co-op: the guest levels off the host's shared kills
     Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
     // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id).
@@ -3134,6 +3165,14 @@
       }
     });
     // tethered party: a peer moved through a door - everyone follows to that room
+    // #191 a guest pyromancer cast Immolate: the HOST owns the monsters, so the burn
+    // lands here and flows back to every screen via the snapshot burn flag.
+    Net.on('immolate', m => {
+      if (!g.coop || !isRunHost()) return;
+      const dur = Math.max(1, Math.min(20, +m.dur || 6)), dps = Math.max(1, Math.min(500, +m.dps || 60));
+      for (const mon of g.monsters) { if (!mon.dead) mon.burn = { t: dur, tick: 0, dps }; }
+      g.pyroSpread = { t: dur + 4, dps, dur };
+    });
     // #181 someone opened a trap chest: everyone's chest opens; the pinned host spawns
     Net.on('trapopen', m => {
       if (!g.coop || !g.dungeon) return;
@@ -3148,6 +3187,10 @@
     // trumps any pending level-up gate: clear it so nothing is left stranded)
     Net.on('floor', m => {
       if (m.to && m.to !== Net.id) return; // #173 targeted late-join floor: not for me
+      // #195 (Sam, live playtest) ALREADY THERE: after a guest's WiFi blip the host
+      // re-sends the floor (late-join path), and rebuilding it teleported the non-host
+      // back to the first room every time. Same floor + same seed = nothing to do.
+      if (g.coop && g.dungeon && g.floorNum === m.floor && g.coopSeed === m.seed) return;
       if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; g.nightmareNext = !!m.nm; startFloor(); g.state = 'play'; }
     });
     Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
@@ -3349,6 +3392,7 @@
       fm: (p.form && p.form.id) || '',                // #162 (Sam) so peers see your druid shape
       u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
       mn: minionSnapshot(),                           // #174 (Sam) so peers see your army
+      bz: (g.state !== 'play') ? 1 : 0,               // #192 frozen in a menu (peers show CHOOSING)
     });
   }
 
@@ -3424,6 +3468,12 @@
       c.textAlign = 'center';
       c.fillStyle = '#7fd4ff'; c.font = 'bold 10px monospace';
       c.fillText(rp.name || id, rp.x, rp.y - 22);
+      // #192 a teammate frozen on a pick screen says so - not an unexplained statue
+      if (rp.busy) {
+        const dots = '.'.repeat(1 + (Math.floor(Date.now() / 400) % 3));
+        c.fillStyle = '#ffd24c'; c.font = 'italic 9px monospace';
+        c.fillText('CHOOSING' + dots, rp.x, rp.y - 33);
+      }
       if (rp.maxHp) {
         const bw = 26, kk = Math.max(0, (rp.hp || 0) / rp.maxHp);
         c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(rp.x - bw / 2 - 1, rp.y - 19, bw + 2, 4);
@@ -3673,12 +3723,17 @@
                   hp: Math.round(m.hp), mh: Math.round(m.maxHp), r: Math.round(m.r),
                   dm: m.dmg || 8, s: m.spawnT > 0 ? 1 : 0, el: m.elite ? 1 : 0,
                   // PR-4: state fields so the real per-type draw animates telegraphs/windups/fuse on the guest
-                  st: m.state, tg: +(m.telegraph || 0).toFixed(2), lg: m.lungeAngle !== undefined ? +m.lungeAngle.toFixed(2) : undefined, fu: m.fuse });
+                  st: m.state, tg: +(m.telegraph || 0).toFixed(2), lg: m.lungeAngle !== undefined ? +m.lungeAngle.toFixed(2) : undefined, fu: m.fuse,
+                  bn: (m.burn && m.burn.t > 0) ? 1 : 0 }); // #191 so guests SEE the fire
     }
     // #172 (Sam) room-tag every snapshot. A guest standing in a DIFFERENT room must not
     // render these - that was the "phantom invulnerable mob" that only one player could
     // see and that sealed the room shut.
-    Net.send({ t: 'mobs', room: g.room ? [g.room.gx, g.room.gy] : null, list });
+    // #193 (Sam, live playtest) mines were host-local: player 2 walked over bombs it
+    // could not see. A compact list rides the same room-tagged snapshot (visual +
+    // positional only; the HOST still owns arming, fuses and the blast).
+    const mines = (g.mines || []).slice(0, 24).map(mn => ({ x: Math.round(mn.x), y: Math.round(mn.y), a: mn.armed ? 1 : 0, f: mn.fuse >= 0 ? 1 : 0 }));
+    Net.send({ t: 'mobs', room: g.room ? [g.room.gx, g.room.gy] : null, list, mines });
     // P1-E: the boss rides its own message (crown/jaw/hop/shadow draw fields)
     const b = g.boss;
     if (b && !b.dead && b.netId) {
@@ -3714,6 +3769,9 @@
       m.telegraph = s.tg || 0;
       if (s.lg !== undefined) m.lungeAngle = s.lg;
       if (s.fu !== undefined) m.fuse = s.fu;
+      // #191 (player report) burning mobs now burn on EVERY screen. Visual-only marker,
+      // refreshed by each snapshot; dps 0 so the proxy never double-ticks damage.
+      m.burn = s.bn ? { t: 0.5, tick: 9, dps: 0 } : null;
     }
     for (let i = g.monsters.length - 1; i >= 0; i--) {
       const m = g.monsters[i];
@@ -4395,7 +4453,19 @@
   }
 
   function updateEnd() {
-    // leaving a co-op run drops the connection cleanly
+    // #194 (Sam, live playtest) co-op PLAY AGAIN keeps the party TOGETHER: same room,
+    // fresh shared seed, everyone pulled straight into the new run. Whoever presses it
+    // becomes the new pinned host (exactly like pressing START in the lobby). Escape
+    // still leaves the party for the title screen.
+    const clickedAgain = input.mouse.clicked && (g.uiRects || []).some(r =>
+      r.action === 'again' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h);
+    if ((input.pressed('Enter') || clickedAgain) && g.coop && typeof Net !== 'undefined' && Net.connected) {
+      const seed = (Math.random() * 1e9) | 0;
+      Net.send({ t: 'start', seed, hu: g.clientId });
+      startCoop(seed, g.clientId);
+      return;
+    }
+    // solo, or the connection died: the old drop-and-restart behavior
     if ((input.pressed('Enter') || input.pressed('Escape')) && g.coop) {
       g.coop = false;
       if (typeof Net !== 'undefined') Net.disconnect();
@@ -4536,6 +4606,7 @@
   // #27 minelayer: mines arm, then a nearby player trips a short fuse -> blast.
   // Auto-detonate after 7s so they never pile up forever.
   function updateMines(dt) {
+    if (isCoopGuest()) return; // #193 a guest's mines are draw-only proxies; the HOST owns arming and blasts
     const p = g.player;
     const nearAnyPlayer = (x, y, rr) => {
       if (!p.dead && Math.hypot(p.x - x, p.y - y) < rr + p.r) return true;
