@@ -149,7 +149,10 @@ export class Leaderboard {
       let s; try { s = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
       if (!s || typeof s.score !== 'number' || !isFinite(s.score)) return json({ error: 'bad score' }, 400);
       const entry = {
-        initials: String(s.initials || 'AAA').replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'AAA',
+        // #225 the board shows the CHARACTER'S NAME (up to 12 chars), not arcade
+        // initials - the client has posted real names since #203; this slice was
+        // truncating "SAMUEL" to "SAM" and making the board look initials-only.
+        initials: String(s.initials || 'AAA').replace(/[^A-Za-z0-9]/g, '').slice(0, 12).toUpperCase() || 'AAA',
         score: Math.max(0, Math.min(1e9, Math.round(s.score))),
         floor: Math.max(0, Math.min(999, s.floor | 0)),
         won: !!s.won,

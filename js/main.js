@@ -1281,11 +1281,11 @@
       // still get the entry once, and what they type BECOMES their name.
       const nm = (g.playerName || '').trim();
       if (nm) {
-        g.initials = { name: nm.toUpperCase().slice(0, 10), max: 10 };
+        g.initials = { name: nm.toUpperCase().slice(0, 12), max: 12 }; // #225 unified with the 12-char rename cap
         commitInitials(false);
         return;
       }
-      g.initials = { name: '', max: 10 }; // #160 (Sam) a real name, up to 10 chars, not 3 initials
+      g.initials = { name: '', max: 12 }; // #160 (Sam) a real name, up to 12 chars, not 3 initials
       g.state = 'initials';
       g.overlayT = 0;
       Sfx.play('levelup');
