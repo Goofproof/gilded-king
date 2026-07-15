@@ -2010,17 +2010,25 @@
     let _qScaled = null;
     if (a === p.ability && a.classQ && typeof Abilities !== 'undefined' && Abilities.qLevelScale) {
       const s = Abilities.qLevelScale(p.level);
-      // #205 (Sam) the Q also grows with your class's PRIMARY stat: +4% damage and
-      // healing per point invested (a mage's ARCANE feeds Arcane Nova, a cleric's
-      // VIGOR feeds Mend...). Level covers reach/duration; the stat covers punch.
-      const primary = (Abilities.CLASS_STAT && Abilities.CLASS_STAT[(p.class && p.class.id) || '']) || null;
-      const statMul = 1 + 0.04 * ((primary && p.statPoints && p.statPoints[primary]) || 0);
-      _qScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, knock: a.knock };
-      if (a.dmg) a.dmg = Math.round(a.dmg * s.dmg * statMul);
-      if (a.knock) a.knock = Math.round(a.knock * s.knock);
-      if (a.radius) a.radius = Math.round(a.radius * s.radius);
-      if (a.heal) a.heal = Math.min(0.95, a.heal * s.heal * statMul);
-      if (a.dur) a.dur = +(a.dur + s.durBonus).toFixed(2);
+      // #226 (Q-DESIGN, supersedes #205's flat 4%) THE RANK SYSTEM. rank = points in
+      // the class's RULING STAT. Each point grows the Q's SIGNATURE quantity
+      // (Q_TUNE per-point channels); damage Qs also carry a PERCENT RIDER (qRider)
+      // applied per target at the hit sites, so the Q stays a constant fraction of a
+      // monster at every depth instead of being outscaled by the floor curve.
+      const cls = (p.class && p.class.id) || '';
+      const rank = Abilities.qRank ? Abilities.qRank(cls, p.statPoints) : 0;
+      const tune = (Abilities.Q_TUNE && Abilities.Q_TUNE[cls]) || {};
+      const pp = tune.perPoint || {};
+      _qScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, knock: a.knock, dist: a.dist, dps: a.dps, qRider: a.qRider, _rank: a._rank };
+      a.qRider = tune.rider || 0;
+      a._rank = rank; // milestone gates (waves 1-4) and tooltips read this
+      if (a.dmg) a.dmg = Math.round(a.dmg * s.dmg * (1 + (pp.dmgMul || 0) * rank));
+      if (a.knock) a.knock = Math.round(a.knock * s.knock + (pp.knock || 0) * rank);
+      if (a.radius) a.radius = Math.round(a.radius * s.radius + (pp.radius || 0) * rank);
+      if (a.heal) a.heal = Math.min(0.95, a.heal * s.heal + (pp.heal || 0) * rank);
+      if (a.dur) a.dur = +(a.dur + s.durBonus + (pp.dur || 0) * rank).toFixed(2);
+      if (a.dist && pp.dist) a.dist = Math.round(a.dist + pp.dist * rank);
+      if (a.dps) a.dps = Math.round(a.dps + (pp.dps || 0) * rank);
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -2032,7 +2040,9 @@
       for (const m of g.monsters) {
         if (m.dead || m.airborne || m.spawnT > 0) continue;
         if (Math.hypot(m.x - p.x, m.y - p.y) > R + m.r) continue;
-        m.takeHit(dmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        // #226 percent rider: + a slice of THIS target's max HP (bosses at 1/3)
+        const hitDmg = dmg + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0);
+        m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
       }
     } else if (a.kind === 'dash') {
       const ang = p.facing, dist = a.dist || 260;
@@ -2045,7 +2055,8 @@
         for (const m of g.monsters) {
           if (m.dead || m.airborne || m.spawnT > 0 || hit.has(m)) continue;
           if (Math.hypot(m.x - px, m.y - py) < m.r + p.r + 8) {
-            m.takeHit((a.dmg || 55) * dmgMul, { sx: px, sy: py, knock: 150, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitLight' }, g);
+            const dashDmg = (a.dmg || 55) * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0); // #226
+            m.takeHit(dashDmg, { sx: px, sy: py, knock: 150, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitLight' }, g);
             hit.add(m);
           }
         }
@@ -2109,7 +2120,11 @@
       const lvlUp = 1 + 0.05 * (p.level - 1); // #109 turret power grows with level too
       const dmg = Math.round(11 * (p.stats.dmgMul || 1) * (1 + 0.15 * agi) * lvlUp);
       const hp = Math.round(60 * (1 + 0.06 * agi + 0.08 * Math.max(0, g.floorNum - 1)) * lvlUp);
-      g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: 0.7, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0 });
+      // #226 per-point channel: fire RATE (cap stays 5 - depth over width); the shot
+      // carries the percent rider so turrets stay a real weapon on deep floors
+      const tn = (typeof Abilities !== 'undefined' && Abilities.Q_TUNE && Abilities.Q_TUNE.engineer) || {};
+      const rate = 0.7 / (1 + ((tn.perPoint && tn.perPoint.rateMul) || 0) * agi);
+      g.turrets.push({ x: p.x, y: p.y + 6, hp, maxHp: hp, dmg, atkCd: 0, atkRate: rate, range: 300, facing: 0, flash: 0, hurtCd: 0, dead: false, t: 0, qRider: tn.rider || 0 });
       Fx.burst(p.x, p.y, [a.color, '#fff'], 16, { speed: 120, life: 0.4 });
       Fx.text(p.x, p.y - 30, 'TURRET', a.color, 12);
     } else if (a.kind === 'summon') {
@@ -2136,6 +2151,7 @@
         const ang = (i / n) * Math.PI * 2;
         const cl = makeMercFollower({ cls: 'blade' }, g.floorNum);
         cl.clone = true;
+        cl.qRider = a.qRider || 0; // #226 the detonation carries the mesmer's rider
         cl.life = a.dur || 8;   // already level-scaled above
         cl.blastDmg = Math.round((a.dmg || 70) * (p.stats.dmgMul || 1));
         cl.blastR = a.radius || 130;
@@ -2217,12 +2233,13 @@
       // heard about it, so Immolate did zero real damage in co-op. Forward to the host,
       // whose monsters are the truth; the burn flag then flows back via snapshots.
       if (isCoopGuest()) {
-        Net.sendR({ t: 'immolate', dps: Math.round(dps), dur });
+        Net.sendR({ t: 'immolate', dps: Math.round(dps), dur, rd: a.qRider || 0 }); // #226 rider travels too
         lit = g.monsters.filter(m => !m.dead).length;
       } else {
         for (const m of g.monsters) {
           if (m.dead) continue;
-          m.burn = { t: dur, tick: 0, dps };
+          // #226 rider as %-of-maxHp PER SECOND, so the burn matters on floor 25
+          m.burn = { t: dur, tick: 0, dps: dps + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0) };
           lit++;
         }
         g.pyroSpread = { t: dur + 4, dps, dur };
@@ -2401,7 +2418,9 @@
           const d = Math.hypot(m.x - merc.x, m.y - merc.y);
           if (d > R + m.r) continue;
           // damage falls off with distance, like every other blast in the game
-          m.takeHit(D * (1 - 0.4 * (d / R)), { sx: merc.x, sy: merc.y, knock: 150, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+          // (#226: + the mesmer's percent rider so clone blasts matter at depth)
+          const blast = D * (1 - 0.4 * (d / R)) + (merc.qRider ? m.maxHp * merc.qRider * (m.isBoss ? 1 / 3 : 1) : 0);
+          m.takeHit(blast, { sx: merc.x, sy: merc.y, knock: 150, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
         }
         Fx.burst(merc.x, merc.y, ['#c78bff', '#fff', '#e8c8ff'], 26, { speed: 230, life: 0.55, glow: true });
         Fx.shake(5, 0.2);
@@ -2498,7 +2517,7 @@
         tr.facing = Math.atan2(target.y - tr.y, target.x - tr.x);
         if (tr.atkCd <= 0) {
           const a = tr.facing;
-          g.projectiles.push({ x: tr.x + Math.cos(a) * 12, y: tr.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 4, dmg: tr.dmg, from: 'player', color: '#ffd24c', life: 1.2, arrow: true, hitSet: new Set(), crit: false });
+          g.projectiles.push({ x: tr.x + Math.cos(a) * 12, y: tr.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 4, dmg: tr.dmg, from: 'player', color: '#ffd24c', life: 1.2, arrow: true, hitSet: new Set(), crit: false, qRider: tr.qRider || 0 }); // #226
           tr.atkCd = tr.atkRate; tr.recoil = 0.12; Sfx.play('bowfire');
         }
       }
@@ -3463,7 +3482,8 @@
     Net.on('immolate', m => {
       if (!g.coop || !isRunHost()) return;
       const dur = Math.max(1, Math.min(20, +m.dur || 6)), dps = Math.max(1, Math.min(500, +m.dps || 60));
-      for (const mon of g.monsters) { if (!mon.dead) mon.burn = { t: dur, tick: 0, dps }; }
+      const rd = Math.max(0, Math.min(0.1, +m.rd || 0)); // #226 the guest pyro's percent rider
+      for (const mon of g.monsters) { if (!mon.dead) mon.burn = { t: dur, tick: 0, dps: dps + rd * mon.maxHp * (mon.isBoss ? 1 / 3 : 1) }; }
       g.pyroSpread = { t: dur + 4, dps, dur };
     });
     // #181 someone opened a trap chest: everyone's chest opens; the pinned host spawns
@@ -4917,6 +4937,7 @@
             // target-conditional evolution bonuses resolve at impact for arrows
             const P = g.player;
             let dmg = pr.dmg;
+            if (pr.qRider) dmg += m.maxHp * pr.qRider * (m.isBoss ? 1 / 3 : 1); // #226 turret shots
             if (P.mod('dmgVsWounded') && m.hp <= m.maxHp * 0.3) dmg *= 1 + P.mod('dmgVsWounded');
             if (P.mod('firstStrike') && m.hp >= m.maxHp) dmg *= 1 + P.mod('firstStrike');
             if (P.mod('bossSlayer') && m.isBoss) dmg *= 1 + P.mod('bossSlayer');
@@ -6996,27 +7017,40 @@
     // ability badge tooltips (Q / R / Ultimate): what does each do? Use UI's own
     // badge layout so the hover zone always tracks the real badges (they moved to
     // the bottom-right in #63; the old hard-coded centre layout stopped matching).
+    // #226 the Q card shows your RANK and the milestone ladder - what each rank
+    // unlocks, greyed until you reach it, "(coming soon)" until its wave ships.
+    const qCls = (p.class && p.class.id) || '';
+    const qStat = (Abilities.CLASS_STAT && Abilities.CLASS_STAT[qCls]) || '';
+    const qRk = Abilities.qRank ? Abilities.qRank(qCls, p.statPoints) : 0;
     const FORGED = {
-      'Q': `your ${(p.class && p.class.name) || 'class'} ability · grows with level (Lv ${p.level})${Abilities.CLASS_STAT && Abilities.CLASS_STAT[(p.class && p.class.id) || ''] ? ' + your ' + Abilities.CLASS_STAT[(p.class && p.class.id) || ''] : ''}`, // #109/#205
+      'Q': `your ${(p.class && p.class.name) || 'class'} ability · RANK ${qRk}  (rank = your ${qStat})`,
       'R': 'forged from your first two evolutions',
       '★': 'right-click · forged from Q + R',
     };
     const LABEL = { 'Q': 'Q', 'R': 'R', '★': 'Ultimate' };
     for (const b of UI.abilityBadges(p)) {
       if (mx >= b.x && mx <= b.x + b.s && my >= b.y && my <= b.y + b.s) {
-        drawAbilityCard(c, b.a, LABEL[b.key] || b.key, FORGED[b.key] || '', b.x + b.s / 2, b.y - 6);
+        let extra = [];
+        if (b.key === 'Q' && Abilities.Q_MILESTONES && Abilities.Q_MILESTONES[qCls]) {
+          extra = Abilities.Q_MILESTONES[qCls].map(ms => ({
+            text: `RANK ${ms.at}: ${ms.txt}${ms.impl ? '' : ' (coming soon)'}`,
+            color: qRk >= ms.at ? (ms.impl ? '#8fd0a0' : '#c9b98a') : '#5a6070',
+          }));
+        }
+        drawAbilityCard(c, b.a, LABEL[b.key] || b.key, FORGED[b.key] || '', b.x + b.s / 2, b.y - 6, extra);
         break;
       }
     }
   }
 
   // hovering an ability badge explains the power and where it came from
-  function drawAbilityCard(c, a, key, forged, anchorX, anchorY) {
+  function drawAbilityCard(c, a, key, forged, anchorX, anchorY, extra) {
     const lines = [
       { text: a.name, color: a.color, bold: true },
       { text: `${key} · ${a.cdMax}s cooldown`, color: '#8fa3bf' },
       ...(a.desc ? wrapToLines(c, a.desc, 250) : []).map(t => ({ text: t, color: '#cdd4e2' })),
       { text: forged, color: '#9a8f7a', italic: true },
+      ...(extra || []), // #226 the Q milestone ladder
     ];
     const cw = 268, lh = 16, chh = lines.length * lh + 14;
     let cx = Math.min(W - cw - 8, Math.max(8, anchorX - cw / 2));

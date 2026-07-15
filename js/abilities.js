@@ -180,6 +180,60 @@ const Abilities = (() => {
     paladin: 'VIGOR', cleric: 'VIGOR', druid: 'VIGOR', deathknight: 'VIGOR',
   };
 
+  // #226 (Q-DESIGN.md, agreed with Sam 2026-07-15) THE Q RANK SYSTEM.
+  // Your Q has a RANK = the points in your class's RULING STAT. Three layers:
+  //   1. PERCENT RIDER: damage Qs add rider * target.maxHp per hit (bosses at 1/3),
+  //      so a Q stays a constant FRACTION of a monster at every depth. Applied at
+  //      the hit sites in main.js castAbility (per target, classQ casts only).
+  //   2. PER-POINT CHANNELS: each point grows the Q's SIGNATURE quantity below.
+  //      (The pet classes already scale per-stat at spawn time: skeletons +10%/ARCANE
+  //      in riseSkeleton, elementals +12%/ARCANE, turrets +15%/AGILITY - those keep
+  //      their own channels and are listed empty here.)
+  //   3. MILESTONES at ranks 4/8/12 (Q_MILESTONES): discrete new features, shipped
+  //      in waves; impl flips true as each wave lands. Tooltips show the ladder.
+  const Q_TUNE = {
+    '':          { rider: 0,    perPoint: { dur: 0.10 } },
+    warrior:     { rider: 0.10, perPoint: { knock: 14 } },
+    barbarian:   { rider: 0,    perPoint: { dur: 0.15 } },
+    ranger:      { rider: 0.08, perPoint: { dist: 9 } },
+    rogue:       { rider: 0.18, perPoint: { dmgMul: 0.06 } },
+    engineer:    { rider: 0.03, perPoint: { rateMul: 0.04 } }, // consumed at turret build (fire rate)
+    mage:        { rider: 0.10, perPoint: { radius: 5 } },
+    summoner:    { rider: 0.03, perPoint: {} },
+    mesmer:      { rider: 0.10, perPoint: { dur: 0.4 } },
+    necromancer: { rider: 0,    perPoint: {} },
+    pyromancer:  { rider: 0.02, perPoint: { dps: 4 } },  // rider is %/s folded into the burn
+    paladin:     { rider: 0,    perPoint: { heal: 0.01 } },
+    cleric:      { rider: 0,    perPoint: { heal: 0.01, radius: 6 } },
+    druid:       { rider: 0,    perPoint: {} },          // forms rework in the VIGOR wave
+    deathknight: { rider: 0.10, perPoint: { dur: 0.25 } }, // Miasma replaces this kit in the VIGOR wave
+  };
+
+  function qRank(classId, statPoints) {
+    const st = CLASS_STAT[classId || ''];
+    return ((st && statPoints && statPoints[st]) | 0);
+  }
+
+  // the agreed milestone ladder (Q-DESIGN.md). impl flips true as each wave ships;
+  // unimplemented entries show in tooltips as "coming soon" - anticipation is content.
+  const Q_MILESTONES = {
+    '':          [{ at: 4, txt: 'Also refunds your roll', impl: false }, { at: 8, txt: 'Small heal on cast', impl: false }, { at: 12, txt: 'The rush extends to allies', impl: false }],
+    warrior:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: false }, { at: 8, txt: 'Knockback DOUBLES', impl: false }, { at: 12, txt: 'Wall slams hit a second time', impl: false }],
+    barbarian:   [{ at: 4, txt: 'Feared enemies take +15% damage', impl: false }, { at: 8, txt: 'Allies near you gain rage', impl: false }, { at: 12, txt: 'Cornered enemies cower (stunned)', impl: false }],
+    ranger:      [{ at: 1, txt: 'The volley is REAL: 3 arrows mid-dash', impl: false }, { at: 4, txt: 'A full CIRCLE of arrows', impl: false }, { at: 8, txt: 'Volley arrows pierce', impl: false }, { at: 12, txt: 'Two dash charges', impl: false }],
+    rogue:       [{ at: 4, txt: 'A kill resets the cooldown', impl: false }, { at: 8, txt: 'Shadowstep behind your target', impl: false }, { at: 12, txt: 'Kills grant 1.5s of Vanish', impl: false }],
+    engineer:    [{ at: 4, txt: 'Turret shots slow', impl: false }, { at: 8, txt: 'Turrets inherit your weapon element', impl: false }, { at: 12, txt: 'Oldest turret becomes a TESLA COIL', impl: false }],
+    mage:        [{ at: 4, txt: 'Nova leaves a 2s slow field', impl: false }, { at: 8, txt: 'A second, smaller pulse', impl: false }, { at: 12, txt: 'Everything hit is chilled', impl: false }],
+    summoner:    [{ at: 4, txt: 'Elemental gains its element aura', impl: false }, { at: 8, txt: 'TWO elementals', impl: false }, { at: 12, txt: 'Elementals explode on death', impl: false }],
+    mesmer:      [{ at: 4, txt: 'FOUR clones', impl: false }, { at: 8, txt: 'Clones echo your attacks', impl: false }, { at: 12, txt: 'Recast to swap with a clone', impl: false }],
+    necromancer: [{ at: 4, txt: 'Two knights', impl: false }, { at: 8, txt: '3 knights + 2 archers', impl: false }, { at: 12, txt: 'A BONE GOLEM joins', impl: false }],
+    pyromancer:  [{ at: 4, txt: 'Bigger spread from the dying', impl: false }, { at: 8, txt: 'Fire immunity while it burns', impl: false }, { at: 12, txt: 'Burning enemies EXPLODE on death', impl: false }],
+    paladin:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: false }, { at: 8, txt: 'Cast cleanses burns/bleeds/slows', impl: false }, { at: 12, txt: 'Overheal becomes armor', impl: false }],
+    cleric:      [{ at: 4, txt: 'Heals cure poison and bleed', impl: false }, { at: 8, txt: 'Leaves a consecrated regen circle', impl: false }, { at: 12, txt: 'Healed allies gain a shield', impl: false }],
+    druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: false }, { at: 8, txt: 'Each form gains a MOVE', impl: false }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: false }],
+    deathknight: [{ at: 4, txt: 'THE BLACK WIND: it follows you', impl: false }, { at: 8, txt: 'Regenerate while enemies rot', impl: false }, { at: 12, txt: 'Poison kills RISE as your skeletons', impl: false }],
+  };
+
   function classAbility(classId) {
     const spec = CLASS_Q[classId] || CLASS_Q[''];
     const act = spec.base ? ACTIONS[spec.base] : null;
@@ -276,5 +330,5 @@ const Abilities = (() => {
     return out;
   }
 
-  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES };
+  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES, Q_TUNE, Q_MILESTONES, qRank };
 })();
