@@ -810,6 +810,10 @@ const UI = (() => {
     c.fillStyle = '#0d0d16';
     c.fillRect(0, 0, W, H);
 
+    // #203 whose scores these are: the standing name, changeable with N
+    c.textAlign = 'right'; c.font = '10px monospace'; c.fillStyle = '#7a8698';
+    c.fillText((g.playerName ? 'playing as ' + g.playerName : 'no name set') + '  ·  N to change', W - 14, 16);
+
     // faint radial vignette spotlighting the title + play buttons
     {
       const vg = c.createRadialGradient(W / 2, 150, 40, W / 2, 150, 380);
@@ -1694,7 +1698,7 @@ const UI = (() => {
     c.textAlign = 'center';
     c.font = 'bold 38px monospace';
     c.fillStyle = '#ffd24c';
-    c.fillText('NEW HIGH SCORE!', W / 2, 130);
+    c.fillText(g.renameOnly ? 'WHAT IS YOUR NAME?' : 'NEW HIGH SCORE!', W / 2, 130); // #203 doubles as the rename screen
     c.font = 'bold 24px monospace';
     c.fillStyle = '#b88aff';
     c.fillText(`${g.essenceEarned} ◆ essence`, W / 2, 172);
@@ -2125,7 +2129,7 @@ const UI = (() => {
     // the champion
     if (PlayerDef.drawClassPortrait && p.class) {
       c.save();
-      try { PlayerDef.drawClassPortrait(c, p.class.id, cx, cy, 26); } catch (err) { /* never let art kill the sheet */ }
+      try { PlayerDef.drawClassPortrait(c, p.class.id, cx, cy, 26, p.race && p.race.id); } catch (err) { /* never let art kill the sheet */ } // #202 real class + race
       c.restore();
     }
 

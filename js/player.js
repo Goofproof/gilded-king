@@ -498,7 +498,10 @@ const PlayerDef = (() => {
   // feature (tusks / ears / beard / hollow eyes) UNDER the class headgear, so a Dwarf
   // Warrior reads as both at a glance.
   function drawClassPortrait(c, cls, cx, cy, s, raceId) {
-    const id = cls.id || '';
+    // #202 (Sam) accept the class OBJECT or its id STRING. The character sheet passed
+    // the string, `cls.id` came back undefined, and EVERY class drew as the plain
+    // Adventurer portrait.
+    const id = (typeof cls === 'string') ? cls : (cls && cls.id) || '';
     const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8',
       mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f' }[id] || '#5b6884';
     const race = raceById(raceId);

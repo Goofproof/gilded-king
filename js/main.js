@@ -1219,6 +1219,15 @@
     g.newScoreRank = 0;
     if (scoreQualifies(g.essenceEarned)) {
       g.afterInitials = which;
+      // #203 (Sam) the high score belongs to YOUR NAME. If the player has one set, the
+      // score commits under it directly - no entry screen. First-timers (no name yet)
+      // still get the entry once, and what they type BECOMES their name.
+      const nm = (g.playerName || '').trim();
+      if (nm) {
+        g.initials = { name: nm.toUpperCase().slice(0, 10), max: 10 };
+        commitInitials(false);
+        return;
+      }
       g.initials = { name: '', max: 10 }; // #160 (Sam) a real name, up to 10 chars, not 3 initials
       g.state = 'initials';
       g.overlayT = 0;
@@ -1263,8 +1272,17 @@
   }
 
   function commitInitials(skip) {
+    // #203 a rename from the title screen: save the name, post no score
+    if (g.renameOnly) {
+      if (!skip) { g.playerName = (g.initials.name || '').trim().slice(0, 12); saveName(); }
+      g.renameOnly = false;
+      g.state = 'title'; g.overlayT = 0; g.initials = null;
+      Sfx.play('ui');
+      return;
+    }
     if (!skip) {
       const name = ((g.initials.name || '').trim().toUpperCase().slice(0, g.initials.max)) || 'AAA';
+      if (!(g.playerName || '').trim()) { g.playerName = name; saveName(); } // #203 first entry becomes your name
       const entry = { initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain, snap: buildDeathSnap() };
       const scores = loadScores();
       scores.push(entry);
@@ -2910,6 +2928,14 @@
       if (r.action === 'selectPet' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { g.hoverPet = r.key; break; }
     }
     if (input.pressed('Enter')) { newRun(); return; }
+    // #203 N on the title: change the name your high scores are listed under
+    if (input.pressed('KeyN')) {
+      g.renameOnly = true;
+      g.initials = { name: (g.playerName || ''), max: 10 };
+      g.state = 'initials'; g.overlayT = 0;
+      Sfx.play('ui');
+      return;
+    }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
