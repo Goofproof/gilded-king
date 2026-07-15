@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.88';
+  const VERSION = 'v2.89';
 
   const NOTES = [
+    {
+      v: 'v2.89', title: 'Bosses fight the whole party now', date: '2026-07-15',
+      sha: 'e0bf9ff',
+      items: [
+        'Phase A of the co-op review: bosses fight the PARTY (#209) - every boss bolt mirrors to guests, targeting picks the nearest party member (sticky 4s), contact/lunge/slam/pound/charge/rings hit everyone in range, lob telegraphs mirror with party-aware blasts; net.js retires superseded sockets + cancels stale reconnect timers (double-session dup delivery + self-clone, #210); forwardHit ships the FULL takeHit option bag so stagger/chain/executioner and future statuses work from guests (#211); one generic guest ultfx event replaces per-ability messages - inferno/sleep/freeze/fear/midas/caltrops land on the host\'s real monsters, vanish rides presence so monsters stop hunting a vanished guest (#212).',
+      ],
+    },
     {
       v: 'v2.88', title: 'Better legends, and a way to brag', date: '2026-07-15',
       sha: '8714521',
