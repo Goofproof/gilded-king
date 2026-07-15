@@ -217,9 +217,9 @@ const Abilities = (() => {
   // the agreed milestone ladder (Q-DESIGN.md). impl flips true as each wave ships;
   // unimplemented entries show in tooltips as "coming soon" - anticipation is content.
   const Q_MILESTONES = {
-    '':          [{ at: 4, txt: 'Also refunds your roll', impl: false }, { at: 8, txt: 'Small heal on cast', impl: false }, { at: 12, txt: 'The rush extends to allies', impl: false }],
-    warrior:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: false }, { at: 8, txt: 'Knockback DOUBLES', impl: false }, { at: 12, txt: 'Wall slams hit a second time', impl: false }],
-    barbarian:   [{ at: 4, txt: 'Feared enemies take +15% damage', impl: false }, { at: 8, txt: 'Allies near you gain rage', impl: false }, { at: 12, txt: 'Cornered enemies cower (stunned)', impl: false }],
+    '':          [{ at: 4, txt: 'Also refunds your roll', impl: true }, { at: 8, txt: 'Small heal on cast', impl: true }, { at: 12, txt: 'The rush extends to allies', impl: true }],
+    warrior:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: true }, { at: 8, txt: 'Knockback DOUBLES', impl: true }, { at: 12, txt: 'Wall slams hit a second time', impl: true }],
+    barbarian:   [{ at: 4, txt: 'Feared enemies take +15% damage', impl: true }, { at: 8, txt: 'Allies near you gain rage', impl: true }, { at: 12, txt: 'Cornered enemies cower (stunned)', impl: true }],
     ranger:      [{ at: 1, txt: 'The volley is REAL: 3 arrows mid-dash', impl: false }, { at: 4, txt: 'A full CIRCLE of arrows', impl: false }, { at: 8, txt: 'Volley arrows pierce', impl: false }, { at: 12, txt: 'Two dash charges', impl: false }],
     rogue:       [{ at: 4, txt: 'A kill resets the cooldown', impl: false }, { at: 8, txt: 'Shadowstep behind your target', impl: false }, { at: 12, txt: 'Kills grant 1.5s of Vanish', impl: false }],
     engineer:    [{ at: 4, txt: 'Turret shots slow', impl: false }, { at: 8, txt: 'Turrets inherit your weapon element', impl: false }, { at: 12, txt: 'Oldest turret becomes a TESLA COIL', impl: false }],

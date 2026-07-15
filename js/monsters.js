@@ -306,6 +306,23 @@ const Monsters = (() => {
     // knockback decay
     m.x += m.kvx * dt; m.y += m.kvy * dt;
     m.kvx *= Math.pow(0.002, dt); m.kvy *= Math.pow(0.002, dt);
+    // #227 (Q wave 1) warrior R12 WALL SLAM: a Shield-Bashed monster smashed into a
+    // wall (or the room's edge) while still flying takes the bash a second time.
+    if (m._slam) {
+      m._slam.t -= dt;
+      if (m._slam.t <= 0) m._slam = null;
+      else if (Math.hypot(m.kvx, m.kvy) > 120) {
+        const atEdge = m.x <= PF.x + m.r + 1 || m.x >= PF.x + PF.w - m.r - 1 || m.y <= PF.y + m.r + 1 || m.y >= PF.y + PF.h - m.r - 1;
+        const inWall = g.room && g.room.walls && g.room.walls.length && Dungeon.segBlocked(m.px, m.py, m.x, m.y, g.room.walls);
+        if (atEdge || inWall) {
+          const d = m._slam.dmg; m._slam = null;
+          m.kvx = 0; m.kvy = 0;
+          Fx.text(m.x, m.y - m.r - 10, 'SLAM!', '#e0894a', 13);
+          Fx.shake(4, 0.15);
+          applyDamage(m, d, g, {});
+        }
+      }
+    }
 
     // burn damage over time (from Flame / Fire Aspect)
     if (m.burn) {
@@ -349,10 +366,22 @@ const Monsters = (() => {
         const t = nearestTarget(m, g);
         const dx = m.x - t.x, dy = m.y - t.y, d = Math.hypot(dx, dy) || 1;
         const sp = (m.speed || 60) * 1.2;
+        const fx0 = m.x, fy0 = m.y;
         m.x += (dx / d) * sp * dt; m.y += (dy / d) * sp * dt;
         m.facing = Math.atan2(dy, dx);
         if (Math.random() < 0.04) Fx.text(m.x, m.y - m.r - 8, '!', '#c9b3ff', 12);
         clampToField(m);
+        // #227 (Q wave 1) barbarian R12: a feared monster pinned against the wall
+        // stops jittering and COWERS - stunned, exactly where you cornered it.
+        if (m._cower) {
+          const moved = Math.hypot(m.x - fx0, m.y - fy0);
+          m._cowerT = (moved < sp * dt * 0.25) ? (m._cowerT || 0) + dt : 0;
+          if (m._cowerT > 0.35) {
+            m._cower = false; m._cowerT = 0; m.feared = 0;
+            m.stagger = Math.max(m.stagger || 0, 1.5);
+            Fx.text(m.x, m.y - m.r - 10, 'COWERS', '#c9b3ff', 12);
+          }
+        }
         return;
       }
     }
@@ -984,6 +1013,8 @@ const Monsters = (() => {
 
   // --- damage ---------------------------------------------------------------
   function takeHit(m, dmg, opts, g) {
+    // #227 (Q wave 1) barbarian R4: fear opens them up - feared enemies take +15%
+    if (m.feared > 0 && m.fearedAmp && opts && opts.fromPlayer) dmg *= m.fearedAmp;
     if (m.dead || m.spawnT > 0) return false;
     // PARADISO (rules.js SPHERE_RULES). Every blessing in Heaven costs something, and
     // this is the one choke point every player hit passes through - weapon swings,

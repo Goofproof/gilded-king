@@ -2007,7 +2007,7 @@
     // #109 class Q abilities GROW with player level. Scale the value-driven fields for
     // this cast (turret/summon read none of these - they fold level into their own
     // scaling below), then restore the base values before the post-cast modifiers.
-    let _qScaled = null;
+    let _qScaled = null, _qGates = null;
     if (a === p.ability && a.classQ && typeof Abilities !== 'undefined' && Abilities.qLevelScale) {
       const s = Abilities.qLevelScale(p.level);
       // #226 (Q-DESIGN, supersedes #205's flat 4%) THE RANK SYSTEM. rank = points in
@@ -2029,6 +2029,9 @@
       if (a.dur) a.dur = +(a.dur + s.durBonus + (pp.dur || 0) * rank).toFixed(2);
       if (a.dist && pp.dist) a.dist = Math.round(a.dist + pp.dist * rank);
       if (a.dps) a.dps = Math.round(a.dps + (pp.dps || 0) * rank);
+      _qGates = { cls, rank };
+      // #227 (Q wave 1) MIGHT milestones that act at cast time
+      if (cls === 'warrior' && rank >= 8 && a.knock) a.knock *= 2; // R8: the shove DOUBLES
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -2042,6 +2045,8 @@
         if (Math.hypot(m.x - p.x, m.y - p.y) > R + m.r) continue;
         // #226 percent rider: + a slice of THIS target's max HP (bosses at 1/3)
         const hitDmg = dmg + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0);
+        // #227 warrior R12 WALL SLAM: shoved into a wall within the window = hit again
+        if (_qGates && _qGates.cls === 'warrior' && _qGates.rank >= 12) m._slam = { dmg: Math.round(hitDmg), t: 0.6 };
         m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
       }
     } else if (a.kind === 'dash') {
@@ -2096,7 +2101,19 @@
     } else if (a.kind === 'fear') {
       // #78 Barbarian War Shout: every enemy in range flees in terror
       const R = a.radius || 300;
-      for (const m of g.monsters) { if (!m.dead && !m.isBoss && Math.hypot(m.x - p.x, m.y - p.y) < R + m.r) m.feared = a.dur || 5; }
+      for (const m of g.monsters) {
+        if (m.dead || m.isBoss || Math.hypot(m.x - p.x, m.y - p.y) >= R + m.r) continue;
+        m.feared = a.dur || 5;
+        if (_qGates && _qGates.rank >= 4) m.fearedAmp = 1.15;  // #227 barb R4: fear opens them up
+        if (_qGates && _qGates.rank >= 12) m._cower = true;    // #227 barb R12: cornered = stunned
+      }
+      // #227 barb R8: allies near you catch the fury (their client applies its own rage)
+      if (_qGates && _qGates.cls === 'barbarian' && _qGates.rank >= 8 && g.coop && typeof Net !== 'undefined') {
+        for (const [id, rp] of g.remotePlayers) {
+          if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.sendR({ t: 'qbuff', to: id, k: 'rage', dur: 3 });
+        }
+      }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
     } else if (a.kind === 'heal') {
@@ -2262,7 +2279,19 @@
     if (_qScaled) Object.assign(a, _qScaled); // #109 restore base Q values after the scaled cast
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
-    if (a.castShield) p.buffs.shield = 1;
+    // #227 warrior R4 (and later paladin R4): the holy/steel shield holds 2 charges
+    if (a.castShield) p.buffs.shield = Math.max(p.buffs.shield || 0, (_qGates && (_qGates.cls === 'warrior' || _qGates.cls === 'paladin') && _qGates.rank >= 4) ? 2 : 1);
+    // #227 adventurer milestones: the everyman's rush earns real perks
+    if (_qGates && _qGates.cls === '') {
+      if (_qGates.rank >= 4) p.rollCd = 0;
+      if (_qGates.rank >= 8) p.heal(p.maxHp * 0.05);
+      if (_qGates.rank >= 12 && g.coop && typeof Net !== 'undefined') {
+        for (const [id, rp] of g.remotePlayers) {
+          if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+          if (Math.hypot(rp.x - p.x, rp.y - p.y) < 300) Net.sendR({ t: 'qbuff', to: id, k: 'adren', dur: 3 });
+        }
+      }
+    }
     if (a.healOnCast) p.heal(p.maxHp * a.healOnCast);
     if (a.rageAfter) p.buffs.rageT = Math.max(p.buffs.rageT, a.rageAfter);
     if (a.hasteAfter) p.buffs.hasteT = Math.max(p.buffs.hasteT, a.hasteAfter);
@@ -3412,6 +3441,14 @@
       if (g.room === room) { wakeMimic(ch, true); return; }
       ch.opened = true;
       if (!isCoopGuest()) ch.pendingMimic = true; // host spawns it on arrival
+    });
+    // #227 a teammate's Q blessed you (barb R8 rage / adventurer R12 adrenaline)
+    Net.on('qbuff', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      const P = g.player, d = Math.max(0.5, Math.min(6, +m.dur || 3));
+      P.buffs.rageT = Math.max(P.buffs.rageT, d);
+      if (m.k === 'adren') P.buffs.hasteT = Math.max(P.buffs.hasteT, d);
+      Fx.text(P.x, P.y - 30, m.k === 'adren' ? 'ADRENALINE!' : 'RAGE!', '#d6482e', 12);
     });
     // #213 your kill: run YOUR perks (kill count, procs, quest + achievement counters)
     Net.on('kill', m => {
