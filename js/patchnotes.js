@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.74', title: 'Flash-blind bolts and a shadow over the forest', date: '2026-07-15',
       sha: '880ad3d',
       items: [
-        'Glass mob empowered FLASH-bolt blinds you Envy-style (#182); a giant hawk shadow sweeps forest floors every 3rd room (#183).',
+        'The GLASS mob (the fragile bright artillery one) learned a dirty trick. When it glows empowered, its scatter shot becomes a white FLASH-BOLT: take a hit and your vision closes down to a small circle around you for two seconds, exactly like the Terrace of Envy darkness. Dodge the bright ones.',
+        'Keep an eye on the ground in the Whispering Forest. Every few rooms, the shadow of something ENORMOUS glides across the floor, wings beating slowly. It cannot hurt you. Probably.',
       ],
     },
     {
