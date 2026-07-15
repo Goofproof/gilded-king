@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.64', title: 'Character sheet is readable again', date: '2026-07-15',
       sha: '9d7ee83',
       items: [
-        'Character sheet is an opaque modal now: minimap no longer ghosts through the right column (#171).',
+        'Fixed the character sheet (the screen you open with C). The mini-map in the top corner used to show faintly through the stats on the right side and made the text look like a jumbled mess. The whole screen is solid black now, so every stat is clean and easy to read.',
       ],
     },
     {
