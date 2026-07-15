@@ -596,7 +596,34 @@
         coopScaleMonsters(g.monsters);                        // co-op: tougher for the party
         progressionScaleMonsters(g.monsters);                 // #12 descent gauntlet: the wall + rubber-band
         nightmareScaleMonsters(g.monsters);                   // #13 nightmare floor: tougher still
+        // #185 (Sam) AN ALERT DUNGEON REACTS. Once the alarm is up (4+ rooms cleared
+        // this floor), mobs no longer wake up slowly when you walk in - they are
+        // already facing your door, weapons up, and attack almost immediately.
+        if ((g.alarm || 0) >= 4) {
+          const enterA = g.enterFrom === 'N' ? -Math.PI / 2 : g.enterFrom === 'S' ? Math.PI / 2 : g.enterFrom === 'W' ? Math.PI : 0;
+          for (const m of g.monsters) {
+            m.spawnT = Math.min(m.spawnT, 0.08);  // barely any wake-up grace
+            m.facing = enterA + Math.PI;          // eyes on YOUR door
+            m.t = 1.2;                             // most AIs gate the first attack on m.t - primed
+          }
+        }
         for (const m of g.monsters) m.netId = ++g.netMobId;   // stamp for co-op sync
+      }
+      // #185 at alarm 5+, the dungeon SETS TRAPS for you: glue laid by your door before
+      // you arrive. Deterministic from the room + floor so co-op clients see identical
+      // puddles (each client computes its own copy on entry - no sync needed).
+      if ((g.alarm || 0) >= 5 && g.enterFrom) {
+        const p0 = g.player;
+        const h0 = ((room.gx * 2654435761) ^ (room.gy * 40503) ^ (g.floorNum * 69069)) >>> 0;
+        const rr = n => ((h0 >> (n * 4)) % 1000) / 1000;
+        const n = 2 + (h0 % 2);
+        for (let i = 0; i < n; i++) {
+          const a = rr(i) * Math.PI * 2, d = 70 + rr(i + 2) * 70;
+          const gx2 = Math.max(PF.x + 30, Math.min(PF.x + PF.w - 30, p0.x + Math.cos(a) * d));
+          const gy2 = Math.max(PF.y + 30, Math.min(PF.y + PF.h - 30, p0.y + Math.sin(a) * d));
+          g.gluePuddles.push({ x: gx2, y: gy2, r: 30, t: 12, max: 12 });
+        }
+        Fx.text(p0.x, p0.y - 44, 'THEY KNEW YOU WERE COMING', '#ff8a3d', 12);
       }
       Sfx.play('door'); // doors slam
       // #148 (Sam) doppelganger mini-boss entrance
@@ -614,6 +641,23 @@
       if (room.type === 'mythicshop') rollMythicShopStock(room); else rollShopStock(room);
     }
     if (room.type === 'barracks' && !room.barracks) rollBarracksStock(room); // #75
+    // #184 (Sam) WRATH'S SMOKE. Envy is a clean black circle; Wrath was just "mobs
+    // pop in closer" - the two terraces read identical. Now Wrath has its OWN look:
+    // banks of bitter black smoke drifting visibly across the room. Deterministic
+    // from the room's coordinates, so co-op clients see the same smoke.
+    if (g.rules && g.rules.fade !== Infinity) {
+      const h0 = ((room.gx * 73856093) ^ (room.gy * 19349663) ^ (g.floorNum * 83492791)) >>> 0;
+      const rr = (n) => ((h0 >> (n * 3)) % 1000) / 1000;
+      g.smokeBanks = [];
+      const n = 4 + (h0 % 3);
+      for (let i = 0; i < n; i++) {
+        g.smokeBanks.push({
+          x: PF.x + 60 + rr(i) * (PF.w - 120), y: PF.y + 50 + rr(i + 3) * (PF.h - 100),
+          r: 70 + rr(i + 6) * 60, vx: (rr(i + 9) - 0.5) * 26, vy: (rr(i + 12) - 0.5) * 14,
+          ph: rr(i + 15) * 6.28,
+        });
+      }
+    } else g.smokeBanks = null;
     // #183 (Sam) THE BIRD. On forest floors, every third room you enter, something
     // enormous glides over the canopy - a hawk's shadow sweeping the floor. Pure
     // atmosphere: it cannot hurt you, it just reminds you the forest has an owner.
@@ -3860,6 +3904,7 @@
     updateStalactites(dt);   // #164 falling stalactites on the underground floors
     updateGluePuddles(dt);   // #179 sticky glue on the floor slows everything in it
     updateBirdShadow(dt);    // #183 the hawk over the forest canopy
+    updateSmokeBanks(dt);    // #184 Wrath's drifting smoke
     updateTurrets(dt);
     updateSummons(dt);
     updateUltFx(dt);
@@ -4504,6 +4549,31 @@
 
   // #183 (Sam) the giant bird's shadow: update + draw. It glides in a shallow sine,
   // wings beating slowly, then is gone. Drawn on the floor under all actors.
+  // #184 Wrath's smoke banks drift slowly and wrap; drawn OVER the actors so shapes
+  // loom in and out of them - completely different feel from Envy's hard circle.
+  function updateSmokeBanks(dt) {
+    const list = g.smokeBanks; if (!list) return;
+    for (const b of list) {
+      b.x += b.vx * dt; b.y += b.vy * dt; b.ph += dt * 0.7;
+      if (b.x < PF.x - b.r) b.x = PF.x + PF.w + b.r; if (b.x > PF.x + PF.w + b.r) b.x = PF.x - b.r;
+      if (b.y < PF.y - b.r) b.y = PF.y + PF.h + b.r; if (b.y > PF.y + PF.h + b.r) b.y = PF.y - b.r;
+    }
+  }
+  function drawSmokeBanks(c) {
+    const list = g.smokeBanks; if (!list) return;
+    c.save();
+    for (const b of list) {
+      const wob = 1 + Math.sin(b.ph) * 0.12;
+      const grad = c.createRadialGradient(b.x, b.y, b.r * 0.15, b.x, b.y, b.r * wob);
+      grad.addColorStop(0, 'rgba(16,14,12,0.42)');
+      grad.addColorStop(0.7, 'rgba(20,17,14,0.30)');
+      grad.addColorStop(1, 'rgba(20,17,14,0)');
+      c.fillStyle = grad;
+      c.beginPath(); c.arc(b.x, b.y, b.r * wob, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+  }
+
   function updateBirdShadow(dt) {
     if (!g.birdShadow) return;
     g.birdShadow.t += dt;
@@ -4885,6 +4955,8 @@
     }
 
     Fx.draw(c);
+
+    drawSmokeBanks(c); // #184 Wrath's smoke rolls over everything except the HUD
 
     // THE SEWN EYES (Envy's terrace): the envious have their eyelids stitched shut
     // with iron wire, and so, more or less, do you. Everything past a short radius
