@@ -748,7 +748,7 @@
     p.addXp(alarmXp, g);
     // co-op: the whole party levels off shared kills (kills only ever happen on
     // the host, so it grants everyone the same XP)
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'xp', a: alarmXp });
+    if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'xp', a: alarmXp });
     Fx.burst(m.x, m.y, ['#fff', '#ffd24c', '#ff6655'], 14, { speed: 180, life: 0.5 });
     Sfx.play('kill');
     // #26: catching the loot goblin pays out a jackpot (its coins are set high in BASE)
@@ -843,7 +843,7 @@
       const toadIdx = m.isDescentBoss ? g.circleBossSeen : 0;
       g.pendingDescent = { toadIdx };
       // P1-E: tell guests the boss fell so they clear it + share the victory
-      if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
       dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 + 0.1 * (g.alarm || 0) }), m.x, m.y);
@@ -866,10 +866,10 @@
     });
     // P1-D: currency/buff drops are INSTANCED - the host mirrors each to the guest,
     // who spawns its OWN copy into its OWN wallet (both players progress economically).
-    // Guard on Net.isHost so the guest's own spawns don't echo back.
+    // Guard on isRunHost() so the guest's own spawns don't echo back.
     // #97 `local` spawns (chest loot) do NOT mirror - the chest is opened per-player, so
     // mirroring leaked the host's chest coins/heart onto the guest (who never opened it).
-    if (!local && g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'pk', k: kind, x: Math.round(x), y: Math.round(y) });
+    if (!local && g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'pk', k: kind, x: Math.round(x), y: Math.round(y) });
   }
 
   // drop a GEAR pickup (weapon/armor) and, in co-op, mirror it to guests as their
@@ -883,7 +883,7 @@
     // id, so when anyone grabs it a 'gearget' broadcast despawns the copy everywhere.
     if (g.coop) pk.gid = ++g.netGearId;
     g.pickups.push(pk);
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
+    if (g.coop && typeof Net !== 'undefined' && isRunHost()) {
       Net.send({ t: 'gear', kind, item, x: Math.round(x), y: Math.round(y), gid: pk.gid });
     }
     return pk;
@@ -917,7 +917,7 @@
       if (ALARM_FLAVOR[g.alarm]) Fx.text(W / 2, H / 2 - 36, ALARM_FLAVOR[g.alarm], '#ff8a3d', 14);
       // P1-D: guests never run onKill/checkRoomCleared - tell them the room cleared so
       // their coins vacuum and their doors unseal
-      if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy });
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy });
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
         // this floor has a boss only on floor 3 (the King) and on Circle Warden
         // floors in the Descent; every other floor ends in a stairs portal.
@@ -2812,11 +2812,28 @@
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
       rp.form = m.fm || '';                                       // #162 druid form id
       rp.last = g.time;
+      if (m.u && g.runHostU && m.u === g.runHostU) g.lastHostSeenT = g.time; // #173 host liveness
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
       // lingers. Evict any OTHER entry that shares this stable uid so it can't clone.
       if (m.u) for (const [k, other] of g.remotePlayers) { if (k !== m.from && other.u === m.u) g.remotePlayers.delete(k); }
     });
-    Net.on('start', m => { if (!Net.isHost) startCoop(m.seed); });
+    Net.on('start', m => {
+      if (m.to && m.to !== Net.id) return;       // #173 targeted late-join start: not for me
+      if (m.hu && m.hu === g.clientId) return;   // my own broadcast echoed back
+      // #173 a reconnecting client that KEPT its run must not restart it: same seed,
+      // already in this co-op run -> ignore (the targeted 'floor' that follows resyncs us)
+      if (g.coop && g.state !== 'lobby' && g.coopSeed === m.seed) return;
+      startCoop(m.seed, m.hu || null);
+    });
+    // #173 LATE-JOIN / REJOIN: a peer connected mid-run (fresh player, or a teammate whose
+    // page reloaded). The pinned host hands them the run: a targeted 'start' with the seed
+    // + authority pin, then a targeted 'floor' to land them on the current floor. The
+    // room-follow pulls them into the host's room from there.
+    Net.on('peer-join', m => {
+      if (!g.coop || !isRunHost() || !g.dungeon) return;
+      Net.send({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id });
+      Net.send({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
+    });
     // #100 a teammate's chat line
     Net.on('chat', m => { if (!g.coop) return; pushChat((m.nm && m.nm.trim()) || m.from || 'peer', m.text || '', false); });
     // P1-C: downed / revive / party-wipe game-over
@@ -2824,7 +2841,7 @@
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
-    Net.on('mobs', m => { if (isCoopGuest()) applyMobSnapshot(m.list, m.room); });
+    Net.on('mobs', m => { if (isCoopGuest()) { g.lastHostSeenT = g.time; applyMobSnapshot(m.list, m.room); } });
     // co-op: the guest levels off the host's shared kills
     Net.on('xp', m => { if (isCoopGuest() && g.player) g.player.addXp(m.a, g); });
     // PR-2: the host tells a peer it got hit by a monster/boss (peer self-filters on its id).
@@ -2944,7 +2961,7 @@
     });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)
     Net.on('hit', m => {
-      if (g.coop && Net.isHost) {
+      if (g.coop && isRunHost()) {
         const mon = g.monsters.find(x => x.netId === m.i && !x.dead);
         if (mon) mon.takeHit(m.dmg, { sx: m.sx, sy: m.sy, knock: m.k || 0, flame: m.fl, chill: m.ch, venom: m.vn, crit: m.cr, fromPlayer: true, hitSfx: m.hs }, g);
       }
@@ -2953,7 +2970,10 @@
     Net.on('room', m => { if (g.coop && g.dungeon) coopEnterRoom(m.gx, m.gy, m.dir, false); });
     // host advanced the floor - regenerate the shared floor and follow (a floor change
     // trumps any pending level-up gate: clear it so nothing is left stranded)
-    Net.on('floor', m => { if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; g.nightmareNext = !!m.nm; startFloor(); g.state = 'play'; } });
+    Net.on('floor', m => {
+      if (m.to && m.to !== Net.id) return; // #173 targeted late-join floor: not for me
+      if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; g.nightmareNext = !!m.nm; startFloor(); g.state = 'play'; }
+    });
     Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
     // NOTE: a mid-run socket close must NOT yank the player to the menu (that kicked
     // live players out on every WiFi blip). net.js now auto-reconnects to the same room
@@ -2982,13 +3002,29 @@
     Sfx.play('ui');
   }
 
-  function startCoop(seed) {
+  function startCoop(seed, hostU) {
     g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
     // #M4 remember who the ORIGINAL host is; if that changes mid-run the host dropped
     g.coopHostId = (typeof Net !== 'undefined') ? Net.hostId : null;
+    // #173 (Sam) PINNED RUN AUTHORITY. The relay reassigns its "host" whenever the host's
+    // socket blips (server/src/index.js host migration). The game must NOT follow that:
+    // a mid-run migration made the guest start broadcasting its proxy mobs as truth while
+    // the real host's sim got culled - "no mobs", phantom mobs, duplicate players, all of
+    // it. The run's authority is the stable per-tab clientId of whoever pressed START,
+    // carried in the 'start' message, and it never changes for the life of the run.
+    g.runHostU = hostU || null;
     newRun(true);
+    g.lastHostSeenT = g.time; // #173 watchdog baseline: host has 12s to make first contact
+  }
+  // #173 the ONE test for "am I the simulation authority this run". Pinned to the
+  // clientId from the 'start' message; falls back to the relay's live isHost only for
+  // runs started by an older client that didn't send hu.
+  function isRunHost() {
+    if (!g.coop) return true;
+    if (g.runHostU) return g.runHostU === g.clientId;
+    return typeof Net !== 'undefined' && Net.isHost;
   }
 
   // #M4 a co-op run ended by a network event (our own drop, or the host leaving).
@@ -3016,6 +3052,16 @@
   // SAME room - one that connects to yours by a door - continuously for 2 seconds. That
   // never triggers during a normal split-second transition (the party is not "stably
   // elsewhere" then), only when a room event was genuinely dropped.
+  // #173 (Sam) HOST-LIVENESS WATCHDOG. Authority is pinned to whoever pressed START; the
+  // relay's host migration is ignored. So if the pinned host truly leaves (page closed,
+  // not a blip - blips auto-reconnect in ~1-4s), a guest would otherwise wait in a world
+  // with no simulation forever. 12s of total host silence = the run is over, say so.
+  function checkHostAlive() {
+    if (!g.coop || isRunHost() || g.state === 'title' || g.state === 'lobby') return;
+    if (g.lastHostSeenT === undefined || g.lastHostSeenT === null) return;
+    if (g.time - g.lastHostSeenT > 12) endCoopDisconnected('The host left the game - run over');
+  }
+
   function checkStrandedFollow(dt) {
     if (!g.coop || !g.room || !g.dungeon || g.state !== 'play' || g.transition) { g.strandT = 0; return; }
     const mates = [...g.remotePlayers.values()].filter(rp => g.time - (rp.last || 0) < 3 && rp.room);
@@ -3028,12 +3074,16 @@
     const doorTo = Object.keys(g.room.doors || {}).find(d => {
       const nb = g.room.doors[d]; return nb && nb.gx === r0[0] && nb.gy === r0[1];
     });
-    if (!doorTo) { g.strandT = 0; return; }   // not adjacent - do not teleport across the map
     g.strandT = (g.strandT || 0) + dt;
-    if (g.strandT >= 2) {
+    // #173 (Sam) adjacent split: follow through my own door after 2s (as before).
+    // NON-adjacent split (a missed room event plus more movement used to strand a player
+    // PERMANENTLY - "entered the dungeon and there were no mobs"): wait longer (4s, so it
+    // never fires on a normal transition), then center-drop into the party's room.
+    const wait = doorTo ? 2 : 4;
+    if (g.strandT >= wait) {
       g.strandT = 0;
       Fx.text(g.player.x, g.player.y - 40, 'CATCHING UP', '#7fd4ff', 14);
-      coopEnterRoom(r0[0], r0[1], doorTo, false); // follow them, via my own door
+      coopEnterRoom(r0[0], r0[1], doorTo || null, false); // via my door, or a center drop
     }
   }
 
@@ -3090,7 +3140,7 @@
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
           if (r.action === 'lobby-start') { // host picks the shared run seed
             const seed = (Math.random() * 1e9) | 0;
-            Net.send({ t: 'start', seed }); startCoop(seed); return;
+            Net.send({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); return; // #173 pin authority
           }
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
@@ -3225,7 +3275,7 @@
   }
 
   // --- M4: host-authoritative monsters, guest renders + damages proxies -----
-  function isCoopGuest() { return g.coop && typeof Net !== 'undefined' && !Net.isHost; }
+  function isCoopGuest() { return g.coop && !isRunHost(); } // #173 pinned, not relay-live
   function coopPlayers() { return (g.coop && typeof Net !== 'undefined') ? Math.max(2, Net.playerCount) : 1; }
 
   // PR-1: everyone the monsters may target. Always the local player; on the host,
@@ -3242,7 +3292,7 @@
     for (const m of g.mercs) {
       if (m.clone && !m.dead) list.push({ x: m.x, y: m.y, r: 12, ref: m, isRemote: false, id: 'clone' });
     }
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost && g.room) {
+    if (g.coop && typeof Net !== 'undefined' && isRunHost() && g.room) {
       for (const [id, rp] of g.remotePlayers) {
         if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed) continue;
         if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
@@ -3295,7 +3345,7 @@
   }
   // host: end the run only when EVERYONE is down
   function checkPartyWipe() {
-    if (!Net.isHost || g.runEnded) return;
+    if (!isRunHost() || g.runEnded) return;
     // a peer is only "down" if we've been TOLD so ({t:'downed'} / dd flag). A present
     // but lagging peer counts as ALIVE - never false-wipe on a network hiccup. Peers
     // that truly leave are removed from remotePlayers by {t:'peer-leave'}.
@@ -3352,7 +3402,7 @@
   // Tagged with the room, and the guest applies it only when in that same room, so it
   // never wipes a guest's gear while the party is briefly split across a doorway.
   function broadcastGear(dt) {
-    if (!g.coop || typeof Net === 'undefined' || !Net.isHost || !Net.connected || !g.room) return;
+    if (!g.coop || typeof Net === 'undefined' || !isRunHost() || !Net.connected || !g.room) return;
     g.gearSendT -= dt;
     if (g.gearSendT > 0) return;
     g.gearSendT = 0.25;
@@ -3373,7 +3423,7 @@
 
   // host: broadcast a compact snapshot of every monster (~15 Hz)
   function broadcastMobs(dt) {
-    if (!g.coop || typeof Net === 'undefined' || !Net.isHost || !Net.connected) return;
+    if (!g.coop || typeof Net === 'undefined' || !isRunHost() || !Net.connected) return;
     g.mobSendT -= dt;
     if (g.mobSendT > 0) return;
     g.mobSendT = 0.066;
@@ -3675,7 +3725,7 @@
     if (g.coop) {
       broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
       checkStrandedFollow(dt);
-      if (isCoopGuest()) updateGuestMobs(dt); else { broadcastMobs(dt); broadcastGear(dt); checkPartyWipe(); }
+      if (isCoopGuest()) { updateGuestMobs(dt); checkHostAlive(); } else { broadcastMobs(dt); broadcastGear(dt); checkPartyWipe(); }
     }
 
     if (g.winTimer > 0) {
@@ -4245,7 +4295,7 @@
     Fx.shake(6, 0.25); Sfx.play('explode');
     Fx.burst(mn.x, mn.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 24, { speed: 240, life: 0.55, glow: true });
     for (const t of g.partyTargets()) if (Math.hypot(t.x - mn.x, t.y - mn.y) < mn.blastR + t.r) g.hurtTarget(t, mn.dmg, mn.x, mn.y, null);
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(mn.x), y: Math.round(mn.y), r: mn.blastR });
+    if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'boom', x: Math.round(mn.x), y: Math.round(mn.y), r: mn.blastR });
   }
 
   // #164 (Sam) FALLING STALACTITES: on the underground floors (the Descent), a stalactite
@@ -6139,12 +6189,12 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.send({ t: 'start', seed }); startCoop(seed); },
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.send({ t: 'start', seed, hu: g.clientId }); startCoop(seed, g.clientId); },
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
     // testing: pretend a net message arrived (drives the real Net.on handlers)
     mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },
     // testing: force this client into guest mode so guest-only handlers run
-    mpForceGuest() { g.coop = true; setupNet(); if (typeof Net !== 'undefined') { Object.defineProperty(Net, 'isHost', { get: () => false, configurable: true }); Object.defineProperty(Net, 'id', { get: () => 'guest', configurable: true }); Object.defineProperty(Net, 'hostId', { get: () => 'host', configurable: true }); } return isCoopGuest(); },
+    mpForceGuest() { g.coop = true; g.runHostU = 'someone-else'; setupNet(); if (typeof Net !== 'undefined') { Object.defineProperty(Net, 'isHost', { get: () => false, configurable: true }); Object.defineProperty(Net, 'id', { get: () => 'guest', configurable: true }); Object.defineProperty(Net, 'hostId', { get: () => 'host', configurable: true }); } return isCoopGuest(); },
   };
 
   // mark the current version's patch notes as seen so they don't auto-pop again
