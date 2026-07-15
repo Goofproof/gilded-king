@@ -26,7 +26,13 @@ const PatchNotes = (() => {
       v: 'v2.98', title: 'The ARCANE classes get their rank rewards', date: '2026-07-15',
       sha: 'd9161a6',
       items: [
-        'Q wave 3, ARCANE milestones (#229): mage slow field / second pulse / chill-all; summoner element aura / TWO elementals / death explosion; mesmer four clones / echo swings / recast swap; necromancer army re-keyed to ARCANE + BONE GOLEM taunt; pyromancer wider spread / fire immunity / burning enemies explode.',
+        'The biggest rank batch yet: all five ARCANE classes get their rewards. Stack ARCANE and hover your Q.',
+        'MAGE, Arcane Nova: rank 4 leaves a slowing field where the nova burst. Rank 8 fires a second aftershock pulse half a beat later, catching everything that survived the first. Rank 12 chills every enemy the nova touches.',
+        'SUMMONER: rank 4 gives your elemental an AURA of its element: fire singes, earth slows, poison sickens, lightning zaps. Rank 8 is the headline: TWO elementals at once. Rank 12 makes them explode when they die, one last gift in their element.',
+        'MESMER, Mirror Image: rank 4 splits you into FOUR. Rank 8 makes your copies swing when you swing, a room full of you actually fighting. Rank 12: recast while your clones stand and you SWAP PLACES with the farthest one. Plan where your copies walk, then be there.',
+        'NECROMANCER, Raise Dead: your army now grows with ARCANE instead of level. One knight to start, two at rank 4, three knights and two archers at rank 8, and at rank 12 THE BONE GOLEM rises: huge, slow, and monsters cannot ignore it.',
+        'PYROMANCER, Immolate: rank 4 spreads the fire farther from every burning death. Rank 8 makes you FIREPROOF while your inferno burns, walk through Hell\'s pyres untouched. Rank 12: anything that dies on fire EXPLODES, and the chain reaction is exactly as fun as it sounds.',
+        'One more batch to go: VIGOR, with the paladin, cleric, a rebuilt druid, and something rotten for the death knight.',
       ],
     },
     {
