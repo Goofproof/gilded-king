@@ -110,3 +110,15 @@ death (+ guest descent portal, #175), level-up gate hold + release, rejoin
 after page reload (targeted start+floor), minion sync, ghost eviction by
 clientId. Known harness artifact: `dbg.floor(n)` does NOT broadcast - never
 use it to advance a co-op floor, take the real stairs/portal instead.
+
+### Harness gotchas (added 2026-07-15)
+- Serve with `python scripts/serve_nocache.py 8471`, NOT `python -m http.server` -
+  Chrome heuristically caches the JS for minutes without Cache-Control and you end
+  up live-testing stale code. Check freshness with performance.getEntriesByType
+  ('resource') - transferSize ~300 means a 304, not a fresh fetch.
+- When manually forcing `g.state = 'title'` in a probe, also clear showScores /
+  showMythics / showAchievements / showUpgrades / snapView / showPatch: updateTitle
+  early-returns on any of them and your key events silently do nothing.
+- Old dev servers stack: multiple python http.servers can bind 8471 simultaneously
+  (allow_reuse_address) and the OLDEST answers. Kill strays with Get-NetTCPConnection
+  -LocalPort 8471 before trusting what you fetch.
