@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.79', title: 'Spring cleaning under the hood', date: '2026-07-15',
       sha: '2a10353',
       items: [
-        'Cleanup pass: remove dead shadowed wrapText + retired coopHostId tracker; align monsters.js co-op mirrors with the pinned run authority (#189).',
+        'No new toys in this one, just tidying. We swept out some dead code under the hood and made a few co-op internals more reliable. Everything plays exactly the same, only cleaner on the inside.',
       ],
     },
     {
