@@ -658,6 +658,30 @@
         });
       }
     } else g.smokeBanks = null;
+    // #214/#215 deferred host-side spawns: a mimic sprung (or a trap chest opened) by
+    // a teammate while the host was elsewhere spawns the moment the host walks in.
+    if (!isCoopGuest()) {
+      for (const ch of room.chests || []) {
+        if (ch.pendingMimic && ch.opened) {
+          ch.pendingMimic = false;
+          const tier = Monsters.tierFor(g.floorNum, room.dist);
+          const mm = Monsters.make('mimic', ch.x, ch.y, tier);
+          mm.netId = ++g.netMobId;
+          g.monsters.push(mm);
+          room.cleared = false;
+        }
+      }
+      if (room.type === 'trap' && room.trapChest && room.trapChest.opened && room.trapPending && !room.spawned) {
+        room.trapPending = false;
+        room.spawned = true;
+        room.cleared = false;
+        g.monsters = Monsters.spawnForRoom(room, g.floorNum + 1, g);
+        coopScaleMonsters(g.monsters);
+        progressionScaleMonsters(g.monsters);
+        nightmareScaleMonsters(g.monsters);
+        for (const mm of g.monsters) mm.netId = ++g.netMobId;
+      }
+    }
     // #183 (Sam) THE BIRD. On forest floors, every third room you enter, something
     // enormous glides over the canopy - a hawk's shadow sweeping the floor. Pure
     // atmosphere: it cannot hurt you, it just reminds you the forest has an owner.
@@ -786,9 +810,37 @@
     Fx.burst(x, y, ['#9ae6a0', '#e6efe6', '#3a5a40'], 12, { speed: 120, life: 0.5, glow: true });
   }
 
+  // #213 (co-op review P1-8) the parts of a kill that belong to the KILLER - kill
+  // count, weapon procs, race/evolution hooks, achievements, quest counters - run on
+  // the killer's own client with the killer's own gear and mods.
+  function killerPerks(x, y, ty, elite) {
+    const p = g.player; if (!p) return;
+    p.kills++;
+    if (p.race && p.race.id === 'undead') {
+      const h = p.mod('healOnKill') || 0;
+      if (h > 0) p.heal(h);
+    }
+    if (g.quest && g.quest.key === 'hunt') g.huntKills = (g.huntKills || 0) + 1; // THE HUNT
+    if (typeof Ach !== 'undefined') Ach.kill({ type: ty, elite: !!elite }, g);
+    const w = p.weapon;
+    if (Weapons.has(w, 'momentum')) p.momentumT = 1.2;
+    if (Weapons.has(w, 'vampiric')) p.heal(2);
+    if (p.mod('soulFeast') && Math.hypot(x - p.x, y - p.y) < 140) {
+      p.heal(Math.max(1, Math.round(p.maxHp * p.mod('soulFeast') / 100)), true);
+    }
+    if (p.mod('rollReset') && p.rollCd > 0) p.rollCd -= p.mod('rollReset');
+  }
+
   function onKill(m) {
     const p = g.player;
-    p.kills++;
+    // #213 credit the killer: a remote player's kill sends their perks TO them; a
+    // local kill runs them here. (m._lastHitBy is stamped by the 'hit' handler.)
+    const killerRp = m._lastHitBy ? g.remotePlayers.get(m._lastHitBy) : null;
+    if (killerRp && typeof Net !== 'undefined') {
+      Net.send({ t: 'kill', to: m._lastHitBy, x: Math.round(m.x), y: Math.round(m.y), ty: m.type, el: m.elite ? 1 : 0 });
+    } else {
+      killerPerks(m.x, m.y, m.type, m.elite);
+    }
     // #158 (Sam) NECROMANCER: what sets it apart from the summoner - the dead you make RISE
     // to serve. A share of your kills reanimate as skeletons ON THE SPOT, up to a growing
     // cap, so the army is built from the battlefield, not conjured from nothing.
@@ -796,7 +848,6 @@
     // only ever checked the host's class: a GUEST necromancer never raised a single
     // skeleton in co-op, and a host necro reanimated from the guest's kills too.
     if (!m.isBoss && m.type !== 'goblin') {
-      const killerRp = m._lastHitBy ? g.remotePlayers.get(m._lastHitBy) : null;
       if (killerRp) {
         // a REMOTE player's kill: if they are the necromancer, send the rise to THEM
         // (their client owns their mercs, their cap, their scaling). One 40% roll here.
@@ -819,13 +870,7 @@
         }
       }
     }
-    // #156 UNDEAD race: the grave feeds you. Every kill knits you back together.
-    if (p.race && p.race.id === 'undead') {
-      const h = p.mod('healOnKill') || 0;
-      if (h > 0) p.heal(h);
-    }
-    if (g.quest && g.quest.key === 'hunt') g.huntKills = (g.huntKills || 0) + 1; // THE HUNT
-    if (typeof Ach !== 'undefined') Ach.kill(m, g); // #86 accolades: kills, bosses, pits, goblins...
+    // (#213 undead heal, hunt counter and Ach.kill moved into killerPerks above)
     // #77 the reward for staying: XP scales with the floor's ALARM level (+12%/step)
     let alarmXp = Math.round(m.xp * (1 + 0.12 * (g.alarm || 0)));
     if (g.floorNightmare) alarmXp = Math.round(alarmXp * NIGHTMARE.xpMul); // #13 nightmare pays more XP
@@ -855,16 +900,9 @@
       Sfx.play('mimic');
     }
 
-    const w = p.weapon;
-    const looting = Weapons.has(w, 'looting');
-    // ORIGINAL enchants: Momentum speed burst, Vampiric heal on kill
-    if (Weapons.has(w, 'momentum')) p.momentumT = 1.2;
-    if (Weapons.has(w, 'vampiric')) p.heal(2);
-    // evolution kill-hooks: proximity lifesteal + roll cooldown refunds
-    if (p.mod('soulFeast') && Math.hypot(m.x - p.x, m.y - p.y) < 140) {
-      p.heal(Math.max(1, Math.round(p.maxHp * p.mod('soulFeast') / 100)), true);
-    }
-    if (p.mod('rollReset') && p.rollCd > 0) p.rollCd -= p.mod('rollReset');
+    // #213 looting multiplies the WORLD's coin drop, so it reads the KILLER's level
+    // (a remote killer's level rides their presence as rp.loot)
+    const looting = killerRp ? (killerRp.loot || 0) : Weapons.has(p.weapon, 'looting');
 
     // coins
     const [c0, c1] = m.coins;
@@ -1038,7 +1076,7 @@
       if (ALARM_FLAVOR[g.alarm]) Fx.text(W / 2, H / 2 - 36, ALARM_FLAVOR[g.alarm], '#ff8a3d', 14);
       // P1-D: guests never run onKill/checkRoomCleared - tell them the room cleared so
       // their coins vacuum and their doors unseal
-      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy });
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum, al: g.alarm }); // #216 floor-stamped + carries the alarm
       if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
         // this floor has a boss only on floor 3 (the King) and on Circle Warden
         // floors in the Descent; every other floor ends in a stairs portal.
@@ -1425,7 +1463,16 @@
   // #196 (Sam, live playtest) the plate must count the LIVE party: coopPlayers() floors
   // at 2 (correct for monster scaling), so when a teammate LEFT the run, the survivor
   // could never satisfy a 2-person plate and the whole run was stuck.
-  function livePartyCount() { return (g.coop && typeof Net !== 'undefined') ? Math.max(1, Net.playerCount) : 1; }
+  // #218 (co-op review) presence-based: a RETIREE (or a player parked on the death
+  // screen) stops broadcasting 'p' and drops out of the count within seconds, even
+  // though their socket is still open - Net.playerCount could not see that. Downed
+  // players are excluded too: they cannot walk to a plate.
+  function livePartyCount() {
+    if (!g.coop) return 1;
+    let n = 1;
+    for (const rp of g.remotePlayers.values()) if (g.time - (rp.last || 0) < 3 && !rp.downed) n++;
+    return n;
+  }
   function plateNeeded() { return Math.floor(livePartyCount() / 2) + 1; } // majority of who is actually here
 
   function tryRoomExit() {
@@ -1447,7 +1494,7 @@
         if (g.roomSettleT > 0) continue;
         if (occ >= need && g.plateArmed.has(d.dir)) {
           const next = g.room.doors[d.dir];
-          if (typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir });
+          if (typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir, fl: g.floorNum }); // #216
           g.transition = { dir: d.dir, next, t: 0 };
           g.state = 'transition';
           return;
@@ -1475,7 +1522,7 @@
       if (past) {
         const next = g.room.doors[d.dir];
         // tethered party: dragging everyone else to this room
-        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir });
+        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir, fl: g.floorNum }); // #216
         g.transition = { dir: d.dir, next, t: 0 };
         g.state = 'transition';
         return;
@@ -1855,7 +1902,7 @@
         Fx.burst(p.x, p.y, ['#4cc9a8', '#b88aff'], 20, { speed: 180, life: 0.5, glow: true });
         g.portal = null;
         // co-op: pull the party along so nobody is left behind by the shortcut
-        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null });
+        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null, fl: g.floorNum }); // #216
         enterRoom(dest, null);
         if (stairsRoom) p.y += 90; // land beside the stairwell, not inside it
       }
@@ -2265,16 +2312,26 @@
     Fx.text(p.x, p.y - 30, `${w.name} · ${tag} · ${w.dmg} DMG`, over ? '#ff9a4c' : w.color, 13);
   }
 
-  function wakeMimic(ch) {
+  // #214 (co-op review P0-3) the mimic is HOST-OWNED like every monster. Any player
+  // can spring it; the chest opens on every screen; only the host spawns the beast
+  // (and if the host is elsewhere, the spawn is deferred to its room entry).
+  function wakeMimic(ch, fromNet) {
+    if (ch.opened) return;
     ch.opened = true; // remove the chest prop
     Sfx.play('mimic');
     Fx.shake(6, 0.3);
     Fx.burst(ch.x, ch.y, ['#7a5230', '#d4af37', '#c0392b'], 20, { speed: 190, life: 0.5 });
-    const tier = Monsters.tierFor(g.floorNum, g.room.dist);
-    const m = Monsters.make('mimic', ch.x, ch.y, tier);
-    g.monsters.push(m);
-    g.room.cleared = false; // doors slam shut until it's dead
     Fx.text(ch.x, ch.y - 30, 'MIMIC!', '#ff5555', 18);
+    if (!isCoopGuest()) {
+      const tier = Monsters.tierFor(g.floorNum, g.room.dist);
+      const m = Monsters.make('mimic', ch.x, ch.y, tier);
+      m.netId = ++g.netMobId;
+      g.monsters.push(m);
+      g.room.cleared = false; // doors slam shut until it's dead
+    }
+    if (!fromNet && g.coop && typeof Net !== 'undefined' && g.room) {
+      Net.send({ t: 'mimicwake', gx: g.room.gx, gy: g.room.gy, ci: (g.room.chests || []).indexOf(ch), fl: g.floorNum });
+    }
   }
 
   // proximity wake: sneaking close is enough to spring the trap
@@ -3096,6 +3153,7 @@
       rp.mn = m.mn || null;                                       // #174 their minions
       rp.busy = !!m.bz;                                           // #192 they are on a menu
       rp.invis = !!m.iv;                                          // #212 vanished (untargetable)
+      rp.loot = m.lo || 0;                                        // #213 their looting level
       rp.last = g.time;
       if (m.u && g.runHostU && m.u === g.runHostU) g.lastHostSeenT = g.time; // #173 host liveness
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
@@ -3105,6 +3163,13 @@
     Net.on('start', m => {
       if (m.to && m.to !== Net.id) return;       // #173 targeted late-join start: not for me
       if (m.hu && m.hu === g.clientId) return;   // my own broadcast echoed back
+      // #217 (co-op review) DUAL PLAY-AGAIN RACE: both players pressed within a beat,
+      // each pinned themself and broadcast. Deterministic tie-break: the LOWER clientId
+      // keeps the pin; the other adopts their run. Both sides apply the same rule.
+      if (g.coop && g.runHostU === g.clientId && m.hu && Date.now() - (g.runStartT || 0) < 3000) {
+        if (m.hu < g.clientId) { startCoop(m.seed, m.hu); }
+        return; // higher id: ignore theirs - they adopt ours by this same rule
+      }
       // #173 a reconnecting client that KEPT its run must not restart it: same seed,
       // already in this co-op run -> ignore (the targeted 'floor' that follows resyncs us)
       if (g.coop && g.state !== 'lobby' && g.coopSeed === m.seed) return;
@@ -3132,6 +3197,7 @@
     Net.on('mobs', m => {
       if (!isCoopGuest()) return;
       g.lastHostSeenT = g.time;
+      if (m.fl !== undefined && m.fl !== g.floorNum) return; // #216 a snapshot from another floor is noise
       applyMobSnapshot(m.list, m.room);
       // #193 mirror the host's mines as draw-only proxies (drawMines reads x/y/armed/fuse/r)
       if (m.room && g.room && (g.room.gx !== m.room[0] || g.room.gy !== m.room[1])) { g.mines = []; }
@@ -3183,6 +3249,7 @@
     // 'gear' or 'gearget' event self-heals on the very next snapshot (~4 Hz).
     Net.on('gearsnap', m => {
       if (!isCoopGuest() || !g.room) return;
+      if (m.fl !== undefined && m.fl !== g.floorNum) return; // #216 stale-floor packet
       if (!m.room || m.room[0] !== g.room.gx || m.room[1] !== g.room.gy) return; // not our room
       // #137 heal a lost 'roomclear': if the host says this room is cleared and we still
       // think it is not, catch up - vacuum the loot, unseal the doors.
@@ -3210,6 +3277,8 @@
     // P1-D: room cleared on the host -> guest vacuums its coins + unseals its doors
     Net.on('roomclear', m => {
       if (!isCoopGuest() || !g.dungeon) return;
+      if (m.fl !== undefined && m.fl !== g.floorNum) return; // #216 stale-floor packet
+      if (m.al !== undefined) g.alarm = m.al; // #216 the guest's alarm finally tracks the host's
       const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
       if (room) room.cleared = true;
       if (g.room && g.room.gx === m.gx && g.room.gy === m.gy) {
@@ -3275,6 +3344,24 @@
       }
     });
     // tethered party: a peer moved through a door - everyone follows to that room
+    // #214 a teammate sprang a mimic: open the chest on this screen too; the HOST
+    // spawns the beast (immediately if standing there, else deferred to room entry)
+    Net.on('mimicwake', m => {
+      if (!g.coop || !g.dungeon) return;
+      if (m.fl !== undefined && m.fl !== g.floorNum) return;
+      const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
+      if (!room || !room.chests || !room.chests[m.ci]) return;
+      const ch = room.chests[m.ci];
+      if (ch.opened) return;
+      if (g.room === room) { wakeMimic(ch, true); return; }
+      ch.opened = true;
+      if (!isCoopGuest()) ch.pendingMimic = true; // host spawns it on arrival
+    });
+    // #213 your kill: run YOUR perks (kill count, procs, quest + achievement counters)
+    Net.on('kill', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      killerPerks(m.x, m.y, m.ty, !!m.el);
+    });
     // #207 your kill raised a skeleton (you are the necromancer; the host rolled it)
     Net.on('rise', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
@@ -3346,7 +3433,7 @@
       const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
       if (!room || room.type !== 'trap' || !room.trapChest) return;
       if (g.room === room) springTrap(false);
-      else room.trapChest.opened = true; // opened remotely before I arrived
+      else { room.trapChest.opened = true; room.trapPending = true; } // #215 the wave spawns when the host arrives
     });
     // #175 drop a follow from a different floor (stale packet around a floor transition)
     Net.on('room', m => { if (g.coop && g.dungeon && (m.fl === undefined || m.fl === g.floorNum)) coopEnterRoom(m.gx, m.gy, m.dir, false); });
@@ -3401,6 +3488,7 @@
     // it. The run's authority is the stable per-tab clientId of whoever pressed START,
     // carried in the 'start' message, and it never changes for the life of the run.
     g.runHostU = hostU || null;
+    g.runStartT = Date.now(); // #217 for the dual PLAY AGAIN tie-break window
     newRun(true);
     g.lastHostSeenT = g.time; // #173 watchdog baseline: host has 12s to make first contact
   }
@@ -3587,6 +3675,7 @@
       mn: minionSnapshot(),                           // #174 (Sam) so peers see your army
       bz: (g.state !== 'play') ? 1 : 0,               // #192 frozen in a menu (peers show CHOOSING)
       iv: p.invisT > 0 ? 1 : 0,                       // #212 vanished: monsters must not hunt me
+      lo: Weapons.has(p.weapon, 'looting') || 0,      // #213 my looting level (kill drops read the killer's)
     });
   }
 
@@ -3899,7 +3988,7 @@
     // #137 the snapshot also carries the room's CLEARED flag, so a lost one-shot
     // 'roomclear' event self-heals: without this, a guest that missed it keeps its doors
     // sealed and is trapped in a room it has actually already cleared.
-    Net.send({ t: 'gearsnap', room: [g.room.gx, g.room.gy], list, cleared: !!g.room.cleared });
+    Net.send({ t: 'gearsnap', room: [g.room.gx, g.room.gy], fl: g.floorNum, list, cleared: !!g.room.cleared }); // #216 floor-stamped
   }
 
   // host: broadcast a compact snapshot of every monster (~15 Hz)
@@ -3927,7 +4016,7 @@
     // could not see. A compact list rides the same room-tagged snapshot (visual +
     // positional only; the HOST still owns arming, fuses and the blast).
     const mines = (g.mines || []).slice(0, 24).map(mn => ({ x: Math.round(mn.x), y: Math.round(mn.y), a: mn.armed ? 1 : 0, f: mn.fuse >= 0 ? 1 : 0 }));
-    Net.send({ t: 'mobs', room: g.room ? [g.room.gx, g.room.gy] : null, list, mines });
+    Net.send({ t: 'mobs', room: g.room ? [g.room.gx, g.room.gy] : null, fl: g.floorNum, list, mines }); // #216 floor-stamped
     // P1-E: the boss rides its own message (crown/jaw/hop/shadow draw fields)
     const b = g.boss;
     if (b && !b.dead && b.netId) {

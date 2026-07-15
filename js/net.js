@@ -24,6 +24,7 @@ const Net = (() => {
   let ws = null;
   let myId = null, hostId = null, roomCode = null;
   let intentional = false, retries = 0, reTimer = null; // auto-reconnect state
+  let lastRecvT = 0, kaTimer = null; // #219 keepalive: detect half-open sockets
   const peers = new Set();
   const handlers = {};        // type -> fn(msg)
   const lifecycle = {};       // 'open'|'close'|'error'|'change' -> fn
@@ -56,7 +57,7 @@ const Net = (() => {
       ws = null;
     }
     ws = new WebSocket(wsUrl(roomCode));
-    ws.onopen = () => { retries = 0; emit('open'); };
+    ws.onopen = () => { retries = 0; lastRecvT = Date.now(); emit('open'); };
     ws.onclose = () => {
       emit('close');
       if (!intentional && roomCode && retries < 6) {
@@ -71,6 +72,7 @@ const Net = (() => {
     };
     ws.onerror = e => emit('error', e);
     ws.onmessage = ev => {
+      lastRecvT = Date.now(); // #219 any traffic proves the pipe is alive
       let m; try { m = JSON.parse(ev.data); } catch { return; }
       switch (m.t) {
         case 'welcome':
@@ -87,8 +89,29 @@ const Net = (() => {
     };
   }
 
+  // #219 (co-op review) keepalive. A WiFi drop or NAT timeout can leave the socket
+  // HALF-OPEN: readyState still 1, but nothing arrives. Without traffic, nobody
+  // notices until the 12s game watchdog. So: ping every 4s (peers ignore unknown
+  // types; the relay echoes to the other side, which is itself traffic), and if
+  // NOTHING has arrived for 9s while we think we're connected with peers present,
+  // close the socket ourselves - that trips onclose and the normal auto-reconnect.
+  function keepaliveTick() {
+    if (intentional || !roomCode) return;
+    if (ws && ws.readyState === 1) {
+      if (peers.size > 0) {
+        try { ws.send(JSON.stringify({ t: 'ping' })) } catch (e) { }
+        if (Date.now() - lastRecvT > 9000) {
+          try { ws.close(); } catch (e) { } // silent half-open pipe: force the reconnect path
+        }
+      } else {
+        lastRecvT = Date.now(); // alone in the room: silence is expected, don't count it
+      }
+    }
+  }
+
   function connect(code) {
     intentional = false; retries = 0;
+    if (!kaTimer) kaTimer = setInterval(keepaliveTick, 4000); // #219
     // #210 a pending auto-reconnect from a PREVIOUS attempt must die here, or it fires
     // seconds later and opens a second parallel session to the room.
     if (reTimer) { clearTimeout(reTimer); reTimer = null; }
@@ -100,7 +123,7 @@ const Net = (() => {
   return {
     host() { const code = makeCode(); connect(code); return code; },
     join(code) { connect(code); return code; },
-    disconnect() { intentional = true; if (reTimer) { clearTimeout(reTimer); reTimer = null; } if (ws) { try { ws.close(); } catch { } ws = null; } peers.clear(); myId = hostId = roomCode = null; },
+    disconnect() { intentional = true; if (reTimer) { clearTimeout(reTimer); reTimer = null; } if (kaTimer) { clearInterval(kaTimer); kaTimer = null; } if (ws) { try { ws.close(); } catch { } ws = null; } peers.clear(); myId = hostId = roomCode = null; },
     send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); },
     on(type, fn) { handlers[type] = fn; },
     // testing only: feed a message through the real handler path, as if it arrived
