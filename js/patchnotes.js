@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.78';
+  const VERSION = 'v2.79';
 
   const NOTES = [
+    {
+      v: 'v2.79', title: 'Spring cleaning under the hood', date: '2026-07-15',
+      sha: '2a10353',
+      items: [
+        'Cleanup pass: remove dead shadowed wrapText + retired coopHostId tracker; align monsters.js co-op mirrors with the pinned run authority (#189).',
+      ],
+    },
     {
       v: 'v2.78', title: 'The nine faces of Hell', date: '2026-07-15',
       sha: '915da2d',
