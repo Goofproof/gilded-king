@@ -2500,6 +2500,11 @@
   let last = 0;
   function tick(dt) {
     g.time += dt;
+    // #163 (Sam) the title song plays on the menu and stops the moment a run begins.
+    if (typeof Sfx !== 'undefined' && Sfx.startMenuMusic) {
+      if (g.state === 'title') { if (!g._menuMusic) { Sfx.startMenuMusic(); g._menuMusic = true; } }
+      else if (g._menuMusic) { Sfx.stopMenuMusic(); g._menuMusic = false; }
+    }
     update(dt);
     draw();
     if (g.preserveInput) g.preserveInput = false; // hit-stop frame: keep buffered input

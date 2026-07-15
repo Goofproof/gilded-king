@@ -585,14 +585,38 @@ const Sfx = (() => {
     }
   }
 
+  // #163 (Sam) TITLE MUSIC: a real song (made by Sam's son in GarageBand) plays on the
+  // menu, in place of the synth ambient. Defensive by design - if the file is missing or
+  // the browser is still blocking autoplay, it silently does nothing and the game is fine.
+  // Browsers refuse audio until a user gesture, so the song starts on the first click/key
+  // (ensure() retries it then).
+  let menuEl = null, menuWanted = false;
+  function menuAudio() {
+    if (menuEl) return menuEl;
+    menuEl = new Audio('music/main-menu.m4a');
+    menuEl.loop = true; menuEl.preload = 'auto'; menuEl.volume = 0.55;
+    return menuEl;
+  }
+  function tryPlayMenu() {
+    if (!menuWanted || muted) return;
+    const a = menuAudio();
+    if (!a.paused) return;
+    const p = a.play();
+    if (p && p.catch) p.catch(() => {}); // still locked - ensure() will retry on the next gesture
+  }
+  function startMenuMusic() { menuWanted = true; tryPlayMenu(); }
+  function stopMenuMusic() { menuWanted = false; if (menuEl) menuEl.pause(); }
+
   return {
-    ensure,
+    ensure() { ensure(); tryPlayMenu(); }, // #163 a gesture also unlocks the menu song
     play(name) { if (ctx && !muted && table[name]) table[name](); },
     setAmbient(theme) { amb.pending = theme; if (ctx) applyAmbient(); },
+    startMenuMusic, stopMenuMusic,
     toggleMute() {
       muted = !muted;
       try { localStorage.setItem('drl_muted', muted ? '1' : '0'); } catch { }
       if (master) master.gain.value = muted ? 0 : 0.5;
+      if (menuEl) { if (muted) menuEl.pause(); else tryPlayMenu(); } // #163 mute silences the song too
       return muted;
     },
     get muted() { return muted; },
