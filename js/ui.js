@@ -2080,7 +2080,10 @@ const UI = (() => {
     const rects = [];
     c.save();
     c.globalAlpha = e;
-    c.fillStyle = 'rgba(5,5,12,0.93)';
+    // #171 (Sam) OPAQUE modal. At 0.93 the top-right MINIMAP (and its score/floor text)
+    // ghosted through behind the right-hand stat column and read as jumbled overlapping
+    // text. A character sheet is a screen you study - it gets a solid background.
+    c.fillStyle = '#05050c';
     c.fillRect(0, 0, W, H);
 
     // which ring is being inspected (hover, or 1-5). null = the default, quiet view.
