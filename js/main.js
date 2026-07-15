@@ -3663,9 +3663,14 @@
     if (g.floorRule && g.floorRule.t > 0) g.floorRule.t -= dt;
     if (g.toadMsg && g.toadMsg.t > 0) g.toadMsg.t -= dt;
 
+    // #161 (Sam) level-ups, evolutions and the ultimate pick WAIT until the room is
+    // cleared - they never interrupt an active fight. A non-combat room (shop, treasure,
+    // start) has no live mobs, so a pickup-triggered level still opens right away there.
+    const roomClear = !g.room || g.room.cleared || !g.monsters.some(m => !m.dead);
+
     // evolution menus take priority over further level-ups (the pick that
     // triggered the evolution should resolve before the next level-up card)
-    if (g.evoQueue.length > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+    if (g.evoQueue.length > 0 && roomClear && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       const evo = g.evoQueue.shift();
       const options = Evolutions.optionsForStat(evo.stat, evo.stacks);
       if (options) { // guard: an invalid queue entry (dbg typo) must never soft-lock
@@ -3681,7 +3686,7 @@
     }
     // open a queued level-up once combat calms for a beat (don't interrupt a dodge).
     // skipped once the boss is down (victory is seconds away) or the player is dead.
-    if (g.levelUpQueue > 0 && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+    if (g.levelUpQueue > 0 && roomClear && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       beginLevelCycle();
       g.levelUpQueue--;
       g.levelChoices = pickUpgrades();
@@ -3697,7 +3702,7 @@
     // toward your build (evolution history + Q/R kinds), so the offer feels like yours.
     if (p.abilityR && !p.abilityUlt && p.ultAtLevel && p.level >= p.ultAtLevel &&
         !g.ultChoices && g.evoQueue.length === 0 && g.levelUpQueue === 0 &&
-        p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
+        roomClear && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
       g.ultChoices = Abilities.rollUltimates(3, {
         evo: p.evoHistory || [],
         qKind: p.ability && p.ability.kind,
