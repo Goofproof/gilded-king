@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.76';
+  const VERSION = 'v2.77';
 
   const NOTES = [
+    {
+      v: 'v2.77', title: 'The shop has a forge now', date: '2026-07-15',
+      sha: '457cf58',
+      items: [
+        'Crafting corner beside the enchant table: an anvil forges a weapon of your held archetype, a mannequin tailors armor - gold + shards, minRarity 2, escalating cost (#187).',
+      ],
+    },
     {
       v: 'v2.76', title: 'Pocket a potion for later', date: '2026-07-15',
       sha: '30b961a',
