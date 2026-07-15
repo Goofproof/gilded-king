@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.84';
+  const VERSION = 'v2.85';
 
   const NOTES = [
+    {
+      v: 'v2.85', title: 'Mythic armor actually protects + Q grows with your build', date: '2026-07-15',
+      sha: 'f33c55b',
+      items: [
+        'Mythic armor defense was rounded to ZERO - every mythic gave no reduction at all; now 0.19-0.28, above legendary (#204). Q abilities scale +4%/point with the class\'s PRIMARY stat (mage ARCANE, cleric VIGOR, ranger AGILITY, warrior MIGHT...) (#205).',
+      ],
+    },
     {
       v: 'v2.84', title: 'Your name on the board, your face on the sheet', date: '2026-07-15',
       sha: '04b09f7',
