@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.86', title: 'The forge shows its work before you pay', date: '2026-07-15',
       sha: '6860e1a',
       items: [
-        'Crafting stations offer THREE rolled options enchant-table style: pay only on pick, Esc walks away free (#206).',
+        'The FORGE and the TAILOR work like the enchant table now. Use one and it lays out THREE finished pieces side by side, with their damage or protection and all their enchantments, before you spend anything. Click the one you want (or press 1, 2 or 3) and only then do you pay the gold and shards. Press Esc to walk away without paying a coin. No more paying first and hoping.',
       ],
     },
     {
