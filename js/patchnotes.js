@@ -26,7 +26,12 @@ const PatchNotes = (() => {
       v: 'v2.99', title: 'The VIGOR classes complete the rank system', date: '2026-07-15',
       sha: '9ff7051',
       items: [
-        'Q wave 4, VIGOR milestones (#230): paladin cleanse + stacking overheal shield; cleric cures/consecrated circle/party shields (party-heal verified live over the relay); druid gains THE OWLBEAR (arcane form, swipes feed on ARCANE) + heal-on-shift + form moves + Primal Mastery; death knight Q rebuilt as MIASMA (wither cloud, Black Wind follow, rot-feeds-you regen, poison kills rise as 30s skeletons).',
+        'The final rank batch: VIGOR. Every class in the game now has its full ladder.',
+        'PALADIN, Lay on Hands: rank 4 gives the holy shield two charges. Rank 8 makes the cast CLEANSE you: bleeds, slows, blindness, gone. Rank 12: casting at high health wraps the wasted healing around you as a THIRD shield charge. Heal before the fight, not just during it.',
+        'CLERIC, Mend: rank 4 heals also CURE poison and bleeding, for you and everyone you touch. Rank 8 consecrates the ground: a glowing circle that keeps healing anyone standing in it, on every player\'s screen. Rank 12 wraps a shield around everyone you heal. Tested properly in co-op: your teammate gets the heal, the cure, the shield and the circle.',
+        'DRUID: meet THE OWLBEAR. The third form is back and it is a mage in fur: a hulking feathered beast whose swipes are pure arcane and grow with your ARCANE stat. Rank 4 makes every shift heal you 5%. Rank 8 gives each form a MOVE: the bear ROARS everything into a flinch, the wolf POUNCES, the owlbear unleashes a WING BUFFET. Rank 12 is Primal Mastery: every single shift fires the move, free. The endgame druid is a whirlwind of shapes.',
+        'DEATH KNIGHT: Unholy Rune is gone. It only paid off when you were already losing, and that is no way to live. Your new Q is MIASMA: exhale a cloud of rot that poisons everything inside and WITHERS them, sapping a fifth of their damage. Rank 4 is THE BLACK WIND: the cloud walks with you. Rank 8: the rot feeds you, regenerating while enemies decay in your cloud. Rank 12: anything the poison kills RISES as your skeleton warrior for 30 seconds. You are the plague, and the plague keeps what it takes.',
+        'That completes the Q rank system: 14 classes, 43 milestones, every one earned by putting points where your class lives.',
       ],
     },
     {
