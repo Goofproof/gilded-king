@@ -5518,7 +5518,7 @@
       c.restore();
       c.font = 'bold 12px monospace'; c.textAlign = 'center';
       c.fillStyle = '#ff8a3d';
-      c.fillText('E - DESCEND INTO THE INFERNO', pt.x, pt.y + 50);
+      c.fillText('E · DESCEND', pt.x, pt.y + 50); // #169 shortened so it can't overlap the nightmare label beside it
     }
 
     // #13 (Sam) TWIN PORTAL: the NIGHTMARE rift, a bleeding red tear beside the normal
@@ -5544,8 +5544,12 @@
         c.fillStyle = grad; c.beginPath(); c.arc(0, 0, 32, 0, Math.PI * 2); c.fill();
         if (Math.random() < 0.4) Fx.burst(np.x + (Math.random() * 40 - 20), np.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#ff2020' : '#7a0010', 1, { speed: 45, life: 0.7, glow: true });
         c.restore();
+        // #169 shortened + a second smaller line, so the label no longer runs into the
+        // normal DESCEND label sitting beside it.
         c.font = 'bold 12px monospace'; c.textAlign = 'center'; c.fillStyle = '#ff3b3b';
-        c.fillText('E - THE NIGHTMARE (harder · richer)', np.x, np.y + 50);
+        c.fillText('E · NIGHTMARE', np.x, np.y + 50);
+        c.font = '9px monospace'; c.fillStyle = 'rgba(255,90,90,0.85)';
+        c.fillText('harder · richer', np.x, np.y + 62);
       }
     }
 
