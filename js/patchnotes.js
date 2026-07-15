@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.89', title: 'Bosses fight the whole party now', date: '2026-07-15',
       sha: 'e0bf9ff',
       items: [
-        'Phase A of the co-op review: bosses fight the PARTY (#209) - every boss bolt mirrors to guests, targeting picks the nearest party member (sticky 4s), contact/lunge/slam/pound/charge/rings hit everyone in range, lob telegraphs mirror with party-aware blasts; net.js retires superseded sockets + cancels stale reconnect timers (double-session dup delivery + self-clone, #210); forwardHit ships the FULL takeHit option bag so stagger/chain/executioner and future statuses work from guests (#211); one generic guest ultfx event replaces per-ability messages - inferno/sleep/freeze/fear/midas/caltrops land on the host\'s real monsters, vanish rides presence so monsters stop hunting a vanished guest (#212).',
+        'HUGE co-op fix: bosses finally fight BOTH players. Before this, the second player could not see a single boss bullet and could not be hit by one either, and every boss only ever chased the host. Now every coin barrage, venom fan, spiral nova and all nine Hell ultimates appear on both screens, bosses pick whoever is closest and commit to the chase, and their lunges, slams and shockwave rings hit anyone standing in the wrong place. Falling boulders and airstrikes show their shadow on both screens too.',
+        'Second-player abilities got a deep repair. Heavy-weapon staggers, Chain Lightning and Executioner now actually work when the second player lands them. Inferno, Time Stop, Deep Freeze, War Shout, Caltrops and Midas now really affect the monsters instead of doing nothing. And Vanish makes monsters genuinely lose track of you, whichever player you are.',
+        'Fixed a sneaky connection bug where retrying a room code could leave TWO invisible connections running: everything counted twice (double damage, double gold) and you could even see a ghost copy of yourself. One player, one connection, always.',
       ],
     },
     {
