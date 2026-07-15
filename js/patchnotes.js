@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.53', title: 'Leaderboard shows each player once', date: '2026-07-15',
       sha: 'ecc1892',
       items: [
-        'Leaderboard: one entry per name, best score kept (Sam, #159).',
+        'The leaderboard no longer lists the same player twice. You cannot be both first and second anymore. Everyone shows up once, with their best score only.',
       ],
     },
     {
