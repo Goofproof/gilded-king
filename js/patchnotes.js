@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.57';
+  const VERSION = 'v2.58';
 
   const NOTES = [
+    {
+      v: 'v2.58', title: 'Watch the ceiling: falling stalactites underground', date: '2026-07-15',
+      sha: '3afee02',
+      items: [
+        'Falling stalactites on the underground floors (Sam, #164).',
+      ],
+    },
     {
       v: 'v2.57', title: 'The title screen has a theme song', date: '2026-07-15',
       sha: '98745e8',
