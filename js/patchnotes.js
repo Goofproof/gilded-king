@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.89';
+  const VERSION = 'v2.90';
 
   const NOTES = [
+    {
+      v: 'v2.90', title: 'Co-op: your kills count for YOU, mimics wake for everyone, steadier connections', date: '2026-07-15',
+      sha: '87b7328',
+      items: [
+        'Phase B co-op review fixes: kill credit routed to the killer (#213), mimic wake host-gated + broadcast (#214), trap wave deferred spawn (#215), alarm + floor stamps on sync messages (#216), play-again dual-press tie-break (#217), presence-based door plate count (#218), socket keepalive (#219).',
+      ],
+    },
     {
       v: 'v2.89', title: 'Bosses fight the whole party now', date: '2026-07-15',
       sha: 'e0bf9ff',
