@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.58';
+  const VERSION = 'v2.59';
 
   const NOTES = [
+    {
+      v: 'v2.59', title: 'Poison Miasma is a real ultimate now', date: '2026-07-15',
+      sha: '74be435',
+      items: [
+        'Poison Miasma ultimate: on par with the big ults (Sam, #165).',
+      ],
+    },
     {
       v: 'v2.58', title: 'Watch the ceiling: falling stalactites underground', date: '2026-07-15',
       sha: '3afee02',
