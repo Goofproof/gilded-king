@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.70';
+  const VERSION = 'v2.71';
 
   const NOTES = [
+    {
+      v: 'v2.71', title: 'New mob: the glue gunner', date: '2026-07-15',
+      sha: '78eea63',
+      items: [
+        'Glue gunner mob: glue blob slows you and leaves a sticky puddle that slows players AND mobs (#179).',
+      ],
+    },
     {
       v: 'v2.70', title: 'Softer music, darker darkness, better eulogies', date: '2026-07-15',
       sha: 'd40c5af',
