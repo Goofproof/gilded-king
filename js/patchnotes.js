@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.59';
+  const VERSION = 'v2.60';
 
   const NOTES = [
+    {
+      v: 'v2.60', title: 'Magic panther: a cloaking cat that bleeds you', date: '2026-07-15',
+      sha: '5ba7768',
+      items: [
+        'Magic panther mob: cloaks, teleports to your flank, rake causes bleeding (#166).',
+      ],
+    },
     {
       v: 'v2.59', title: 'Poison Miasma is a real ultimate now', date: '2026-07-15',
       sha: '74be435',
