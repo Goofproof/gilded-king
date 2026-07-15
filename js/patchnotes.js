@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.84', title: 'Your name on the board, your face on the sheet', date: '2026-07-15',
       sha: '04b09f7',
       items: [
-        'Character sheet portrait shows your REAL class (id-string vs object bug) (#202); high scores list under YOUR NAME - no death-screen entry once a name is set, N on the title renames (#203); add scripts/serve_nocache.py (Chrome heuristically cached the plain http.server\'s JS for minutes, poisoning live verification).',
+        'The character sheet finally shows YOUR class in the portrait. It was drawing the plain Adventurer for everyone, no matter who you picked.',
+        'High scores belong to YOUR NAME now. Set your name once (press N on the title screen, top-right shows who you are playing as) and every high score lists under it automatically, no more typing a name at the death screen. If you have never set a name, the death screen asks once and remembers it.',
       ],
     },
     {
