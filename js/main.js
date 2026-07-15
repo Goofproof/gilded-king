@@ -2811,6 +2811,7 @@
       rp.cw = Array.isArray(m.cw) ? m.cw : null;                  // #117 cape wind vector
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
       rp.form = m.fm || '';                                       // #162 druid form id
+      rp.mn = m.mn || null;                                       // #174 their minions
       rp.last = g.time;
       if (m.u && g.runHostU && m.u === g.runHostU) g.lastHostSeenT = g.time; // #173 host liveness
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
@@ -3167,7 +3168,24 @@
       cl: (p.class && p.class.id) || '',              // #98 so peers render your class headgear
       fm: (p.form && p.form.id) || '',                // #162 (Sam) so peers see your druid shape
       u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
+      mn: minionSnapshot(),                           // #174 (Sam) so peers see your army
     });
+  }
+
+  // #174 (Sam) compact snapshot of everything fighting FOR this player, so teammates
+  // see the necromancer's skeletons, the mesmer's clones, hired mercs, the summoner's
+  // elemental and the pet - previously all invisible to the rest of the party.
+  // Kinds: b=skeleton, c=clone, m=merc, s=elemental (e=element), p=pet (pc=colour).
+  function minionSnapshot() {
+    const mn = [];
+    for (const m of g.mercs) {
+      if (m.dead) continue;
+      mn.push({ k: m.bone ? 'b' : (m.clone ? 'c' : 'm'), x: Math.round(m.x), y: Math.round(m.y) });
+    }
+    if (g.summon && !g.summon.dead) mn.push({ k: 's', x: Math.round(g.summon.x), y: Math.round(g.summon.y), e: g.summon.elem || 'earth' });
+    const pet = g.player && g.player.pet;
+    if (pet) mn.push({ k: 'p', x: Math.round(pet.x), y: Math.round(pet.y), pc: pet.color || '#6ee7a0' });
+    return mn.length ? mn : undefined;
   }
 
   // smooth remote players toward their last reported position
@@ -3199,6 +3217,7 @@
         c.fillText('DOWNED', rp.x, rp.y - 24);
         continue;
       }
+      if (rp.mn) drawPeerMinions(c, rp);   // #174 their skeletons/clones/mercs/summon/pet
       if (rp.swing) drawPeerSwing(c, rp);
       c.save();
       c.translate(rp.x, rp.y);
@@ -3230,6 +3249,43 @@
         c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(rp.x - bw / 2 - 1, rp.y - 19, bw + 2, 4);
         c.fillStyle = '#7ee0a0'; c.fillRect(rp.x - bw / 2, rp.y - 18, bw * kk, 2);
       }
+    }
+  }
+
+  // #174 (Sam) a teammate's army, drawn as slightly-ghosted versions of the real thing so
+  // you can tell whose units they are at a glance. Positions come straight off the 'p'
+  // snapshot (15 Hz) - simple markers, not full AI sprites.
+  const PEER_ELEM_COLOR = { earth: '#a07a4a', fire: '#ff7a2c', lightning: '#ffe27a', poison: '#8ef06e' };
+  function drawPeerMinions(c, rp) {
+    for (const mn of rp.mn) {
+      c.save();
+      c.translate(mn.x, mn.y);
+      c.globalAlpha = 0.8;
+      c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(0, 8, 8, 3, 0, 0, Math.PI * 2); c.fill();
+      if (mn.k === 'b') {          // skeleton: bone-white with dark sockets
+        c.fillStyle = '#ddd5c2'; c.beginPath(); c.arc(0, 0, 8, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#1c1c22';
+        c.beginPath(); c.arc(-2.6, -1.5, 1.7, 0, Math.PI * 2); c.arc(2.6, -1.5, 1.7, 0, Math.PI * 2); c.fill();
+      } else if (mn.k === 'c') {   // mesmer clone: their owner's colours, shimmering
+        c.fillStyle = '#2c3e60'; c.beginPath(); c.arc(0, 1, 10, 0, Math.PI * 2); c.fill();
+        c.fillStyle = rp.wc || '#4a6fa5'; c.beginPath(); c.arc(0, -1, 8, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = 'rgba(255,94,219,0.5)'; c.lineWidth = 1;
+        c.beginPath(); c.arc(0, 0, 11, 0, Math.PI * 2); c.stroke();
+      } else if (mn.k === 's') {   // elemental: a glowing blob in its element's colour
+        const col = PEER_ELEM_COLOR[mn.e] || '#a07a4a';
+        c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8;
+        c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill();
+        c.shadowBlur = 0;
+      } else if (mn.k === 'p') {   // pet: a small bright companion dot
+        c.fillStyle = mn.pc || '#6ee7a0';
+        c.beginPath(); c.arc(0, 0, 6, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#0e1420';
+        c.beginPath(); c.arc(-1.6, -1, 1.1, 0, Math.PI * 2); c.arc(1.6, -1, 1.1, 0, Math.PI * 2); c.fill();
+      } else {                     // hired merc: an armoured grey fighter
+        c.fillStyle = '#5d6675'; c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#8f9aab'; c.beginPath(); c.arc(0, -2, 6, 0, Math.PI * 2); c.fill();
+      }
+      c.restore();
     }
   }
 
