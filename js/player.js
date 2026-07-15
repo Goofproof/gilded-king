@@ -697,6 +697,7 @@ const PlayerDef = (() => {
       this.justiceDue = 0; // #139 accumulated Jupiter-justice recoil, applied capped per frame
       this.bleed = null;   // #166 a damage-over-time (the magic panther's claws)
       this.slowT = 0; this.slowMul = 1; // #179 glued: a movement slow with a timer
+      this.blindT = 0; // #182 flash-blinded: a temporary Envy-style vision shroud
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
@@ -1155,6 +1156,7 @@ const PlayerDef = (() => {
       // #166 (Sam) BLEED (the magic panther's claws): a short DoT that chips HP away.
       if (this.slowT > 0) this.slowT -= dt; // #179 the glue dries off
       if (this.frozenFxT > 0) this.frozenFxT -= dt; // #180 the ice shell melts
+      if (this.blindT > 0) this.blindT -= dt; // #182 sight returns
       if (this.bleed && this.bleed.t > 0) {
         this.bleed.t -= dt; this.bleed.tick -= dt;
         if (this.bleed.tick <= 0) {

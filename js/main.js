@@ -614,6 +614,19 @@
       if (room.type === 'mythicshop') rollMythicShopStock(room); else rollShopStock(room);
     }
     if (room.type === 'barracks' && !room.barracks) rollBarracksStock(room); // #75
+    // #183 (Sam) THE BIRD. On forest floors, every third room you enter, something
+    // enormous glides over the canopy - a hawk's shadow sweeping the floor. Pure
+    // atmosphere: it cannot hurt you, it just reminds you the forest has an owner.
+    try {
+      const th = Dungeon.themeFor(g.floorNum);
+      if (th && /FOREST/i.test(th.name || '')) {
+        g.forestRooms = (g.forestRooms || 0) + 1;
+        if (g.forestRooms % 3 === 0) {
+          const fromLeft = (g.forestRooms / 3) % 2 === 0;
+          g.birdShadow = { t: 0, dur: 3.4, fromLeft, y: PF.y + 90 + (g.forestRooms * 53) % (PF.h - 180) };
+        }
+      }
+    } catch (e) { /* atmosphere must never break a room load */ }
     // #181 (Sam) TRAP ROOM: a locked chest waits dead-center. Nothing spawns on entry -
     // the ambush is armed by OPENING the chest.
     if (room.type === 'trap' && !room.trapChest) {
@@ -2913,7 +2926,7 @@
     });
     // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
     // hit by / dodge (updateProjectiles resolves the damage vs the local player)
-    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, glue: !!m.gu, freeze: !!m.fz, hitSet: null }); }); // #179/#180 glue + freeze flags mirror
+    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, glue: !!m.gu, freeze: !!m.fz, blind: !!m.bl, hitSet: null }); }); // #179/#180/#182 status flags mirror
     // P1-B: AoE blast visual (damage already arrived via phit); guest plays the boom
     Net.on('boom', m => { if (isCoopGuest()) { Fx.shake(9, 0.3); Sfx.play('explode'); Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 28, { speed: 260, life: 0.6, glow: true }); } });
     // #10 a teammate cast their ULTIMATE: flash our screen too (visual only, no sim impact)
@@ -3846,6 +3859,7 @@
     updateMines(dt);
     updateStalactites(dt);   // #164 falling stalactites on the underground floors
     updateGluePuddles(dt);   // #179 sticky glue on the floor slows everything in it
+    updateBirdShadow(dt);    // #183 the hawk over the forest canopy
     updateTurrets(dt);
     updateSummons(dt);
     updateUltFx(dt);
@@ -4342,6 +4356,11 @@
           p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g, pr.owner); // #144 thorns bite the shooter
           // #179 (Sam) a glue blob GUMS you up: heavy slow for a couple of seconds
           if (pr.glue) { p.slowT = 2.2; p.slowMul = 0.55; if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - 30, 'GLUED', '#cdbf49', 12); }
+          // #182 (Sam) a glass FLASH-bolt sews your eyes shut for 2s, Envy-style
+          if (pr.blind) {
+            p.blindT = 2.0;
+            if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - 30, 'BLINDED', '#ffffff', 13);
+          }
           // #180 (Sam) an icicle FREEZES you solid for a beat (i-frames stop chain-freezing)
           if (pr.freeze) {
             p.slowT = 0.7; p.slowMul = 0.04; p.frozenFxT = 0.7;
@@ -4481,6 +4500,39 @@
       c.beginPath(); c.arc(gp.x + gp.r * 0.4, gp.y + 3, 2.2, 0, Math.PI * 2); c.arc(gp.x - gp.r * 0.3, gp.y + 8, 1.7, 0, Math.PI * 2); c.fill();
       c.restore();
     }
+  }
+
+  // #183 (Sam) the giant bird's shadow: update + draw. It glides in a shallow sine,
+  // wings beating slowly, then is gone. Drawn on the floor under all actors.
+  function updateBirdShadow(dt) {
+    if (!g.birdShadow) return;
+    g.birdShadow.t += dt;
+    if (g.birdShadow.t >= g.birdShadow.dur) g.birdShadow = null;
+  }
+  function drawBirdShadow(c) {
+    const b = g.birdShadow; if (!b) return;
+    const k = b.t / b.dur;
+    const x = b.fromLeft ? (PF.x - 140 + (PF.w + 280) * k) : (PF.x + PF.w + 140 - (PF.w + 280) * k);
+    const y = b.y + Math.sin(k * Math.PI * 2) * 26;
+    const flap = Math.sin(b.t * 7); // slow wingbeats
+    const fade = Math.min(1, Math.min(k, 1 - k) * 5); // ease in/out at the edges
+    c.save();
+    c.translate(x, y);
+    if (!b.fromLeft) c.scale(-1, 1);
+    c.globalAlpha = 0.30 * fade;
+    c.fillStyle = '#0a0f08';
+    // body
+    c.beginPath(); c.ellipse(0, 0, 26, 9, 0, 0, Math.PI * 2); c.fill();
+    // head + beak
+    c.beginPath(); c.ellipse(24, -2, 8, 5, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.moveTo(31, -2); c.lineTo(40, 0); c.lineTo(31, 2); c.closePath(); c.fill();
+    // tail fan
+    c.beginPath(); c.moveTo(-24, 0); c.lineTo(-44, -8); c.lineTo(-40, 0); c.lineTo(-44, 8); c.closePath(); c.fill();
+    // wings (flap by squashing the y radius)
+    const wy = 34 + flap * 14;
+    c.beginPath(); c.ellipse(-2, -wy * 0.55, 46, wy * 0.42, -0.18, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(-2, wy * 0.55, 46, wy * 0.42, 0.18, 0, Math.PI * 2); c.fill();
+    c.restore();
   }
 
   function updateStalactites(dt) {
@@ -4729,6 +4781,7 @@
     Fx.drawGhosts(c);
 
     drawGluePuddles(c);   // #179 glue decals sit on the floor, under everything
+    drawBirdShadow(c);    // #183 the shadow sweeps the floor, under all actors
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);
@@ -4842,8 +4895,12 @@
     // half-transparent menu - free wallhacks on the blind terrace.
     const shroudState = g.state === 'play' || g.state === 'levelup' || g.state === 'evolution' ||
       g.state === 'ultpick' || g.state === 'rpick' || g.state === 'levelwait' || g.state === 'pause' || g.state === 'charsheet';
-    if (g.rules && g.rules.vision !== Infinity && g.player && shroudState) {
-      const R = g.rules.vision;
+    // #182 (Sam) the glass mob's flash-blind uses the SAME sewn-eyes shroud as Envy,
+    // just temporary: whichever vision radius is smaller wins.
+    const blindR = (g.player && g.player.blindT > 0) ? 150 : Infinity;
+    const visionR = Math.min(g.rules ? g.rules.vision : Infinity, blindR);
+    if (visionR !== Infinity && g.player && shroudState) {
+      const R = visionR;
       const grad = c.createRadialGradient(g.player.x, g.player.y, R * 0.45, g.player.x, g.player.y, R);
       grad.addColorStop(0, 'rgba(6,8,8,0)');
       grad.addColorStop(1, 'rgba(6,8,8,0.97)');

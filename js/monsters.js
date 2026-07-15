@@ -724,8 +724,9 @@ const Monsters = (() => {
           m.telegraph = 0.55 - m.t;
           if (m.t >= 0.55) {
             m.state = 'idle'; m.t = 0;
-            if (m.emp) { // #110 EMPOWERED: a three-bolt scatter
-              for (let k = -1; k <= 1; k++) fireProjectile(g, m, m.facing + k * 0.16, 430, m.dmg, '#ff66dd', 6, { glow: true });
+            if (m.emp) { // #110 EMPOWERED -> #182 (Sam) a FLASH-bolt scatter: a hit sews
+              // your eyes shut for a beat, Envy-style (the shroud lives in main.js).
+              for (let k = -1; k <= 1; k++) fireProjectile(g, m, m.facing + k * 0.16, 430, m.dmg, '#ffffff', 6, { glow: true, blind: true });
               m.emp = false;
             } else fireProjectile(g, m, m.facing, 420, m.dmg, '#ff66dd', 6, { glow: true });
             Sfx.play('crit');
@@ -928,11 +929,11 @@ const Monsters = (() => {
     // #144 (Sam) owner ref so THORNS can bite back at the SHOOTER, not just a melee toucher.
     // Guest-mirrored bolts (the 'proj' message) carry no owner, so the reflect only ever
     // runs host-side where monster HP is authoritative - no co-op divergence.
-    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6, glue: opts.glue || false, freeze: opts.freeze || false }); // #179/#180 glue + freeze flags ride the bolt
+    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6, glue: opts.glue || false, freeze: opts.freeze || false, blind: opts.blind || false }); // #179/#180/#182 status flags ride the bolt
     // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
     // and updateProjectiles already resolves from:'enemy' damage vs the local player)
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
-      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0, gu: opts.glue ? 1 : 0, fz: opts.freeze ? 1 : 0 });
+      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0, gu: opts.glue ? 1 : 0, fz: opts.freeze ? 1 : 0, bl: opts.blind ? 1 : 0 });
     }
   }
 
