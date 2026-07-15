@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.68', title: 'Co-op: boss kills no longer eject your teammate', date: '2026-07-15',
       sha: 'a131540',
       items: [
-        'Co-op: a Descent boss kill no longer dumps the GUEST to the victory screen mid-run (#175).',
+        'Fixed a nasty co-op bug: when your team killed a boss in Hell, the player who was NOT hosting got thrown to the victory and high-score screen in the middle of the run, as if the game had ended, while the host kept playing alone. Now both players celebrate the kill together and both get the portal down to the next circle.',
       ],
     },
     {
