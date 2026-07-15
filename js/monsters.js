@@ -170,12 +170,18 @@ const Monsters = (() => {
       wc: wp.color || '#9ee7ff',
       ready: true,               // pre-morphed: it IS the encounter, no first-sight reveal
     };
-    m.morphT = 0.6;
-    // HP: a real fight. Mirror the player's own bulk, floored + depth-scaled, capped.
-    m.hp = m.maxHp = Math.min(1400, Math.max(220 + f * 26, Math.round((pl.maxHp || 100) * 1.6)));
+    m.morphT = 0.35;
+    // #168 (Sam) it kept dying to the opening barrage before it could fight. A mini-boss
+    // must SURVIVE the first ultimate (Meteor ~460, Cataclysm ~650) and trade blows. HP
+    // floor and multiplier both bumped hard, cap raised.
+    m.hp = m.maxHp = Math.min(2600, Math.max(760 + f * 64, Math.round((pl.maxHp || 100) * 2.6)));
     // damage: mirror the weapon, clamped so honing/rarity can't make it a one-shot.
     m.dmg = Math.max(14, Math.min(18 + f * 4, Math.round((wp.dmg || 16) * 0.85)));
     m.speed = Math.min(150, 104 + f * 2);
+    // #168 instant action: barely any spawn-in freeze, and primed to attack on entrance
+    // (the player is already shooting - it should shoot back immediately, not stand there).
+    m.spawnT = 0.12;
+    m.t = 1.4;
     m.empowerCd = 3.5;           // casts its "spell" (empowered attack) often
     m.xp = 60 + f * 8;
     m.coins = [18, 30];
@@ -577,9 +583,18 @@ const Monsters = (() => {
         const ranged = mir.arch === 'bow' || mir.arch === 'wand' || mir.arch === 'staff';
         if (ranged) {
           if (dist < 190) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed);
-          else if (dist > 340) moveToward(m, p.x, p.y, dt, m.speed * 0.85);
-          else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
-          if (m.state === 'idle' && m.t > 1.6) { m.state = 'aim'; m.t = 0; }
+          else if (dist > 320) moveToward(m, p.x, p.y, dt, m.speed * 0.85);
+          else {
+            // #168 (Sam) never stand still: strafe sideways in the sweet spot so it reads
+            // as a live opponent circling you, not a target dummy waiting to be shot.
+            m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+            if (m.strafeDir === undefined) m.strafeDir = 1;
+            if (m.t % 2 < dt) m.strafeDir *= -1; // flip direction on a slow cadence
+            const perp = m.facing + Math.PI / 2 * m.strafeDir;
+            m.x += Math.cos(perp) * m.speed * 0.7 * dt;
+            m.y += Math.sin(perp) * m.speed * 0.7 * dt;
+          }
+          if (m.state === 'idle' && m.t > 0.35) { m.state = 'aim'; m.t = 0; } // #168 fire fast on entrance
           if (m.state === 'aim') {
             m.facing = Math.atan2(p.y - m.y, p.x - m.x);
             m.telegraph = 0.5 - m.t;
