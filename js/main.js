@@ -665,7 +665,15 @@
     { stat: 'ARCANE',  color: '#b06bff', label: '+12% spell power', apply: p => { p.applyEvolution({ spellPower: 0.12 }); } },
     { stat: 'FORTUNE', color: '#ffce54', label: '+15% coins',       apply: p => { p.stats.coinMul += 0.15; } },
   ];
-  const barracksCost = st => 30 + 20 * st.uses;
+  // #167 (Sam) ANTI-ABUSE: the cost climbs off a per-RUN counter on the player, NOT a
+  // per-station one that reset to 30 on every new barracks floor. Before this, a rich
+  // player (hold-E to auto-buy) stacked dozens of cheap +8% MIGHT boosts on each of the
+  // many barracks floors and steamrolled the Descent, defeating descent scaling. Now every
+  // boost anywhere costs more than the last, and a hard per-run cap ends it outright.
+  const BARRACKS_CAP = 12; // total trainings a single run can ever buy
+  const barracksTrained = () => (g.player && g.player.barracksTrained) || 0;
+  const barracksCost = () => 30 + 30 * barracksTrained();
+  const barracksMaxed = () => barracksTrained() >= BARRACKS_CAP;
   function rollBarracksStock(room) {
     room.barracks = {
       trainer: { x: PF.x + PF.w / 2, y: PF.y + 100 }, // #125 was +66: head overlapped the subtitle text
@@ -1623,9 +1631,10 @@
 
     // #75 TRAINING BARRACKS: spend gold at a station for a run-only stat boost
     if (t.kind === 'trainStation') {
-      const st = t.st, cost = barracksCost(st);
+      const st = t.st, cost = barracksCost();
+      if (barracksMaxed()) { g.shopMsg = { text: `Your body is at its limit - trained ${BARRACKS_CAP} times this run`, t: 2 }; Sfx.play('error'); return; }
       if (p.coins < cost) { g.shopMsg = { text: `Need ${cost} gold to train ${st.stat}`, t: 1.6 }; Sfx.play('error'); return; }
-      p.coins -= cost; st.uses++;
+      p.coins -= cost; st.uses++; p.barracksTrained = barracksTrained() + 1;
       st.apply(p);
       Sfx.play('upgrade');
       Fx.text(st.x, st.y - 30, st.stat + ' TRAINED', st.color, 14);
@@ -3607,7 +3616,7 @@
       // and to affordability, so it stops the instant you cannot pay - no error-sound spam.
       else if (input.key('KeyE')) {
         const t = nearestInteractable();
-        if (t && t.kind === 'trainStation' && g.player.coins >= barracksCost(t.st)) {
+        if (t && t.kind === 'trainStation' && !barracksMaxed() && g.player.coins >= barracksCost()) {
           g.trainHoldCd = (g.trainHoldCd || 0) - dt;
           if (g.trainHoldCd <= 0) { interact(); g.trainHoldCd = 0.1; }
         }
@@ -5669,7 +5678,8 @@
     c.textAlign = 'center'; c.font = 'bold 16px monospace'; c.fillStyle = '#c9a227';
     c.fillText('TRAINING BARRACKS', PF.x + PF.w / 2, PF.y + 40);
     c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('spend gold to sharpen your stats for this run  ·  hold E to keep training', PF.x + PF.w / 2, PF.y + 56);
+    const left = Math.max(0, BARRACKS_CAP - barracksTrained());
+    c.fillText(`spend gold to sharpen your stats for this run  ·  ${left} training${left === 1 ? '' : 's'} left`, PF.x + PF.w / 2, PF.y + 56);
     const t = b.trainer;
     c.save(); c.translate(t.x, t.y);
     c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 16, 14, 5, 0, 0, Math.PI * 2); c.fill();
@@ -5677,8 +5687,9 @@
     c.fillStyle = '#e8d3b0'; c.beginPath(); c.arc(0, -4, 8, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#3a4a2a'; c.beginPath(); c.arc(0, -8, 8, Math.PI, 0); c.fill();
     c.restore();
+    const maxed = barracksMaxed();
     for (const st of b.stations) {
-      const cost = 30 + 20 * st.uses, afford = g.player.coins >= cost;
+      const cost = barracksCost(), afford = !maxed && g.player.coins >= cost;
       c.save(); c.translate(st.x, st.y);
       c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 20, 14, 5, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = '#6a4a2a'; c.fillRect(-3, -4, 6, 26);
@@ -5689,8 +5700,8 @@
       c.fillText(st.stat, st.x, st.y - 30);
       c.font = '10px monospace'; c.fillStyle = '#c8d0de';
       c.fillText(st.label, st.x, st.y + 34);
-      c.font = 'bold 10px monospace'; c.fillStyle = afford ? '#ffd24c' : '#a05555';
-      c.fillText('◉ ' + cost + (st.uses ? '  (x' + st.uses + ')' : ''), st.x, st.y + 48);
+      c.font = 'bold 10px monospace'; c.fillStyle = maxed ? '#8fa3bf' : (afford ? '#ffd24c' : '#a05555');
+      c.fillText(maxed ? 'MAXED' : '◉ ' + cost + (st.uses ? '  (x' + st.uses + ')' : ''), st.x, st.y + 48);
     }
   }
 
