@@ -526,6 +526,7 @@
     g.monsters = [];
     g.projectiles = [];
     g.mines = [];
+    g.gluePuddles = []; // #179 glue does not follow you between rooms
     g.ultFx = [];
     g.playerTaunt = { src: null, t: 0 }; // taunts don't carry between rooms
     g.pickups = room.savedPickups || [];
@@ -2862,7 +2863,7 @@
     });
     // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
     // hit by / dodge (updateProjectiles resolves the damage vs the local player)
-    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, hitSet: null }); });
+    Net.on('proj', m => { if (isCoopGuest()) g.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, r: m.r, dmg: m.dmg, from: 'enemy', color: m.c, life: 3, glow: !!m.gl, glue: !!m.gu, hitSet: null }); }); // #179 glue flag mirrors
     // P1-B: AoE blast visual (damage already arrived via phit); guest plays the boom
     Net.on('boom', m => { if (isCoopGuest()) { Fx.shake(9, 0.3); Sfx.play('explode'); Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 28, { speed: 260, life: 0.6, glow: true }); } });
     // #10 a teammate cast their ULTIMATE: flash our screen too (visual only, no sim impact)
@@ -3786,6 +3787,7 @@
     updatePickups(dt);
     updateMines(dt);
     updateStalactites(dt);   // #164 falling stalactites on the underground floors
+    updateGluePuddles(dt);   // #179 sticky glue on the floor slows everything in it
     updateTurrets(dt);
     updateSummons(dt);
     updateUltFx(dt);
@@ -4280,6 +4282,8 @@
       if (!dead && pr.from === 'enemy') {
         if (Math.hypot(pr.x - p.x, pr.y - p.y) < p.r + pr.r) {
           p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g, pr.owner); // #144 thorns bite the shooter
+          // #179 (Sam) a glue blob GUMS you up: heavy slow for a couple of seconds
+          if (pr.glue) { p.slowT = 2.2; p.slowMul = 0.55; if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - 30, 'GLUED', '#cdbf49', 12); }
           dead = true;
         } else { // INCIDENTAL: an enemy arrow can catch a mercenary in its flight path
           for (const merc of g.mercs) {
@@ -4335,6 +4339,7 @@
             if (Math.hypot(pr.x - m.x, pr.y - m.y) < pr.blast + m.r) m.takeHit(pr.dmg * 0.8, { sx: pr.x, sy: pr.y, knock: 110, flame: pr.flame, chill: pr.chill, venom: pr.venom, chain: pr.chain, crit: pr.crit, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
           }
         }
+        if (pr.glue) spawnGluePuddle(pr.x, pr.y); // #179 the blob leaves its sticky mark wherever it ends up
         Fx.burst(pr.x, pr.y, pr.color, 4, { speed: 70, life: 0.25 });
         g.projectiles.splice(i, 1);
       }
@@ -4372,6 +4377,49 @@
   // #164 (Sam) FALLING STALACTITES: on the underground floors (the Descent), a stalactite
   // shears off the ceiling every few seconds, telegraphed by a growing ground-shadow, then
   // drops and crushes anything standing under it. A dodge hazard, not an instakill.
+  // #179 (Sam) GLUE PUDDLES. A glue blob that lands (on you, a wall, or the floor)
+  // leaves a sticky amber patch for ~9s. Anything that walks through it is slowed:
+  // the party via player.slowT, monsters via their existing chill fields. Mutual
+  // hazard - a smart player can kite melee mobs THROUGH the glue.
+  function spawnGluePuddle(x, y) {
+    if (!g.gluePuddles) g.gluePuddles = [];
+    g.gluePuddles.push({ x, y, r: 34, t: 9, max: 9 });
+    if (typeof Sfx !== 'undefined') Sfx.play('hitLight');
+  }
+  function updateGluePuddles(dt) {
+    const list = g.gluePuddles; if (!list || !list.length) return;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const gp = list[i];
+      gp.t -= dt;
+      if (gp.t <= 0) { list.splice(i, 1); continue; }
+      const p = g.player;
+      if (p && !p.dead && Math.hypot(p.x - gp.x, p.y - gp.y) < gp.r + p.r * 0.5) {
+        p.slowT = Math.max(p.slowT || 0, 0.25); p.slowMul = 0.6; // gentler than a direct hit
+      }
+      for (const m of g.monsters) {
+        if (m.dead || m.airborne || m.isBoss) continue;
+        if (Math.hypot(m.x - gp.x, m.y - gp.y) < gp.r + m.r * 0.5) { m.chillT = Math.max(m.chillT || 0, 0.25); m.chillMul = 0.6; }
+      }
+    }
+  }
+  function drawGluePuddles(c) {
+    const list = g.gluePuddles; if (!list || !list.length) return;
+    for (const gp of list) {
+      const fade = Math.min(1, gp.t / 1.5); // last 1.5s: dry up
+      c.save();
+      c.globalAlpha = 0.55 * fade;
+      c.fillStyle = '#b9a83e';
+      c.beginPath(); c.ellipse(gp.x, gp.y, gp.r, gp.r * 0.62, 0, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 0.35 * fade;
+      c.fillStyle = '#e6d76a';
+      c.beginPath(); c.ellipse(gp.x - 6, gp.y - 4, gp.r * 0.55, gp.r * 0.32, 0, 0, Math.PI * 2); c.fill();
+      // a few fixed sheen dots so it reads sticky, not just a stain
+      c.globalAlpha = 0.5 * fade; c.fillStyle = '#f2e9a0';
+      c.beginPath(); c.arc(gp.x + gp.r * 0.4, gp.y + 3, 2.2, 0, Math.PI * 2); c.arc(gp.x - gp.r * 0.3, gp.y + 8, 1.7, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+  }
+
   function updateStalactites(dt) {
     if (typeof Descent === 'undefined' || !Descent.isDescent(g.floorNum)) { if (g.stalactites) g.stalactites.length = 0; return; }
     g.stalactites = g.stalactites || [];
@@ -4617,6 +4665,7 @@
     if (g.coop) drawDoorPlates(c); // #101 majority-gather plates (on the floor, under actors)
     Fx.drawGhosts(c);
 
+    drawGluePuddles(c);   // #179 glue decals sit on the floor, under everything
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);

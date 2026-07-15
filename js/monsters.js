@@ -53,16 +53,19 @@ const Monsters = (() => {
     // #166 (Sam) magic panther: stalks, turns invisible, teleports to flank you, and its
     // raking strike leaves you BLEEDING. Fast and slippery, not especially tanky.
     panther:  { hp: 40, dmg: 16, speed: 138, r: 13, xp: 16, coins: [4, 8] },
+    // #179 (Sam) glue gunner: a dude with a glue gun. The blob slows YOU on a hit and
+    // leaves a sticky puddle on the floor that slows everything that walks through it.
+    gluegunner: { hp: 34, dmg: 10, speed: 82, r: 12, xp: 14, coins: [4, 7] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
-    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage'],
+    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner'],
     5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
@@ -563,6 +566,26 @@ const Monsters = (() => {
         tryContactHit(m, g, p); // rake on contact (bleed applied inside tryContactHit)
         break;
       }
+      case 'gluegunner': {
+        // #179 (Sam) GLUE GUNNER: waddles into range, telegraphs, and lobs a slow fat
+        // glue blob. The blob slows on a hit and leaves a sticky puddle where it lands
+        // (that part lives in main.js updateProjectiles/updateGluePuddles).
+        if (dist > 300) moveToward(m, p.x, p.y, dt, m.speed);
+        else if (dist < 150) moveToward(m, m.x * 2 - p.x, m.y * 2 - p.y, dt, m.speed * 0.8);
+        else m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+        if (m.state === 'idle' && m.t > 2.2 && dist < 340) { m.state = 'aim'; m.t = 0; }
+        if (m.state === 'aim') {
+          m.facing = Math.atan2(p.y - m.y, p.x - m.x);
+          m.telegraph = 0.55 - m.t;
+          if (m.t >= 0.55) {
+            m.state = 'idle'; m.t = 0; m.telegraph = 0;
+            fireProjectile(g, m, m.facing, 185, m.dmg * (m.emp ? 1.3 : 1), '#cdbf49', 8, { glue: true, life: 2.4 });
+            m.emp = false; Sfx.play('bowfire');
+          }
+        }
+        tryContactHit(m, g, p, 0.6);
+        break;
+      }
       case 'doppel': {
         // #128 DOPPELGANGER: on first sight it morphs into a copy of the player and
         // fights in their style - melee lunge for a blade, kite-and-shoot for a bow/
@@ -882,11 +905,11 @@ const Monsters = (() => {
     // #144 (Sam) owner ref so THORNS can bite back at the SHOOTER, not just a melee toucher.
     // Guest-mirrored bolts (the 'proj' message) carry no owner, so the reflect only ever
     // runs host-side where monster HP is authoritative - no co-op divergence.
-    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6 });
+    g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6, glue: opts.glue || false }); // #179 glue flag rides the bolt
     // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
     // and updateProjectiles already resolves from:'enemy' damage vs the local player)
     if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
-      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0 });
+      Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0, gu: opts.glue ? 1 : 0 });
     }
   }
 
@@ -1289,6 +1312,7 @@ const Monsters = (() => {
       case 'mage': drawMage(c, m, flash, ex, ey); break;
       case 'doppel': drawDoppelganger(c, m, flash, ex, ey); break;
       case 'panther': drawPanther(c, m, flash, ex, ey); break;
+      case 'gluegunner': drawGluegunner(c, m, flash, ex, ey); break;
       case 'lobber': drawLobber(c, m, flash, ex, ey); break;
       case 'tank': drawTank(c, m, flash, ex, ey); break;
       case 'swarmer': case 'add': drawSwarmer(c, m, flash, ex, ey); break;
@@ -1596,6 +1620,20 @@ const Monsters = (() => {
       c.strokeStyle = `rgba(192,96,255,${0.35 * inv})`; c.lineWidth = 1;
       c.beginPath(); c.arc(0, 0, m.r * 1.5, 0, Math.PI * 2); c.stroke();
     }
+  }
+  // #179 (Sam) glue gunner: a squat workman in olive overalls hefting a fat-nozzled
+  // glue gun, a drip of amber goo hanging off the tip.
+  function drawGluegunner(c, m, flash, ex, ey) {
+    c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = flash ? '#fff' : '#5c5a2e'; c.beginPath(); c.arc(0, 2, m.r, 0, Math.PI * 2); c.fill();
+    c.fillStyle = flash ? '#eee' : '#7a7440'; c.beginPath(); c.arc(0, -2, m.r * 0.8, 0, Math.PI * 2); c.fill();
+    eyes(c, ex, ey, 3.4, 2, '#f2e9a0');
+    // the glue gun, aimed
+    c.save(); c.rotate(m.facing || 0);
+    c.fillStyle = '#3d3b22'; c.fillRect(m.r * 0.3, -3.5, m.r * 1.15, 7);
+    c.fillStyle = '#cdbf49'; c.beginPath(); c.arc(m.r * 1.5, 0, 4.4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(205,191,73,0.7)'; c.beginPath(); c.arc(m.r * 1.5, 5, 2, 0, Math.PI * 2); c.fill();
+    c.restore();
   }
   function drawTank(c, m, flash, ex, ey) {
     // heavy hexagonal bruiser

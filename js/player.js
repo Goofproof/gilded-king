@@ -696,6 +696,7 @@ const PlayerDef = (() => {
       this.coins = 0; this.essenceRun = 0; this.shards = 0;
       this.justiceDue = 0; // #139 accumulated Jupiter-justice recoil, applied capped per frame
       this.bleed = null;   // #166 a damage-over-time (the magic panther's claws)
+      this.slowT = 0; this.slowMul = 1; // #179 glued: a movement slow with a timer
       this.xp = 0; this.level = 1;
       this.kills = 0; this.roomsCleared = 0;
       // temporary buffs from elite drops: shield absorbs one hit, the others are timed
@@ -1152,6 +1153,7 @@ const PlayerDef = (() => {
       if (totalRegen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + totalRegen * dt);
 
       // #166 (Sam) BLEED (the magic panther's claws): a short DoT that chips HP away.
+      if (this.slowT > 0) this.slowT -= dt; // #179 the glue dries off
       if (this.bleed && this.bleed.t > 0) {
         this.bleed.t -= dt; this.bleed.tick -= dt;
         if (this.bleed.tick <= 0) {
@@ -1272,7 +1274,8 @@ const PlayerDef = (() => {
         // thumbstick's MAGNITUDE away and makes a half-pushed stick run at full speed.
         // Fold it back in here, so a gentle push is a walk and a full push is a sprint.
         const stickMag = input.stick ? input.stick.mag : 1;
-        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul * stickMag;
+        const glue = this.slowT > 0 ? (this.slowMul || 1) : 1; // #179 glued feet
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul * stickMag * glue;
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger. THE WEIGHT (Pride, on the mountain) takes the dodge away
