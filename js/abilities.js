@@ -171,6 +171,15 @@ const Abilities = (() => {
     };
   }
 
+  // #205 (Sam) each class's PRIMARY STAT: investing points in it now also grows the
+  // class Q (see main.js useAbility). Thematic, not derived from the Q's card key.
+  const CLASS_STAT = {
+    '': 'MIGHT', warrior: 'MIGHT', barbarian: 'MIGHT',
+    ranger: 'AGILITY', rogue: 'AGILITY', engineer: 'AGILITY',
+    mage: 'ARCANE', summoner: 'ARCANE', mesmer: 'ARCANE', necromancer: 'ARCANE', pyromancer: 'ARCANE',
+    paladin: 'VIGOR', cleric: 'VIGOR', druid: 'VIGOR', deathknight: 'VIGOR',
+  };
+
   function classAbility(classId) {
     const spec = CLASS_Q[classId] || CLASS_Q[''];
     const act = spec.base ? ACTIONS[spec.base] : null;
@@ -267,5 +276,5 @@ const Abilities = (() => {
     return out;
   }
 
-  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, ULTIMATES };
+  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES };
 })();

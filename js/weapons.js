@@ -360,7 +360,9 @@ const Weapons = (() => {
     const a = {
       isArmor: true, rarity: 'mythic', rarityName: 'Mythic', color: e.color, rarIdx: 5,
       name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
-      defense: Math.round(e.defense * 1.15 * tierMul), enchants: mythicEnchants(e.enchants, ARMOR_ENCHANTS),
+      // #204 (Sam) Math.round on a FRACTION (0.12-0.19) rounded every mythic's defense
+      // to ZERO - mythic armor gave no damage reduction at all. Keep the precision.
+      defense: +(e.defense * 1.15 * tierMul).toFixed(3), enchants: mythicEnchants(e.enchants, ARMOR_ENCHANTS),
       price: 400 + tier * 5,
     };
     a.price += a.enchants.reduce((s, en) => s + en.tier * 8 + (en.level || 0) * 4, 0);

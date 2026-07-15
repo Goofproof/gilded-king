@@ -1949,11 +1949,16 @@
     let _qScaled = null;
     if (a === p.ability && a.classQ && typeof Abilities !== 'undefined' && Abilities.qLevelScale) {
       const s = Abilities.qLevelScale(p.level);
+      // #205 (Sam) the Q also grows with your class's PRIMARY stat: +4% damage and
+      // healing per point invested (a mage's ARCANE feeds Arcane Nova, a cleric's
+      // VIGOR feeds Mend...). Level covers reach/duration; the stat covers punch.
+      const primary = (Abilities.CLASS_STAT && Abilities.CLASS_STAT[(p.class && p.class.id) || '']) || null;
+      const statMul = 1 + 0.04 * ((primary && p.statPoints && p.statPoints[primary]) || 0);
       _qScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, knock: a.knock };
-      if (a.dmg) a.dmg = Math.round(a.dmg * s.dmg);
+      if (a.dmg) a.dmg = Math.round(a.dmg * s.dmg * statMul);
       if (a.knock) a.knock = Math.round(a.knock * s.knock);
       if (a.radius) a.radius = Math.round(a.radius * s.radius);
-      if (a.heal) a.heal = Math.min(0.95, a.heal * s.heal);
+      if (a.heal) a.heal = Math.min(0.95, a.heal * s.heal * statMul);
       if (a.dur) a.dur = +(a.dur + s.durBonus).toFixed(2);
     }
 
@@ -6683,7 +6688,7 @@
     // badge layout so the hover zone always tracks the real badges (they moved to
     // the bottom-right in #63; the old hard-coded centre layout stopped matching).
     const FORGED = {
-      'Q': `your ${(p.class && p.class.name) || 'class'} ability · grows with level (Lv ${p.level})`, // #109
+      'Q': `your ${(p.class && p.class.name) || 'class'} ability · grows with level (Lv ${p.level})${Abilities.CLASS_STAT && Abilities.CLASS_STAT[(p.class && p.class.id) || ''] ? ' + your ' + Abilities.CLASS_STAT[(p.class && p.class.id) || ''] : ''}`, // #109/#205
       'R': 'forged from your first two evolutions',
       '★': 'right-click · forged from Q + R',
     };
