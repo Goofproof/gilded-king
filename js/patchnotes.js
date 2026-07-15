@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.77';
+  const VERSION = 'v2.78';
 
   const NOTES = [
+    {
+      v: 'v2.78', title: 'The nine faces of Hell', date: '2026-07-15',
+      sha: '915da2d',
+      items: [
+        'Nine bespoke Hell boss models: Charon\'s oar, Minos\' coiled tail, three-headed Cerberus, coin-crusted Plutus, burning Phlegyas in his skiff, snake-haired Medusa, horned Minotaur, honest-faced Geryon with a stinger, three-faced Lucifer frozen in ice (#188).',
+      ],
+    },
     {
       v: 'v2.77', title: 'The shop has a forge now', date: '2026-07-15',
       sha: '457cf58',
