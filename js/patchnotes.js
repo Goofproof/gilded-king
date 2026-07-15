@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.97';
+  const VERSION = 'v2.98';
 
   const NOTES = [
+    {
+      v: 'v2.98', title: 'The ARCANE classes get their rank rewards', date: '2026-07-15',
+      sha: 'd9161a6',
+      items: [
+        'Q wave 3, ARCANE milestones (#229): mage slow field / second pulse / chill-all; summoner element aura / TWO elementals / death explosion; mesmer four clones / echo swings / recast swap; necromancer army re-keyed to ARCANE + BONE GOLEM taunt; pyromancer wider spread / fire immunity / burning enemies explode.',
+      ],
+    },
     {
       v: 'v2.97', title: 'The AGILITY classes get their rank rewards', date: '2026-07-15',
       sha: '079a282',
