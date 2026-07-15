@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.53';
+  const VERSION = 'v2.54';
 
   const NOTES = [
+    {
+      v: 'v2.54', title: 'Type a real name on the leaderboard', date: '2026-07-15',
+      sha: 'd8862e2',
+      items: [
+        'Name entry: a typed name up to 10 characters, not 3 initials (Sam, #160).',
+      ],
+    },
     {
       v: 'v2.53', title: 'Leaderboard shows each player once', date: '2026-07-15',
       sha: 'ecc1892',
