@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.63';
+  const VERSION = 'v2.64';
 
   const NOTES = [
+    {
+      v: 'v2.64', title: 'Character sheet is readable again', date: '2026-07-15',
+      sha: '9d7ee83',
+      items: [
+        'Character sheet is an opaque modal now: minimap no longer ghosts through the right column (#171).',
+      ],
+    },
     {
       v: 'v2.63', title: 'Portal labels fixed, trinket tooltips added', date: '2026-07-15',
       sha: '18c6351',
