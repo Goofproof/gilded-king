@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.77', title: 'The shop has a forge now', date: '2026-07-15',
       sha: '457cf58',
       items: [
-        'Crafting corner beside the enchant table: an anvil forges a weapon of your held archetype, a mannequin tailors armor - gold + shards, minRarity 2, escalating cost (#187).',
+        'The shop got a CRAFTING CORNER, right next to the enchant table. Stand at the glowing ANVIL and press E to forge a brand new weapon of the same kind you are holding (a bow user forges a bow, a blade user forges a blade). Stand at the MANNEQUIN to have a fresh piece of armor tailored. Crafting costs gold plus salvage shards (press X near dropped gear to break it into shards), and everything you craft is decent quality or better, never junk. Each craft costs a little more than the last, so you cannot just print gear all day.',
       ],
     },
     {
