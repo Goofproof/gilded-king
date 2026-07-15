@@ -932,7 +932,7 @@ const Monsters = (() => {
     g.projectiles.push({ x, y, vx, vy, r, dmg, from: 'enemy', owner: m, color, life: opts.life || 3, glow: opts.glow || false, hitSet: null, homing: opts.homing, turnRate: opts.turnRate || 2.6, glue: opts.glue || false, freeze: opts.freeze || false, blind: opts.blind || false }); // #179/#180/#182 status flags ride the bolt
     // P1-B: mirror the bolt to guests (constant velocity -> reproduces the whole path,
     // and updateProjectiles already resolves from:'enemy' damage vs the local player)
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) {
+    if (g.coop && typeof Net !== 'undefined' && (g.isRunHost ? g.isRunHost() : Net.isHost)) { // #189 pinned authority
       Net.send({ t: 'proj', x: Math.round(x), y: Math.round(y), vx: Math.round(vx), vy: Math.round(vy), r, dmg, c: color, gl: opts.glow ? 1 : 0, gu: opts.glue ? 1 : 0, fz: opts.freeze ? 1 : 0, bl: opts.blind ? 1 : 0 });
     }
   }
@@ -944,7 +944,7 @@ const Monsters = (() => {
     Fx.burst(m.x, m.y, ['#ff8833', '#ffcc44', '#ff4422', '#888888'], 30, { speed: 260, life: 0.6, glow: true });
     // P1-A/B: every party member in range takes it; broadcast the blast so guests SEE it
     for (const t of g.partyTargets()) if (Math.hypot(t.x - m.x, t.y - m.y) < R + t.r) g.hurtTarget(t, m.dmg, m.x, m.y, m);
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(m.x), y: Math.round(m.y), r: R });
+    if (g.coop && typeof Net !== 'undefined' && (g.isRunHost ? g.isRunHost() : Net.isHost)) Net.send({ t: 'boom', x: Math.round(m.x), y: Math.round(m.y), r: R }); // #189 pinned authority
     // friendly fire: rewards kiting the bomber into the pack
     for (const o of g.monsters) {
       if (o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) {
@@ -1133,7 +1133,7 @@ const Monsters = (() => {
     Fx.shake(7, 0.25); Sfx.play('explode');
     Fx.burst(m.x, m.y, ['#ff4444', '#ffcc44', '#ff2200'], 26, { speed: 250, life: 0.6, glow: true });
     for (const t of g.partyTargets()) if (Math.hypot(t.x - m.x, t.y - m.y) < R + t.r) g.hurtTarget(t, Math.round(m.dmg * 1.2), m.x, m.y, m);
-    if (g.coop && typeof Net !== 'undefined' && Net.isHost) Net.send({ t: 'boom', x: Math.round(m.x), y: Math.round(m.y), r: R });
+    if (g.coop && typeof Net !== 'undefined' && (g.isRunHost ? g.isRunHost() : Net.isHost)) Net.send({ t: 'boom', x: Math.round(m.x), y: Math.round(m.y), r: R }); // #189 pinned authority
     for (const o of g.monsters) {
       if (o !== m && !o.dead && Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) applyDamage(o, m.dmg, g, {});
     }

@@ -1668,17 +1668,8 @@ const UI = (() => {
     c.fillText('click or Esc to go back', W / 2, py + ph - 11);
   }
 
-  // word-wrap a left-aligned block; returns the y of the LAST line drawn.
-  function wrapText(c, text, x, y, maxW, lh) {
-    const words = String(text).split(' '); let line = '', yy = y;
-    for (const w of words) {
-      const test = line ? line + ' ' + w : w;
-      if (c.measureText(test).width > maxW && line) { c.fillText(line, x, yy); line = w; yy += lh; }
-      else line = test;
-    }
-    if (line) c.fillText(line, x, yy);
-    return yy;
-  }
+  // (a duplicate wrapText used to live here; the real one is further down - function
+  // declarations hoist and the LAST one wins, so this shadowed copy was dead code)
 
   // word-wrap a CENTERED block; returns the y for the NEXT line (used by the eulogy).
   function wrapCentered(c, text, cx, y, maxW, lh) {

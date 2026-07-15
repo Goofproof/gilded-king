@@ -3182,8 +3182,8 @@
     g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
-    // #M4 remember who the ORIGINAL host is; if that changes mid-run the host dropped
-    g.coopHostId = (typeof Net !== 'undefined') ? Net.hostId : null;
+    // (#M4's coopHostId tracker retired: #173's pinned runHostU + the host-liveness
+    // watchdog cover host-drop detection now)
     // #173 (Sam) PINNED RUN AUTHORITY. The relay reassigns its "host" whenever the host's
     // socket blips (server/src/index.js host migration). The game must NOT follow that:
     // a mid-run migration made the guest start broadcasting its proxy mobs as truth while
@@ -3545,6 +3545,7 @@
   }
   g.partyTargets = partyTargets;
   g.hurtTarget = hurtTarget;
+  g.isRunHost = isRunHost; // #189 so monsters.js mirrors use the PINNED authority, not the relay's live host flag
 
   // P1-C: DOWNED / REVIVE / party-wipe -----------------------------------------
   function goDowned() {
