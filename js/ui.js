@@ -1679,35 +1679,34 @@ const UI = (() => {
     c.fillText(`${g.essenceEarned} ◆ essence`, W / 2, 172);
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
-    c.fillText('enter your initials', W / 2, 205);
+    c.fillText('enter your name', W / 2, 205);
 
     const rects = [];
-    for (let i = 0; i < 3; i++) {
-      const x = W / 2 + (i - 1) * 95, y = 285;
-      const active = ini.slot === i;
-      // letter box
-      c.strokeStyle = active ? '#ffd24c' : '#5a6478';
-      c.lineWidth = active ? 3 : 1.5;
-      c.strokeRect(x - 34, y - 42, 68, 76);
-      c.font = 'bold 52px monospace';
-      c.fillStyle = active ? '#fff' : '#c8d2e0';
-      c.fillText(String.fromCharCode(ini.letters[i]), x, y + 16);
-      // up/down arrows
-      const pulse = active ? 0.5 + Math.sin(Date.now() / 250) * 0.3 : 0.35;
-      c.fillStyle = `rgba(255,210,76,${pulse})`;
-      c.beginPath(); c.moveTo(x, y - 66); c.lineTo(x - 12, y - 50); c.lineTo(x + 12, y - 50); c.fill();
-      c.beginPath(); c.moveTo(x, y + 58); c.lineTo(x - 12, y + 42); c.lineTo(x + 12, y + 42); c.fill();
-      rects.push({ x: x - 20, y: y - 74, w: 40, h: 28, action: 'up', idx: i });
-      rects.push({ x: x - 20, y: y + 38, w: 40, h: 28, action: 'down', idx: i });
+    // #160 (Sam) a single typed name field, up to ini.max characters
+    const name = ini.name || '';
+    const boxW = 480, boxH = 74, bx = W / 2 - boxW / 2, by = 250;
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 3; c.strokeRect(bx, by, boxW, boxH);
+    if (!name) {
+      c.textAlign = 'center'; c.font = '18px monospace'; c.fillStyle = '#5a6478';
+      c.fillText('type your name', W / 2, by + 46);
+    } else {
+      c.textAlign = 'left'; c.font = 'bold 38px monospace'; c.fillStyle = '#fff';
+      const tx = bx + 20;
+      c.fillText(name, tx, by + 50);
+      if (name.length < ini.max && Math.sin(Date.now() / 300) > 0) {
+        c.fillStyle = '#ffd24c'; c.fillRect(tx + c.measureText(name).width + 4, by + 16, 4, 42);
+      }
     }
+    c.textAlign = 'right'; c.font = '12px monospace'; c.fillStyle = '#667';
+    c.fillText(`${name.length}/${ini.max}`, bx + boxW - 8, by + boxH + 18);
+
     const ok = { x: W / 2 - 90, y: 390, w: 180, h: 40, action: 'ok' };
-    c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
-    c.strokeRect(ok.x, ok.y, ok.w, ok.h);
-    c.font = 'bold 16px monospace'; c.fillStyle = '#ffd24c';
+    c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(ok.x, ok.y, ok.w, ok.h);
+    c.textAlign = 'center'; c.font = 'bold 16px monospace'; c.fillStyle = '#ffd24c';
     c.fillText('CLAIM IT', W / 2, ok.y + 26);
     rects.push(ok);
     c.font = '12px monospace'; c.fillStyle = '#667';
-    c.fillText('type letters · arrows to adjust · Enter to confirm · Esc to skip', W / 2, 460);
+    c.fillText('type your name · Backspace to delete · Enter to confirm · Esc to skip', W / 2, 460);
     c.restore();
     return rects;
   }

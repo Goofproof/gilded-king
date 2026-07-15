@@ -1107,7 +1107,7 @@
     g.newScoreRank = 0;
     if (scoreQualifies(g.essenceEarned)) {
       g.afterInitials = which;
-      g.initials = { letters: [65, 65, 65], slot: 0 }; // 'AAA'
+      g.initials = { name: '', max: 10 }; // #160 (Sam) a real name, up to 10 chars, not 3 initials
       g.state = 'initials';
       g.overlayT = 0;
       Sfx.play('levelup');
@@ -1152,7 +1152,7 @@
 
   function commitInitials(skip) {
     if (!skip) {
-      const name = g.initials.letters.map(c => String.fromCharCode(c)).join('');
+      const name = ((g.initials.name || '').trim().toUpperCase().slice(0, g.initials.max)) || 'AAA';
       const entry = { initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain, snap: buildDeathSnap() };
       const scores = loadScores();
       scores.push(entry);
@@ -1209,25 +1209,17 @@
 
   function updateInitials() {
     const ini = g.initials;
-    // direct typing: letter keys fill the current slot and advance
+    // #160 (Sam) a typed name field, up to `max` characters (letters + digits).
     for (const code of input.just) {
-      if (/^Key[A-Z]$/.test(code)) {
-        ini.letters[ini.slot] = code.charCodeAt(3);
-        ini.slot = Math.min(2, ini.slot + 1);
-      }
+      const kl = /^Key([A-Z])$/.exec(code), dg = /^Digit([0-9])$/.exec(code);
+      if ((kl || dg) && ini.name.length < ini.max) { ini.name += (kl ? kl[1] : dg[1]); Sfx.play('ui'); }
     }
-    if (input.pressed('ArrowUp')) { ini.letters[ini.slot] = ini.letters[ini.slot] >= 90 ? 65 : ini.letters[ini.slot] + 1; Sfx.play('ui'); }
-    if (input.pressed('ArrowDown')) { ini.letters[ini.slot] = ini.letters[ini.slot] <= 65 ? 90 : ini.letters[ini.slot] - 1; Sfx.play('ui'); }
-    if (input.pressed('ArrowRight')) ini.slot = Math.min(2, ini.slot + 1);
-    if (input.pressed('ArrowLeft') || input.pressed('Backspace')) ini.slot = Math.max(0, ini.slot - 1);
+    if (input.pressed('Backspace')) { ini.name = ini.name.slice(0, -1); Sfx.play('ui'); }
     if (input.pressed('Enter')) { commitInitials(false); return; }
     if (input.pressed('Escape')) { commitInitials(true); return; }
-    // mouse: arrows above/below each slot
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
-          if (r.action === 'up') { ini.slot = r.idx; ini.letters[r.idx] = ini.letters[r.idx] >= 90 ? 65 : ini.letters[r.idx] + 1; Sfx.play('ui'); }
-          if (r.action === 'down') { ini.slot = r.idx; ini.letters[r.idx] = ini.letters[r.idx] <= 65 ? 90 : ini.letters[r.idx] - 1; Sfx.play('ui'); }
           if (r.action === 'ok') { commitInitials(false); return; }
         }
       }
