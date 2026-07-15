@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.54', title: 'Type a real name on the leaderboard', date: '2026-07-15',
       sha: 'd8862e2',
       items: [
-        'Name entry: a typed name up to 10 characters, not 3 initials (Sam, #160).',
+        'When you get a high score you can now type a real name up to 10 characters long, instead of just three arcade initials. Type your name, use Backspace to fix mistakes, Enter to lock it in. Shorter names are fine too.',
       ],
     },
     {
