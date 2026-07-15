@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.85';
+  const VERSION = 'v2.86';
 
   const NOTES = [
+    {
+      v: 'v2.86', title: 'The forge shows its work before you pay', date: '2026-07-15',
+      sha: '6860e1a',
+      items: [
+        'Crafting stations offer THREE rolled options enchant-table style: pay only on pick, Esc walks away free (#206).',
+      ],
+    },
     {
       v: 'v2.85', title: 'Mythic armor actually protects + Q grows with your build', date: '2026-07-15',
       sha: 'f33c55b',
