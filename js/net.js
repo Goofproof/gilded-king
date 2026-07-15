@@ -47,6 +47,14 @@ const Net = (() => {
   // client's local game state, so a brief WiFi blip self-heals instead of freezing
   // or kicking the player to the menu.
   function openSocket() {
+    // #210 (co-op review P0-2) retire any previous socket COMPLETELY. Before this, a
+    // superseded socket stayed open and kept dispatching into the shared handlers:
+    // two live sessions for one player, every message delivered twice (double damage,
+    // double xp) and the client rendering a clone of itself from its own echoed 'p'.
+    if (ws) {
+      try { ws.onmessage = null; ws.onclose = null; ws.onerror = null; ws.onopen = null; ws.close(); } catch (e) { }
+      ws = null;
+    }
     ws = new WebSocket(wsUrl(roomCode));
     ws.onopen = () => { retries = 0; emit('open'); };
     ws.onclose = () => {
@@ -81,6 +89,9 @@ const Net = (() => {
 
   function connect(code) {
     intentional = false; retries = 0;
+    // #210 a pending auto-reconnect from a PREVIOUS attempt must die here, or it fires
+    // seconds later and opens a second parallel session to the room.
+    if (reTimer) { clearTimeout(reTimer); reTimer = null; }
     roomCode = code.toUpperCase();
     myId = null; hostId = null; peers.clear();
     openSocket();

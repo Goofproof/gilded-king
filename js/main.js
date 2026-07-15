@@ -2183,6 +2183,16 @@
       Fx.shake(10, 0.35);
     }
 
+    // #212 (co-op review P1-7, generalizing #191) GUEST ROOM-STATUS CASTS reach the
+    // host in ONE generic event instead of a bespoke message per ability. The guest's
+    // local proxy-mutations are harmless (snapshots overwrite them); the REAL effect
+    // lands on the host's monsters via this. Damage-carrying kinds (freeze/midas)
+    // exclude damage here - the guest's own proxy hits already forward per-monster.
+    if (isCoopGuest() && typeof Net !== 'undefined' &&
+        ['inferno', 'sleep', 'freeze', 'fear', 'midas', 'caltrops'].includes(a.kind)) {
+      Net.send({ t: 'ultfx', k: a.kind, x: Math.round(p.x), y: Math.round(p.y),
+                 radius: Math.round(a.radius || 0), dur: +(a.dur || 0), dps: Math.round(a.dps || 0) });
+    }
     if (_qScaled) Object.assign(a, _qScaled); // #109 restore base Q values after the scaled cast
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
@@ -3085,6 +3095,7 @@
       rp.form = m.fm || '';                                       // #162 druid form id
       rp.mn = m.mn || null;                                       // #174 their minions
       rp.busy = !!m.bz;                                           // #192 they are on a menu
+      rp.invis = !!m.iv;                                          // #212 vanished (untargetable)
       rp.last = g.time;
       if (m.u && g.runHostU && m.u === g.runHostU) g.lastHostSeenT = g.time; // #173 host liveness
       // #99 a peer that reconnected shows up under a NEW m.from while its old ghost
@@ -3254,7 +3265,12 @@
         const mon = g.monsters.find(x => x.netId === m.i && !x.dead);
         if (mon) {
           mon._lastHitBy = m.from; // #207 so a kill credits the RIGHT player's class perks
-          mon.takeHit(m.dmg, { sx: m.sx, sy: m.sy, knock: m.k || 0, flame: m.fl, chill: m.ch, venom: m.vn, crit: m.cr, fromPlayer: true, hitSfx: m.hs }, g);
+          // #211 the full option bag rides in m.o; legacy fields cover an older client
+          const opts = Object.assign(
+            { knock: m.k || 0, flame: m.fl, chill: m.ch, venom: m.vn, crit: m.cr, hitSfx: m.hs },
+            m.o || {},
+            { sx: m.sx, sy: m.sy, fromPlayer: true });
+          mon.takeHit(m.dmg, opts, g);
         }
       }
     });
@@ -3281,6 +3297,40 @@
       for (const it of room.shopStock.items) it.price = Math.max(1, Math.round(it.price * factor));
       g.shopMsg = { text: m.win ? 'Your partner haggled: every price drops 30%' : 'Your partner pushed the keeper: prices +30%', t: 2.4 };
       Sfx.play(m.win ? 'buy' : 'error');
+    });
+    // #212 a guest cast a room-status ability: apply the STATUS to the real monsters
+    // (never damage - that forwards per-hit through the normal 'hit' path)
+    Net.on('ultfx', m => {
+      if (!g.coop || !isRunHost()) return;
+      const dur = Math.max(0, Math.min(20, +m.dur || 0));
+      const dps = Math.max(0, Math.min(500, +m.dps || 0));
+      const R = Math.max(0, Math.min(900, +m.radius || 0));
+      switch (m.k) {
+        case 'inferno':
+          for (const mon of g.monsters) { if (!mon.dead) mon.burn = { t: dur || 6, tick: 0, dps: dps || 60 }; }
+          break;
+        case 'sleep':
+          for (const mon of g.monsters) { if (!mon.dead && !mon.isBoss) { mon.stagger = Math.max(mon.stagger || 0, dur || 3); mon.state = 'idle'; } }
+          break;
+        case 'freeze':
+          for (const mon of g.monsters) { if (!mon.dead) { mon.chillT = dur || 4; mon.chillMul = 0.32; } }
+          break;
+        case 'fear':
+          for (const mon of g.monsters) { if (!mon.dead && !mon.isBoss && Math.hypot(mon.x - m.x, mon.y - m.y) < (R || 300) + mon.r) mon.feared = dur || 5; }
+          break;
+        case 'midas':
+          g.midasT = Math.max(g.midasT || 0, 12); // shared double-gold window
+          break;
+        case 'caltrops':
+          g.ultFx.push({ type: 'caltrops', t: 0, dur: dur || 6, color: '#c9b37a' });
+          break;
+      }
+    });
+    // #209 a boss/bomber lob from the host: spawn the same telegraph + boom locally,
+    // damage-free (the host's party blast already phits us if we stand in it)
+    Net.on('lob', m => {
+      if (!isCoopGuest()) return;
+      g.ultFx.push({ type: 'lob', x: m.x, y: m.y, sx: m.sx, sy: m.sy, t: 0, delay: m.d || 0.9, dmg: 0, radius: m.rad || 48 });
     });
     // #191 a guest pyromancer cast Immolate: the HOST owns the monsters, so the burn
     // lands here and flows back to every screen via the snapshot burn flag.
@@ -3536,6 +3586,7 @@
       u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
       mn: minionSnapshot(),                           // #174 (Sam) so peers see your army
       bz: (g.state !== 'play') ? 1 : 0,               // #192 frozen in a menu (peers show CHOOSING)
+      iv: p.invisT > 0 ? 1 : 0,                       // #212 vanished: monsters must not hunt me
     });
   }
 
@@ -3723,7 +3774,7 @@
     }
     if (g.coop && typeof Net !== 'undefined' && isRunHost() && g.room) {
       for (const [id, rp] of g.remotePlayers) {
-        if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed) continue;
+        if (g.time - (rp.last || 0) > 3 || rp.dead || rp.downed || rp.invis) continue; // #212 a vanished peer is untargetable
         if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
         list.push({ x: rp.x, y: rp.y, r: 13, ref: rp, isRemote: true, id });
       }
@@ -3928,10 +3979,18 @@
   // then override AI (positioned by snapshots) and takeHit (forward to the host).
   function forwardHit(mon, dmg, opts) {
     if (mon.dead) return false;
+    // #211 (co-op review P1-6) ship EVERY serializable takeHit option, so a status
+    // added to takeHit next month works for guests automatically instead of dying in
+    // a hand-kept whitelist (stagger, chain and executioner already had).
+    const o = {};
+    for (const key in (opts || {})) {
+      if (key === 'sx' || key === 'sy' || key === 'fromPlayer' || key === 'hitSet' || key === 'owner' || key === 'src') continue;
+      const v = opts[key];
+      if (v === undefined || v === null || typeof v === 'function' || typeof v === 'object') continue;
+      o[key] = v;
+    }
     Net.send({ t: 'hit', i: mon.netId, dmg: Math.round(dmg),
-      sx: Math.round((opts && opts.sx) || mon.x), sy: Math.round((opts && opts.sy) || mon.y),
-      k: opts && opts.knock, fl: opts && opts.flame, ch: opts && opts.chill, vn: opts && opts.venom,
-      cr: opts && opts.crit ? 1 : 0, hs: opts && opts.hitSfx });
+      sx: Math.round((opts && opts.sx) || mon.x), sy: Math.round((opts && opts.sy) || mon.y), o });
     mon.flash = 0.12;
     Fx.text(mon.x + (Math.random() * 16 - 8), mon.y - mon.r - 6, Math.round(dmg), opts && opts.crit ? '#ffd24c' : '#fff', opts && opts.crit ? 16 : 12);
     Fx.burst(mon.x, mon.y, opts && opts.crit ? '#ffd24c' : '#ff6655', 5, { speed: 110, life: 0.35 });
@@ -4938,12 +4997,24 @@
           if (e.boom >= 0.5) g.ultFx.splice(i, 1);      // shockwave finishes, then clear
         }
       } else if (e.type === 'lob') {
+        // #209 first tick on the HOST: mirror the telegraph to guests (visual-only copy,
+        // dmg 0 - the real damage reaches remote players via the party blast's phit)
+        if (!e._mirrored) {
+          e._mirrored = true;
+          if (g.coop && typeof Net !== 'undefined' && isRunHost()) {
+            Net.send({ t: 'lob', x: Math.round(e.x), y: Math.round(e.y), sx: Math.round(e.sx || e.x), sy: Math.round(e.sy || e.y), d: +(e.delay || 0.9).toFixed(2), rad: e.radius || 48 });
+          }
+        }
         // #66 an ENEMY lobbed bomb: on landing it blasts the PLAYER + allies, not monsters
         if (e.t >= e.delay) {
           Fx.shake(6, 0.25); Sfx.play('explode');
           Fx.burst(e.x, e.y, ['#ff5a2c', '#ffcc44', '#fff'], 30, { speed: 280, life: 0.5, glow: true });
-          const p = g.player;
-          if (p && !p.dead && Math.hypot(p.x - e.x, p.y - e.y) < e.radius + p.r) p.damage(e.dmg, e.x, e.y, g);
+          // #209 the blast hits the whole PARTY (a remote player gets it via phit).
+          // dmg 0 = a guest's visual-only mirror: boom, no bite (a zero hit would
+          // still eat a shield charm through damage()).
+          if (e.dmg > 0) for (const t of g.partyTargets()) {
+            if (Math.hypot(t.x - e.x, t.y - e.y) < e.radius + (t.r || 13)) g.hurtTarget(t, e.dmg, e.x, e.y, null);
+          }
           for (const merc of g.mercs) if (!merc.dead && Math.hypot(merc.x - e.x, merc.y - e.y) < e.radius) damageMerc(merc, e.dmg);
           for (const tr of g.turrets) if (!tr.dead && Math.hypot(tr.x - e.x, tr.y - e.y) < e.radius) { tr.hp -= e.dmg; tr.flash = 0.12; }
           if (g.summon && !g.summon.dead && Math.hypot(g.summon.x - e.x, g.summon.y - e.y) < e.radius) g.summon.hp -= e.dmg;

@@ -93,15 +93,55 @@ const Boss = (() => {
     crossing: 'THE CROSSING', judgment: 'JUDGMENT', triplebite: 'THREE JAWS', goldstorm: 'THE HOARD',
     wrath: 'WRATH', gaze: 'THE GAZE', gore: 'THE CHARGE', deceit: 'DECEIT', cocytus: 'COCYTUS',
   };
+  // #209 (co-op review P0-1) every enemy projectile the boss makes must reach the
+  // guests too, exactly like monster bolts do (the P1-B 'proj' mirror).
+  function mirrorBolt(g, pr) {
+    if (g.coop && typeof Net !== 'undefined' && (g.isRunHost ? g.isRunHost() : Net.isHost)) {
+      Net.send({ t: 'proj', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), r: pr.r, dmg: pr.dmg, c: pr.color, gl: pr.glow ? 1 : 0 });
+    }
+  }
   function bolt(g, x, y, ang, speed, dmg, color, o) {
     o = o || {};
-    g.projectiles.push({
+    const pr = {
       x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
       r: o.r || 6, dmg, from: 'enemy', color, life: o.life || 3.4, glow: o.glow !== false, spin: o.spin,
-    });
+    };
+    g.projectiles.push(pr);
+    mirrorBolt(g, pr);
+  }
+  // #209 the boss FIGHTS THE PARTY now, not just the host's champion.
+  // bossTarget: the aim point - nearest live party member, sticky for 4s so the boss
+  // commits to a chase instead of ping-ponging between two kids.
+  function bossTarget(b, g) {
+    const list = (g.partyTargets ? g.partyTargets() : null);
+    if (!list || !list.length) {
+      const lp = g.player; return { x: lp.x, y: lp.y, r: lp.r, isRemote: false, id: 'me' };
+    }
+    let cur = (b.targetKey != null && b.targetT > 0) ? list.find(t => t.id === b.targetKey) : null;
+    if (!cur) {
+      let best = list[0], bd = Infinity;
+      for (const t of list) { const d = Math.hypot(t.x - b.x, t.y - b.y); if (d < bd) { bd = d; best = t; } }
+      cur = best; b.targetKey = cur.id; b.targetT = 4;
+    }
+    return cur;
+  }
+  // damage ONE party target: the local champion keeps the direct damage() call (so
+  // thorns still bite the boss via src); a remote peer gets the phit routing.
+  function bossHitT(g, b, t, dmg) {
+    if (!t || t.isRemote === undefined || !t.isRemote) { g.player.damage(dmg, b.x, b.y, g, b); return; }
+    if (g.hurtTarget) g.hurtTarget(t, dmg, b.x, b.y, b);
+  }
+  // contact sweep: EVERY party member in range takes the hit (returns true if any did)
+  function bossContactParty(b, g, dmg, extraR) {
+    const list = (g.partyTargets ? g.partyTargets() : [{ x: g.player.x, y: g.player.y, r: g.player.r, isRemote: false }]);
+    let hit = false;
+    for (const t of list) {
+      if (Math.hypot(t.x - b.x, t.y - b.y) < b.r + (t.r || 13) + (extraR || 2)) { bossHitT(g, b, t, dmg); hit = true; }
+    }
+    return hit;
   }
   function castUlt(b, g) {
-    const p = g.player;
+    const p = bossTarget(b, g); // #209 the ult aims at whoever the boss is hunting
     const dmg = Math.max(6, Math.round((b.st.contactDmg || 16) * b.dmgMul * 0.9));
     const col = b.pal.crown, toP = Math.atan2(p.y - b.y, p.x - b.x);
     const ox = b.x + Math.cos(toP) * (b.r + 6), oy = b.y + Math.sin(toP) * (b.r + 6);
@@ -170,16 +210,16 @@ const Boss = (() => {
       if (b.ultCd <= 0) { castUlt(b, g); b.ultCd = 5; }
     }
 
-    const p = g.player;
+    b.targetT = (b.targetT || 0) - dt;
+    const p = bossTarget(b, g); // #209 aim point: nearest live party member (sticky)
     const dist = Math.hypot(p.x - b.x, p.y - b.y);
     const sm = speedMul(b);
 
     switch (b.state) {
       case 'idle': {
         idleMove(b, p, dt, sm, g);
-        if (b.contactCd <= 0 && dist < b.r + p.r + 2) {
-          p.damage(Math.round(b.st.contactDmg * b.dmgMul), b.x, b.y, g, b); // src: thorns bite bosses too
-          b.contactCd = 0.9;
+        if (b.contactCd <= 0 && bossContactParty(b, g, Math.round(b.st.contactDmg * b.dmgMul), 2)) {
+          b.contactCd = 0.9; // #209 contact hits ANY party member standing in the boss
         }
         const wait = phase(b) === 3 ? 1.1 : 1.8;
         if (b.t > wait) {
@@ -209,9 +249,8 @@ const Boss = (() => {
         b.y += Math.sin(b.lungeAngle) * 480 * dt;
         b.jaw = 16;
         Fx.burst(b.x, b.y, '#d4af37', 2, { speed: 60, life: 0.3 });
-        if (b.contactCd <= 0 && dist < b.r + p.r + 4) {
-          p.damage(Math.round(b.st.lungeDmg * b.dmgMul), b.x, b.y, g, b);
-          b.contactCd = 0.9;
+        if (b.contactCd <= 0 && bossContactParty(b, g, Math.round(b.st.lungeDmg * b.dmgMul), 4)) {
+          b.contactCd = 0.9; // #209 the lunge flattens whoever is in the path
         }
         if (b.t >= 0.42) { b.state = 'idle'; b.t = 0; }
         break;
@@ -228,11 +267,12 @@ const Boss = (() => {
           const n = 14, offset = b.wave * (Math.PI / n); // second wave fills the gaps
           for (let i = 0; i < n; i++) {
             const a = (i / n) * Math.PI * 2 + offset;
-            g.projectiles.push({
+            const pr = {
               x: b.x + Math.cos(a) * (b.r + 4), y: b.y + Math.sin(a) * (b.r + 4),
               vx: Math.cos(a) * 240, vy: Math.sin(a) * 240,
               r: 6, dmg: Math.round(b.st.coinDmg * b.dmgMul), from: 'enemy', color: b.pal.crown, life: 3, glow: true, spin: true,
-            });
+            };
+            g.projectiles.push(pr); mirrorBolt(g, pr); // #209
           }
           Sfx.play('coin'); Sfx.play('bowfire');
           b.wave++;
@@ -260,7 +300,7 @@ const Boss = (() => {
             const a = Math.random() * Math.PI * 2;
             g.monsters.push(Monsters.make('mimicbaby', b.x + Math.cos(a) * 70, b.y + Math.sin(a) * 70, 2));
           }
-          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 20) p.damage(Math.round(b.st.slamDmg * b.dmgMul), b.x, b.y, g, b);
+          bossContactParty(b, g, Math.round(b.st.slamDmg * b.dmgMul), 20); // #209 the slam hits the party
         }
         break;
       }
@@ -276,7 +316,7 @@ const Boss = (() => {
           Fx.shake(13, 0.4); Fx.hitstop(0.06); Sfx.play('explode');
           Fx.burst(b.x, b.y, [b.pal.trim, '#fff', b.pal.lidLo], 30, { speed: 260, life: 0.55, glow: true });
           b.rings = [0, -60, -120];
-          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r + 18) p.damage(Math.round(b.st.poundDmg * b.dmgMul), b.x, b.y, g, b);
+          bossContactParty(b, g, Math.round(b.st.poundDmg * b.dmgMul), 18); // #209 the pound hits the party
         }
         break;
       }
@@ -318,9 +358,8 @@ const Boss = (() => {
         b.x += Math.cos(b.chargeAngle) * 560 * dt;
         b.y += Math.sin(b.chargeAngle) * 560 * dt;
         Fx.burst(b.x, b.y + b.r * 0.5, [b.pal.lidLo, '#8a8a8a'], 2, { speed: 50, life: 0.4 });
-        if (b.contactCd <= 0 && dist < b.r + p.r + 6) {
-          p.damage(Math.round(b.st.chargeDmg * b.dmgMul), b.x, b.y, g, b);
-          b.contactCd = 0.9;
+        if (b.contactCd <= 0 && bossContactParty(b, g, Math.round(b.st.chargeDmg * b.dmgMul), 6)) {
+          b.contactCd = 0.9; // #209 the charge tramples whoever it crosses
         }
         // stop at a wall or after the dash duration
         const atWall = b.x <= PF.x + b.r || b.x >= PF.x + PF.w - b.r || b.y <= PF.y + b.r || b.y >= PF.y + PF.h - b.r;
@@ -346,11 +385,12 @@ const Boss = (() => {
           const n = 5, spread = 0.68;
           for (let i = 0; i < n; i++) {
             const a = base + (i / (n - 1) - 0.5) * spread;
-            g.projectiles.push({
+            const pr = {
               x: b.x + Math.cos(a) * (b.r + 4), y: b.y + Math.sin(a) * (b.r + 4),
               vx: Math.cos(a) * 300, vy: Math.sin(a) * 300,
               r: 6, dmg: Math.round(b.st.venomDmg * b.dmgMul), from: 'enemy', color: b.pal.crown, life: 3, glow: true,
-            });
+            };
+            g.projectiles.push(pr); mirrorBolt(g, pr); // #209
           }
           Sfx.play('bowfire');
           b.wave++;
@@ -393,11 +433,12 @@ const Boss = (() => {
           const base = b.spiral * 0.55; // rotates each pulse -> spiral pattern
           for (let i = 0; i < arms; i++) {
             const a = base + (i / arms) * Math.PI * 2;
-            g.projectiles.push({
+            const pr = {
               x: b.x + Math.cos(a) * (b.r + 4), y: b.y + Math.sin(a) * (b.r + 4),
               vx: Math.cos(a) * 210, vy: Math.sin(a) * 210,
               r: 6, dmg: Math.round(b.st.novaDmg * b.dmgMul), from: 'enemy', color: b.pal.crown, life: 3.2, glow: true,
-            });
+            };
+            g.projectiles.push(pr); mirrorBolt(g, pr); // #209
           }
           if (b.spiral % 3 === 0) Sfx.play('coin');
           b.spiral++;
@@ -443,8 +484,12 @@ const Boss = (() => {
     for (const rr of b.rings) {
       if (rr < 0) { allDone = false; continue; }
       if (rr < 260) allDone = false;
-      const pd = Math.hypot(p.x - b.x, p.y - b.y);
-      if (Math.abs(pd - rr) < 12 && rr > 20) p.damage(ringDmg, b.x, b.y, g); // player.damage has i-frames
+      // #209 the ring sweeps the whole party (each member's own i-frames still apply)
+      const party = (g.partyTargets ? g.partyTargets() : [{ x: p.x, y: p.y, isRemote: false }]);
+      for (const t of party) {
+        const pd = Math.hypot(t.x - b.x, t.y - b.y);
+        if (Math.abs(pd - rr) < 12 && rr > 20) bossHitT(g, b, t, ringDmg);
+      }
     }
     if (allDone || b.t > 1.4) { b.state = 'idle'; b.t = 0; b.rings = null; }
   }
