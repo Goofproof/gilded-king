@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.61';
+  const VERSION = 'v2.62';
 
   const NOTES = [
+    {
+      v: 'v2.62', title: 'The doppelganger is a real fight now', date: '2026-07-15',
+      sha: '2f79e62',
+      items: [
+        'Doppelganger mini-boss: much tankier (survives opening ultimate), acts instantly, strafes instead of standing still (#168).',
+      ],
+    },
     {
       v: 'v2.61', title: 'Training barracks no longer breaks the game', date: '2026-07-15',
       sha: 'ce2e87f',
