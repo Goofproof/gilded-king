@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.65';
+  const VERSION = 'v2.66';
 
   const NOTES = [
+    {
+      v: 'v2.66', title: 'Co-op: reconnect-proof', date: '2026-07-15',
+      sha: '6eab0f9',
+      items: [
+        'Co-op overhaul: pinned run authority, rejoin after reload, non-adjacent catch-up, host watchdog (#173).',
+      ],
+    },
     {
       v: 'v2.65', title: 'Co-op: no more phantom mobs locking the room', date: '2026-07-15',
       sha: 'f9f80a4',
