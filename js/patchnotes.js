@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.82';
+  const VERSION = 'v2.83';
 
   const NOTES = [
+    {
+      v: 'v2.83', title: 'Scrap trinkets for shards', date: '2026-07-15',
+      sha: '43d04cf',
+      items: [
+        'Trinkets can be scrapped with X: shards scale off the trinket\'s gold price (#201).',
+      ],
+    },
     {
       v: 'v2.82', title: 'Level up without stopping the fight', date: '2026-07-15',
       sha: 'f5fccaa',
