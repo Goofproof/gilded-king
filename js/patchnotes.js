@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.62';
+  const VERSION = 'v2.63';
 
   const NOTES = [
+    {
+      v: 'v2.63', title: 'Portal labels fixed, trinket tooltips added', date: '2026-07-15',
+      sha: '18c6351',
+      items: [
+        'Twin portal labels no longer overlap: shortened both, nightmare gets a second line (#169).',
+        'Equipped trinket now shows a hover tooltip (its gift + lore, no price) (#170).',
+      ],
+    },
     {
       v: 'v2.62', title: 'The doppelganger is a real fight now', date: '2026-07-15',
       sha: '2f79e62',
