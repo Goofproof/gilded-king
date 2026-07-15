@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.71', title: 'New mob: the glue gunner', date: '2026-07-15',
       sha: '78eea63',
       items: [
-        'Glue gunner mob: glue blob slows you and leaves a sticky puddle that slows players AND mobs (#179).',
+        'A new GLUE GUNNER mob joins the dungeon: a squat little workman with a fat glue gun. He lobs a slow yellow blob at you, and if it hits, your boots gum up and you move at about half speed for a couple of seconds. Wherever the blob lands it leaves a sticky puddle on the floor for a while, and the glue does not care whose side you are on: monsters that chase you through the puddle get stuck slow too. Bait them into it.',
       ],
     },
     {
