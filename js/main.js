@@ -965,25 +965,21 @@
     // weapon drops
     const tier = Monsters.tierFor(g.floorNum, g.room.dist);
     if (m.type === 'mimic') {
-      // mimics reward the risk: guaranteed good weapon + bonus XP
-      const wp = Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.6 });
-      dropGear('weapon', wp, m.x, m.y);
+      // mimics reward the risk: guaranteed good weapon + bonus XP (#239 instanced)
+      dropGearInstanced('weapon', m.x, m.y, { tier, minRarity: 1, luck: 0.6 });
       p.addXp(15, g);
     } else if (m.isBoss) {
       // THE KING (and every Circle Warden): guaranteed legendary + royal armor +
       // coin fountain + essence. In the Descent he pays out more the deeper you are.
-      const wp = Weapons.rollWeapon(tier, { minRarity: 4 });
-      dropGear('weapon', wp, m.x, m.y - 20);
-      dropGear('armorItem', Weapons.rollArmor(tier, { minRarity: 3 }), m.x + 40, m.y);
+      dropGearInstanced('weapon', m.x, m.y - 20, { tier, minRarity: 4 });      // #239 every player gets a boss legendary
+      dropGearInstanced('armorItem', m.x + 40, m.y, { tier, minRarity: 3 });
       for (let i = 0; i < 36; i++) spawnPickup('coin', m.x, m.y);
       const ne = m.isDescentBoss ? Descent.bossEssence(g.floorNum) : 12;
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
       // Circle Wardens are the only creatures that guard mythics
       if (m.isDescentBoss && Math.random() < Descent.MYTHIC_DROP_CHANCE) {
-        const item = Weapons.rollMythic(undefined, { exclude: g.meta.mythics, tier });
-        if (item.isArmor) dropGear('armorItem', item, m.x - 40, m.y);
-        else dropGear('weapon', item, m.x, m.y + 24);
-        mythicFanfare(m.x, m.y, item); // #123 a real celebration, not a whisper of text
+        // #239 instanced: each player rolls a mythic against their OWN collection
+        dropGearInstanced('weapon', m.x, m.y + 24, { tier, mythic: true });
       }
       if (!m.isDescentBoss) { g.kingSlain = true; p.essenceRun += 20; } // King's victory bonus
       g.winTimer = 2.6;                             // savor the kill; doors stay locked
@@ -995,12 +991,12 @@
       if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
-      dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 1, luck: 0.4 + 0.1 * (g.alarm || 0) }), m.x, m.y);
+      dropGearInstanced('weapon', m.x, m.y, { tier, minRarity: 1, luck: 0.4 + 0.1 * (g.alarm || 0) }); // #239
     } else if (Math.random() < 0.045 * (1 + 0.5 * looting) * (1 + 0.09 * (g.alarm || 0))) {
       // #77 higher ALARM => richer loot: better drop odds AND higher rarity
-      dropGear('weapon', Weapons.rollWeapon(tier, { luck: 0.1 * (g.alarm || 0) }), m.x, m.y);
+      dropGearInstanced('weapon', m.x, m.y, { tier, luck: 0.1 * (g.alarm || 0) }); // #239
     } else if (Math.random() < 0.035 * (1 + 0.5 * looting) * (1 + 0.09 * (g.alarm || 0))) {
-      dropGear('armorItem', Weapons.rollArmor(tier, { luck: 0.1 * (g.alarm || 0) }), m.x, m.y);
+      dropGearInstanced('armorItem', m.x, m.y, { tier, luck: 0.1 * (g.alarm || 0) }); // #239
     } else if (Math.random() < 0.02) {
       spawnPickup('potionItem', m.x, m.y); // #186 a rare flask off a corpse ('pk' mirrors it in co-op)
     }
@@ -1027,6 +1023,37 @@
   // OWN instanced copy so player 2/3 get stronger loot too (kills only run on the
   // host, so guests never generate these locally). Weapon/armor objects are plain
   // data - safe to send over the wire and reconstruct as-is on the guest.
+  // #239 (Sam) PER-PLAYER LOOT INSTANCING: your drops are YOURS. The host still
+  // decides THAT a drop happens (it owns kills), but instead of one shared item it
+  // broadcasts the ROLL - kind, tier, rarity floor, luck - and every player's client
+  // rolls its OWN item locally. Your teammate cannot see or take your drop, and you
+  // cannot take theirs. (Chest loot was already per-player, #97 - this brings kill,
+  // boss, mythic and trap loot in line.) Instanced gear carries NO gid, so the
+  // shared-gear sync (gear/gearget/gearsnap) ignores it by construction.
+  function spawnInstancedGear(kind, x, y, roll) {
+    let item;
+    if (roll.mythic) {
+      item = Weapons.rollMythic(undefined, { exclude: g.meta.mythics, tier: roll.tier });
+      kind = item.isArmor ? 'armorItem' : 'weapon'; // each player's own mythic decides
+      mythicFanfare(x, y, item);
+    } else {
+      item = kind === 'weapon'
+        ? Weapons.rollWeapon(roll.tier, { minRarity: roll.minRarity || 0, luck: roll.luck || 0 })
+        : Weapons.rollArmor(roll.tier, { minRarity: roll.minRarity || 0, luck: roll.luck || 0 });
+    }
+    const pk = { kind, x, y, t: 0 };
+    if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
+    g.pickups.push(pk);
+    return pk;
+  }
+  function dropGearInstanced(kind, x, y, roll) {
+    spawnInstancedGear(kind, x, y, roll);
+    if (g.coop && typeof Net !== 'undefined' && isRunHost()) {
+      Net.sendR({ t: 'lootroll', knd: kind, x: Math.round(x), y: Math.round(y),
+        tier: roll.tier, mr: roll.minRarity || 0, lk: +(roll.luck || 0).toFixed(2), my: roll.mythic ? 1 : 0 });
+    }
+  }
+
   function dropGear(kind, item, x, y) {
     const pk = { kind, x, y, t: 0 };
     if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
@@ -1089,8 +1116,8 @@
         g.room.trapChest.looted = true;
         if (isRunHost()) {
           const ch = g.room.trapChest, tier = Monsters.tierFor(g.floorNum, g.room.dist);
-          dropGear('weapon', Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.5 }), ch.x - 26, ch.y + 8);
-          dropGear('armorItem', Weapons.rollArmor(tier, { minRarity: 2 }), ch.x + 26, ch.y + 8);
+          dropGearInstanced('weapon', ch.x - 26, ch.y + 8, { tier, minRarity: 2, luck: 0.5 });   // #239
+          dropGearInstanced('armorItem', ch.x + 26, ch.y + 8, { tier, minRarity: 2 });
           for (let i = 0; i < 14; i++) spawnPickup('coin', ch.x, ch.y);
         }
         Fx.burst(g.room.trapChest.x, g.room.trapChest.y, ['#ffd24c', '#fff', '#c9a227'], 30, { speed: 220, life: 0.8, glow: true });
@@ -3604,6 +3631,12 @@
       g.pickups.push(pk);
     }
     // ground, so player 2/3 can walk over + grab stronger weapons/armor of their own
+    // #239 the host says A DROP HAPPENED HERE - roll YOUR OWN item for it
+    Net.on('lootroll', m => {
+      if (!isCoopGuest()) return;
+      spawnInstancedGear(m.knd === 'armorItem' ? 'armorItem' : 'weapon', +m.x || 0, +m.y || 0,
+        { tier: Math.max(1, Math.min(12, +m.tier || 1)), minRarity: Math.max(0, Math.min(5, +m.mr || 0)), luck: Math.max(0, Math.min(3, +m.lk || 0)), mythic: !!m.my });
+    });
     Net.on('gear', m => {
       if (!isCoopGuest()) return;
       addSharedGear(m);   // instant feedback; the gearsnap below is the safety net
