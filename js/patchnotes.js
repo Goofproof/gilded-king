@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.102';
+  const VERSION = 'v2.103';
 
   const NOTES = [
+    {
+      v: 'v2.103', title: 'Door plates stop bouncing the party', date: '2026-07-16',
+      sha: '04edec5',
+      items: [
+        'Co-op door plates need a 0.45s HOLD before firing (#235) - kills the drift-on/drift-off bounce between rooms and remote-ghost misfires; a gold charge-up ring + OPENING... label make the delay legible.',
+      ],
+    },
     {
       v: 'v2.102', title: 'Browse first, level up when ready, reroll if unlucky', date: '2026-07-16',
       sha: 'a1969df',
