@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.117', title: 'Fusion wave 3: all ten pairs are at the forge', date: '2026-07-16',
       sha: '6ceef16',
       items: [
-        'FUSION WAVE 3: the final twelve - CROESUS, EL DORADO, KING\'S RANSOM, ASCLEPIUS, TROLL BLOOD, SANCTUARY, HIGHWAYMAN, LUCKY STREAK, RABBIT\'S FOOT, PHILOSOPHER\'S STONE, GOLD RUSH and the ORACLE OF DELPHI.',
+        'THE FORGE IS COMPLETE: all ten stat pairs now offer their three fusion powers. The final twelve landed today.',
+        "Might+Fortune: CROESUS, EL DORADO, KING'S RANSOM. Arcane+Vigor: ASCLEPIUS, TROLL BLOOD, SANCTUARY. Agility+Fortune: HIGHWAYMAN, LUCKY STREAK, RABBIT'S FOOT. Arcane+Fortune: PHILOSOPHER'S STONE, GOLD RUSH, ORACLE OF DELPHI.",
+        'Thirty fusions total, and every one grows with the two stats that made it. Go find your pair.',
       ],
     },
     {
