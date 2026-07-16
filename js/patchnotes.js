@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.110', title: 'The Hunt gets teeth', date: '2026-07-16',
       sha: '640ff7e',
       items: [
-        'PVP Phase 3: monsters join THE HUNT (#242) - instanced per player like the loot: you fight YOUR dungeon at 2/3 density while your opponent fights theirs, kills feed only the killer (personal xp + drops), your monsters can never wound the real other hunter, and doors never seal so fleeing stays viable.',
+        'The Hunt has TEETH now. Combat rooms in a hunt spawn monsters again - a little thinner than a normal floor, but real. They are YOUR monsters: your opponent is fighting their own through the walls, and their beasts can never touch you. Every kill feeds only you: your experience, your drops, your build.',
+        'The strategy writes itself: fighting makes you stronger but costs health and time while the swarm closes in. Sneak past and stay fresh, or farm up and arrive at the final room a monster yourself. Doors never seal in a hunt, so running away is always allowed. Winning still is not.',
       ],
     },
     {
