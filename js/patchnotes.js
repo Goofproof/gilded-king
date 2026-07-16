@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.101';
+  const VERSION = 'v2.102';
 
   const NOTES = [
+    {
+      v: 'v2.102', title: 'Browse first, level up when ready, reroll if unlucky', date: '2026-07-16',
+      sha: 'a1969df',
+      items: [
+        'Level-up popup: the paid REROLL is back (#233, R or button, 10g +1g per use) and the popup no longer auto-opens (#234) - a LEVEL UP button on the sheet (or L) opens it, Esc returns to browsing with your cards kept.',
+      ],
+    },
     {
       v: 'v2.101', title: 'The way down opens for everyone', date: '2026-07-16',
       sha: '662477e',
