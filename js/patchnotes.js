@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.110';
+  const VERSION = 'v2.111';
 
   const NOTES = [
+    {
+      v: 'v2.111', title: 'The crown decides the Hunt', date: '2026-07-16',
+      sha: 'e65382f',
+      items: [
+        'PVP Phase 4: THE GILDED KING\'S CHAMPION (#243) - a crown-bearing giant waits in the swarm-spared centre room (never at a spawn), marked on both maps; slaying yours is announced floor-wide and crowns you with permanent rage+haste and a golden wake - the endgame bell; plus the stalking cue: an opponent moving in an adjacent room whispers at the connecting door.',
+      ],
+    },
     {
       v: 'v2.110', title: 'The Hunt gets teeth', date: '2026-07-16',
       sha: '640ff7e',
