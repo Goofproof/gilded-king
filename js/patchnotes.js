@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.102', title: 'Browse first, level up when ready, reroll if unlucky', date: '2026-07-16',
       sha: 'a1969df',
       items: [
-        'Level-up popup: the paid REROLL is back (#233, R or button, 10g +1g per use) and the popup no longer auto-opens (#234) - a LEVEL UP button on the sheet (or L) opens it, Esc returns to browsing with your cards kept.',
+        'Two playtest fixes for the new level-up window, both from tonight:',
+        'THE REROLL IS BACK. Do not like your three cards? Press R (or click the reroll button) to draw three new ones. Costs 10 gold, and each reroll this run costs 1 gold more than the last, same rules as the old level-up screen.',
+        'And the window no longer jumps in your face. Open your character screen with points banked and you can browse your rings and stats in peace - a gold LEVEL UP button waits at the top. Click it (or press L) when you are ready to spend. Esc closes the window and lets you keep browsing, and your three cards WAIT for you exactly as they were. No sneaky free rerolls by closing and reopening, we checked.',
       ],
     },
     {
