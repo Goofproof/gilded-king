@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.103', title: 'Door plates stop bouncing the party', date: '2026-07-16',
       sha: '04edec5',
       items: [
-        'Co-op door plates need a 0.45s HOLD before firing (#235) - kills the drift-on/drift-off bounce between rooms and remote-ghost misfires; a gold charge-up ring + OPENING... label make the delay legible.',
+        'Another live playtest fix: co-op door plates no longer yank the party through the instant everyone touches one. Standing near the door you just came through could bounce you right back to the last room, over and over. Now a plate has to HOLD the whole party for half a second before the door opens: a gold ring sweeps closed around the plate while it charges, with an OPENING... label so you can step off if you did not mean it.',
       ],
     },
     {
