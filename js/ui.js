@@ -9,7 +9,7 @@ const UI = (() => {
   function scrollClasses(d) { classScroll += d; }        // clamped at draw time
 
   // canonical public home of the game (GitHub Pages) - what the share button copies
-  const GAME_URL = 'https://goofproof.github.io/gilded-king/'; // TODO flip to /barrowlight/ the moment the GitHub repo rename lands - do not ship the new URL before it exists
+  const GAME_URL = 'https://goofproof.github.io/barrowlight/';
 
   // --- META-PROGRESSION UPGRADES (hub screen; persisted in localStorage) --------
   // Kept deliberately modest so runs live or die on in-run choices.
