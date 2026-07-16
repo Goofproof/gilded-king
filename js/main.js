@@ -2232,7 +2232,7 @@
       const fRank = Abilities.fusionRank(p.statPoints, a.fusionStats);
       a._rank = fRank;
       const fpp = a.pp || {};
-      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd, ringDmg: a.ringDmg, transmute: a.transmute, critCh: a.critCh, grind: a.grind, gamble: a.gamble };
+      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd, ringDmg: a.ringDmg, transmute: a.transmute, critCh: a.critCh, grind: a.grind, gamble: a.gamble, beamMul: a.beamMul, flameDmg: a.flameDmg };
       if (a.fRider) a.qRider = 0.06; // +6% of each target's max HP (bosses 1/3) - the hit sites already honour it
       if (fpp.dmg && a.dmg) a.dmg = Math.round(a.dmg * (1 + fpp.dmg * fRank));
       if (fpp.radius && a.radius) a.radius = Math.round(a.radius + fpp.radius * fRank);
@@ -2252,6 +2252,8 @@
       if (fpp.critCh && a.critCh) a.critCh = +(a.critCh + fpp.critCh * fRank).toFixed(3);
       if (fpp.grind && a.grind) a.grind = Math.round(a.grind + fpp.grind * fRank);
       if (fpp.gamble && a.gamble) a.gamble = Math.min(0.4, +(a.gamble + fpp.gamble * fRank).toFixed(3));
+      if (fpp.beamMul && a.beamMul) a.beamMul = +(a.beamMul + fpp.beamMul * fRank).toFixed(2);   // #256 EXCALIBUR
+      if (fpp.flameDmg && a.flameDmg) a.flameDmg = Math.round(a.flameDmg + fpp.flameDmg * fRank); // #256 PROMETHEUS
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -2441,6 +2443,20 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
+    } else if (a.kind === 'ftoggle') { // #256 PHILOSOPHER'S STONE: gold burns while it's lit
+      if (p.fstance && p.fstance.id === 'stone') {
+        p.fstance = null;
+        Fx.text(p.x, p.y - 40, 'THE STONE COOLS', a.color, 13);
+      } else if (p.coins <= 0) {
+        g.shopMsg = { text: 'No gold to burn', t: 1.2 }; Sfx.play('error');
+        a.cd = 0; return;
+      } else {
+        const rank = (typeof Abilities !== 'undefined' && Abilities.fusionRank) ? Abilities.fusionRank(p.statPoints, a.fusionStats) : 0;
+        p.fstance = { id: 'stone', t: 9999, color: a.color, drain: a.drain || 4, drainT: 0,
+          dmgStack: Math.min(0.5, 0.15 + ((a.pp && a.pp.power) || 0.015) * rank) };
+        Fx.text(p.x, p.y - 40, `THE STONE BURNS +${Math.round(p.fstance.dmgStack * 100)}%`, a.color, 14);
+        Fx.burst(p.x, p.y, [a.color, '#ffd24c'], 24, { speed: 200, life: 0.6, glow: true });
+      }
     } else if (a.kind === 'fzone') { // #254 SANCTUARY / #255 EVENT HORIZON (grind: rot, no heal)
       if (a.grind) g.ultFx.push({ type: 'miasma', x: p.x, y: p.y, t: 0, dur: a.dur || 6, radius: a.radius || 170, dps: a.grind, rider: 0.01 });
       else g.ultFx.push({ type: 'qregen', x: p.x, y: p.y, t: 0, dur: a.dur || 5, radius: a.radius || 150, hps: Math.round(p.maxHp * 0.03) });
@@ -2469,11 +2485,12 @@
       }
       Fx.shake(3, 0.15);
       Fx.text(p.x, p.y - 40, 'THE ORACLE SPEAKS', a.color, 14);
-    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot' || a.kind === 'fgoose') { // #252-#255 the stances
+    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot' || a.kind === 'fgoose' || a.kind === 'fflame') { // #252-#256 the stances
       p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color,
         atkSpd: a.atkSpd || 0, spdMul: a.spdMul || 0, noSlow: !!a.noSlow, firstCrit: !!a.firstCrit, seen: a.firstCrit ? new Set() : null,
         echoBoost: a.echoBoost || 0, zap: a.zap || 0, zapT: 0, shotT: 0,
-        critCh: a.critCh || 0, critPay: !!a.critPay, dmgStack: 0, zapFast: !!a.zapFast, zapChain: a.zapChain || 1, gooseT: 0 };
+        critCh: a.critCh || 0, critPay: !!a.critPay, dmgStack: 0, zapFast: !!a.zapFast, zapChain: a.zapChain || 1, gooseT: 0,
+        beamMul: a.beamMul || 0, flameDmg: a.flameDmg || 0, ignite: a.ignite || 0, flameT: 0 };
       Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 24, { speed: 200, life: 0.6, glow: true });
     } else if (a.kind === 'froot') { // #252 ANTAEUS: the release happens in player.update

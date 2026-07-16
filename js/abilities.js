@@ -343,12 +343,12 @@ const Abilities = (() => {
         pp: { dur: 0.12 }, desc: 'The horse-archer\'s retreat: while you back away, arrows fire behind you - and rolling reloads your weapon.' },
     ],
     'ARCANE+MIGHT': [ // the Spellblade (#253 wave 2)
-      { name: 'EXCALIBUR', role: 'STRIKE', kind: 'strike', color: '#cfeeff', dmg: 150, radius: 130, critAll: true, fRider: true, cdMax: 11,
-        pp: { dmg: 0.05, radius: 2 }, desc: 'One colossal blade of light: always a critical hit.' },
+      { name: 'EXCALIBUR', role: 'STRIKE', kind: 'fstance', stance: 'excalibur', color: '#cfeeff', dur: 8, beamMul: 0.9, cdMax: 14,
+        pp: { dur: 0.15, beamMul: 0.02 }, desc: 'Draw the true sword: for a while, every melee swing sends a blade of light flying where you aim.' },
       { name: 'MJOLNIR', role: 'STANCE', kind: 'fstorm', stance: 'mjolnir', color: '#ffe27a', dur: 6, zap: 30, cdMax: 15,
         pp: { dur: 0.1, zap: 0.05 }, desc: 'The storm hammer: every beat, lightning strikes the nearest enemy and chains onward.' },
-      { name: 'PROMETHEUS', role: 'TRICK', kind: 'nova', color: '#ff8a3d', dmg: 55, radius: 170, knock: 120, ignite: 12, fRider: true, cdMax: 12,
-        pp: { dmg: 0.04, radius: 3 }, desc: 'Steal fire: everything caught burns, and your spells grow stronger for each enemy left burning.' },
+      { name: 'PROMETHEUS', role: 'TRICK', kind: 'fflame', stance: 'prometheus', color: '#ff8a3d', dur: 3, flameDmg: 9, ignite: 10, cdMax: 12,
+        pp: { dur: 0.06, flameDmg: 0.6 }, desc: 'The stolen fire is a WEAPON: spray a torrent of flame wherever you aim, and everything it licks keeps burning.' },
     ],
     'AGILITY+ARCANE': [ // the Phantom (#253 wave 2)
       { name: 'HERMES', role: 'STRIKE', kind: 'dash', color: '#b06bff', dmg: 55, dist: 320, afterimages: true, fRider: true, cdMax: 11,
@@ -383,8 +383,8 @@ const Abilities = (() => {
         pp: { dur: 0.08 }, desc: 'For a few charmed seconds every dodge roll is free - and enemies you roll through drop gold and shiver.' },
     ],
     'ARCANE+FORTUNE': [ // the Alchemist (#254 wave 3)
-      { name: "PHILOSOPHER'S STONE", role: 'STRIKE', kind: 'nova', color: '#c9a86a', dmg: 40, radius: 185, knock: 140, transmute: 80, fRider: true, cdMax: 12,
-        pp: { dmg: 0.03, transmute: 4 }, desc: 'Transmute: burn up to a purse of held gold as raw power - one damage per coin. Gold IS mana.' },
+      { name: "PHILOSOPHER'S STONE", role: 'STRIKE', kind: 'ftoggle', stance: 'stone', color: '#c9a86a', drain: 4, cdMax: 2,
+        pp: { power: 0.015 }, desc: 'A TOGGLE: while the stone burns, your gold drains away and ALL your damage is amplified. Press R again (or go broke) to stop.' },
       { name: 'GOLD RUSH', role: 'STANCE', kind: 'fstance', stance: 'goldrush', color: '#ffd24c', dur: 6, cdMax: 15,
         pp: { dur: 0.12 }, desc: 'Strike gold: every kill pays extra coins and shaves time off your Q.' },
       { name: 'ORACLE OF DELPHI', role: 'TRICK', kind: 'foracle', color: '#b06bff', dmg: 30, fRider: true, cdMax: 17,

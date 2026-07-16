@@ -1250,6 +1250,25 @@ const PlayerDef = (() => {
             }
           }
         }
+        if (fs.id === 'prometheus' && g) { // #256 the flamethrower: a torrent along your aim
+          fs.flameT -= dt;
+          if (fs.flameT <= 0) {
+            fs.flameT = 0.06;
+            const spread = (Math.random() - 0.5) * 0.3;
+            const ang = this.facing + spread, sp = 360 + Math.random() * 80;
+            g.projectiles.push({ x: this.x + Math.cos(ang) * 16, y: this.y + Math.sin(ang) * 16,
+              vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r: 7, dmg: fs.flameDmg,
+              from: 'player', color: Math.random() < 0.5 ? '#ff8a3d' : '#ffcc44', life: 0.45,
+              flame: fs.ignite, hitSfx: 'hitArrow', glowTrail: true, trail: ['#ff8a3d', '#ff5a2c'], hitSet: new Set() });
+          }
+        }
+        if (fs.id === 'stone') { // #256 the stone burns gold while it is lit
+          fs.drainT += dt;
+          if (fs.drainT >= 1 / (fs.drain || 4)) {
+            fs.drainT = 0; this.coins--;
+            if (this.coins <= 0) { this.coins = 0; this.fstance = null; Fx.text(this.x, this.y - 40, 'OUT OF GOLD', '#c9a86a', 13); }
+          }
+        }
         if (fs.id === 'trollblood') { // #254 heavy regen unless staggered
           if (fs.stunT > 0) fs.stunT -= dt;
           else this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt);
@@ -1673,6 +1692,15 @@ const PlayerDef = (() => {
         }
       };
       swingOnce(1);
+      // #256 EXCALIBUR: the swing itself takes flight - a blade of light carries on
+      if (this.fstance && this.fstance.id === 'excalibur' && w.archetype !== 'bow' && w.archetype !== 'wand' && w.archetype !== 'staff') {
+        const { dmg: beamDmg, crit: beamCrit } = this.computeDmg(w.dmg * (this.fstance.beamMul || 0.9), null, g);
+        g.projectiles.push({ x: this.x + Math.cos(dir) * 18, y: this.y + Math.sin(dir) * 18,
+          vx: Math.cos(dir) * 480, vy: Math.sin(dir) * 480, r: 6, dmg: beamDmg,
+          from: 'player', color: '#cfeeff', life: 1.4, pierce: 2, knock: 120,
+          crit: beamCrit, hitSfx: 'hitArrow', glowTrail: true, trail: ['#cfeeff', '#8fb7ff'], hitSet: new Set() });
+        Sfx.play('bowfire');
+      }
       if (g.cloneEcho) g.cloneEcho(this, w, 1); // #229 mesmer R8: the copies swing with you
       // Echo evolutions: light swings sometimes strike twice (second at half power)
       const _ec = this.mod('echo') + ((this.fstance && this.fstance.echoBoost) || 0); // #253 QUICKSILVER
