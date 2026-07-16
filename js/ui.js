@@ -640,6 +640,14 @@ const UI = (() => {
         c.strokeStyle = '#ffffff'; c.lineWidth = 2;
         c.strokeRect(x - 1.5, y - 1.5, cell + 3, cell + 3);
       }
+      // #257 the Oracle's prophecy: a pulsing star on the named room
+      if (g.oracleMark && r.gx === g.oracleMark.gx && r.gy === g.oracleMark.gy && !r.cleared) {
+        c.save();
+        c.globalAlpha = 0.6 + Math.sin(Date.now() / 220) * 0.35;
+        c.fillStyle = '#b06bff'; c.font = 'bold 11px monospace'; c.textAlign = 'center';
+        c.fillText('\u2726', x + cell / 2, y + cell / 2 + 4);
+        c.restore();
+      }
     }
     // #245 (Sam) CONTRAPASSO tags: the floor's live rules stay on screen the whole
     // floor, right under the map - you should never wonder mid-fight why the room
