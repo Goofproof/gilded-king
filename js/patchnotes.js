@@ -26,7 +26,10 @@ const PatchNotes = (() => {
       v: 'v2.111', title: 'The crown decides the Hunt', date: '2026-07-16',
       sha: 'e65382f',
       items: [
-        'PVP Phase 4: THE GILDED KING\'S CHAMPION (#243) - a crown-bearing giant waits in the swarm-spared centre room (never at a spawn), marked on both maps; slaying yours is announced floor-wide and crowns you with permanent rage+haste and a golden wake - the endgame bell; plus the stalking cue: an opponent moving in an adjacent room whispers at the connecting door.',
+        'The final piece of the Hunt: THE CROWN. A gold crown glyph on your minimap marks the one room the swarm never touches, and THE KING\'S CHAMPION waits there: a gold-clad giant six times tougher than anything else on the floor.',
+        'Fell him and THE CROWN IS YOURS: a full heal, permanent rage and speed, and a golden blaze trailing you for the rest of the hunt. But everyone hears it. Your opponent gets the message the instant you take it: fight now or die in the swarm. Taking the crown does not win the hunt. It starts the ending.',
+        'One more trick for the patient: when your opponent moves through a room NEXT to yours, you hear it, a whisper at the connecting door. Hunt them by ear.',
+        'That completes the overnight PVP build: DUEL for a straight fight, HUNT for the full battle royale. Both live in the host lobby. Go easy on each other. Or do not.',
       ],
     },
     {
