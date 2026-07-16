@@ -26,14 +26,14 @@ meta-progression essence, coin vacuum, floor-clear portal, celebration door lock
   stepping), dbg.warp/give/armor/god/coins/lvl/evo/state. IMPORTANT: dbg.press()
   holds keys forever unless you dbg.release() them (this caused a phantom-drift
   bug once).
-- Public URL: https://goofproof.github.io/gilded-king/ (GitHub Pages, account
+- Public URL: https://goofproof.github.io/barrowlight/ (GitHub Pages, account
   Goofproof). Deploy = copy index.html+README.md+js/+dist/ to a temp dir, git
   init, force-push to main with basic auth; token lives in
   C:\Users\sammc\deeproot\.mcp.json (github server env, parse with utf-8-sig).
   NEVER put the token literal in a command line (auto-mode classifier blocks it);
   read it into a shell var at runtime. Pages propagates in ~1-3 min; poll with
   curl for a marker string.
-- Single-file build: regex-inline the <script src> tags into dist/GildedKing.html
+- Single-file build: regex-inline the <script src> tags into dist/Barrowlight.html
   (see any recent session transcript; it's a 15-line python snippet).
 - Claude Artifact mirror: republish scratchpad/mimic-king-artifact.html - but a
   NEW session must pass url https://claude.ai/code/artifact/9a61365a-c022-4b1e-a01d-0c05c34670c1

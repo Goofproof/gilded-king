@@ -1,3 +1,35 @@
+## 2026-07-16 (day list) - Calls made while building Sam's morning list
+
+1. CASTER ATTACK SPEED (#247): Sam said wand/staff fire rate should not scale with
+   attack speed; "cooldown reduction or charge up increase" instead. Staves have no
+   charge mechanic to increase, so I built the CDR reading: while wielding a wand or
+   staff, ALL surplus attack speed becomes Q/R/Ultimate recharge rate, point for
+   point. Verified numerically both directions in the harness.
+2. POOL PARITY (#250): Sam named Fortune and Arcane as underserved. The measured
+   skew was actually AGILITY 4 / MIGHT 2 / everything else 3 - so I brought EVERY
+   stat to exactly 4 cards (new: Executioner, Jackal / Nettle / Echo / Clover)
+   rather than only padding the two he named. Echo needed a small engine addition
+   (spells can now repeat; light weapons already could).
+3. MENUS ARE NOT ARMOR (#249): "no more pausing in multiplayer" is implemented as
+   the world sim running underneath every menu/pick screen in co-op, controls
+   idled, damage LIVE (the state swap makes you hittable while reading). Your
+   character keeps auto-attacking while you browse - same model as chat. Solo still
+   truly pauses.
+4. THE HARPY (#251): gentle first boss (matriarch kit, 570 hp, half damage, 8
+   essence), forest-flagged so she is neither the King (no victory bonus, no
+   firstKing accolade) nor a Warden (no descent essence/mythics). Her portal line
+   avoids the Toad and the "Descent yawns" subtitle (floors <3 say "the dungeon
+   goes deeper"). The canopy shadow is redrawn as a raptor and is canonically HER.
+5. V TOGGLE (#246): first cut opened and closed in the same frame (split branches);
+   rebuilt as a single toggle branch. WASD/arrows + Enter/Space/E now drive the
+   cards with a white cursor ring (#248).
+6. DOOR PLATES (#44 verify): two-client relay test - entry plate parked on for 4+
+   sim-seconds never fires (arm-on-vacate); vacate-return-dwell fires exactly once.
+   Sam's "constant bounce last night" matches a stale-cache client, not current
+   code: everyone should hard-refresh before the next playtest.
+7. GAME_URL held at gilded-king until Sam renames the GitHub repo (share links must
+   not point at a URL that does not exist yet). Flip + second ship after the rename.
+
 ## 2026-07-16 (overnight PVP loop) - Hunt monsters are INSTANCED PER PLAYER, not host-simmed
 
 Sam asked for the finished PVP model by morning. PVP-ROADMAP Phase 3 called the

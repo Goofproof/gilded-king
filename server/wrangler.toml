@@ -6,6 +6,9 @@
 # Local dev (no Cloudflare account needed):  npx wrangler dev
 # Deploy for friends (needs `npx wrangler login` once):  npx wrangler deploy
 name = "gilded-king-mp"
+# The game is Barrowlight now, but this worker name is LOAD-BEARING: Durable Object
+# storage (global leaderboard + rooms) lives under this deployment. Renaming the
+# worker orphans all of it. Leave as-is.
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 

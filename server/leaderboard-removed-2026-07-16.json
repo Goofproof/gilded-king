@@ -1,0 +1,76 @@
+{
+  "reason": "exploit scores, removed at Sam request 2026-07-16",
+  "entries": [
+    {
+      "initials": "DUC",
+      "score": 88888,
+      "floor": 1,
+      "won": false,
+      "snap": {
+        "cls": "",
+        "className": "Adventurer",
+        "level": 1,
+        "kills": 0,
+        "prestige": 4,
+        "maxHp": 115,
+        "weapons": [
+          "Worn Twinfang"
+        ],
+        "armor": null,
+        "evos": [],
+        "q": "Adrenaline",
+        "r": null,
+        "ult": null,
+        "statPoints": {}
+      },
+      "t": 1784127334668
+    },
+    {
+      "initials": "JAM",
+      "score": 42168,
+      "floor": 37,
+      "won": true,
+      "snap": {
+        "cls": "pyromancer",
+        "className": "Pyromancer",
+        "level": 139,
+        "kills": 4797,
+        "prestige": 1,
+        "maxHp": 18997,
+        "weapons": [
+          "Emberfall [Flame, Power III, Infinity]",
+          "Ancient Runewood Staff +12 [Flame, Chain Lightning, Infinity]"
+        ],
+        "armor": "Runed Scale Cuirass [Fortune, Recovery, Thornmail]",
+        "evos": [
+          "Brocken Spectre",
+          "Body of Theseus",
+          "Zero-Point Field",
+          "Crumple Zone",
+          "Chandrasekhar Limit",
+          "Numismatist's Eye",
+          "Tunguska Event",
+          "Trapdoor Doctrine"
+        ],
+        "q": "Immolate",
+        "r": "Vital Arcane Surge",
+        "ult": "POISON MIASMA",
+        "statPoints": {
+          "MIGHT": 24,
+          "VIGOR": 43,
+          "AGILITY": 23,
+          "ARCANE": 26,
+          "FORTUNE": 22
+        }
+      },
+      "t": 1784085463673
+    },
+    {
+      "initials": "SAM",
+      "score": 29582,
+      "floor": 32,
+      "won": true,
+      "t": 1784004819787
+    }
+  ]
+}

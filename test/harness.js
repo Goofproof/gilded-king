@@ -35,7 +35,7 @@ export function loadGame() {
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
-  vm.runInContext(parts.join('\n;\n'), sandbox, { filename: 'gilded-king-bundle.js' });
+  vm.runInContext(parts.join('\n;\n'), sandbox, { filename: 'barrowlight-bundle.js' });
   cached = sandbox.__game;
   return cached;
 }
