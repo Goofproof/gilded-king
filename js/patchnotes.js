@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.116', title: 'Fusion wave 2: the Tempest, the Spellblade and the Phantom', date: '2026-07-16',
       sha: '3d12f20',
       items: [
-        'FUSION WAVE 2: nine more forge powers - TYPHOON, ACHILLES, PARTHIAN SHOT, EXCALIBUR, MJOLNIR, PROMETHEUS, HERMES, QUICKSILVER and MIRAGE.',
+        'NINE MORE FUSIONS at the forge. Might+Agility: TYPHOON (whirlwind dash), ACHILLES (nothing slows you, first hits crit), PARTHIAN SHOT (fire backward while you retreat).',
+        'Might+Arcane: EXCALIBUR (one colossal blade, always crits), MJOLNIR (lightning hammers on a beat), PROMETHEUS (steal fire - burning enemies feed your spells).',
+        'Agility+Arcane: HERMES (blink with damaging afterimages), QUICKSILVER (everything flows faster and echoes), MIRAGE (a decoy that draws every eye, then detonates).',
       ],
     },
     {
