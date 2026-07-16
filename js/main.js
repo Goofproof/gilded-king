@@ -602,7 +602,20 @@
       Sfx.play('roar');
       return;
     }
-    if (g.huntMode) { room.spawned = true; room.cleared = true; g.monsters = []; } // #241 the Hunt has no monsters (yet - Phase 3)
+    // #242 (Phase 3) THE THIRD FORCE: hunt monsters are INSTANCED PER PLAYER, like
+    // the loot - you fight YOUR dungeon, your opponent fights theirs, zero sync
+    // (their rooms are invisible to you anyway). ~2/3 density, solo-scaled, doors
+    // never seal so fleeing is always an option. A fled room stays cleared out.
+    if (g.huntMode) {
+      room.cleared = true;
+      if ((room.type === 'combat' || room.type === 'trap') && !room.spawned) {
+        room.spawned = true;
+        g.monsters = Monsters.spawnForRoom(room, g.floorNum, g).filter((_, i) => i % 3 !== 2);
+        progressionScaleMonsters(g.monsters);
+      } else {
+        g.monsters = [];
+      }
+    }
     if ((room.type === 'combat') && !room.spawned) {
       room.spawned = true;
       if (isCoopGuest()) {
@@ -916,7 +929,7 @@
     p.addXp(alarmXp, g);
     // co-op: the whole party levels off shared kills (kills only ever happen on
     // the host, so it grants everyone the same XP)
-    if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'xp', a: alarmXp });
+    if (g.coop && !g.huntMode && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'xp', a: alarmXp }); // #242 hunt xp is personal
     Fx.burst(m.x, m.y, ['#fff', '#ffd24c', '#ff6655'], 14, { speed: 180, life: 0.5 });
     Sfx.play('kill');
     // #26: catching the loot goblin pays out a jackpot (its coins are set high in BASE)
@@ -1060,7 +1073,8 @@
   }
   function dropGearInstanced(kind, x, y, roll) {
     spawnInstancedGear(kind, x, y, roll);
-    if (g.coop && typeof Net !== 'undefined' && isRunHost()) {
+    // #242 hunt kills are personal - your monster, your drop, nobody else's roll
+    if (g.coop && !g.huntMode && typeof Net !== 'undefined' && isRunHost()) {
       Net.sendR({ t: 'lootroll', knd: kind, x: Math.round(x), y: Math.round(y),
         tier: roll.tier, mr: roll.minRarity || 0, lk: +(roll.luck || 0).toFixed(2), my: roll.mythic ? 1 : 0 });
     }
@@ -1496,6 +1510,7 @@
   }
 
   function doorsLocked() {
+    if (g.huntMode) return false; // #242 fleeing must always be an option
     // combat lock: any live monster (includes woken mimics and the boss).
     // the 2.6s victory celebration also locks the doors so the player can't
     // wander out and lose the boss loot (enterRoom clears pickups)
@@ -3607,7 +3622,7 @@
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
     Net.on('mobs', m => {
-      if (!isCoopGuest()) return;
+      if (!isCoopGuest() || g.huntMode) return; // #242
       g.lastHostSeenT = g.time;
       if (m.fl !== undefined && m.fl !== g.floorNum) return; // #216 a snapshot from another floor is noise
       applyMobSnapshot(m.list, m.room);
@@ -3991,7 +4006,9 @@
     // (the swarm demands map awareness), every room pre-cleared, no tether.
     if (g.huntMode) {
       g.huntScore = {}; g.huntSwarmN = 0; g.huntSwarmT = 0; g.huntGraceT = 3; g._swarmOrd = null;
-      for (const r of g.dungeon.rooms) { r.visited = true; r.cleared = true; r.spawned = true; }
+      // #242 (Phase 3) rooms stay cleared (doors never seal) but UNSPAWNED - each
+      // hunter fights their OWN monsters as they explore
+      for (const r of g.dungeon.rooms) { r.visited = true; r.cleared = true; }
       placeHuntSpawn();
       g.floorBanner = { text: 'THE GILDED HUNT', t: 4.5, sub: 'gear up. the swarm is coming. last champion standing.' };
     }
@@ -4404,6 +4421,9 @@
   // PR-2: deal damage to a party target - the local player directly, a remote peer
   // over the wire ({t:'phit'} that the peer self-filters on Net.id).
   function hurtTarget(target, dmg, sx, sy, src) {
+    // #242 in a HUNT, monsters are per-player illusions - MY monsters (src.type is a
+    // monster tell; players carry no .type) must never wound the REAL other hunter
+    if (g.huntMode && target && target.isRemote && src && src.type) return;
     if (!target || !target.isRemote) { if (g.player && !g.player.dead) g.player.damage(dmg, sx, sy, g, src); return; }
     if (typeof Net !== 'undefined') Net.sendR({ t: 'phit', to: target.id, dmg: Math.round(dmg), sx: Math.round(sx || 0), sy: Math.round(sy || 0) });
   }
@@ -4697,6 +4717,7 @@
 
     // host: broadcast a compact snapshot of every monster (~15 Hz)
   function broadcastMobs(dt) {
+    if (g.huntMode) return; // #242 hunt monsters are local to each player - never broadcast
     if (!g.coop || typeof Net === 'undefined' || !isRunHost() || !Net.connected) return;
     g.mobSendT -= dt;
     if (g.mobSendT > 0) return;
@@ -4848,6 +4869,7 @@
 
   // guest: smooth proxies toward their reported position + take contact damage
   function updateGuestMobs(dt) {
+    if (g.huntMode) return; // #242 no proxies in a hunt - the guest's monsters are REAL
     const p = g.player, k = Math.min(1, dt * 14);
     for (const m of g.monsters) {
       if (!m.proxy) continue;

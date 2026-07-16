@@ -1,3 +1,20 @@
+## 2026-07-16 (overnight PVP loop) - Hunt monsters are INSTANCED PER PLAYER, not host-simmed
+
+Sam asked for the finished PVP model by morning. PVP-ROADMAP Phase 3 called the
+multi-room host simulation "the big lift"; I did NOT build that. In HUNT mode each
+player simulates the monsters of the room they occupy, locally, with zero sync -
+the same philosophy as the instanced loot (#239). Rationale: hunters can't see each
+other's rooms anyway, so syncing invisible monsters buys nothing; local sim removes
+every parity risk overnight; and monsters exist in the hunt as PACING (the third
+force that softens you up and slows your looting), not as shared world state.
+Consequences accepted: if both hunters share a room, each sees only their OWN
+monsters (brief "swinging at air" weirdness during a PVP encounter - the fight
+itself takes over quickly); my monsters can never damage the other hunter (guarded
+in hurtTarget: src.type identifies a monster). Kills feed only the killer (xp +
+instanced drops, no cross-player broadcasts). Co-op adventure mode is untouched -
+host-authoritative proxies exactly as before. If real shared-room monster combat is
+ever wanted in hunts, the roadmap's room-as-authority split is the upgrade path.
+
 # Autonomous decisions log (for Sam to review)
 
 Context: Sam stepped away and asked me to implement my recommendations, make my own
