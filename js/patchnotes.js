@@ -26,10 +26,12 @@ const PatchNotes = (() => {
       v: 'v2.113', title: 'THE HARPY rules floor 1, and multiplayer never pauses', date: '2026-07-16',
       sha: '9b93799',
       items: [
-        'THE HARPY guards floor 1 - the giant shadow over the forest was her all along, and now she comes down.',
-        'Wands and staves: attack speed now recharges your Q, R and Ultimate faster instead of making you shoot faster.',
-        'Press V to open AND close the level up menu (was L), with a white ring showing which card WASD has picked.',
-        'No more pausing in multiplayer - menus stay open while the world keeps moving. Plus 5 new level up cards (every stat has 4 now) and the forest shadow is a real eagle.',
+        'FLOOR 1 HAS A BOSS NOW: THE HARPY. That giant shadow gliding over the forest? It was her the whole time. At the end of the Whispering Forest, she comes down.',
+        'The forest shadow is redrawn too - long eagle wings with finger feathers, not a butterfly. You were all right to ask about it.',
+        'No more pausing in multiplayer. Open any menu and the world keeps moving - and yes, monsters can still hit you while you read. Pick your moment.',
+        'Level ups: press V to open the menu (right next to C - no more reaching for L), press V again to close it and peek your stats. WASD walks the cards, Enter takes the glowing one.',
+        'Five new level up cards so every stat has four options: Executioner and Jackal (Might), Nettle (Vigor), Echo (Arcane - your spells can cast twice!), and Clover (Fortune).',
+        'Wizards: attack speed no longer makes your wand or staff shoot faster. Instead it recharges your Q, R and Ultimate faster. Your spells, more often.',
       ],
     },
     {
