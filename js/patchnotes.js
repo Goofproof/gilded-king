@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.103';
+  const VERSION = 'v2.104';
 
   const NOTES = [
+    {
+      v: 'v2.104', title: 'Nobody waits while you choose', date: '2026-07-16',
+      sha: '1ac136b',
+      items: [
+        'Co-op: the party never freezes for a chooser again (#236) - the levelwait hold is gone (finish your pick, play on; choosers are already damage-proof on menus), and a floor advance arriving mid-pick DEFERS until the pick closes instead of destroying it (review #14).',
+      ],
+    },
     {
       v: 'v2.103', title: 'Door plates stop bouncing the party', date: '2026-07-16',
       sha: '04edec5',
