@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.104';
+  const VERSION = 'v2.105';
 
   const NOTES = [
+    {
+      v: 'v2.105', title: 'Descending is a party decision now', date: '2026-07-16',
+      sha: '9fc9fb4',
+      items: [
+        'Co-op: every next-floor exit needs the party MAJORITY gathered, like the door plates (#237) - stairs, portal shortcut, descent plunge and nightmare gate all refuse with GATHER THE PARTY until a majority stands together.',
+      ],
+    },
     {
       v: 'v2.104', title: 'Nobody waits while you choose', date: '2026-07-16',
       sha: '1ac136b',
