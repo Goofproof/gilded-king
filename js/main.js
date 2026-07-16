@@ -2211,7 +2211,7 @@
       const rank = Abilities.qRank ? Abilities.qRank(cls, p.statPoints) : 0;
       const tune = (Abilities.Q_TUNE && Abilities.Q_TUNE[cls]) || {};
       const pp = tune.perPoint || {};
-      _qScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, knock: a.knock, dist: a.dist, dps: a.dps, qRider: a.qRider, _rank: a._rank };
+      _qScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, knock: a.knock, dist: a.dist, dps: a.dps, qRider: a.qRider, _rank: a._rank, coinScaleCap: a.coinScaleCap };
       a.qRider = tune.rider || 0;
       a._rank = rank; // milestone gates (waves 1-4) and tooltips read this
       if (a.dmg) a.dmg = Math.round(a.dmg * s.dmg * (1 + (pp.dmgMul || 0) * rank));
@@ -2226,6 +2226,8 @@
       if (cls === 'warrior' && rank >= 8 && a.knock) a.knock *= 2; // R8: the shove DOUBLES
       // #258 GAMBLER: FORTUNE raises the jackpot odds, +1% per rank (cap 50%)
       if (cls === 'gambler' && a.gamble) a.gamble = Math.min(0.5, 0.25 + 0.01 * rank);
+      // #259 (Sam) the BANKROLL loads the gun: held gold adds damage, cap grows with rank
+      if (cls === 'gambler') a.coinScaleCap = 100 + 10 * rank;
     }
     // #252 FUSION v2 scaling: an R fusion grows with POWER RANK = the combined points
     // in its two governing stats - the Q_TUNE recipe (per-rank channels, %-of-target
@@ -2274,7 +2276,7 @@
       }
       let qKills = 0;
       let dmg = (a.dmg || 60) * dmgMul;
-      if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
+      if (a.coinScale) dmg += Math.min(a.coinScaleCap || 140, p.coins * 0.5); // Coin Storm / #259 the Gambler's bankroll
       if (a.missingHp) dmg += Math.round((p.maxHp - p.hp) * a.missingHp); // #252 BLOOD MONEY
       if (a.gamble) { // #255/#258 JACKPOT: pull the lever
         a._jackpot = Math.random() < Math.min(0.85, a.gamble + (a._pity || 0));
@@ -2285,7 +2287,7 @@
             if (_qGates.rank >= 12) a._resetCd = true; // R12: and deals again
           } else if (_qGates.rank >= 4) {
             a._pity = (a._pity || 0) + 0.10;           // R4: the machine is DUE
-            Fx.text(p.x, p.y - 46, `DUE +${Math.round(a._pity * 100)}%`, '#c9a86a', 11);
+            Fx.text(p.x, p.y - 46, `DUE UP +${Math.round(a._pity * 100)}%`, '#c9a86a', 11);
           }
         }
         if (a._jackpot) { // the win triples EVERYTHING, rider included - it must feel huge

@@ -327,6 +327,14 @@ const PlayerDef = (() => {
       c.beginPath(); c.ellipse(0, -r * 0.7, r * 0.72, r * 0.18, 0, 0, Math.PI * 2); c.fill();
       c.strokeStyle = '#8ef0a8'; c.lineWidth = 2.4; c.lineCap = 'round';
       c.beginPath(); c.moveTo(-r * 0.2, -r * 1.0); c.quadraticCurveTo(-r * 0.95, -r * 1.5, -r * 0.7, -r * 1.98); c.stroke();
+    } else if (id === 'gambler') {
+      // #259 the riverboat gambler: flat black hat, wide brim, gold band, lucky coin
+      c.fillStyle = '#211c14';
+      c.beginPath(); c.ellipse(0, -r * 0.6, r * 1.05, r * 0.24, 0, 0, Math.PI * 2); c.fill(); // brim
+      c.fillStyle = '#2c2418'; c.fillRect(-r * 0.58, -r * 1.25, r * 1.16, r * 0.68);          // crown
+      c.beginPath(); c.ellipse(0, -r * 1.25, r * 0.58, r * 0.15, 0, 0, Math.PI * 2); c.fill(); // flat top
+      c.fillStyle = '#ffce54'; c.fillRect(-r * 0.58, -r * 0.78, r * 1.16, r * 0.15);          // gold band
+      c.beginPath(); c.arc(r * 0.3, -r * 0.71, r * 0.11, 0, Math.PI * 2); c.fill();           // the lucky coin
     } else if (id === 'mage') {
       // a full pointed wizard hat: wide brim, tall bent cone, a band and a gold star
       c.fillStyle = '#2a1840';
@@ -528,7 +536,8 @@ const PlayerDef = (() => {
     // Adventurer portrait.
     const id = (typeof cls === 'string') ? cls : (cls && cls.id) || '';
     const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8',
-      mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f' }[id] || '#5b6884';
+      mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f',
+      gambler: '#8a6f2a' }[id] || '#5b6884';
     const race = raceById(raceId);
     c.save();
     c.translate(cx, cy);
@@ -565,6 +574,14 @@ const PlayerDef = (() => {
       c.quadraticCurveTo(-s * 0.05, -s * 0.9, s * 0.72, -s * 0.22); c.closePath(); c.fill();
       c.fillStyle = '#6b48a0'; c.fillRect(-s * 0.6, -s * 0.4, s * 1.2, s * 0.16);
       c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-s * 0.04, -s * 0.82, s * 0.13, 0, Math.PI * 2); c.fill();
+    } else if (id === 'gambler') {
+      // #259 the riverboat gambler, portrait size
+      c.fillStyle = '#211c14';
+      c.beginPath(); c.ellipse(0, -s * 0.32, s * 1.12, s * 0.26, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#2c2418'; c.fillRect(-s * 0.6, -s * 1.02, s * 1.2, s * 0.72);
+      c.beginPath(); c.ellipse(0, -s * 1.02, s * 0.6, s * 0.16, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#ffce54'; c.fillRect(-s * 0.6, -s * 0.52, s * 1.2, s * 0.16);
+      c.beginPath(); c.arc(s * 0.32, -s * 0.44, s * 0.12, 0, Math.PI * 2); c.fill();
     } else if (id === 'rogue') {
       // #95 a full assassin cowl: it wraps the ENTIRE head and face, leaving only a
       // narrow eye-slit. The bottom edge bulges down past the chin so no skin shows.
