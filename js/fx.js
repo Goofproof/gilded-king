@@ -8,7 +8,9 @@ const Fx = (() => {
   let shakeMag = 0, shakeT = 0, shakeDur = 0;
   let hitstopT = 0;
 
+  const MAX_PARTICLES = 600; // #262 perf: fill-rate ceiling - drop the OLDEST when full
   function burst(x, y, color, n, opts = {}) {
+    if (particles.length + n > MAX_PARTICLES) particles.splice(0, particles.length + n - MAX_PARTICLES);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = (opts.speed || 120) * (0.3 + Math.random());
@@ -129,5 +131,5 @@ const Fx = (() => {
 
   function clear() { particles.length = 0; texts.length = 0; ghosts.length = 0; hitstopT = 0; }
 
-  return { burst, text, ghost, shake, hitstop, update, tickHitstop, getShake, draw, drawGhosts, clear };
+  return { burst, text, ghost, shake, hitstop, update, tickHitstop, getShake, draw, drawGhosts, clear, glowSprite };
 })();

@@ -1,3 +1,25 @@
+## 2026-07-16 (perf: ultracode hunt, tier 1 shipped)
+
+24-agent perf hunt (6 lenses, adversarial verify): 14 confirmed findings, 4
+rejected. Tier 1 shipped (v2.125), all with the verifiers' risk notes honored:
+particle hard cap 600 (drop-oldest, not early-return, so trails never starve);
+fps-independent trail emission at 60fps-parity rates (1/60 homing, 1/51 enchant);
+projectile glow = pre-baked halo sprite for plain bolts (arrows/spin-coins KEEP
+shadowBlur - shape-contoured glow, per verifier); hurt vignette gradient cached,
+pulse rides globalAlpha (alpha reset after - the block has no save/restore);
+Envy shroud pre-rendered once to a 2W x 2H sprite replaying BOTH original passes
+(the 0.97-over-0.97 corner composite preserved); trinket gem baked per color with
+blur-bleed padding; projectile hit tests on squared distance with the worm scan
+hoisted per frame (w.dead re-checked inside - worms die mid-loop); broadcastMobs
+early-out when peers.size 0. Stress bench (same recipe): 1.903 -> 1.393 ms/frame
+(-27%) on the dev box; shadowBlur/gradient wins are larger on integrated GPUs.
+TIER 2 REMAINS (bigger surgery, the verifiers wrote the traps down): drawRoom
+static-layer cache (ambient Fx spawners + door lock state + Date.now obstacles
+must stay live), obstacle glow sprite bakes (flamewall deforms - needs transform
+animation), minimap offscreen cache, HUD static/dynamic text split, particle
+batch-by-color (per-particle alpha problem). Findings archive: the workflow
+output file + this log.
+
 ## 2026-07-16 (evening tweaks: ante/debt, salvage, chain visual)
 
 1. GAMBLER ANTE (Sam): 5 gold per pull, debt floored at -100, gambler-only.

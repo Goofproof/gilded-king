@@ -5100,6 +5100,7 @@
   function broadcastMobs(dt) {
     if (g.huntMode) return; // #242 hunt monsters are local to each player - never broadcast
     if (!g.coop || typeof Net === 'undefined' || !isRunHost() || !Net.connected) return;
+    if (Net.peers && Net.peers.size === 0) return; // #262 nobody is listening - skip the serialization
     g.mobSendT -= dt;
     if (g.mobSendT > 0) return;
     g.mobSendT = 0.066;
@@ -5889,6 +5890,7 @@
   }
 
   function updateProjectiles(dt) {
+    const _worms = g.monsters.filter(w => !w.dead && w.type === 'worm' && w.bodySegs); // #262 hoisted once per frame
     const p = g.player;
     for (let i = g.projectiles.length - 1; i >= 0; i--) {
       const pr = g.projectiles[i];
@@ -5913,9 +5915,13 @@
       }
       pr.x += pr.vx * dt * zeno; pr.y += pr.vy * dt * zeno;
       pr.life -= dt;
-      if (pr.homing !== undefined) Fx.burst(pr.x, pr.y, [pr.color, '#fff'], 1, { speed: 12, life: 0.25, glow: true, size: 2 });
+      // #262 perf: trail emission is TIME-based now (fps-independent, same density
+      // as the old 60fps behavior: homing 60/s, enchant trails ~51/s)
+      pr._trailT = (pr._trailT || 0) + dt;
+      if (pr.homing !== undefined && pr._trailT >= 1 / 60) { pr._trailT = 0; Fx.burst(pr.x, pr.y, [pr.color, '#fff'], 1, { speed: 12, life: 0.25, glow: true, size: 2 }); }
       // enchant trail on player arrows (fire streaks behind a Flame arrow, etc.)
-      if (pr.trail && Math.random() < 0.85) {
+      else if (pr.trail && pr._trailT >= 0.0196) {
+        pr._trailT = 0;
         Fx.burst(pr.x, pr.y, pr.trail, 1, { speed: 18, life: 0.22, glow: pr.glowTrail, size: 2.2 });
       }
       let dead = pr.life <= 0 ||
@@ -5923,6 +5929,7 @@
 
       // obstacle hits (pits are just holes in the floor - projectiles sail over them)
       if (!dead) for (const o of g.room.obstacles) {
+        // (worm hoist for this frame lives just above the projectile loop - #262)
         if (o.kind === 'pit') continue;
         if (Math.hypot(pr.x - o.x, pr.y - o.y) < o.r + pr.r) { dead = true; break; }
       }
@@ -5960,15 +5967,16 @@
         // blocked (consumed) with no damage, so you must thread shots past the body to
         // the head. The head itself (m.x,m.y) is a normal target below.
         let blocked = false;
-        for (const w of g.monsters) {
-          if (w.dead || w.type !== 'worm' || !w.bodySegs) continue;
-          for (const s of w.bodySegs) if (Math.hypot(pr.x - s.x, pr.y - s.y) < s.r + pr.r) { blocked = true; break; }
+        if (_worms.length) for (const w of _worms) { // #262 hoisted: no full monster scan per projectile
+          if (w.dead) continue; // a worm can die mid-loop to an earlier projectile
+          for (const s of w.bodySegs) { const dx = pr.x - s.x, dy = pr.y - s.y, rr = s.r + pr.r; if (dx * dx + dy * dy < rr * rr) { blocked = true; break; } }
           if (blocked) break;
         }
         if (blocked) { Fx.burst(pr.x, pr.y, ['#8fd0a0', '#cfe8b0'], 5, { speed: 70, life: 0.25 }); g.projectiles.splice(i, 1); continue; }
         for (const m of g.monsters) {
           if (m.dead || m.airborne || (pr.hitSet && pr.hitSet.has(m))) continue; // airborne boss can't eat arrows
-          if (Math.hypot(pr.x - m.x, pr.y - m.y) < m.r + pr.r) {
+          const _dx = pr.x - m.x, _dy = pr.y - m.y, _rr = m.r + pr.r; // #262 squared-distance test
+          if (_dx * _dx + _dy * _dy < _rr * _rr) {
             // target-conditional evolution bonuses resolve at impact for arrows
             const P = g.player;
             let dmg = pr.dmg;
@@ -6712,6 +6720,11 @@
           c.beginPath(); c.ellipse(0, 0, pr.r, pr.r * 0.6, 0, 0, Math.PI * 2); c.stroke();
         }
       } else {
+        if (pr.glow) { // #262 perf: pre-baked halo instead of a live blur pass per bolt
+          c.shadowBlur = 0;
+          const _h = pr.r * 2.4;
+          c.drawImage(Fx.glowSprite(pr.color), pr.x - _h, pr.y - _h, _h * 2, _h * 2);
+        }
         c.beginPath(); c.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2); c.fill();
         if (enemy) {
           c.shadowBlur = 0;
@@ -6741,20 +6754,28 @@
     // own white-out below. Envy's sewn-eyes dark shroud is its own look again.
     const visionR = g.rules ? g.rules.vision : Infinity;
     if (visionR !== Infinity && g.player && shroudState) {
+      // #262 perf: the shroud was TWO full-canvas alpha fills + a fresh radial
+      // gradient EVERY frame. Both passes are now replayed once into a 2W x 2H
+      // sprite centered on the player (covers the whole screen from any player
+      // position) and stamped down with a single drawImage.
       const R = visionR;
-      const grad = c.createRadialGradient(g.player.x, g.player.y, R * 0.45, g.player.x, g.player.y, R);
-      grad.addColorStop(0, 'rgba(6,8,8,0)');
-      grad.addColorStop(1, 'rgba(6,8,8,0.97)');
-      c.save();
-      c.fillStyle = grad;
-      c.fillRect(0, 0, W, H);
-      // and the black beyond the falloff, so the corners of the room are simply gone
-      c.fillStyle = 'rgba(6,8,8,0.97)';
-      c.beginPath();
-      c.rect(0, 0, W, H);
-      c.arc(g.player.x, g.player.y, R, 0, Math.PI * 2, true); // punch the lit circle out
-      c.fill();
-      c.restore();
+      if (!g._shroudCv || g._shroudR !== R) {
+        g._shroudR = R;
+        g._shroudCv = document.createElement('canvas');
+        g._shroudCv.width = W * 2; g._shroudCv.height = H * 2;
+        const sc = g._shroudCv.getContext('2d');
+        const grad = sc.createRadialGradient(W, H, R * 0.45, W, H, R);
+        grad.addColorStop(0, 'rgba(6,8,8,0)');
+        grad.addColorStop(1, 'rgba(6,8,8,0.97)');
+        sc.fillStyle = grad;
+        sc.fillRect(0, 0, W * 2, H * 2);
+        sc.fillStyle = 'rgba(6,8,8,0.97)';
+        sc.beginPath();
+        sc.rect(0, 0, W * 2, H * 2);
+        sc.arc(W, H, R, 0, Math.PI * 2, true); // punch the lit circle out
+        sc.fill();
+      }
+      c.drawImage(g._shroudCv, g.player.x - W, g.player.y - H);
     }
     // #238 the FLASHBANG: a searing white-out that sight bleeds back through. Full
     // white for the first beat, then an eased fade - the opposite of the old shroud.
@@ -6779,13 +6800,18 @@
       c.restore();
     }
 
-    // vignette when hurt
+    // vignette when hurt - #262 perf: the gradient is built ONCE (fixed 0.35 outer
+    // stop) and the pulse rides globalAlpha, so no per-frame gradient allocation
     if (g.player && g.player.hp / g.player.maxHp < 0.3) {
-      const grad = c.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.75);
-      grad.addColorStop(0, 'rgba(120,0,0,0)');
-      grad.addColorStop(1, `rgba(120,0,0,${0.25 + Math.sin(Date.now() / 200) * 0.1})`);
-      c.fillStyle = grad;
+      if (!g._hurtGrad) {
+        g._hurtGrad = c.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.75);
+        g._hurtGrad.addColorStop(0, 'rgba(120,0,0,0)');
+        g._hurtGrad.addColorStop(1, 'rgba(120,0,0,0.35)');
+      }
+      c.globalAlpha = (0.25 + Math.sin(Date.now() / 200) * 0.1) / 0.35;
+      c.fillStyle = g._hurtGrad;
       c.fillRect(0, 0, W, H);
+      c.globalAlpha = 1;
     }
 
     UI.drawHUD(c, g);

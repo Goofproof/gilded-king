@@ -10,6 +10,7 @@ const UI = (() => {
 
   // canonical public home of the game (GitHub Pages) - what the share button copies
   const GAME_URL = 'https://goofproof.github.io/barrowlight/';
+  let gemSprites = null; // #262 per-color baked trinket gems
 
   // --- META-PROGRESSION UPGRADES (hub screen; persisted in localStorage) --------
   // Kept deliberately modest so runs live or die on in-run choices.
@@ -415,12 +416,22 @@ const UI = (() => {
     c.strokeRect(x, y, 42, 42);
     if (t) {
       c.translate(x + 21, y + 21);
-      c.shadowColor = t.color; c.shadowBlur = 8;
-      c.fillStyle = t.color;
-      c.beginPath();
-      c.moveTo(0, -11); c.lineTo(9, -3); c.lineTo(5, 10); c.lineTo(-5, 10); c.lineTo(-9, -3);
-      c.closePath(); c.fill();
-      c.shadowBlur = 0;
+      // #262 perf: the glowing gem is baked ONCE per color (the 8px blur bleeds, so
+      // the sprite is padded) instead of a live shadowBlur pass every frame
+      gemSprites = gemSprites || {};
+      let gem = gemSprites[t.color];
+      if (!gem) {
+        gem = document.createElement('canvas'); gem.width = 56; gem.height = 56;
+        const gc = gem.getContext('2d');
+        gc.translate(28, 28);
+        gc.shadowColor = t.color; gc.shadowBlur = 8;
+        gc.fillStyle = t.color;
+        gc.beginPath();
+        gc.moveTo(0, -11); gc.lineTo(9, -3); gc.lineTo(5, 10); gc.lineTo(-5, 10); gc.lineTo(-9, -3);
+        gc.closePath(); gc.fill();
+        gemSprites[t.color] = gem;
+      }
+      c.drawImage(gem, -28, -28);
       c.fillStyle = 'rgba(255,255,255,0.5)';
       c.beginPath(); c.moveTo(0, -11); c.lineTo(9, -3); c.lineTo(0, 0); c.closePath(); c.fill();
     } else {
