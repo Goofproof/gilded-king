@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.100';
+  const VERSION = 'v2.101';
 
   const NOTES = [
+    {
+      v: 'v2.101', title: 'The way down opens for everyone', date: '2026-07-16',
+      sha: '662477e',
+      items: [
+        'Co-op: the portal to the stairs opens for EVERYONE now (#232) - it was host-only; the floor-done flag rides \'roomclear\' and the 5s keyframe heals a missed portal.',
+      ],
+    },
     {
       v: 'v2.100', title: 'Level up like you mean it', date: '2026-07-16',
       sha: '3567f43',
