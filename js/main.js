@@ -261,6 +261,9 @@
     huntSwarmN: 0,               // how many rooms the swarm has consumed (host-clocked, seed-ordered)
     huntSwarmT: 0,               // host: countdown to the next consumption
     huntGraceT: 0,               // spawn grace before anyone can be hurt
+    huntCrownRoom: null,         // #243 the swarm-spared centre room where the King's Champion waits
+    crownedU: null,              // #243 who holds THE CROWN this hunt (uid)
+    huntCueT: 0,                 // #243 throttle for the you-hear-something cue
     // #32 co-op synchronized level-up gate. MONOTONIC busy/done COUNTERS (not
     // level-tags or playerCount, both of which soft-lock; not a reset Set, which
     // wipes an already-arrived signal): each peer sends {lvlbusy} when a pick cycle
@@ -615,6 +618,20 @@
       } else {
         g.monsters = [];
       }
+      // #243 THE KING'S CHAMPION: a gold-clad giant holding the crown, waiting in the
+      // centre room. Yours, instanced - beating it before your opponent beats theirs
+      // is the race that ends most hunts.
+      if (room === g.huntCrownRoom && !room.kingDown && g.crownedU === null) {
+        const K = Monsters.make('tank', 5);
+        K.maxHp = K.hp = Math.round(K.maxHp * 6);
+        K.dmg = Math.round(K.dmg * 1.4);
+        K.r = Math.round(K.r * 1.5);
+        K.elite = true; K.kingGuard = true; K.spawnT = 1.2;
+        K.x = PF.x + PF.w / 2; K.y = PF.y + PF.h / 2;
+        g.monsters.push(K);
+        g.floorBanner = { text: "THE KING'S CHAMPION", t: 3, sub: 'fell him and the crown is yours' };
+        Sfx.play('roar');
+      }
     }
     if ((room.type === 'combat') && !room.spawned) {
       room.spawned = true;
@@ -908,6 +925,16 @@
           if (Math.hypot(o.x - m.x, o.y - m.y) < 90 + o.r) o.takeHit(Math.max(6, Math.round(m.maxHp * 0.15)), { sx: m.x, sy: m.y, knock: 130, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
         }
       }
+    }
+    // #243 the crown is claimed: full heal, a visible power surge, and the whole
+    // floor hears about it - the endgame starts NOW
+    if (m.kingGuard && g.huntMode && !g.crownedU) {
+      g.crownedU = g.clientId;
+      if (g.room) g.room.kingDown = true;
+      p.hp = p.maxHp;
+      const payload = { t: 'crown', w: g.clientId };
+      if (typeof Net !== 'undefined') Net.sendR(payload);
+      applyCrown(payload);
     }
     // #230 DK R12: anything the MIASMA's poison kills rises as the death knight's
     // skeleton for 30 seconds - a rolling wave of the recently dead (cap 6)
@@ -3618,6 +3645,7 @@
     Net.on('round', m => { if (g.coop && g.duelMode) applyRound(m); }); // #240 the host called the round
     Net.on('swarm', m => { if (g.coop && g.huntMode && isCoopGuest()) applySwarm(m); });      // #241
     Net.on('huntend', m => { if (g.coop && g.huntMode && isCoopGuest()) applyHuntEnd(m); });  // #241
+    Net.on('crown', m => { if (g.coop && g.huntMode && m.w !== g.clientId) applyCrown(m); });  // #243
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
@@ -4009,6 +4037,24 @@
       // #242 (Phase 3) rooms stay cleared (doors never seal) but UNSPAWNED - each
       // hunter fights their OWN monsters as they explore
       for (const r of g.dungeon.rooms) { r.visited = true; r.cleared = true; }
+      // #243 the CROWN ROOM: the centre-most room the swarm never touches - THE
+      // GILDED KING'S CHAMPION waits there with the crown. Both hunters' maps mark it.
+      (function () {
+        const rooms = g.dungeon.rooms; let cx = 0, cy = 0;
+        for (const r of rooms) { cx += r.gx; cy += r.gy; }
+        cx /= rooms.length; cy /= rooms.length;
+        // never put the crown in either hunter's SPAWN room - that would gift it
+        const start = rooms.find(r => r.type === 'start') || rooms[0];
+        let far = rooms[0], fd = -1;
+        for (const r of rooms) { const d2 = Math.abs(r.gx - start.gx) + Math.abs(r.gy - start.gy); if (d2 > fd) { fd = d2; far = r; } }
+        let best = null, bd = 1e9;
+        for (const r of rooms) {
+          if (r === start || r === far) continue;
+          const d = Math.hypot(r.gx - cx, r.gy - cy);
+          if (d < bd) { bd = d; best = r; }
+        }
+        g.huntCrownRoom = best || start; g.crownedU = null;
+      })();
       placeHuntSpawn();
       g.floorBanner = { text: 'THE GILDED HUNT', t: 4.5, sub: 'gear up. the swarm is coming. last champion standing.' };
     }
@@ -4520,6 +4566,30 @@
     if (g.huntGraceT > 0) { g.huntGraceT -= dt; g.player.iframes = Math.max(g.player.iframes, 0.25); }
     // the swarm eats whoever lingers in a consumed room - each client drains its OWN
     // champion (it owns its hp), on a tick that outpaces hurt-iframes
+    // #243 the crowned hunter blazes: permanent rage + haste + a golden wake
+    if (g.crownedU === g.clientId && !g.player.dead) {
+      g.player.buffs.rageT = Math.max(g.player.buffs.rageT, 0.5);
+      g.player.buffs.hasteT = Math.max(g.player.buffs.hasteT, 0.5);
+      if (Math.random() < 0.15) Fx.burst(g.player.x, g.player.y + 6, ['#ffd24c', '#fff'], 2, { speed: 40, life: 0.5, glow: true });
+    }
+    // #243 the stalking cue: your opponent moving through an ADJACENT room makes
+    // noise - a whisper at the connecting door every few seconds. Hunt them by ear.
+    g.huntCueT -= dt;
+    if (g.huntCueT <= 0 && g.room) {
+      g.huntCueT = 3;
+      for (const rp of g.remotePlayers.values()) {
+        if (!rp.room || (g.time - (rp.last || 0)) > 3) continue;
+        for (const dk of Object.keys(g.room.doors)) {
+          const n = g.room.doors[dk];
+          if (n && n.gx === rp.room[0] && n.gy === rp.room[1]) {
+            const pp = platePos(dk);
+            const word = { N: 'north', S: 'south', W: 'west', E: 'east' }[dk];
+            Fx.text(pp.x, pp.y - 14, `...something moves to the ${word}...`, '#9aa4b8', 10);
+            break;
+          }
+        }
+      }
+    }
     if (g.room && swarmConsumed(g.room) && !g.player.dead) {
       g._swarmTick = (g._swarmTick || 0) - dt;
       if (g._swarmTick <= 0) {
@@ -4550,6 +4620,17 @@
     Net.sendR(payload);
     applyHuntEnd(payload);
   }
+  // #243 the crown lands: both hunters see it. The crowned one blazes gold and
+  // carries permanent rage + haste; the other now knows exactly what is coming.
+  function applyCrown(m) {
+    g.crownedU = m.w;
+    const mine = m.w === g.clientId;
+    triggerUltFlash(mine ? 'THE CROWN IS YOURS' : 'THE CROWN IS TAKEN', '#ffd24c');
+    g.floorBanner = mine
+      ? { text: 'THE CROWN IS YOURS', t: 4, sub: 'they heard. they know. finish it.' }
+      : { text: 'YOUR OPPONENT WEARS THE CROWN', t: 4, sub: 'fight now or die in the swarm' };
+    Sfx.play('roar'); Fx.shake(8, 0.4);
+  }
   function applySwarm(m) {
     g.huntSwarmN = Math.max(g.huntSwarmN, +m.n || 0);
     g.floorBanner = { text: 'THE SWARM ADVANCES', t: 2.2, sub: `${g.huntSwarmN} room${g.huntSwarmN > 1 ? 's' : ''} consumed - stay ahead of it` };
@@ -4561,8 +4642,10 @@
     triggerUltFlash(iWon ? 'HUNT CHAMPION' : 'HUNTED DOWN', iWon ? '#ffd24c' : '#e05555');
     g.floorBanner = { text: iWon ? 'HUNT CHAMPION' : 'HUNTED DOWN', t: 4.5, sub: 'the hunt begins again' };
     Sfx.play(iWon ? 'levelup' : 'hurt');
-    // run it back: fresh swarm, same ground, back to your corners of the map
+    // run it back: fresh swarm, fresh crown, back to your corners of the map
     g.huntSwarmN = 0; g.huntSwarmT = 0; g._swarmOrd = null; g.huntGraceT = 4;
+    g.crownedU = null;
+    if (g.huntCrownRoom) { g.huntCrownRoom.kingDown = false; g.huntCrownRoom.spawned = false; }
     placeHuntSpawn();
   }
 

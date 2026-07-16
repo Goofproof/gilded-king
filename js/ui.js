@@ -616,6 +616,12 @@ const UI = (() => {
         c.fillStyle = 'rgba(255,40,40,0.75)';
         c.fillRect(x, y, cell, cell);
       }
+      // #243 the crown room: both hunters see where the Champion waits
+      if (g.huntMode && g.huntCrownRoom === r && !g.crownedU) {
+        c.font = `bold ${Math.max(10, Math.round(cell * 0.7))}px monospace`; c.textAlign = 'center';
+        c.fillStyle = '#ffd24c';
+        c.fillText('♛', x + cell / 2, y + cell * 0.78);
+      }
       if (!r.cleared && (r.type === 'combat' || r.type === 'boss')) {
         c.fillStyle = 'rgba(0,0,0,0.35)';
         c.fillRect(x, y, cell, cell);
