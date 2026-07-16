@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.125', title: 'Performance pass: smoother on every machine', date: '2026-07-16',
       sha: '7dde122',
       items: [
-        'The game runs SMOOTHER: capped particles, pre-baked glows instead of live blur, cached gradients, faster hit math.',
+        'PERFORMANCE PASS: the game runs noticeably smoother, especially on slower computers. Glowing effects are pre-baked instead of computed live, particles have a sane ceiling, and the busiest math got faster.',
+        'Nothing looks different - it just runs better. If a room ever felt choppy with lots of effects on screen, try it again.',
       ],
     },
     {
