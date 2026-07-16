@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.123';
+  const VERSION = 'v2.124';
 
   const NOTES = [
+    {
+      v: 'v2.124', title: 'Bottomless debt, X to salvage', date: '2026-07-16',
+      sha: 'b20d3a5',
+      items: [
+        'Gambler debt is BOTTOMLESS now (dig deep enough and a pull does nothing), and Engineers salvage turrets with X - the same key as gear.',
+      ],
+    },
     {
       v: 'v2.123', title: 'The ante, the salvage, and the lightning', date: '2026-07-16',
       sha: '1ded262',
