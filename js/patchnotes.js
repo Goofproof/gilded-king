@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.107';
+  const VERSION = 'v2.108';
 
   const NOTES = [
+    {
+      v: 'v2.108', title: 'THE DUEL: fight your friend for real', date: '2026-07-16',
+      sha: '9c1a6db',
+      items: [
+        'PVP Phase 1: THE DUEL (#240) - lobby toggle, sealed monster-free arena, corner spawns, 3-2-1 countdowns with untouchable fighters, rounds via downs (no revives), host announces with double-KO replays, first to 3 = DUEL CHAMPION, menus are no longer armor in duels.',
+      ],
+    },
     {
       v: 'v2.107', title: 'Your loot is YOURS now', date: '2026-07-16',
       sha: 'b85d0dd',
