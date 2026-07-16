@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.118', title: 'Prime fusions: pure builds get their own trios', date: '2026-07-16',
       sha: '3a45db1',
       items: [
-        'PRIME FUSIONS: doubling up on one stat now forges its own trio - and pure builds rank up twice as fast.',
+        'PRIME FUSIONS: pour everything into ONE stat and the forge honors it - same-stat pairs now have their own trios, and pure builds rank up their fusion TWICE as fast.',
+        'The Warlord (Might x2): GORDIAN CUT, BERSERK, TREBUCHET. The Colossus (Vigor x2): RHINO, STONEWALL, HYDRA. The Wind (Agility x2): ZEPHYR, TAILWIND, SMOKE BOMB.',
+        "The Archmage (Arcane x2): SUPERNOVA, TESLA COIL, EVENT HORIZON. The Tycoon (Fortune x2): JACKPOT, GOLD STANDARD, GOLDEN GOOSE. That's 45 fusions at the forge.",
       ],
     },
     {
