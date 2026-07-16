@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.128', title: 'The flame in the tab', date: '2026-07-16',
       sha: '22e1b1e',
       items: [
-        'Barrowlight has a favicon: a golden flame in the dark - the light you carry into the deep.',
+        'Barrowlight finally has its own tab icon: a golden flame burning in the dark. Carry your light into the deep - and find your tab at a glance.',
       ],
     },
     {
