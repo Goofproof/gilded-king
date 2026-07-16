@@ -240,7 +240,7 @@ const Ach = (() => {
     if (g.run.recentKills.length >= 8) a.flags.multiKill = 1;
     if (m.isBoss) {
       s.bossKills++;
-      a.flags.firstKing = a.flags.firstKing || !m.isDescentBoss;
+      a.flags.firstKing = a.flags.firstKing || (!m.isDescentBoss && !m.forestBoss); // #251
       if (m.isDescentBoss) a.flags.killDescentBoss = 1;
       if (m.variant === 'colossus') a.flags.killColossus = 1;
       if (m.variant === 'matriarch') a.flags.killMatriarch = 1;

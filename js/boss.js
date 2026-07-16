@@ -48,7 +48,10 @@ const Boss = (() => {
       x: PF.x + PF.w / 2, y: PF.y + PF.h * 0.35,
       r: st.r, hp, maxHp: hp, st,
       dmg: Math.round(st.contactDmg * dmgMul), xp: 120, coins: [30, 45],
-      pal, anger: d ? d.anger : 0, dmgMul, isDescentBoss: !!d,
+      pal, anger: d ? d.anger : 0, dmgMul,
+      // #251 the Harpy is a boss but neither King nor Warden - the forest flag keeps
+      // her out of kingSlain, descent essence, mythic rolls and the firstKing accolade
+      isDescentBoss: !!d && !(d && d.forest), forestBoss: !!(d && d.forest),
       facing: 0, state: 'idle', t: 0, telegraph: 0,
       contactCd: 0, burn: null, stagger: 0, flash: 0, kvx: 0, kvy: 0,
       dead: false, spawnT: 0, isBoss: true,
@@ -591,6 +594,56 @@ const Boss = (() => {
     c.beginPath(); c.arc(x1 + ex, y1 + ey, r, 0, Math.PI * 2); c.arc(x2 + ex, y2 + ey, r, 0, Math.PI * 2); c.fill();
   }
   const SKINS = {
+    harpy(b, c) { // #251 the forest's owner: a bird-woman, wings like reaping blades
+      const s = b.r / 20, flash = b.flash > 0;
+      c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r * 1.1, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      const flap = Math.sin(b.t * 3.2);
+      // WINGS: long, thin, swept - fingered primaries so she never reads as a moth
+      for (const side of [-1, 1]) {
+        const ext = b.r * (1.5 + flap * 0.25), lift = b.r * (0.55 + flap * 0.3);
+        c.fillStyle = flash ? '#fff' : b.pal.body;
+        c.beginPath();
+        c.moveTo(side * b.r * 0.25, -b.r * 0.15);
+        c.quadraticCurveTo(side * ext * 0.55, -lift - b.r * 0.5, side * ext, -lift * 0.35);
+        c.lineTo(side * (ext - 6 * s), -lift * 0.35 + 10 * s);
+        c.lineTo(side * (ext - 2 * s), -lift * 0.1);
+        c.lineTo(side * ext * 0.78, -lift * 0.16 + 6 * s);
+        c.lineTo(side * ext * 0.82, lift * 0.08);
+        c.lineTo(side * ext * 0.56, lift * 0.02 + 6 * s);
+        c.quadraticCurveTo(side * b.r * 0.6, b.r * 0.25, side * b.r * 0.2, b.r * 0.2);
+        c.closePath(); c.fill();
+      }
+      // tail fan
+      c.fillStyle = flash ? '#eee' : b.pal.lidLo;
+      c.beginPath(); c.moveTo(0, b.r * 0.3);
+      c.lineTo(-b.r * 0.4, b.r * 1.05); c.lineTo(-b.r * 0.13, b.r * 0.92);
+      c.lineTo(0, b.r * 1.15); c.lineTo(b.r * 0.13, b.r * 0.92);
+      c.lineTo(b.r * 0.4, b.r * 1.05); c.closePath(); c.fill();
+      // talons
+      c.strokeStyle = b.pal.crown; c.lineWidth = 3 * s; c.lineCap = 'round';
+      for (const side of [-1, 1]) {
+        c.beginPath(); c.moveTo(side * b.r * 0.22, b.r * 0.45); c.lineTo(side * b.r * 0.3, b.r * 0.75); c.stroke();
+        for (let t = -1; t <= 1; t++) { c.beginPath(); c.moveTo(side * b.r * 0.3, b.r * 0.75); c.lineTo(side * b.r * 0.3 + t * 5 * s, b.r * 0.88); c.stroke(); }
+      }
+      // torso + feather ruff
+      c.fillStyle = flash ? '#fff' : b.pal.lid;
+      c.beginPath(); c.ellipse(0, 0, b.r * 0.42, b.r * 0.62, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#eee' : b.pal.lidLo;
+      c.beginPath(); c.ellipse(0, b.r * 0.18, b.r * 0.34, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();
+      // the face is a woman's; the hair streams like the wind owns it
+      c.fillStyle = flash ? '#fff' : '#d8c8a8';
+      c.beginPath(); c.arc(0, -b.r * 0.6, b.r * 0.26, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#eee' : b.pal.body;
+      c.beginPath(); c.moveTo(-b.r * 0.26, -b.r * 0.72);
+      c.quadraticCurveTo(0, -b.r * 1.05, b.r * 0.26, -b.r * 0.72);
+      c.quadraticCurveTo(b.r * 0.55, -b.r * 0.55, b.r * 0.7, -b.r * 0.2);
+      c.quadraticCurveTo(b.r * 0.3, -b.r * 0.45, b.r * 0.2, -b.r * 0.5);
+      c.quadraticCurveTo(0, -b.r * 0.9, -b.r * 0.2, -b.r * 0.5);
+      c.quadraticCurveTo(-b.r * 0.3, -b.r * 0.45, -b.r * 0.7, -b.r * 0.2);
+      c.quadraticCurveTo(-b.r * 0.55, -b.r * 0.55, -b.r * 0.26, -b.r * 0.72);
+      c.fill();
+      bossEyes(b, c, -b.r * 0.09, -b.r * 0.62, b.r * 0.09, -b.r * 0.62, 2.6 * s, b.pal.trim);
+    },
     charon(b, c) { // the hooded ferryman, oar in hand
       const s = b.r / 20, flash = b.flash > 0;
       c.fillStyle = 'rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(0, b.r * 0.9, b.r, b.r * 0.3, 0, 0, Math.PI * 2); c.fill();

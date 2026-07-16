@@ -140,7 +140,7 @@ const Dungeon = (() => {
     // Warden floor in the Descent; every other floor ends in stairs down.
     // THE EMPYREAN (floor 31) is ALWAYS a boss floor, whatever the Warden cadence
     // says: it is the last castle at the end of the book, and the King is in it.
-    const bossFloor = floorNum === 3 ||
+    const bossFloor = floorNum === 1 || floorNum === 3 || // #251 the Harpy owns floor 1
       (typeof Paradiso !== 'undefined' && Paradiso.inEmpyrean(floorNum)) ||
       (typeof Descent !== 'undefined' && Descent.isBossFloor(floorNum));
     claim(bossFloor ? 'boss' : 'stairs');

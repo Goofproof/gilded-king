@@ -36,12 +36,14 @@ describe('Dungeon.generateFloor', () => {
     }
   });
 
-  it('floor 3 has a boss room; other early floors end in stairs', () => {
+  it('floors 1 (the Harpy, #251) and 3 (the King) have boss rooms; floor 2 ends in stairs', () => {
     const f3 = Dungeon.generateFloor(3, 5);
     expect(f3.rooms.some(r => r.type === 'boss')).toBe(true);
     const f1 = Dungeon.generateFloor(1, 5);
-    expect(f1.rooms.some(r => r.type === 'stairs')).toBe(true);
-    expect(f1.rooms.some(r => r.type === 'boss')).toBe(false);
+    expect(f1.rooms.some(r => r.type === 'boss')).toBe(true);
+    const f2 = Dungeon.generateFloor(2, 5);
+    expect(f2.rooms.some(r => r.type === 'stairs')).toBe(true);
+    expect(f2.rooms.some(r => r.type === 'boss')).toBe(false);
   });
 
   it('every room is reachable from start (connected graph)', () => {
