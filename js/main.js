@@ -1101,13 +1101,17 @@
       const ALARM_FLAVOR = { 2: 'The dungeon stirs...', 4: 'The dungeon is on alert', 6: 'The dungeon hunts you' };
       if (ALARM_FLAVOR[g.alarm]) Fx.text(W / 2, H / 2 - 36, ALARM_FLAVOR[g.alarm], '#ff8a3d', 14);
       // P1-D: guests never run onKill/checkRoomCleared - tell them the room cleared so
-      // their coins vacuum and their doors unseal
-      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum, al: g.alarm }); // #216 floor-stamped + carries the alarm
-      if (g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0) {
+      // their coins vacuum and their doors unseal. #232 (Sam, live playtest): the
+      // message also says whether this clear FINISHED the floor, so the guest opens
+      // the same portal - before this, only the host could see the way down.
+      const floorDone = g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0;
+      const bossNext = floorDone && (g.floorNum === 3 ||
+        (typeof Descent !== 'undefined' && Descent.isBossFloor(g.floorNum)));
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum, al: g.alarm, pt: floorDone ? 1 : 0, pb: bossNext ? 1 : 0 }); // #216/#232
+      if (floorDone) {
         // this floor has a boss only on floor 3 (the King) and on Circle Warden
         // floors in the Descent; every other floor ends in a stairs portal.
-        const hasBoss = g.floorNum === 3 ||
-          (typeof Descent !== 'undefined' && Descent.isBossFloor(g.floorNum));
+        const hasBoss = bossNext;
         if (hasBoss) {
           openPortal(); // #21: skip the long trek - a portal to the boss's doorstep opens
           Fx.text(W / 2, H / 2 - 30, 'THE BOSS DOOR OPENS...', '#ffd24c', 15);
@@ -3577,6 +3581,18 @@
       if (g.room && g.room.gx === m.gx && g.room.gy === m.gy) {
         vacuumPickups(); Sfx.play('unlock'); Fx.text(W / 2, H / 2 - 60, 'ROOM CLEARED', '#6ee7a0', 18);
       }
+      // #232 the floor is DONE: the guest opens the same portal the host just did,
+      // in the same room (the room this clear happened in)
+      if (m.pt && room && !g.portal) {
+        g.portal = { room, x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, t: 0 };
+        if (room === g.room) {
+          Fx.burst(g.portal.x, g.portal.y, ['#4cc9a8', '#b88aff', '#fff'], 26, { speed: 160, life: 0.8, glow: true });
+          Fx.text(W / 2, H / 2 - 30, m.pb ? 'THE BOSS DOOR OPENS...' : 'A PORTAL TO THE STAIRS OPENS', m.pb ? '#ffd24c' : '#4cc9a8', 15);
+        } else {
+          Fx.text(W / 2, H / 2 - 30, m.pb ? 'THE BOSS DOOR OPENS...' : 'A PORTAL OPENS BEHIND YOU', '#4cc9a8', 14);
+        }
+        Sfx.play('stairs');
+      }
     });
     // #221 (Phase C) the keyframe lands: re-converge the durable floor state. Applied
     // SILENTLY (no fx) - if nothing diverged, nothing visibly happens.
@@ -3597,6 +3613,11 @@
       }
       g.keyFloorMiss = 0;
       if (m.al !== undefined) g.alarm = m.al;
+      // #232 a guest that missed the portal event (blip, late join) heals it here
+      if (m.pt && !g.portal) {
+        const proom = g.dungeon.rooms.find(r => r.gx === m.pt.gx && r.gy === m.pt.gy);
+        if (proom) g.portal = { room: proom, x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, t: 0 };
+      }
       for (const rs of m.rooms || []) {
         const room = g.dungeon.rooms.find(r => r.gx === rs.gx && r.gy === rs.gy);
         if (!room) continue;
@@ -4390,7 +4411,8 @@
       const tc = (r.trapChest && r.trapChest.opened) ? 1 : 0;
       if (r.cleared || tc || mi) rooms.push({ gx: r.gx, gy: r.gy, cl: r.cleared ? 1 : 0, tc, mi });
     }
-    Net.send({ t: 'key', fl: g.floorNum, al: g.alarm, nm: g.floorNightmare ? 1 : 0, rooms });
+    Net.send({ t: 'key', fl: g.floorNum, al: g.alarm, nm: g.floorNightmare ? 1 : 0, rooms,
+      pt: g.portal && g.portal.room ? { gx: g.portal.room.gx, gy: g.portal.room.gy } : 0 }); // #232 the portal self-heals
   }
 
     // host: broadcast a compact snapshot of every monster (~15 Hz)
