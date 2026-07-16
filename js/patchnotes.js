@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.125';
+  const VERSION = 'v2.126';
 
   const NOTES = [
+    {
+      v: 'v2.126', title: 'Performance pass 2: the big one', date: '2026-07-16',
+      sha: '1ba5318',
+      items: [
+        'Rooms draw from a snapshot now: the whole static dungeon paints once per room instead of every frame, the minimap remembers itself, and tiny particles got cheaper.',
+      ],
+    },
     {
       v: 'v2.125', title: 'Performance pass: smoother on every machine', date: '2026-07-16',
       sha: '7dde122',
