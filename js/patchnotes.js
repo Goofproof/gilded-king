@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.112', title: 'The game has a true name: BARROWLIGHT', date: '2026-07-16',
       sha: '40a3930',
       items: [
-        'THE GAME IS BARROWLIGHT (#244) - new title screen, tab title and share headline (the old name also spoiled the King); the floor-rule intro card is CONTRAPASSO now, tightened to one line per rule (#245), and the active rules stay pinned under the minimap for the whole floor so nobody wonders why it is dark or windy.',
+        'This game has a new name, and its designer chose it: BARROWLIGHT. A barrow is an old word for a grave-mound, so the name means light carried into the grave - which is the whole game: down into the dark, through the very bottom, and back out to the stars. (It also stops the title from spoiling a certain King before you meet him.)',
+        'The floor-rule announcements got a proper name too: CONTRAPASSO. It is Dante\'s word for a punishment that mirrors the sin, which is exactly what every floor\'s rules are. The intro card is now short enough to actually read: one line per rule.',
+        'And you will never again forget what the floor is doing to you: the active rules stay pinned under the minimap for the entire floor, in their own colors. Dark room? Wind shoving you? Glance at the top right corner - the answer is always there.',
       ],
     },
     {
