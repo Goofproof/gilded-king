@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.114';
+  const VERSION = 'v2.115';
 
   const NOTES = [
+    {
+      v: 'v2.115', title: 'FUSION ABILITIES arrive: forge your R from three named powers', date: '2026-07-16',
+      sha: 'af557c2',
+      items: [
+        'FUSION ABILITIES: your first two evolutions now forge a choice of three NAMED powers that grow with your stats forever.',
+      ],
+    },
     {
       v: 'v2.114', title: 'New address: barrowlight', date: '2026-07-16',
       sha: 'e857e8d',
