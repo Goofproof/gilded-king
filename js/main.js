@@ -5322,10 +5322,12 @@
           p.damage(pr.dmg, pr.x - pr.vx * 0.01, pr.y - pr.vy * 0.01, g, pr.owner); // #144 thorns bite the shooter
           // #179 (Sam) a glue blob GUMS you up: heavy slow for a couple of seconds
           if (pr.glue) { p.slowT = 2.2; p.slowMul = 0.55; if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - 30, 'GLUED', '#cdbf49', 12); }
-          // #182 (Sam) a glass FLASH-bolt sews your eyes shut for 2s, Envy-style
+          // #182/#238 (Sam) a glass FLASH-bolt: a true FLASHBANG - the screen whites
+          // out and sight bleeds back over 2s (render in drawGame)
           if (pr.blind) {
             p.blindT = 2.0;
-            if (typeof Fx !== 'undefined') Fx.text(p.x, p.y - 30, 'BLINDED', '#ffffff', 13);
+            if (typeof Fx !== 'undefined') { Fx.text(p.x, p.y - 30, 'FLASHED', '#ffffff', 13); Fx.shake(6, 0.25); }
+            Sfx.play('explode');
           }
           // #180 (Sam) an icicle FREEZES you solid for a beat (i-frames stop chain-freezing)
           if (pr.freeze) {
@@ -5981,10 +5983,9 @@
     // half-transparent menu - free wallhacks on the blind terrace.
     const shroudState = g.state === 'play' || g.state === 'levelup' || g.state === 'evolution' ||
       g.state === 'ultpick' || g.state === 'rpick' || g.state === 'levelwait' || g.state === 'pause' || g.state === 'charsheet';
-    // #182 (Sam) the glass mob's flash-blind uses the SAME sewn-eyes shroud as Envy,
-    // just temporary: whichever vision radius is smaller wins.
-    const blindR = (g.player && g.player.blindT > 0) ? 150 : Infinity;
-    const visionR = Math.min(g.rules ? g.rules.vision : Infinity, blindR);
+    // #238 (Sam) the glass mob's blind is a FLASHBANG now, not darkness - it gets its
+    // own white-out below. Envy's sewn-eyes dark shroud is its own look again.
+    const visionR = g.rules ? g.rules.vision : Infinity;
     if (visionR !== Infinity && g.player && shroudState) {
       const R = visionR;
       const grad = c.createRadialGradient(g.player.x, g.player.y, R * 0.45, g.player.x, g.player.y, R);
@@ -5999,6 +6000,15 @@
       c.rect(0, 0, W, H);
       c.arc(g.player.x, g.player.y, R, 0, Math.PI * 2, true); // punch the lit circle out
       c.fill();
+      c.restore();
+    }
+    // #238 the FLASHBANG: a searing white-out that sight bleeds back through. Full
+    // white for the first beat, then an eased fade - the opposite of the old shroud.
+    if (g.player && g.player.blindT > 0 && shroudState) {
+      const a = 0.98 * Math.pow(Math.min(1, g.player.blindT / 1.5), 1.5);
+      c.save();
+      c.fillStyle = `rgba(255,252,235,${a.toFixed(3)})`;
+      c.fillRect(0, 0, W, H);
       c.restore();
     }
 
