@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.101', title: 'The way down opens for everyone', date: '2026-07-16',
       sha: '662477e',
       items: [
-        'Co-op: the portal to the stairs opens for EVERYONE now (#232) - it was host-only; the floor-done flag rides \'roomclear\' and the 5s keyframe heals a missed portal.',
+        'Quick co-op fix from tonight\'s playtest: when the floor is cleared, the portal to the stairs now opens on BOTH screens. It was only appearing for the host, leaving the second player staring at an empty room while their partner walked into thin air. If it opens in a room you are not standing in, you get a message telling you where it is.',
+        'And thanks to the self-healing system, even if the portal message gets lost in a WiFi blip, it shows up within a few seconds anyway.',
       ],
     },
     {
