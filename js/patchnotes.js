@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.115';
+  const VERSION = 'v2.116';
 
   const NOTES = [
+    {
+      v: 'v2.116', title: 'Fusion wave 2: the Tempest, the Spellblade and the Phantom', date: '2026-07-16',
+      sha: '3d12f20',
+      items: [
+        'FUSION WAVE 2: nine more forge powers - TYPHOON, ACHILLES, PARTHIAN SHOT, EXCALIBUR, MJOLNIR, PROMETHEUS, HERMES, QUICKSILVER and MIRAGE.',
+      ],
+    },
     {
       v: 'v2.115', title: 'FUSION ABILITIES arrive: forge your R from three named powers', date: '2026-07-16',
       sha: 'af557c2',
