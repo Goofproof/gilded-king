@@ -1,5 +1,14 @@
 # PVP Roadmap: The Gilded Hunt
 
+## STATUS: ALL PHASES SHIPPED (overnight build, 2026-07-16)
+Phase 0 friendly fire v2.93 | Phase 1 THE DUEL v2.108 | Phase 2 THE GILDED HUNT
+battle royale v2.109 | Phase 3 instanced monsters v2.110 | Phase 4 THE CROWN +
+stalking cues v2.111. Every phase live-verified in the two-tab relay harness before
+shipping. Architecture note: Phase 3 used per-player INSTANCED monsters (see
+DECISIONS-LOG 2026-07-16) instead of the multi-room host sim - zero sync surface;
+the room-as-authority split remains the upgrade path if shared-room monster combat
+is ever wanted.
+
 REFRAME (Sam, 2026-07-15): battle royale, not extraction. "Since there is nothing to
 extract per se, this is more like a battle royale, fortnite style." This SIMPLIFIES
 Phase 2: no extract portals, no stash/satchel economy. Random spawns + gear up +
