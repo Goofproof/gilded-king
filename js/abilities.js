@@ -309,7 +309,65 @@ const Abilities = (() => {
   // share ONE kind (e.g. all novas). Now we deliberately spread the offer across
   // DISTINCT kinds (nova / dash / strike / buff / heal) so every choice feels
   // different - A and B still seed every option as its action or its modifier.
-  function rOptions(hist) {
+
+  // ==========================================================================
+  // #252 FUSION v2 (FUSION-DESIGN.md) - the pair of BASE stats behind your first
+  // two evolutions selects a named trio: STRIKE / STANCE / TRICK. Each fusion
+  // carries a POWER RANK = combined points in its two governing stats, scaled at
+  // cast time in castAbility with the Q_TUNE recipe (per-rank channels + %-of-
+  // target riders). Pairs not in this table fall back to the legacy grid below
+  // (waves 2-3 fill them in).
+  const FUSIONS = {
+    'MIGHT+VIGOR': [ // the Immovable
+      { name: 'ATLAS', role: 'STRIKE', kind: 'nova', color: '#8fb7ff', dmg: 90, radius: 180, knock: 260, castShield: true, allyShield: true, fRider: true, cdMax: 9,
+        pp: { dmg: 0.05, radius: 3 }, desc: 'Slam the ground: a heavy blast, and every ally caught in it gains a shield charge.' },
+      { name: 'AJAX', role: 'STANCE', kind: 'fstance', stance: 'ajax', color: '#c9d6ff', dur: 5, reduce: 0.5, thorns: 10, cleave: true, cdMax: 14,
+        pp: { thorns: 2, dur: 0.1 }, desc: 'Raise the tower shield: take half damage, sting attackers, and your swings cleave all around you.' },
+      { name: 'ANTAEUS', role: 'TRICK', kind: 'froot', color: '#a9744f', dur: 3, regen: 8, burstCap: 220, cdMax: 12,
+        pp: { regen: 1.2, burstCap: 20 }, desc: 'Root into the earth: regenerate fast, store the damage you take, then release it all as a burst.' },
+    ],
+    'AGILITY+VIGOR': [ // the Survivor
+      { name: 'SECOND WIND', role: 'TRICK', kind: 'heal', color: '#6ee7a0', heal: 0.3, radius: 200, hasteAfter: 3, refundRoll: true, cdMax: 11,
+        pp: { heal: 0.015 }, desc: 'Catch your breath: heal yourself and nearby allies, gain haste, and your roll comes back instantly.' },
+      { name: 'MARATHON', role: 'STANCE', kind: 'fstance', stance: 'marathon', color: '#7fd4ff', dur: 6, regen: 4, cdMax: 14,
+        pp: { regen: 0.8, dur: 0.12 }, desc: 'Run: speed builds every second and you heal while moving - reach full stride for a burst heal.' },
+      { name: 'HOUDINI', role: 'STRIKE', kind: 'fvanish', color: '#b6c0d0', dur: 1.2, cdMax: 12,
+        pp: { dur: 0.04 }, desc: 'Vanish: untouchable, shed every poison and slow, and your reappearance chills everything near you.' },
+    ],
+    'FORTUNE+VIGOR': [ // the Treasurer
+      { name: 'BLOOD MONEY', role: 'STRIKE', kind: 'nova', color: '#e05555', dmg: 60, radius: 175, knock: 160, missingHp: 1.2, coinPerHit: 2, fRider: true, cdMax: 10,
+        pp: { dmg: 0.04, radius: 3 }, desc: 'A blast that hits harder the more hurt you are - and every enemy struck pays a coin bounty.' },
+      { name: 'FORT KNOX', role: 'STANCE', kind: 'fstance', stance: 'fortknox', color: '#ffd24c', dur: 6, goldArmorCap: 0.5, cdMax: 15,
+        pp: { dur: 0.12 }, desc: 'Your gold is your armor: damage reduction scales with the coins you hold.' },
+      { name: 'GOLDEN FLEECE', role: 'TRICK', kind: 'ffleece', color: '#ffe08a', charges: 2, mint: 6, cdMax: 16,
+        pp: { charges: 0.15, mint: 0.5 }, desc: 'A shield that MINTS: every hit it eats pays out gold.' },
+    ],
+  };
+  // the two evolutions' BASE stats, normalized to a sorted pair key (or null when
+  // both picks share a school - Prime doubles keep the legacy amplified action)
+  // NOTE: Evolutions.STAT_SCHOOL predates the 5-stat redesign (it still says FLOW),
+  // so the pair comes from the schools recorded at evolution time; this local map is
+  // only the fallback for old saves / tests that pass no schools.
+  const FUSION_SCHOOL = { dmg: 'MIGHT', crit: 'MIGHT', atkspd: 'AGILITY', hp: 'VIGOR', regen: 'VIGOR', roll: 'AGILITY', spd: 'AGILITY', coin: 'FORTUNE', magic: 'ARCANE' };
+  function fusionPairKey(hist, schools) {
+    const a = (schools && schools[0]) || FUSION_SCHOOL[hist[0]];
+    const b = (schools && schools[1]) || FUSION_SCHOOL[hist[1]];
+    if (!a || !b || a === b) return null;
+    const stats = [a, b].sort();
+    return { key: stats.join('+'), stats };
+  }
+  function fusionRank(sp, stats) { return ((sp && sp[stats[0]]) | 0) + ((sp && sp[stats[1]]) | 0); }
+  function buildFusion(e, stats) {
+    const a = Object.assign({ cd: 0 }, e);
+    a.fusion = true; a.fusionStats = stats.slice(); a.verb = e.name;
+    a.desc = `${e.role} \u00b7 ${e.desc} Grows with your ${stats[0]} + ${stats[1]} points.`;
+    return a;
+  }
+
+  function rOptions(hist, schools) {
+    // #252 a mapped base-stat pair offers its named trio instead of the legacy grid
+    const fp = fusionPairKey(hist, schools);
+    if (fp && FUSIONS[fp.key]) return FUSIONS[fp.key].map(e => buildFusion(e, fp.stats));
     const A = hist[0], B = hist[1];
     // action-varying seeds first (the action = first stat sets the KIND), so the
     // picker can find different kinds; each still pairs against one of the player's
@@ -333,5 +391,5 @@ const Abilities = (() => {
     return out;
   }
 
-  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES, Q_TUNE, Q_MILESTONES, qRank };
+  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES, Q_TUNE, Q_MILESTONES, qRank, FUSIONS, fusionRank };
 })();

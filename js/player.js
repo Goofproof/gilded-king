@@ -848,8 +848,13 @@ const PlayerDef = (() => {
 
     // record which stat an evolution belonged to; the first two intermingle
     // into the Q ability (see abilities.js). Called after applyEvolution.
-    recordEvoPick(statKey) {
+    recordEvoPick(statKey, school) {
       this.evoHistory.push(statKey);
+      // #252 the evolution's BASE stat (MIGHT/VIGOR/AGILITY/ARCANE/FORTUNE) - the
+      // fusion pair is made of THESE, not the fine keys (whose STAT_SCHOOL map
+      // predates the 5-stat redesign and still says FLOW)
+      this.evoSchools = this.evoSchools || [];
+      if (school) this.evoSchools.push(school);
       this.evoCount++;
       // Q is the class ability. Your first two EVOLUTIONS forge R - but as a CHOICE of
       // three (#84), opened from applyEvolutionChoice, not auto-built here. The ULTIMATE
@@ -1053,6 +1058,11 @@ const PlayerDef = (() => {
       // shield charm eats the whole hit
       if (this.buffs.shield > 0) {
         this.buffs.shield--;
+        // #252 GOLDEN FLEECE: the shield MINTS - every hit it eats pays out gold
+        if (this.fleeceT > 0 && this.fleeceMint) {
+          this.coins += this.fleeceMint;
+          Fx.text(this.x, this.y - 42, `+${this.fleeceMint} FLEECE`, '#ffe08a', 12);
+        }
         this.iframes = 0.5;
         Sfx.play('hit');
         Fx.text(this.x, this.y - 26, 'SHIELDED', '#7fd4ff', 14);
@@ -1061,8 +1071,13 @@ const PlayerDef = (() => {
       }
       // damage reduction from armor + evolutions (capped so nothing is free)
       // #156 the druid's form folds in here: Bear is armoured, Wolf and Owl are not.
-      const reduce = Math.min(0.6, this.mod('reduce') + ((this.form && this.form.reduce) || 0));
+      let reduce = Math.min(0.6, this.mod('reduce') + ((this.form && this.form.reduce) || 0));
+      // #252 fusion stances stack on top, total capped so nothing is ever free
+      if (this.fstance) reduce = Math.min(0.8, reduce + (this.fstance.reduce || 0)
+        + (this.fstance.goldArmorCap ? Math.min(this.fstance.goldArmorCap, this.coins / 600) : 0));
       dmg = dmg * (1 - reduce);
+      // #252 ANTAEUS: while rooted, the earth remembers what hit you
+      if (this.rootT > 0) this.rootStore = Math.min(this.rootCap || 220, (this.rootStore || 0) + dmg);
 
       // #156 DEATH KNIGHT - LIFE AFTER DEATH. The rune eats the killing blow: you are
       // left on 1 HP instead of dying, once per cast, and the room pays for it. Checked
@@ -1092,8 +1107,9 @@ const PlayerDef = (() => {
       // thorns bite back at whoever hit you - #144: a ranged shooter too, not just a
       // melee toucher (src is the projectile's owner). A spark at the source sells the
       // reprisal when the shooter is across the room.
-      if (src && !src.dead && this.mod('thorns')) {
-        src.takeHit(this.mod('thorns'), { sx: this.x, sy: this.y, fromPlayer: true }, g);
+      const _thorns = this.mod('thorns') + ((this.fstance && this.fstance.thorns) || 0); // #252 AJAX
+      if (src && !src.dead && _thorns) {
+        src.takeHit(_thorns, { sx: this.x, sy: this.y, fromPlayer: true }, g);
         if (Math.hypot(src.x - this.x, src.y - this.y) > this.r + 40) {
           Fx.burst(src.x, src.y, ['#7CFC6B', '#d8ffcf'], 6, { speed: 90, life: 0.3, glow: true, size: 2.4 });
         }
@@ -1192,6 +1208,43 @@ const PlayerDef = (() => {
       if (this.buffs.undyingT > 0) this.buffs.undyingT -= dt; // #156
       if (this.buffs.rageT > 0) this.buffs.rageT -= dt;
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
+      // #252 FUSION timers ------------------------------------------------------
+      if (this.fleeceT > 0) this.fleeceT -= dt;
+      if (this.fstance) {
+        const fs = this.fstance; fs.t -= dt;
+        if (fs.id === 'marathon') {
+          // continuous trickle: heal() rounds per-call (0.2/frame -> 0), so add
+          // straight to hp exactly like the stats.regen tick does
+          if (this.moving) { fs.ramp = Math.min(6, fs.ramp + dt); this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt); }
+          if (fs.ramp >= 6 && !fs.healed) { fs.healed = true; this.heal(this.maxHp * 0.15); Fx.text(this.x, this.y - 44, 'FULL STRIDE', '#7fd4ff', 14); }
+        }
+        if (fs.t <= 0) this.fstance = null;
+      }
+      if (this.rootT > 0) {
+        this.rootT -= dt;
+        this.hp = Math.min(this.maxHp, this.hp + (this.rootRegen || 8) * dt); // continuous - heal() would round to 0
+        if (this.rootT <= 0) { // ANTAEUS: the earth pays back what it absorbed
+          const burst = Math.round(this.rootStore || 0);
+          if (burst > 0 && g && g.monsters) {
+            for (const m of g.monsters) {
+              if (m.dead || m.airborne || m.spawnT > 0) continue;
+              if (Math.hypot(m.x - this.x, m.y - this.y) > 200 + m.r) continue;
+              m.takeHit(burst, { sx: this.x, sy: this.y, knock: 260, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+            }
+            Fx.text(this.x, this.y - 44, `ANTAEUS ${burst}`, '#a9744f', 14);
+          }
+          Fx.burst(this.x, this.y, ['#a9744f', '#ffd24c'], 30, { speed: 280, life: 0.6, glow: true });
+          this.rootStore = 0;
+        }
+      }
+      if (this._houdini && this.invisT <= 0) { // HOUDINI reappears: a chilling flourish
+        this._houdini = false;
+        if (g && g.monsters) for (const m of g.monsters) {
+          if (m.dead || m.spawnT > 0) continue;
+          if (Math.hypot(m.x - this.x, m.y - this.y) < 160) { m.chillT = Math.max(m.chillT || 0, 2); m.chillMul = 0.5; }
+        }
+        Fx.burst(this.x, this.y, ['#b6c0d0', '#7fd4ff'], 22, { speed: 220, life: 0.5, glow: true });
+      }
       if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
       if (this.fireImmuneT > 0) this.fireImmuneT -= dt; // #229 pyro R8
       const _cdTick = dt * (_isCaster ? Math.max(1, _asf) : 1); // #247 caster CDR
@@ -1328,7 +1381,9 @@ const PlayerDef = (() => {
         // Fold it back in here, so a gentle push is a walk and a full push is a sprint.
         const stickMag = input.stick ? input.stick.mag : 1;
         const glue = this.slowT > 0 ? (this.slowMul || 1) : 1; // #179 glued feet
-        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul * stickMag * glue;
+        // #252 MARATHON builds stride while moving; ANTAEUS roots you to the spot
+        const fBonus = (this.fstance && this.fstance.id === 'marathon') ? 1 + Math.min(0.36, this.fstance.ramp * 0.06) : 1;
+        const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul * stickMag * glue * fBonus * (this.rootT > 0 ? 0 : 1);
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
         // roll trigger. THE WEIGHT (Pride, on the mountain) takes the dodge away
@@ -1477,7 +1532,7 @@ const PlayerDef = (() => {
         t: 0, windup,
         dur: windup + 0.18,
         dir: this.facing,
-        arc: w.arc, range: w.range,
+        arc: (this.fstance && this.fstance.cleave) ? Math.PI * 2 : w.arc, range: w.range, // #252 AJAX cleaves the full circle
         fired: windup === 0 ? false : false,
         side: (this.lastSide = -(this.lastSide || 1)), // light alternates swing side
         heavy: w.archetype === 'heavy',

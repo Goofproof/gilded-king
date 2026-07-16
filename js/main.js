@@ -2208,6 +2208,26 @@
       // #227 (Q wave 1) MIGHT milestones that act at cast time
       if (cls === 'warrior' && rank >= 8 && a.knock) a.knock *= 2; // R8: the shove DOUBLES
     }
+    // #252 FUSION v2 scaling: an R fusion grows with POWER RANK = the combined points
+    // in its two governing stats - the Q_TUNE recipe (per-rank channels, %-of-target
+    // riders at the hit sites, hard caps on economy channels so PVP can't be farmed).
+    let _fScaled = null;
+    if (a.fusion && a === p.abilityR && typeof Abilities !== 'undefined' && Abilities.fusionRank) {
+      const fRank = Abilities.fusionRank(p.statPoints, a.fusionStats);
+      a._rank = fRank;
+      const fpp = a.pp || {};
+      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider };
+      if (a.fRider) a.qRider = 0.06; // +6% of each target's max HP (bosses 1/3) - the hit sites already honour it
+      if (fpp.dmg && a.dmg) a.dmg = Math.round(a.dmg * (1 + fpp.dmg * fRank));
+      if (fpp.radius && a.radius) a.radius = Math.round(a.radius + fpp.radius * fRank);
+      if (fpp.heal && a.heal) a.heal = Math.min(0.9, a.heal + fpp.heal * fRank);
+      if (fpp.dur && a.dur) a.dur = +(a.dur + fpp.dur * fRank).toFixed(2);
+      if (fpp.thorns && a.thorns) a.thorns = Math.round(a.thorns + fpp.thorns * fRank);
+      if (fpp.regen && a.regen) a.regen = +(a.regen + fpp.regen * fRank).toFixed(1);
+      if (fpp.charges && a.charges) a.charges = Math.min(6, Math.round(a.charges + fpp.charges * fRank));
+      if (fpp.mint && a.mint) a.mint = Math.min(20, Math.round(a.mint + fpp.mint * fRank));
+      if (fpp.burstCap && a.burstCap) a.burstCap = Math.round(a.burstCap + fpp.burstCap * fRank);
+    }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
       // #228 rogue R8 SHADOWSTEP: cast at range and you step BEHIND the nearest
@@ -2225,6 +2245,8 @@
       let qKills = 0;
       let dmg = (a.dmg || 60) * dmgMul;
       if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
+      if (a.missingHp) dmg += Math.round((p.maxHp - p.hp) * a.missingHp); // #252 BLOOD MONEY
+      let fHits = 0;
       const R = a.radius || 150;
       Fx.burst(p.x, p.y, [a.color, '#fff'], 34, { speed: 340, life: 0.5, glow: true });
       Fx.shake(6, 0.22);
@@ -2238,6 +2260,21 @@
         m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
         if (_qGates && _qGates.cls === 'mage' && _qGates.rank >= 12 && !m.dead) { m.chillT = Math.max(m.chillT || 0, 2.5); m.chillMul = 0.5; } // #229 R12: everything hit is CHILLED
         if (m.dead) qKills++;
+        fHits++;
+      }
+      // #252 BLOOD MONEY: every enemy struck pays a bounty (hard-capped, PVP-safe)
+      if (a.coinPerHit && fHits) {
+        const pay = Math.min(24, fHits * a.coinPerHit);
+        p.coins += pay;
+        Fx.text(p.x, p.y - 46, `+${pay} BOUNTY`, '#ffce54', 13);
+      }
+      // #252 ATLAS: allies caught in the slam gain a shield charge (their client owns
+      // their buffs - send it, they apply it, mirror of the 'pheal' flow)
+      if (a.allyShield && g.coop && typeof Net !== 'undefined' && Net.connected) {
+        for (const [id, rp] of g.remotePlayers) {
+          if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+          if (Math.hypot(rp.x - p.x, rp.y - p.y) < R) Net.sendR({ t: 'fshield', to: id });
+        }
       }
       // #229 mage: R4 the nova leaves a 2s SLOW FIELD; R8 a second, smaller pulse
       if (_qGates && _qGates.cls === 'mage') {
@@ -2345,6 +2382,25 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
+    } else if (a.kind === 'fstance') { // #252 AJAX / MARATHON / FORT KNOX
+      p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color };
+      Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 24, { speed: 200, life: 0.6, glow: true });
+    } else if (a.kind === 'froot') { // #252 ANTAEUS: the release happens in player.update
+      p.rootT = a.dur || 3; p.rootRegen = a.regen || 8; p.rootStore = 0; p.rootCap = a.burstCap || 220;
+      Fx.text(p.x, p.y - 40, 'ROOTED', a.color, 14);
+      Fx.burst(p.x, p.y, [a.color, '#6b4a2a'], 18, { speed: 120, life: 0.5 });
+    } else if (a.kind === 'fvanish') { // #252 HOUDINI: the flourish happens in player.update
+      p.invisT = Math.max(p.invisT || 0, a.dur || 1.2);
+      p.iframes = Math.max(p.iframes, (a.dur || 1.2) + 0.3);
+      p.bleed = null; p.slowT = 0; p.slowMul = 1; // shed every DoT and slow
+      p._houdini = true;
+      Fx.burst(p.x, p.y, ['#b6c0d0', '#fff'], 30, { speed: 260, life: 0.5, glow: true });
+    } else if (a.kind === 'ffleece') { // #252 GOLDEN FLEECE: the mint lives in player.damage
+      p.buffs.shield = (p.buffs.shield || 0) + (a.charges || 2);
+      p.fleeceT = 12; p.fleeceMint = a.mint || 6;
+      Fx.text(p.x, p.y - 40, 'THE FLEECE', a.color, 14);
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 22, { speed: 180, life: 0.6, glow: true });
     } else if (a.kind === 'heal') {
       // #78 Cleric Mend: heal self + allies (mercs/summons) in range
       p.heal(p.maxHp * (a.heal || 0.4));
@@ -2422,6 +2478,7 @@
           Sfx.play('ui');
           a._swapCd = true;
           if (_qScaled) Object.assign(a, _qScaled);
+          if (_fScaled) Object.assign(a, _fScaled);
           a.cd = 1.0; a._swapCd = false;
           return; // the swap IS the cast
         }
@@ -2603,6 +2660,7 @@
                  radius: Math.round(a.radius || 0), dur: +(a.dur || 0), dps: Math.round(a.dps || 0) });
     }
     if (_qScaled) Object.assign(a, _qScaled); // #109 restore base Q values after the scaled cast
+    if (_fScaled) Object.assign(a, _fScaled); // #252 restore base fusion values too
 
     // universal post-cast modifiers (folded on by the 2nd evolution)
     // #227 warrior R4 (and later paladin R4): the holy/steel shield holds 2 charges
@@ -2619,6 +2677,7 @@
       }
     }
     if (a.healOnCast) p.heal(p.maxHp * a.healOnCast);
+    if (a.refundRoll) p.rollCd = 0; // #252 generic (SECOND WIND rides kind 'heal')
     if (a.rageAfter) p.buffs.rageT = Math.max(p.buffs.rageT, a.rageAfter);
     if (a.hasteAfter) p.buffs.hasteT = Math.max(p.buffs.hasteT, a.hasteAfter);
     Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, a.ult ? 17 : 14);
@@ -3927,6 +3986,12 @@
       riseSkeleton(m.x, m.y);
     });
     // #197 a cleric teammate Mended you: apply their heal to your own champion
+    // #252 ATLAS: a teammate's slam grants YOUR champion a shield charge
+    Net.on('fshield', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      g.player.buffs.shield = (g.player.buffs.shield || 0) + 1;
+      Fx.text(g.player.x, g.player.y - 30, 'ATLAS', '#8fb7ff', 12);
+    });
     Net.on('pheal', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
       g.player.heal(g.player.maxHp * Math.max(0, Math.min(1, +m.frac || 0.4)));
@@ -5346,7 +5411,7 @@
     // #stat-redesign: the chosen option carries statKey = its origin sub-stat tree,
     // so evoTaken + R-fusion keep receiving valid fine-grained keys (dmg/crit/...).
     p.evoTaken.push({ key: opt.statKey, name: opt.name, tier: Evolutions.TIER_LABEL[g.evoChoices.stacks] });
-    p.recordEvoPick(opt.statKey); // first two picks fuse into the R ability
+    p.recordEvoPick(opt.statKey, g.evoChoices && g.evoChoices.stat); // first two picks fuse into the R ability (#252: base stat rides along)
     Sfx.play('levelup');
     Fx.text(p.x, p.y - 34, opt.name.toUpperCase(), '#b88aff', 14);
     Fx.burst(p.x, p.y, ['#b88aff', '#ffd24c', '#fff'], 26, { speed: 200, life: 0.8, glow: true });
@@ -5354,7 +5419,7 @@
     // #84 the 2nd evolution FORGES R - offer three candidates to choose from (like the
     // ultimate) instead of auto-assigning. The ultimate is offered a couple levels later.
     if (p.evoHistory.length === 2 && !p.abilityR) {
-      g.rChoices = Abilities.rOptions(p.evoHistory);
+      g.rChoices = Abilities.rOptions(p.evoHistory, p.evoSchools);
       g.hoverChoice = -1; g.state = 'rpick'; g.overlayT = 0;
       p.drawT = -1; Sfx.play('roar');
       return;
