@@ -983,9 +983,13 @@ const PlayerDef = (() => {
         if (this.mod('bossSlayer') && target.isBoss) dmg *= 1 + this.mod('bossSlayer');
       }
       if (this.evo.midasPer) dmg += Math.min(this.evo.midasCap || 0, Math.floor(this.coins / this.evo.midasPer));
-      let crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh');
+      let crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh') + ((this.fstance && this.fstance.critCh) || 0); // #254 LUCKY STREAK
       // #253 ACHILLES: the first hit on each enemy in the window is always a crit
       if (!crit && this.fstance && this.fstance.firstCrit && target && this.fstance.seen && !this.fstance.seen.has(target)) { this.fstance.seen.add(target); crit = true; }
+      // #254 LUCKY STREAK: each crit pays a coin and feeds the streak (capped)
+      if (crit && this.fstance && this.fstance.critPay) { this.coins += 1; this.fstance.critCh = Math.min(0.5, this.fstance.critCh + 0.01); }
+      // #254 EL DORADO: the gold fever - every kill in the window hits harder
+      if (this.fstance && this.fstance.dmgStack) dmg *= 1 + this.fstance.dmgStack;
       if (crit) dmg *= T.critMult + this.mod('critDmg');
       return { dmg, crit };
     }
@@ -1080,6 +1084,8 @@ const PlayerDef = (() => {
       dmg = dmg * (1 - reduce);
       // #252 ANTAEUS: while rooted, the earth remembers what hit you
       if (this.rootT > 0) this.rootStore = Math.min(this.rootCap || 220, (this.rootStore || 0) + dmg);
+      // #254 TROLL BLOOD: a truly heavy hit stems the blood for a moment
+      if (this.fstance && this.fstance.id === 'trollblood' && dmg > this.maxHp * 0.1) this.fstance.stunT = 1.5;
 
       // #156 DEATH KNIGHT - LIFE AFTER DEATH. The rune eats the killing blow: you are
       // left on 1 HP instead of dying, once per cast, and the room pays for it. Checked
@@ -1232,6 +1238,24 @@ const PlayerDef = (() => {
               for (const m of g.monsters) { if (m === best || m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - best.x, m.y - best.y); if (d < cd2) { cd2 = d; chain = m; } }
               if (chain) chain.takeHit(fs.zap * 0.5, { sx: best.x, sy: best.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
               Fx.burst(best.x, best.y, ['#ffe27a', '#fff'], 10, { speed: 180, life: 0.3, glow: true });
+            }
+          }
+        }
+        if (fs.id === 'trollblood') { // #254 heavy regen unless staggered
+          if (fs.stunT > 0) fs.stunT -= dt;
+          else this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt);
+        }
+        if (fs.id === 'rabbitsfoot') { // #254 charmed feet: free rolls, robbed on the way through
+          this.rollCd = 0;
+          if (this.rollT >= 0 && g && g.monsters) {
+            fs.rolled = fs.rolled || new Set();
+            for (const m of g.monsters) {
+              if (m.dead || m.spawnT > 0 || fs.rolled.has(m)) continue;
+              if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 10) {
+                fs.rolled.add(m); this.coins += 2;
+                m.chillT = Math.max(m.chillT || 0, 1.5); m.chillMul = 0.5;
+                Fx.text(m.x, m.y - 16, '+2', '#ffce54', 10);
+              }
             }
           }
         }

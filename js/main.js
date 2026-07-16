@@ -903,6 +903,22 @@
     } else {
       killerPerks(m.x, m.y, m.type, m.elite);
     }
+    // #254 fusion kill-hooks (LOCAL kills only - remote killers run their own)
+    if (!killerRp && p.fstance) {
+      const fs = p.fstance;
+      if (fs.id === 'eldorado') { // the gilded city: gold fountains, fever builds
+        for (let i = 0; i < 3; i++) spawnPickup('coin', m.x, m.y);
+        fs.dmgStack = Math.min(0.3, (fs.dmgStack || 0) + 0.03);
+      }
+      if (fs.id === 'goldrush') { // the rush: kills pay and hasten your Q
+        for (let i = 0; i < 2; i++) spawnPickup('coin', m.x, m.y);
+        if (p.ability && p.ability.cd > 0) p.ability.cd = Math.max(0, p.ability.cd - 0.5);
+      }
+    }
+    if (m.ransom && !killerRp) { // #254 KING'S RANSOM: the marked head pays double
+      for (let i = 0; i < 14; i++) spawnPickup('coin', m.x, m.y);
+      dropGearInstanced('weapon', m.x, m.y - 16, { tier: 2, minRarity: 3 });
+    }
     // #158 (Sam) NECROMANCER: what sets it apart from the summoner - the dead you make RISE
     // to serve. A share of your kills reanimate as skeletons ON THE SPOT, up to a growing
     // cap, so the army is built from the battlefield, not conjured from nothing.
@@ -2216,7 +2232,7 @@
       const fRank = Abilities.fusionRank(p.statPoints, a.fusionStats);
       a._rank = fRank;
       const fpp = a.pp || {};
-      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd };
+      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd, ringDmg: a.ringDmg, transmute: a.transmute, critCh: a.critCh };
       if (a.fRider) a.qRider = 0.06; // +6% of each target's max HP (bosses 1/3) - the hit sites already honour it
       if (fpp.dmg && a.dmg) a.dmg = Math.round(a.dmg * (1 + fpp.dmg * fRank));
       if (fpp.radius && a.radius) a.radius = Math.round(a.radius + fpp.radius * fRank);
@@ -2231,6 +2247,9 @@
       if (fpp.dist && a.dist) a.dist = Math.round(a.dist + fpp.dist * fRank);
       if (fpp.decoyHp && a.decoyHp) a.decoyHp = Math.round(a.decoyHp + fpp.decoyHp * fRank);
       if (fpp.atkSpd && a.atkSpd) a.atkSpd = +(a.atkSpd + fpp.atkSpd * fRank).toFixed(2);
+      if (fpp.ringDmg && a.ringDmg) a.ringDmg = Math.round(a.ringDmg * (1 + fpp.ringDmg * fRank));
+      if (fpp.transmute && a.transmute) a.transmute = Math.round(a.transmute + fpp.transmute * fRank);
+      if (fpp.critCh && a.critCh) a.critCh = +(a.critCh + fpp.critCh * fRank).toFixed(3);
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -2250,6 +2269,11 @@
       let dmg = (a.dmg || 60) * dmgMul;
       if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
       if (a.missingHp) dmg += Math.round((p.maxHp - p.hp) * a.missingHp); // #252 BLOOD MONEY
+      if (a.transmute) { // #254 PHILOSOPHER'S STONE: gold IS mana
+        const spend = Math.min(a.transmute, p.coins);
+        p.coins -= spend; dmg += spend;
+        Fx.text(p.x, p.y - 46, `${spend}g TRANSMUTED`, '#c9a86a', 13);
+      }
       let fHits = 0;
       const R = a.radius || 150;
       Fx.burst(p.x, p.y, [a.color, '#fff'], 34, { speed: 340, life: 0.5, glow: true });
@@ -2265,6 +2289,7 @@
         if (_qGates && _qGates.cls === 'mage' && _qGates.rank >= 12 && !m.dead) { m.chillT = Math.max(m.chillT || 0, 2.5); m.chillMul = 0.5; } // #229 R12: everything hit is CHILLED
         if (m.dead) qKills++;
         if (a.ignite && !m.dead) m.burn = { t: 3, tick: 0, dps: a.ignite }; // #253 PROMETHEUS
+        if (a.coinLoose) for (let ci = 0; ci < a.coinLoose; ci++) spawnPickup('coin', m.x, m.y); // #254 CROESUS
         fHits++;
       }
       // #253 PROMETHEUS: stolen fire feeds your spells - power per enemy ignited
@@ -2310,6 +2335,7 @@
             const dashDmg = (a.dmg || 55) * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0); // #226
             m.takeHit(dashDmg, { sx: px, sy: py, knock: 150, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitLight' }, g);
             hit.add(m);
+            if (a.rob) { p.coins += 2; Fx.text(m.x, m.y - 18, '+2', '#ffce54', 10); } // #254 HIGHWAYMAN
           }
         }
       }
@@ -2408,10 +2434,38 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
-    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm') { // #252/#253 the stances
+    } else if (a.kind === 'fzone') { // #254 SANCTUARY: the cleric-R8 + mage-R4 rigs, together
+      g.ultFx.push({ type: 'qregen', x: p.x, y: p.y, t: 0, dur: a.dur || 5, radius: a.radius || 150, hps: Math.round(p.maxHp * 0.03) });
+      g.ultFx.push({ type: 'qslow', x: p.x, y: p.y, t: 0, dur: a.dur || 5, radius: a.radius || 150, color: a.color });
+      if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'qzone', x: Math.round(p.x), y: Math.round(p.y), dur: a.dur || 5, radius: a.radius || 150, fl: g.floorNum });
+      Fx.text(p.x, p.y - 40, 'SANCTUARY', a.color, 14);
+    } else if (a.kind === 'fmark') { // #254 KING'S RANSOM: mark the richest head in the room
+      let best = null, bs = -1;
+      for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0) continue;
+        const score = (m.isBoss ? 2 : m.elite ? 1 : 0) * 1e6 + m.maxHp;
+        if (score > bs) { bs = score; best = m; }
+      }
+      if (best) {
+        best.ransom = true;
+        best.takeHit((a.dmg || 40) * dmgMul + best.maxHp * (a.qRider || 0.06) * 2 * (best.isBoss ? 1 / 3 : 1), { sx: p.x, sy: p.y, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        Fx.text(best.x, best.y - best.r - 12, 'RANSOM', '#ffd24c', 14);
+        Fx.burst(best.x, best.y, ['#ffd24c', '#fff'], 20, { speed: 200, life: 0.5, glow: true });
+      }
+    } else if (a.kind === 'foracle') { // #254 ORACLE OF DELPHI: sight, then insight
+      if (g.dungeon) for (const rm of g.dungeon.rooms) rm.visited = true; // the floor lays itself bare
+      for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0) continue;
+        m.takeHit((a.dmg || 30) * dmgMul + m.maxHp * (a.qRider || 0) * (m.isBoss ? 1 / 3 : 1), { sx: m.x, sy: m.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
+        m.chillT = Math.max(m.chillT || 0, 2.5); m.chillMul = 0.5;
+      }
+      Fx.shake(3, 0.15);
+      Fx.text(p.x, p.y - 40, 'THE ORACLE SPEAKS', a.color, 14);
+    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot') { // #252/#253/#254 the stances
       p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color,
         atkSpd: a.atkSpd || 0, spdMul: a.spdMul || 0, noSlow: !!a.noSlow, firstCrit: !!a.firstCrit, seen: a.firstCrit ? new Set() : null,
-        echoBoost: a.echoBoost || 0, zap: a.zap || 0, zapT: 0, shotT: 0 };
+        echoBoost: a.echoBoost || 0, zap: a.zap || 0, zapT: 0, shotT: 0,
+        critCh: a.critCh || 0, critPay: !!a.critPay, dmgStack: 0 };
       Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 24, { speed: 200, life: 0.6, glow: true });
     } else if (a.kind === 'froot') { // #252 ANTAEUS: the release happens in player.update
@@ -2439,6 +2493,14 @@
       p.heal(p.maxHp * (a.heal || 0.4));
       const R = a.radius || 240;
       for (const merc of g.mercs) { if (!merc.dead && Math.hypot(merc.x - p.x, merc.y - p.y) < R) merc.hp = Math.min(merc.maxHp, merc.hp + merc.maxHp * (a.heal || 0.4)); }
+      if (a.ringDmg) { // #254 ASCLEPIUS: the serpent staff cuts both ways
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne || m.spawnT > 0) continue;
+          if (Math.hypot(m.x - p.x, m.y - p.y) > R + m.r) continue;
+          m.takeHit(a.ringDmg * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0), { sx: p.x, sy: p.y, knock: 100, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        }
+        Fx.burst(p.x, p.y, [a.color, '#fff'], 26, { speed: 280, life: 0.5, glow: true });
+      }
       // #230 cleric milestones: R4 heals also CURE (bleed/slow); R8 consecrates the
       // ground (a 4s regen circle, mirrored to teammates who heal their OWN champion
       // standing in it); R12 everyone healed gains a shield charge.
