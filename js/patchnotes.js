@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.119';
+  const VERSION = 'v2.120';
 
   const NOTES = [
+    {
+      v: 'v2.120', title: 'The forge gets FUN: bowling with monsters, a real goose, visible stances', date: '2026-07-16',
+      sha: '2ff0c83',
+      items: [
+        'Monsters are AMMUNITION: anything sent flying crashes into its friends and hurts them both - line up the shot.',
+        'The GOLDEN GOOSE is a real bird that waddles after you laying gold - monsters hunt it, and its death is a fortune.',
+        'Every stance now shows a glowing timer ring, and the Oracle marks the best room on your map with a star.',
+      ],
+    },
     {
       v: 'v2.119', title: 'Excalibur flies, Prometheus burns, the Stone toggles', date: '2026-07-16',
       sha: 'bb6c850',
