@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.112';
+  const VERSION = 'v2.113';
 
   const NOTES = [
+    {
+      v: 'v2.113', title: 'THE HARPY rules floor 1, and multiplayer never pauses', date: '2026-07-16',
+      sha: '9b93799',
+      items: [
+        'THE HARPY guards floor 1 - the giant shadow over the forest was her all along, and now she comes down.',
+        'Wands and staves: attack speed now recharges your Q, R and Ultimate faster instead of making you shoot faster.',
+        'Press V to open AND close the level up menu (was L), with a white ring showing which card WASD has picked.',
+        'No more pausing in multiplayer - menus stay open while the world keeps moving. Plus 5 new level up cards (every stat has 4 now) and the forest shadow is a real eagle.',
+      ],
+    },
     {
       v: 'v2.112', title: 'The game has a true name: BARROWLIGHT', date: '2026-07-16',
       sha: '40a3930',
