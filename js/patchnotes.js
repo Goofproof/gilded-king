@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.113';
+  const VERSION = 'v2.114';
 
   const NOTES = [
+    {
+      v: 'v2.114', title: 'New address: barrowlight', date: '2026-07-16',
+      sha: 'e857e8d',
+      items: [
+        'Barrowlight has a new address: goofproof.github.io/barrowlight - update your bookmarks!',
+      ],
+    },
     {
       v: 'v2.113', title: 'THE HARPY rules floor 1, and multiplayer never pauses', date: '2026-07-16',
       sha: '9b93799',
