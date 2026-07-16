@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.116';
+  const VERSION = 'v2.117';
 
   const NOTES = [
+    {
+      v: 'v2.117', title: 'Fusion wave 3: all ten pairs are at the forge', date: '2026-07-16',
+      sha: '6ceef16',
+      items: [
+        'FUSION WAVE 3: the final twelve - CROESUS, EL DORADO, KING\'S RANSOM, ASCLEPIUS, TROLL BLOOD, SANCTUARY, HIGHWAYMAN, LUCKY STREAK, RABBIT\'S FOOT, PHILOSOPHER\'S STONE, GOLD RUSH and the ORACLE OF DELPHI.',
+      ],
+    },
     {
       v: 'v2.116', title: 'Fusion wave 2: the Tempest, the Spellblade and the Phantom', date: '2026-07-16',
       sha: '3d12f20',
