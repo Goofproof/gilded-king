@@ -1,3 +1,21 @@
+## 2026-07-16 (fusion primes) - same-stat doubles get real trios (Sam's ask)
+
+Sam: "add fusions for doubling up, fortune + fortune for example" + "make sure all
+these fusions are unique from each other and all have a big impact." 15 Primes
+shipped (5 stats x Strike/Stance/Trick). Because fusionRank sums the pair, a pure
+build counts its stat TWICE - specialization ranks twice as fast, which is the
+Prime's identity. Uniqueness audit ran across all 45; six same-y designs were
+punched up BEFORE shipping: GORDIAN CUT is an execute (2x below half HP), RHINO
+launches everything it touches (knock 430), SMOKE BOMB leaves a slowing cloud
+behind (Houdini chills on reappear instead), TESLA COIL forks twice on a 0.45s
+beat (Mjolnir forks once at 0.8s), JACKPOT is a real gamble (25%+0.5%/rank capped
+40% to TRIPLE + gold shower), EVENT HORIZON grinds (slow + miasma rot, no heal -
+Sanctuary owns healing). Build bug caught: a failed anchor aborted a multi-pair
+patch AFTER an earlier file was written - five main.js edits silently lost, found
+when the harness showed no miasma; re-applied and verified. Verified numerically:
+Prime rank doubling (6 pts = rank 12), goose trickle, Gordian exactly 2.00x,
+Tesla 3 targets/beat, jackpot rate within noise of 0.31 at rank 12.
+
 ## 2026-07-16 (fusion waves 2+3, unattended /loop) - all 10 pairs live
 
 Waves 2 (v2.116) and 3 shipped unattended; all 30 fusions from FUSION-DESIGN.md
