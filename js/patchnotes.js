@@ -26,9 +26,11 @@ const PatchNotes = (() => {
       v: 'v2.120', title: 'The forge gets FUN: bowling with monsters, a real goose, visible stances', date: '2026-07-16',
       sha: '2ff0c83',
       items: [
-        'Monsters are AMMUNITION: anything sent flying crashes into its friends and hurts them both - line up the shot.',
-        'The GOLDEN GOOSE is a real bird that waddles after you laying gold - monsters hunt it, and its death is a fortune.',
-        'Every stance now shows a glowing timer ring, and the Oracle marks the best room on your map with a star.',
+        'MONSTERS ARE AMMUNITION. Anything you send flying (TREBUCHET, RHINO, ATLAS...) crashes into its friends and hurts BOTH. Line up the shot and go bowling.',
+        'The GOLDEN GOOSE is a real bird now. It waddles after you laying gold - but monsters will hunt it. If it dies it bursts into a fortune: protect it, or cash it.',
+        'Every stance shows a glowing ring around you with a draining timer - you always know what is on and how long is left. FORT KNOX even orbits your coins as armor (and hits knock a couple loose).',
+        'MARATHON at full stride makes you a battering ram - steer INTO the crowd. TAILWIND leaves a wake that speeds up teammates. TROLL BLOOD visibly knits (and says STEMMED when a big hit stops it).',
+        'The ORACLE OF DELPHI now prophesies: the best room left on the floor gets a pulsing star on your map. The Oracle names your fortune.',
       ],
     },
     {
