@@ -2401,11 +2401,23 @@ const UI = (() => {
     // real POPUP over the sheet now, not a slim band at the foot. It dims the sheet,
     // celebrates, and - the payoff - a card that feeds your CLASS STAT announces the
     // Q rank it takes you to, in gold when it lands ON a milestone.
-    if (g.levelUpQueue > 0 && g.pendingChoices) {
+    // #234 banked points show a BUTTON, not an auto-popup - browse first, spend when ready
+    if (g.levelUpQueue > 0 && !g.spendOpen) {
+      const pulse3 = 0.75 + Math.sin(Date.now() / 300) * 0.25;
+      const bw3 = 340, bh3 = 40, bx3 = W / 2 - bw3 / 2, by3 = 26;
+      c.save(); c.globalAlpha = pulse3;
+      c.fillStyle = 'rgba(50,40,8,0.95)'; c.fillRect(bx3, by3, bw3, bh3);
+      c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(bx3, by3, bw3, bh3);
+      c.textAlign = 'center'; c.font = 'bold 14px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`⬆ LEVEL UP · ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} waiting · press L`, W / 2, by3 + 26);
+      c.restore();
+      rects.push({ x: bx3, y: by3, w: bw3, h: bh3, action: 'openSpend' });
+    }
+    if (g.levelUpQueue > 0 && g.pendingChoices && g.spendOpen) {
       const p = g.player;
       c.fillStyle = 'rgba(4,4,10,0.55)'; c.fillRect(0, 0, W, H);
       const cw2 = 232, gap = 20, cardH = 172;
-      const pw2 = cw2 * 3 + gap * 2 + 56, ph2 = cardH + 130;
+      const pw2 = cw2 * 3 + gap * 2 + 56, ph2 = cardH + 168;
       const px2 = W / 2 - pw2 / 2, py2 = H / 2 - ph2 / 2 + 12;
       c.fillStyle = 'rgba(10,12,20,0.97)'; c.fillRect(px2, py2, pw2, ph2);
       c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px2, py2, pw2, ph2);
@@ -2448,6 +2460,17 @@ const UI = (() => {
         c.fillText(`${i + 1}`, cx2 + 14, cy2 + 18);
         rects.push({ x: cx2, y: cy2, w: cw2, h: cardH, action: 'spendCard', idx: i });
       }
+      // #233 the paid reroll, back from the old level-up screen: R or click, 10g +1g/use
+      const rCost = 10 + (g.rerollCount || 0);
+      const deny = (g.rerollDenyT || 0) > 0;
+      const rbW = 250, rbH = 30, rbX = W / 2 - rbW / 2, rbY = cy2 + cardH + 14;
+      c.fillStyle = deny ? 'rgba(120,30,30,0.9)' : 'rgba(20,24,36,0.95)'; c.fillRect(rbX, rbY, rbW, rbH);
+      c.strokeStyle = deny ? '#e05555' : '#8fa3bf'; c.lineWidth = 1.5; c.strokeRect(rbX, rbY, rbW, rbH);
+      c.font = 'bold 12px monospace'; c.fillStyle = deny ? '#ffb0b0' : '#ffd24c';
+      c.fillText(deny ? 'NOT ENOUGH GOLD' : `R · REROLL THE CARDS (${rCost}g)`, W / 2, rbY + 20);
+      rects.push({ x: rbX, y: rbY, w: rbW, h: rbH, action: 'rerollCards' });
+      c.font = '10px monospace'; c.fillStyle = '#667';
+      c.fillText('Esc · close and keep browsing (your cards wait for you)', W / 2, rbY + rbH + 16);
     }
 
     // ------------------------------------------------------------------- footer

@@ -3188,17 +3188,28 @@
         // 1-5 pick a ring by number (and it STICKS, so you can read it without holding
         // the mouse still); 0 goes back to the portrait. While the LEVEL UP popup is
         // open (#231), the digits belong to the CARDS instead.
-        if (!g.pendingChoices) {
+        if (!(g.spendOpen && g.pendingChoices)) {
           for (let i = 0; i < 5; i++) {
             if (input.pressed('Digit' + (i + 1))) { g.charDetail = Evolutions.STATS[i]; Sfx.play('ui'); }
           }
           if (input.pressed('Digit0')) { g.charDetail = null; Sfx.play('ui'); }
         }
-        // #199/#231 spend banked level-up points right here - the popup over the sheet;
-        // click a card or press 1/2/3.
-        if (g.levelUpQueue > 0 && !g.pendingChoices) g.pendingChoices = pickUpgrades();
-        if (g.levelUpQueue <= 0) g.pendingChoices = null;
-        if (g.pendingChoices) {
+        // #199/#231/#234 (Sam: "look at my stats without having to choose right away")
+        // banked points do NOT auto-open the popup - a LEVEL UP button on the sheet
+        // (or L) opens it; Esc closes it back to browsing. Closing KEEPS the rolled
+        // cards, so open-close-open is never a free reroll.
+        if (g.levelUpQueue > 0 && !g.spendOpen) {
+          if (input.pressed('KeyL')) { g.spendOpen = true; Sfx.play('ui'); }
+          if (input.mouse.clicked && g.uiRects) {
+            for (const r of g.uiRects) {
+              if (r.action === 'openSpend' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { g.spendOpen = true; Sfx.play('ui'); break; }
+            }
+          }
+        }
+        if (g.levelUpQueue > 0 && g.spendOpen && !g.pendingChoices) g.pendingChoices = pickUpgrades();
+        if (g.levelUpQueue <= 0) { g.pendingChoices = null; g.spendOpen = false; }
+        if (g.spendOpen && g.pendingChoices && input.pressed('Escape')) { g.spendOpen = false; Sfx.play('ui'); break; } // close the popup, keep browsing
+        if (g.spendOpen && g.pendingChoices) {
           const spend = (idx) => {
             const ch = g.pendingChoices[idx];
             if (!ch) return;
@@ -3208,10 +3219,25 @@
             g.pendingChoices = g.levelUpQueue > 0 ? pickUpgrades() : null;
             Sfx.play('upgrade');
           };
+          // #233 (Sam) the paid REROLL from the old level-up screen lives here now:
+          // same economics - 10 gold, +1 gold per reroll this run. R or the button.
+          if (g.rerollDenyT > 0) g.rerollDenyT -= dt;
+          const reroll = () => {
+            const cost = rerollCost();
+            if (!g.player || g.player.coins < cost) { Sfx.play('error'); g.rerollDenyT = 0.6; return; }
+            g.player.coins -= cost;
+            g.rerollCount = (g.rerollCount || 0) + 1;
+            g.pendingChoices = pickUpgrades();
+            Sfx.play('ui');
+          };
+          if (input.pressed('KeyR')) reroll();
           for (let i = 0; i < 3; i++) if (input.pressed('Digit' + (i + 1))) { spend(i); break; }
           if (g.pendingChoices && input.mouse.clicked && g.uiRects) {
             for (const r of g.uiRects) {
-              if (r.action === 'spendCard' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { spend(r.idx); break; }
+              if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+                if (r.action === 'spendCard') { spend(r.idx); break; }
+                if (r.action === 'rerollCards') { reroll(); break; }
+              }
             }
           }
         }
