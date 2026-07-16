@@ -172,8 +172,8 @@ const UI = (() => {
     const tag = heaven   ? (Paradiso.inEmpyrean(g.floorNum) ? 'THE EMPYREAN' : `PARADISO ▲ ALTITUDE ${Ascent.altitude(g.floorNum)}`)
               : climbing ? `ASCENT ▲ ALTITUDE ${Ascent.altitude(g.floorNum)}`
               : inDescent ? `DESCENT ▼ FLOOR ${g.floorNum}`
-              : `FLOOR ${g.floorNum}/3`;
-    c.fillText(tag, hbX, H - 16);
+              : null; // #263 (Sam) the FLOOR n/3 count is gone - the early floors speak for themselves
+    if (tag) { c.textAlign = 'right'; c.fillText(tag, W - 14, H - 16); c.textAlign = 'left'; }
 
     // AN ACCEPTED QUEST rides above the depth tag for as long as it is live, so you
     // never forget what you agreed to. It is gold while it is winnable.
@@ -182,7 +182,7 @@ const UI = (() => {
       if (q) {
         c.font = 'bold 11px monospace';
         c.fillStyle = '#ffd24c';
-        c.fillText(q.objective(g), hbX, H - 32);
+        c.textAlign = 'right'; c.fillText(q.objective(g), W - 14, H - 32); c.textAlign = 'left'; // #263 follows the depth tag to the right
       }
     }
 
@@ -215,7 +215,7 @@ const UI = (() => {
       // ABOVE the Q badge, because Q is the key that changes it.
       if (p.form) {
         const F = p.form;
-        const bw = 96, bh = 26, bx = W - bw - 14, by = H - ABILITY_S - 12 - bh - 8;
+        const bw = 96, bh = 26, bx = 148, by = H - 12 - bh; // #263 beside the Q/R/★ row, bottom-left
         c.save();
         c.globalAlpha = 1;
         c.fillStyle = 'rgba(0,0,0,0.55)';
@@ -246,7 +246,7 @@ const UI = (() => {
     if (p.abilityR) list.push({ a: p.abilityR, key: 'R' });
     if (p.abilityUlt) list.push({ a: p.abilityUlt, key: '★' });
     const total = list.length * s + (list.length - 1) * gap;
-    let x = W - total - 14; // bottom-RIGHT corner, out of the play area's centre
+    let x = 14; // #263 (Sam) bottom-LEFT, right under the weapon slots
     for (const b of list) { b.x = x; b.y = H - s - 12; b.s = s; x += s + gap; }
     return list;
   }
