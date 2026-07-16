@@ -26,7 +26,10 @@ const PatchNotes = (() => {
       v: 'v2.108', title: 'THE DUEL: fight your friend for real', date: '2026-07-16',
       sha: '9c1a6db',
       items: [
-        'PVP Phase 1: THE DUEL (#240) - lobby toggle, sealed monster-free arena, corner spawns, 3-2-1 countdowns with untouchable fighters, rounds via downs (no revives), host announces with double-KO replays, first to 3 = DUEL CHAMPION, menus are no longer armor in duels.',
+        'PVP IS HERE. Flip on DUEL MODE in the host lobby (under friendly fire) and the run becomes a fight: you and your opponent spawn in opposite corners of a sealed arena. No monsters. No stairs. Just the two of you and a 3-2-1 countdown.',
+        'Rounds work like a real fighting game: knock your opponent down and the round is yours. Both fighters snap back to their corners at full health, the count starts again, and the first to THREE rounds is the DUEL CHAMPION. Then the score resets and you run it back. Knock each other out in the same breath and it is a DOUBLE KO: the round replays, no point for anyone.',
+        'And no, opening your character screen does not make you invincible in a duel. We closed that before anyone could find it.',
+        'Pick different classes! Every Q, every rank milestone, every evolution works in the arena, so a max-ARCANE mage versus a wall-slamming warrior is exactly the chaos it sounds like.',
       ],
     },
     {
