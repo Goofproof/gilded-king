@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.124';
+  const VERSION = 'v2.125';
 
   const NOTES = [
+    {
+      v: 'v2.125', title: 'Performance pass: smoother on every machine', date: '2026-07-16',
+      sha: '7dde122',
+      items: [
+        'The game runs SMOOTHER: capped particles, pre-baked glows instead of live blur, cached gradients, faster hit math.',
+      ],
+    },
     {
       v: 'v2.124', title: 'Bottomless debt, X to salvage', date: '2026-07-16',
       sha: 'b20d3a5',
