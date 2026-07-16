@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.115', title: 'FUSION ABILITIES arrive: forge your R from three named powers', date: '2026-07-16',
       sha: 'af557c2',
       items: [
-        'FUSION ABILITIES: your first two evolutions now forge a choice of three NAMED powers that grow with your stats forever.',
+        'FUSION ABILITIES ARE HERE. Your first two evolutions name a PAIR of stats - and that pair now offers three legendary powers to forge into your R: a STRIKE, a STANCE, and a TRICK. Pick one.',
+        'The first nine: ATLAS, AJAX and ANTAEUS (Might+Vigor) - SECOND WIND, MARATHON and HOUDINI (Agility+Vigor) - BLOOD MONEY, FORT KNOX and GOLDEN FLEECE (Fortune+Vigor). More pairs coming.',
+        'Fusions never fall behind: every point you put into their two stats makes them stronger, all run long. The card tells you which stats feed it.',
       ],
     },
     {
