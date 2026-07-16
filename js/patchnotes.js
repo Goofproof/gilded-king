@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.100', title: 'Level up like you mean it', date: '2026-07-16',
       sha: '3567f43',
       items: [
-        'Level-up is a real POPUP inside the character screen (#231): dims the sheet, big cards, pick by click or 1/2/3, and a card feeding your class stat announces the Q rank it reaches - in gold when it lands on a milestone.',
+        'Leveling up feels like leveling up now. Press C with points banked and a proper LEVEL UP window pops open right inside your character screen: the sheet dims, three big cards appear, and you pick by clicking or just pressing 1, 2 or 3.',
+        'The best part: any card that feeds your CLASS STAT tells you exactly what it does to your Q. It shows the rank you are about to reach, and if that point lands on a rank 4, 8 or 12 milestone, the card glows gold and names the unlock. No more discovering upgrades by accident: you can see "UNLOCKS: Knockback DOUBLES" before you commit the point.',
+        'Spare points keep the window open so you can spend a whole streak of level-ups in one visit.',
       ],
     },
     {
