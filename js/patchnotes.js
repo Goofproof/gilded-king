@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.118';
+  const VERSION = 'v2.119';
 
   const NOTES = [
+    {
+      v: 'v2.119', title: 'Excalibur flies, Prometheus burns, the Stone toggles', date: '2026-07-16',
+      sha: 'bb6c850',
+      items: [
+        'Fusion tune-ups from Sam: EXCALIBUR swings now FLY as blades of light, PROMETHEUS is a real flamethrower, and the PHILOSOPHER\'S STONE is a toggle - burn gold for power until you run dry.',
+      ],
+    },
     {
       v: 'v2.118', title: 'Prime fusions: pure builds get their own trios', date: '2026-07-16',
       sha: '3a45db1',
