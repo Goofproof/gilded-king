@@ -250,6 +250,11 @@
     posSendT: 0,                 // position-broadcast throttle
     friendlyFire: false,         // #224 PVP Phase 0: swords and arrows hurt teammates (host lobby toggle)
     lobbyFF: false,              // the host's pending choice on the lobby screen
+    duelMode: false,             // #240 PVP Phase 1: THE DUEL - sealed arena, rounds, first to 3
+    lobbyDuel: false,            // the host's pending duel choice
+    duelScore: {},               // uid -> rounds won this set
+    duelCountdownT: 0,           // 3-2-1 at round start (fighters invulnerable)
+    duelFightT: 0,               // the FIGHT! flash after the countdown
     // #32 co-op synchronized level-up gate. MONOTONIC busy/done COUNTERS (not
     // level-tags or playerCount, both of which soft-lock; not a reset Set, which
     // wipes an already-arrived signal): each peer sends {lvlbusy} when a pick cycle
@@ -1557,6 +1562,7 @@
 
   function tryRoomExit() {
     const p = g.player;
+    if (g.duelMode) { clampPlayer(); return; } // #240 the dueling ground has no exits
     if (doorsLocked()) { clampPlayer(); return; }
     // #101 co-op: leave via the majority-occupied door-plate, not by walking out
     if (g.coop) {
@@ -1623,6 +1629,7 @@
   // #101 render each unsealed door's gather-plate with a live occupancy count so the
   // party knows where to stand and how many more teammates are needed to open it.
   function drawDoorPlates(c) {
+    if (g.duelMode) return;    // #240 no plates on the dueling ground
     if (doorsLocked()) return; // nothing to gather for while monsters are alive
     const need = plateNeeded();
     const half = 22;
@@ -3560,7 +3567,7 @@
       // each pinned themself and broadcast. Deterministic tie-break: the LOWER clientId
       // keeps the pin; the other adopts their run. Both sides apply the same rule.
       if (g.coop && g.runHostU === g.clientId && m.hu && Date.now() - (g.runStartT || 0) < 3000) {
-        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff); }
+        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff, m.duel); }
         return; // higher id: ignore theirs - they adopt ours by this same rule
       }
       // #173 a reconnecting client that KEPT its run must not restart it: same seed,
@@ -3569,7 +3576,7 @@
       // #194 pulled into the new party run while typing a high-score name: bank the
       // score with whatever was typed so PLAY AGAIN never eats a kid's high score
       if (g.state === 'initials') { try { commitInitials(); } catch (e) { /* score save must never block the restart */ } }
-      startCoop(m.seed, m.hu || null, m.ff);
+      startCoop(m.seed, m.hu || null, m.ff, m.duel);
     });
     // #173 LATE-JOIN / REJOIN: a peer connected mid-run (fresh player, or a teammate whose
     // page reloaded). The pinned host hands them the run: a targeted 'start' with the seed
@@ -3577,13 +3584,14 @@
     // room-follow pulls them into the host's room from there.
     Net.on('peer-join', m => {
       if (!g.coop || !isRunHost() || !g.dungeon) return;
-      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0 });
+      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0, duel: g.duelMode ? 1 : 0 });
       Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
     });
     // #100 a teammate's chat line
     Net.on('chat', m => { if (!g.coop) return; pushChat((m.nm && m.nm.trim()) || m.from || 'peer', m.text || '', false); });
     // P1-C: downed / revive / party-wipe game-over
     Net.on('downed', m => { const rp = g.remotePlayers.get(m.id); if (rp) rp.downed = true; dropFromLevelGate(m.id); });
+    Net.on('round', m => { if (g.coop && g.duelMode) applyRound(m); }); // #240 the host called the round
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
@@ -3949,8 +3957,9 @@
     Sfx.play('ui');
   }
 
-  function startCoop(seed, hostU, ff) {
-    g.friendlyFire = !!ff; // #224 friendly fire rides the run start so every client agrees
+  function startCoop(seed, hostU, ff, duel) {
+    g.duelMode = !!duel;   // #240 THE DUEL rides the run start like friendly fire does
+    g.friendlyFire = !!ff || !!duel; // a duel IS friendly fire
     g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
@@ -3965,6 +3974,13 @@
     g.runHostU = hostU || null;
     g.runStartT = Date.now(); // #217 for the dual PLAY AGAIN tie-break window
     newRun(true);
+    // #240 duel setup: fighters start in opposite corners, scores clean, 3-2-1
+    if (g.duelMode) {
+      g.duelScore = {}; g.duelCountdownT = 3.2; g.duelFightT = 0;
+      const p0 = g.player;
+      p0.x = PF.x + (g.runHostU === g.clientId ? 140 : PF.w - 140); p0.y = PF.y + PF.h / 2;
+      g.floorBanner = { text: 'THE DUELING GROUND', t: 4, sub: 'first to 3 rounds takes the set' };
+    }
     g.lastHostSeenT = g.time; // #173 watchdog baseline: host has 12s to make first contact
   }
   // #173 the ONE test for "am I the simulation authority this run". Pinned to the
@@ -4120,9 +4136,10 @@
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
           if (r.action === 'lobby-start') { // host picks the shared run seed
             const seed = (Math.random() * 1e9) | 0;
-            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF); return; // #173 pin authority
+            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel); return; // #173 pin authority
           }
           if (r.action === 'lobby-ff') { g.lobbyFF = !g.lobbyFF; Sfx.play('ui'); } // #224
+          if (r.action === 'lobby-duel') { g.lobbyDuel = !g.lobbyDuel; Sfx.play('ui'); } // #240
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
       }
@@ -4410,6 +4427,7 @@
   }
   // a LIVING player standing on a downed peer for ~3s revives them
   function reviveNearbyDowned(dt) {
+    if (g.duelMode) return; // #240 a fallen duelist stays down - the ROUND revives them
     const p = g.player;
     if (p.dead) return; // the downed can't revive
     for (const [id, rp] of g.remotePlayers) {
@@ -4421,8 +4439,56 @@
       } else rp.reviveT = 0;
     }
   }
+  // #240 THE DUEL referee. Both clients run the countdown (fighters untouchable);
+  // only the HOST calls rounds (single announcer - each client owns its own hp, so
+  // ties need one judge). A double-down is a DOUBLE KO: replayed, no point.
+  function updateDuel(dt) {
+    if (!g.duelMode || !g.coop) return;
+    if (g.duelFightT > 0) g.duelFightT -= dt;
+    if (g.duelCountdownT > 0) {
+      g.duelCountdownT -= dt;
+      g.player.iframes = Math.max(g.player.iframes, 0.25); // untouchable until FIGHT
+      if (g.duelCountdownT <= 0) { g.duelFightT = 0.8; Sfx.play('roar'); }
+      return;
+    }
+    if (!isRunHost()) return;
+    const meDown = g.player.dead || g.player.downed;
+    let theirDown = false, theirU = null;
+    for (const rp of g.remotePlayers.values()) { if (rp.u) theirU = rp.u; if (rp.downed) theirDown = true; }
+    if (!meDown && !theirDown) return;
+    // someone fell: score it (or call the double KO) and reset the round
+    let winnerU = null;
+    if (meDown && !theirDown) winnerU = theirU;
+    else if (theirDown && !meDown) winnerU = g.clientId;
+    if (winnerU) g.duelScore[winnerU] = (g.duelScore[winnerU] || 0) + 1;
+    const fin = winnerU && g.duelScore[winnerU] >= 3 ? 1 : 0;
+    const payload = { t: 'round', w: winnerU || 0, sc: g.duelScore, fin };
+    Net.sendR(payload);
+    applyRound(payload);
+  }
+  function applyRound(m) {
+    g.duelScore = m.sc || {};
+    const iWon = m.w && m.w === g.clientId;
+    const p = g.player;
+    p.dead = false; p.downed = false; p.hp = p.maxHp; p.iframes = 2;
+    p.x = PF.x + (g.runHostU === g.clientId ? 140 : PF.w - 140); p.y = PF.y + PF.h / 2;
+    g.projectiles = [];
+    if (g.state === 'dead' || g.state === 'win') g.state = 'play';
+    if (m.fin) {
+      triggerUltFlash(iWon ? 'DUEL CHAMPION' : 'DEFEATED', iWon ? '#ffd24c' : '#e05555');
+      g.floorBanner = { text: iWon ? 'DUEL CHAMPION' : 'DEFEAT', t: 4.5, sub: 'the set resets - fight on' };
+      g.duelScore = {};
+      Sfx.play(iWon ? 'levelup' : 'hurt');
+    } else {
+      g.floorBanner = { text: !m.w ? 'DOUBLE KO - replay the round' : (iWon ? 'ROUND YOURS' : 'ROUND LOST'), t: 2.2 };
+      Sfx.play('unlock');
+    }
+    g.duelCountdownT = 3.2;
+  }
+
   // host: end the run only when EVERYONE is down
   function checkPartyWipe() {
+    if (g.duelMode) return; // #240 duels end in rounds, never in a game over
     if (!isRunHost() || g.runEnded) return;
     // a peer is only "down" if we've been TOLD so ({t:'downed'} / dd flag). A present
     // but lagging peer counts as ALIVE - never false-wipe on a network hiccup. Peers
@@ -4856,6 +4922,7 @@
     if (g.coop) {
       broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
       checkStrandedFollow(dt);
+      if (g.duelMode) updateDuel(dt); // #240 the duel referee (countdown on both, rounds on the host)
       if (isCoopGuest()) { updateGuestMobs(dt); checkHostAlive(); } else { broadcastMobs(dt); broadcastGear(dt); broadcastKeyframe(dt); checkPartyWipe(); }
     }
 
@@ -6068,6 +6135,26 @@
     }
 
     UI.drawHUD(c, g);
+    // #240 the duel scoreboard + the 3-2-1
+    if (g.duelMode && g.coop) {
+      c.save(); c.textAlign = 'center';
+      const my = (g.duelScore && g.duelScore[g.clientId]) || 0;
+      let their = 0; for (const k in (g.duelScore || {})) if (k !== g.clientId) their = Math.max(their, g.duelScore[k]);
+      c.font = 'bold 20px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`${my}  —  ${their}`, W / 2, 30);
+      c.font = '9px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText('FIRST TO 3', W / 2, 44);
+      if (g.duelCountdownT > 0) {
+        c.font = 'bold 72px monospace'; c.fillStyle = '#fff';
+        c.globalAlpha = 0.9;
+        c.fillText(String(Math.ceil(g.duelCountdownT)), W / 2, H / 2 - 40);
+      } else if (g.duelFightT > 0) {
+        c.font = 'bold 64px monospace'; c.fillStyle = '#ffd24c';
+        c.globalAlpha = Math.min(1, g.duelFightT / 0.4);
+        c.fillText('FIGHT!', W / 2, H / 2 - 40);
+      }
+      c.restore();
+    }
     // #10 (Sam) ULTIMATE cast flash: a full-screen colour wash that fades fast, plus a
     // big centred banner naming the ult. Screen-space, over the HUD - the whole dungeon
     // feels it (and in co-op every player's screen flashes).
@@ -7658,7 +7745,7 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF); }, // #224 mirrors the lobby-start click incl. friendly fire
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel); }, // #224/#240 mirrors the lobby-start click
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
     // testing: pretend a net message arrived (drives the real Net.on handlers)
     mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },

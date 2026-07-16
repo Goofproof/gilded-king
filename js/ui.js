@@ -1969,9 +1969,14 @@ const UI = (() => {
       btn(W / 2 - 130, 320, 260, 50, 'START GAME', 'lobby-start', '127,212,255');
       // #224 PVP Phase 0: the host arms friendly fire for the whole run
       btn(W / 2 - 130, 384, 260, 36, `FRIENDLY FIRE: ${g.lobbyFF ? 'ON' : 'OFF'}`, 'lobby-ff', g.lobbyFF ? '255,90,90' : '143,163,191');
-      if (g.lobbyFF) {
+      // #240 PVP Phase 1: THE DUEL - a sealed arena, rounds, first to 3
+      btn(W / 2 - 130, 428, 260, 36, `⚔ DUEL MODE: ${g.lobbyDuel ? 'ON' : 'OFF'}`, 'lobby-duel', g.lobbyDuel ? '255,210,76' : '143,163,191');
+      if (g.lobbyDuel) {
+        c.font = '11px monospace'; c.fillStyle = '#c9b061';
+        c.fillText('a sealed arena. no monsters. first to 3 rounds. good luck.', W / 2, 482);
+      } else if (g.lobbyFF) {
         c.font = '11px monospace'; c.fillStyle = '#c98080';
-        c.fillText('swords and arrows hurt your friends. chaos mode.', W / 2, 438);
+        c.fillText('swords and arrows hurt your friends. chaos mode.', W / 2, 482);
       }
     } else if (lb.mode === 'join') {
       c.font = '13px monospace'; c.fillStyle = '#8fa3bf';

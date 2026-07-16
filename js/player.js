@@ -1046,7 +1046,10 @@ const PlayerDef = (() => {
     damage(dmg, sx, sy, g, src) {
       // winTimer > 0 = boss just died: celebration invulnerability, and it closes
       // the die-after-victory race that double-banked essence
-      if (this.iframes > 0 || this.dead || g.state !== 'play' || g.winTimer > 0) return;
+      // #240 in a DUEL, menus are not armor: the character sheet and pause still let
+      // hits through (otherwise "open charsheet" would be god mode - he WOULD find it)
+      const menuVuln = g && g.duelMode && (g.state === 'charsheet' || g.state === 'pause');
+      if (this.iframes > 0 || this.dead || (g.state !== 'play' && !menuVuln) || g.winTimer > 0) return;
       // shield charm eats the whole hit
       if (this.buffs.shield > 0) {
         this.buffs.shield--;
