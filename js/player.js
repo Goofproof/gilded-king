@@ -983,7 +983,9 @@ const PlayerDef = (() => {
         if (this.mod('bossSlayer') && target.isBoss) dmg *= 1 + this.mod('bossSlayer');
       }
       if (this.evo.midasPer) dmg += Math.min(this.evo.midasCap || 0, Math.floor(this.coins / this.evo.midasPer));
-      const crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh');
+      let crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh');
+      // #253 ACHILLES: the first hit on each enemy in the window is always a crit
+      if (!crit && this.fstance && this.fstance.firstCrit && target && this.fstance.seen && !this.fstance.seen.has(target)) { this.fstance.seen.add(target); crit = true; }
       if (crit) dmg *= T.critMult + this.mod('critDmg');
       return { dmg, crit };
     }
@@ -1193,7 +1195,7 @@ const PlayerDef = (() => {
       // surplus attack speed recharges Q/R/ult that much faster (see cdTick below).
       const _wArch = this.weapon && this.weapon.archetype;
       const _isCaster = _wArch === 'wand' || _wArch === 'staff';
-      const _asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
+      const _asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02 + ((this.fstance && this.fstance.atkSpd) || 0); // #253 ACHILLES/QUICKSILVER
       if (this.attackCd > 0) this.attackCd -= dt * (_isCaster ? 1 : _asf);
       if (this._echoT > 0) { // #250 a pending spell echo fires when the beat lands
         this._echoT -= dt;
@@ -1217,6 +1219,38 @@ const PlayerDef = (() => {
           // straight to hp exactly like the stats.regen tick does
           if (this.moving) { fs.ramp = Math.min(6, fs.ramp + dt); this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt); }
           if (fs.ramp >= 6 && !fs.healed) { fs.healed = true; this.heal(this.maxHp * 0.15); Fx.text(this.x, this.y - 44, 'FULL STRIDE', '#7fd4ff', 14); }
+        }
+        if (fs.id === 'mjolnir' && g && g.monsters) { // #253 the storm hammers on a beat
+          fs.zapT -= dt;
+          if (fs.zapT <= 0) {
+            let best = null, bd = 240;
+            for (const m of g.monsters) { if (m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - this.x, m.y - this.y); if (d < bd) { bd = d; best = m; } }
+            if (best) {
+              fs.zapT = 0.8;
+              best.takeHit(fs.zap + best.maxHp * 0.02 * (best.isBoss ? 1 / 3 : 1), { sx: this.x, sy: this.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
+              let chain = null, cd2 = 160;
+              for (const m of g.monsters) { if (m === best || m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - best.x, m.y - best.y); if (d < cd2) { cd2 = d; chain = m; } }
+              if (chain) chain.takeHit(fs.zap * 0.5, { sx: best.x, sy: best.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
+              Fx.burst(best.x, best.y, ['#ffe27a', '#fff'], 10, { speed: 180, life: 0.3, glow: true });
+            }
+          }
+        }
+        if (fs.id === 'parthian' && g && g.monsters) { // #253 arrows fire BEHIND the retreat
+          fs.shotT -= dt;
+          if (this.moving && fs.shotT <= 0) {
+            let best = null, bd = 420;
+            for (const m of g.monsters) { if (m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - this.x, m.y - this.y); if (d < bd) { bd = d; best = m; } }
+            if (best) {
+              const mvx = this.x - this.px, mvy = this.y - this.py;
+              if (mvx * (best.x - this.x) + mvy * (best.y - this.y) < 0) { // genuinely backing away
+                fs.shotT = 0.35;
+                const ang = Math.atan2(best.y - this.y, best.x - this.x);
+                const dmg = Math.max(1, Math.round(((this.weapon && this.weapon.dmg) || 10) * this.stats.dmgMul));
+                g.projectiles.push({ x: this.x, y: this.y, vx: Math.cos(ang) * 520, vy: Math.sin(ang) * 520, r: 4, dmg, from: 'player', color: '#ffd7a0', life: 1.2, hitSfx: 'hitArrow', hitSet: new Set() });
+              }
+            }
+          }
+          if (this.rollT >= 0) this.attackCd = 0; // the tumble reloads
         }
         if (fs.t <= 0) this.fstance = null;
       }
@@ -1258,6 +1292,7 @@ const PlayerDef = (() => {
 
       // #166 (Sam) BLEED (the magic panther's claws): a short DoT that chips HP away.
       if (this.slowT > 0) this.slowT -= dt; // #179 the glue dries off
+      if (this.fstance && this.fstance.noSlow) { this.slowT = 0; this.slowMul = 1; } // #253 ACHILLES shrugs the glue off
       if (this.frozenFxT > 0) this.frozenFxT -= dt; // #180 the ice shell melts
       if (this.blindT > 0) this.blindT -= dt; // #182 sight returns
       if (this.bleed && this.bleed.t > 0) {
@@ -1382,7 +1417,9 @@ const PlayerDef = (() => {
         const stickMag = input.stick ? input.stick.mag : 1;
         const glue = this.slowT > 0 ? (this.slowMul || 1) : 1; // #179 glued feet
         // #252 MARATHON builds stride while moving; ANTAEUS roots you to the spot
-        const fBonus = (this.fstance && this.fstance.id === 'marathon') ? 1 + Math.min(0.36, this.fstance.ramp * 0.06) : 1;
+        const fBonus = !this.fstance ? 1
+          : this.fstance.id === 'marathon' ? 1 + Math.min(0.36, this.fstance.ramp * 0.06)
+          : 1 + (this.fstance.spdMul || 0); // #253 ACHILLES
         const sp = T.speed * (stats.speedMul + this.mod('spd')) * mom * haste * traversal * ruleMul * stickMag * glue * fBonus * (this.rootT > 0 ? 0 : 1);
         this.x += mx * sp * dt;
         this.y += my * sp * dt;
@@ -1605,7 +1642,8 @@ const PlayerDef = (() => {
       swingOnce(1);
       if (g.cloneEcho) g.cloneEcho(this, w, 1); // #229 mesmer R8: the copies swing with you
       // Echo evolutions: light swings sometimes strike twice (second at half power)
-      if (w.archetype === 'light' && this.mod('echo') && Math.random() < this.mod('echo')) {
+      const _ec = this.mod('echo') + ((this.fstance && this.fstance.echoBoost) || 0); // #253 QUICKSILVER
+      if (w.archetype === 'light' && _ec && Math.random() < _ec) {
         swingOnce(0.5);
         Fx.text(this.x, this.y - 34, 'ECHO', '#ff9a3d', 11);
       }
@@ -1665,7 +1703,7 @@ const PlayerDef = (() => {
       // #49 Magic scaling: spells hit harder the more Magic you have (+8%/point over 1),
       // so investing the stat is the payoff for a magic build (and Attunement earns its slot).
       // #46 the ARCANE Spell-Power branch multiplies on top of that (spellPower fx).
-      const magScale = (1 + Math.max(0, this.magicLevel() - 1) * 0.08) * (1 + this.mod('spellPower'));
+      const magScale = (1 + Math.max(0, this.magicLevel() - 1) * 0.08) * (1 + this.mod('spellPower')) * (1 + ((this.fstance && this.fstance.spellPow) || 0)); // #253 PROMETHEUS
       const mkProj = (ang, base, extra) => {
         const { dmg, crit } = this.computeDmg(base * magScale, null, g);
         const sp = w.projSpeed;
@@ -1712,7 +1750,8 @@ const PlayerDef = (() => {
       this.attackCd = w.cooldown;
       // #250 ECHO for casters: the nymph repeats your voice - the whole volley
       // re-casts a beat later. Guarded so an echo can never echo itself.
-      if (!this._echoing && this.mod('echo') && Math.random() < this.mod('echo')) this._echoT = 0.22;
+      const _ec2 = this.mod('echo') + ((this.fstance && this.fstance.echoBoost) || 0); // #253 QUICKSILVER
+      if (!this._echoing && _ec2 && Math.random() < _ec2) this._echoT = 0.22;
     }
 
     // --- rendering -----------------------------------------------------------------

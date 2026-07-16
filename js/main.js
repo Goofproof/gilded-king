@@ -2216,7 +2216,7 @@
       const fRank = Abilities.fusionRank(p.statPoints, a.fusionStats);
       a._rank = fRank;
       const fpp = a.pp || {};
-      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider };
+      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd };
       if (a.fRider) a.qRider = 0.06; // +6% of each target's max HP (bosses 1/3) - the hit sites already honour it
       if (fpp.dmg && a.dmg) a.dmg = Math.round(a.dmg * (1 + fpp.dmg * fRank));
       if (fpp.radius && a.radius) a.radius = Math.round(a.radius + fpp.radius * fRank);
@@ -2227,6 +2227,10 @@
       if (fpp.charges && a.charges) a.charges = Math.min(6, Math.round(a.charges + fpp.charges * fRank));
       if (fpp.mint && a.mint) a.mint = Math.min(20, Math.round(a.mint + fpp.mint * fRank));
       if (fpp.burstCap && a.burstCap) a.burstCap = Math.round(a.burstCap + fpp.burstCap * fRank);
+      if (fpp.zap && a.zap) a.zap = Math.round(a.zap * (1 + fpp.zap * fRank));
+      if (fpp.dist && a.dist) a.dist = Math.round(a.dist + fpp.dist * fRank);
+      if (fpp.decoyHp && a.decoyHp) a.decoyHp = Math.round(a.decoyHp + fpp.decoyHp * fRank);
+      if (fpp.atkSpd && a.atkSpd) a.atkSpd = +(a.atkSpd + fpp.atkSpd * fRank).toFixed(2);
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -2260,7 +2264,13 @@
         m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
         if (_qGates && _qGates.cls === 'mage' && _qGates.rank >= 12 && !m.dead) { m.chillT = Math.max(m.chillT || 0, 2.5); m.chillMul = 0.5; } // #229 R12: everything hit is CHILLED
         if (m.dead) qKills++;
+        if (a.ignite && !m.dead) m.burn = { t: 3, tick: 0, dps: a.ignite }; // #253 PROMETHEUS
         fHits++;
+      }
+      // #253 PROMETHEUS: stolen fire feeds your spells - power per enemy ignited
+      if (a.ignite && fHits) {
+        p.fstance = { id: 'prometheus', t: 6, spellPow: Math.min(0.6, 0.05 * fHits), color: a.color };
+        Fx.text(p.x, p.y - 46, `STOLEN FIRE +${Math.round(Math.min(0.6, 0.05 * fHits) * 100)}%`, '#ff8a3d', 13);
       }
       // #252 BLOOD MONEY: every enemy struck pays a bounty (hard-capped, PVP-safe)
       if (a.coinPerHit && fHits) {
@@ -2301,6 +2311,22 @@
             m.takeHit(dashDmg, { sx: px, sy: py, knock: 150, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitLight' }, g);
             hit.add(m);
           }
+        }
+      }
+      // #253 TYPHOON: the whirlwind bursts where you land
+      if (a.exitBurst) {
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne || m.spawnT > 0) continue;
+          if (Math.hypot(m.x - tx, m.y - ty) > 130 + m.r) continue;
+          m.takeHit((a.dmg || 55) * 1.5 * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0), { sx: tx, sy: ty, knock: 240, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+        }
+        Fx.burst(tx, ty, [a.color, '#fff'], 30, { speed: 300, life: 0.5, glow: true });
+        Fx.shake(5, 0.2);
+      }
+      // #253 HERMES: three afterimages pulse along the blink path (the mage-R8 qpulse rig)
+      if (a.afterimages) {
+        for (let k = 1; k <= 3; k++) {
+          g.ultFx.push({ type: 'qpulse', x: p.x + (tx - p.x) * k / 3, y: p.y + (ty - p.y) * k / 3, t: 0, delay: 0.25 + k * 0.12, dmg: Math.round((a.dmg || 55) * dmgMul * 0.8), radius: 95, rider: (a.qRider || 0) * 0.5, color: a.color });
         }
       }
       // #228 (Q wave 2) ranger: THE VOLLEY IS REAL. Arrows loose from the middle of
@@ -2382,8 +2408,10 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
-    } else if (a.kind === 'fstance') { // #252 AJAX / MARATHON / FORT KNOX
-      p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color };
+    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm') { // #252/#253 the stances
+      p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color,
+        atkSpd: a.atkSpd || 0, spdMul: a.spdMul || 0, noSlow: !!a.noSlow, firstCrit: !!a.firstCrit, seen: a.firstCrit ? new Set() : null,
+        echoBoost: a.echoBoost || 0, zap: a.zap || 0, zapT: 0, shotT: 0 };
       Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 24, { speed: 200, life: 0.6, glow: true });
     } else if (a.kind === 'froot') { // #252 ANTAEUS: the release happens in player.update
@@ -2396,6 +2424,11 @@
       p.bleed = null; p.slowT = 0; p.slowMul = 1; // shed every DoT and slow
       p._houdini = true;
       Fx.burst(p.x, p.y, ['#b6c0d0', '#fff'], 30, { speed: 260, life: 0.5, glow: true });
+    } else if (a.kind === 'fdecoy') { // #253 MIRAGE: a shimmering double that taunts, then detonates
+      g.decoy = { x: p.x, y: p.y, r: 14, hp: a.decoyHp || 120, maxHp: a.decoyHp || 120, t: a.dur || 5, dead: false,
+        boom: Math.round((a.dmg || 90) * dmgMul), rider: (a.qRider || 0), color: a.color };
+      p.invisT = Math.max(p.invisT || 0, 1.0); // slip away while every eye turns
+      Fx.burst(p.x, p.y, [a.color, '#fff'], 26, { speed: 220, life: 0.6, glow: true });
     } else if (a.kind === 'ffleece') { // #252 GOLDEN FLEECE: the mint lives in player.damage
       p.buffs.shield = (p.buffs.shield || 0) + (a.charges || 2);
       p.fleeceT = 12; p.fleeceMint = a.mint || 6;
@@ -4554,6 +4587,9 @@
       if (m.clone && !m.dead) list.push({ x: m.x, y: m.y, r: 12, ref: m, isRemote: false, id: 'clone' });
       if (m.golem && !m.dead) list.push({ x: m.x, y: m.y, r: 18, ref: m, isRemote: false, id: 'golem' }); // #229 the golem TAUNTS
     }
+    if (g.decoy && !g.decoy.dead) { // #253 MIRAGE draws every eye, exactly like a clone
+      list.push({ x: g.decoy.x, y: g.decoy.y, r: 14, ref: g.decoy, isRemote: false, id: 'decoy' });
+    }
     // #224 with FRIENDLY FIRE on, every client enumerates its peers (a guest must be
     // able to aim at the host); without it, only the host does (monster AI targeting).
     if (g.coop && typeof Net !== 'undefined' && (isRunHost() || g.friendlyFire) && g.room) {
@@ -5225,6 +5261,7 @@
     updateStalactites(dt);   // #164 falling stalactites on the underground floors
     updateGluePuddles(dt);   // #179 sticky glue on the floor slows everything in it
     updateBirdShadow(dt);    // #183 the hawk over the forest canopy
+    updateDecoy(dt);         // #253 MIRAGE
     updateSmokeBanks(dt);    // #184 Wrath's drifting smoke
     updateTurrets(dt);
     updateSummons(dt);
@@ -5933,6 +5970,35 @@
     c.restore();
   }
 
+  // #253 MIRAGE: monsters chip the double on contact; empty or expired, it detonates
+  function updateDecoy(dt) {
+    const d = g.decoy; if (!d || d.dead) return;
+    d.t -= dt;
+    for (const m of g.monsters) {
+      if (m.dead || m.spawnT > 0) continue;
+      if (Math.hypot(m.x - d.x, m.y - d.y) < m.r + d.r + 6) d.hp -= 30 * dt;
+    }
+    if (d.t <= 0 || d.hp <= 0) {
+      d.dead = true; g.decoy = null;
+      for (const m of g.monsters) {
+        if (m.dead || m.airborne || m.spawnT > 0) continue;
+        if (Math.hypot(m.x - d.x, m.y - d.y) > 150 + m.r) continue;
+        m.takeHit(d.boom + m.maxHp * d.rider * (m.isBoss ? 1 / 3 : 1), { sx: d.x, sy: d.y, knock: 220, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+      }
+      Fx.burst(d.x, d.y, [d.color, '#fff'], 34, { speed: 320, life: 0.6, glow: true });
+      Fx.shake(5, 0.2);
+    }
+  }
+  function drawDecoy(c) {
+    const d = g.decoy; if (!d || d.dead) return;
+    c.save();
+    c.globalAlpha = 0.55 + Math.sin(Date.now() / 120) * 0.2;
+    c.strokeStyle = d.color; c.lineWidth = 2;
+    c.beginPath(); c.arc(d.x, d.y, d.r, 0, Math.PI * 2); c.stroke();
+    c.fillStyle = d.color; c.globalAlpha *= 0.4;
+    c.beginPath(); c.arc(d.x, d.y, d.r * 0.7, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
   function updateBirdShadow(dt) {
     if (!g.birdShadow) return;
     g.birdShadow.t += dt;
@@ -6295,6 +6361,7 @@
 
     drawGluePuddles(c);   // #179 glue decals sit on the floor, under everything
     drawBirdShadow(c);    // #183 the shadow sweeps the floor, under all actors
+    drawDecoy(c);         // #253 the mirage shimmers among the monsters
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);

@@ -47,11 +47,13 @@ describe('#252 fusion tables', () => {
     expect(out.map(r => r.name)).toEqual(['BLOOD MONEY', 'FORT KNOX', 'GOLDEN FLEECE']);
   });
 
-  it('an unmapped pair falls back to the legacy grid (3 distinct kinds)', () => {
-    const out = Abilities.rOptions(['dmg', 'magic'], ['MIGHT', 'ARCANE']); // wave 2 pair
-    expect(out.length).toBe(3);
-    expect(out.every(r => !r.fusion)).toBe(true);
-    expect(new Set(out.map(r => r.kind)).size).toBe(3);
+  it('every mapped pair resolves through rOptions with its own trio', () => {
+    for (const [key, trio] of Object.entries(Abilities.FUSIONS)) {
+      const stats = key.split('+');
+      const out = Abilities.rOptions(['dmg', 'hp'], stats); // fine keys irrelevant when schools given
+      expect(out.map(r => r.name)).toEqual(trio.map(e => e.name));
+      expect(out.every(r => r.fusion)).toBe(true);
+    }
   });
 
   it('a Prime double (same school) keeps the legacy grid', () => {
