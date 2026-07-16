@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.107', title: 'Your loot is YOURS now', date: '2026-07-16',
       sha: 'b85d0dd',
       items: [
-        'PER-PLAYER LOOT INSTANCING (#239): kill, boss, mythic and trap drops are rolled separately on every player\'s client from a host \'lootroll\' event - your drops are yours, invisible and untakeable to teammates; mythics roll against each player\'s own collection.',
+        'The big co-op loot change: EVERY PLAYER GETS THEIR OWN DROPS NOW. When a monster, elite, boss or trap chest drops gear in co-op, each player rolls their own separate item. Your teammate literally cannot see your drop, let alone grab it first. Same kill, different loot on each screen. No more racing your partner to the sword.',
+        'This applies everywhere gear drops from a kill: regular monsters, elites, mimics, the trap-room chest, boss legendaries (you EACH get one now), and even Circle Warden mythics, which roll against your own collection so you never get a mythic your teammate already had.',
+        'Shop, forge and enchanting are unchanged. So is picking up: walk over your item and take it, whenever you like.',
       ],
     },
     {
