@@ -26,7 +26,10 @@ const PatchNotes = (() => {
       v: 'v2.109', title: 'THE GILDED HUNT: last one standing', date: '2026-07-16',
       sha: 'f53d608',
       items: [
-        'PVP Phase 2: THE GILDED HUNT (#241) - battle royale across a full floor: HUNT lobby toggle, far-apart spawns, hunters roam ALONE (no tether, solo doors, opponent visible only in a shared room), no monsters, per-player chest loot, and THE SWARM consumes rooms from the outside in on the host\'s clock (seed-ordered, keyframe-healed, red on the minimap) - last champion standing, then run it back.',
+        'BATTLE ROYALE IS HERE: flip on HUNT in the host lobby. You and your opponent spawn on opposite ends of a full dungeon floor, and for the first time in co-op you move COMPLETELY alone: your own doors, your own path, no tether. You cannot see each other until you are in the same room. Every chest rolls its own loot for each of you, so gear up fast.',
+        'Then THE SWARM comes. After a minute or so, the rooms at the edge of the map start falling, one by one, marked blood-red on your minimap. Stand in a fallen room and it eats you alive. The safe ground shrinks toward the middle until someone has nowhere left to run.',
+        'Knock your opponent down anywhere, or let the swarm do it, and you are the HUNT CHAMPION. Then it all resets and you run it back. The hunt has no stairs, no exits and no mercy: it ends one way.',
+        'Coming next while you sleep: monsters join the hunt as the third force, and the Gilded King himself takes the field.',
       ],
     },
     {
