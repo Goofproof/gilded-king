@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.111';
+  const VERSION = 'v2.112';
 
   const NOTES = [
+    {
+      v: 'v2.112', title: 'The game has a true name: BARROWLIGHT', date: '2026-07-16',
+      sha: '40a3930',
+      items: [
+        'THE GAME IS BARROWLIGHT (#244) - new title screen, tab title and share headline (the old name also spoiled the King); the floor-rule intro card is CONTRAPASSO now, tightened to one line per rule (#245), and the active rules stay pinned under the minimap for the whole floor so nobody wonders why it is dark or windy.',
+      ],
+    },
     {
       v: 'v2.111', title: 'The crown decides the Hunt', date: '2026-07-16',
       sha: 'e65382f',
