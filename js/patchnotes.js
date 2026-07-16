@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.109';
+  const VERSION = 'v2.110';
 
   const NOTES = [
+    {
+      v: 'v2.110', title: 'The Hunt gets teeth', date: '2026-07-16',
+      sha: '640ff7e',
+      items: [
+        'PVP Phase 3: monsters join THE HUNT (#242) - instanced per player like the loot: you fight YOUR dungeon at 2/3 density while your opponent fights theirs, kills feed only the killer (personal xp + drops), your monsters can never wound the real other hunter, and doors never seal so fleeing stays viable.',
+      ],
+    },
     {
       v: 'v2.109', title: 'THE GILDED HUNT: last one standing', date: '2026-07-16',
       sha: 'f53d608',
