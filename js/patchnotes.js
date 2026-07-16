@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.106', title: 'Flashbangs flash now', date: '2026-07-16',
       sha: '6380e51',
       items: [
-        'The glass mob\'s blind is a FLASHBANG now (#238) - a searing white-out that sight bleeds back through, instead of the borrowed Envy darkness; hit text says FLASHED with a shake and bang.',
+        'The glass artillery\'s blind is a proper FLASHBANG now. Getting hit by a flash-bolt used to wrap you in darkness, same as Envy\'s shroud. Now the whole screen sears WHITE with a bang and a shake, and your sight bleeds back in over two seconds. Blinded by light, the way a flash should work. Envy keeps its darkness - the two finally look different.',
       ],
     },
     {
