@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.119', title: 'Excalibur flies, Prometheus burns, the Stone toggles', date: '2026-07-16',
       sha: 'bb6c850',
       items: [
-        'Fusion tune-ups from Sam: EXCALIBUR swings now FLY as blades of light, PROMETHEUS is a real flamethrower, and the PHILOSOPHER\'S STONE is a toggle - burn gold for power until you run dry.',
+        'EXCALIBUR reforged: for its whole window, every melee swing sends a blade of light flying where you aim. Your sword fights at range now.',
+        'PROMETHEUS reforged: it is a FLAMETHROWER. Hold the line and spray a torrent of fire wherever you point - everything it licks keeps burning.',
+        "PHILOSOPHER'S STONE reforged: now a TOGGLE. Light it and your gold burns away while ALL your damage is amplified. Press R to snuff it - or go broke and it snuffs itself.",
       ],
     },
     {
