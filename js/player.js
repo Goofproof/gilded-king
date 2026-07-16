@@ -1172,7 +1172,21 @@ const PlayerDef = (() => {
       if (this.iframes > 0) this.iframes -= dt;
       if (this.invisT > 0) this.invisT -= dt; // Vanish ultimate: untargetable window
       if (this.rollCd > 0) this.rollCd -= dt;
-      if (this.attackCd > 0) this.attackCd -= dt * (stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02);
+      // #247 (Sam) attack speed must NOT make wands/staves shoot faster - a spell's
+      // cadence is part of its identity. Casters convert the stat instead: all
+      // surplus attack speed recharges Q/R/ult that much faster (see cdTick below).
+      const _wArch = this.weapon && this.weapon.archetype;
+      const _isCaster = _wArch === 'wand' || _wArch === 'staff';
+      const _asf = stats.atkSpeedMul + this.mod('atkSpd') + this.frenzy.s * 0.02;
+      if (this.attackCd > 0) this.attackCd -= dt * (_isCaster ? 1 : _asf);
+      if (this._echoT > 0) { // #250 a pending spell echo fires when the beat lands
+        this._echoT -= dt;
+        if (this._echoT <= 0 && !this.dead && _isCaster) {
+          const savedCd = this.attackCd;
+          this._echoing = true; this.fireSpell(g); this._echoing = false;
+          this.attackCd = savedCd; // the echo is free - it must not delay the next real cast
+        }
+      }
       if (this.flash > 0) this.flash -= dt;
       if (this.momentumT > 0) this.momentumT -= dt;
       if (this.buffs.undyingT > 0) this.buffs.undyingT -= dt; // #156
@@ -1180,9 +1194,10 @@ const PlayerDef = (() => {
       if (this.buffs.hasteT > 0) this.buffs.hasteT -= dt;
       if (this.frenzy.t > 0) { this.frenzy.t -= dt; if (this.frenzy.t <= 0) this.frenzy.s = 0; }
       if (this.fireImmuneT > 0) this.fireImmuneT -= dt; // #229 pyro R8
-      if (this.ability && this.ability.cd > 0) this.ability.cd -= dt;
-      if (this.abilityR && this.abilityR.cd > 0) this.abilityR.cd -= dt;
-      if (this.abilityUlt && this.abilityUlt.cd > 0) this.abilityUlt.cd -= dt;
+      const _cdTick = dt * (_isCaster ? Math.max(1, _asf) : 1); // #247 caster CDR
+      if (this.ability && this.ability.cd > 0) this.ability.cd -= _cdTick;
+      if (this.abilityR && this.abilityR.cd > 0) this.abilityR.cd -= _cdTick;
+      if (this.abilityUlt && this.abilityUlt.cd > 0) this.abilityUlt.cd -= _cdTick;
       // THE FAST (Gluttony) stops your regeneration dead: nothing on that terrace
       // will feed you, and the health you finish the floor with is the health you had.
       const totalRegen = (g.rules && g.rules.noRegen) ? 0 : stats.regen + this.mod('regenFlat');
@@ -1640,6 +1655,9 @@ const PlayerDef = (() => {
         Sfx.play('bowfire');
       }
       this.attackCd = w.cooldown;
+      // #250 ECHO for casters: the nymph repeats your voice - the whole volley
+      // re-casts a beat later. Guarded so an echo can never echo itself.
+      if (!this._echoing && this.mod('echo') && Math.random() < this.mod('echo')) this._echoT = 0.22;
     }
 
     // --- rendering -----------------------------------------------------------------
