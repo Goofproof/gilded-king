@@ -1002,7 +1002,7 @@ const UI = (() => {
       const chosenR = races.find(ra => ra.id === selR) || races[0];
       c.textAlign = 'center';
       c.font = '10px monospace'; c.fillStyle = chosenR.color;
-      c.fillText(chosenR.desc, cx0, ry + rh + 13);
+      c.fillText(chosenR.desc, cx0, ry + rh + 15); // #264
     }
 
     // --- #30/#156 CLASS picker. Was a two-row grid; with 15 classes that grid ate the
@@ -1014,9 +1014,9 @@ const UI = (() => {
     if (classes.length) {
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('CHOOSE YOUR CLASS', cx0, 288);
+      c.fillText('CHOOSE YOUR CLASS', cx0, 308); // #264 breathing room under the race blurb
 
-      const gap = 6, cw = 88, chh = 54, y0 = 296;
+      const gap = 6, cw = 88, chh = 54, y0 = 316; // #264
       const VIS = 5;   // 5 x 88 + 4 x 6 = 464 wide; with a 24px arrow each side that is
                        // 528, which fits the 568px corridor between the two side panels.
                        // Go wider and the strip slides UNDER them (it did - that was a bug).
@@ -1065,7 +1065,7 @@ const UI = (() => {
       }
       // how far along the strip you are - on the HEADER line, so it costs no height
       c.textAlign = 'right'; c.font = '9px monospace'; c.fillStyle = '#5f6b80';
-      c.fillText(`${classScroll + 1}-${Math.min(classes.length, classScroll + VIS)} of ${classes.length} · scroll`, x0 + stripW, 288);
+      c.fillText(`${classScroll + 1}-${Math.min(classes.length, classScroll + VIS)} of ${classes.length} · scroll`, x0 + stripW, 308); // #264
 
       const gridBottom = y0 + chh;   // 350, exactly where the old grid ended
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
