@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.120';
+  const VERSION = 'v2.121';
 
   const NOTES = [
+    {
+      v: 'v2.121', title: 'NEW CLASS: THE GAMBLER', date: '2026-07-16',
+      sha: 'a1c872c',
+      items: [
+        'NEW CLASS: THE GAMBLER - Fortune rules it, and its Q is JACKPOT: the reels spin, and one pull in four hits TRIPLE and showers gold.',
+      ],
+    },
     {
       v: 'v2.120', title: 'The forge gets FUN: bowling with monsters, a real goose, visible stances', date: '2026-07-16',
       sha: '2ff0c83',
