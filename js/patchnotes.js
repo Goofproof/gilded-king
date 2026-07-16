@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.117';
+  const VERSION = 'v2.118';
 
   const NOTES = [
+    {
+      v: 'v2.118', title: 'Prime fusions: pure builds get their own trios', date: '2026-07-16',
+      sha: '3a45db1',
+      items: [
+        'PRIME FUSIONS: doubling up on one stat now forges its own trio - and pure builds rank up twice as fast.',
+      ],
+    },
     {
       v: 'v2.117', title: 'Fusion wave 3: all ten pairs are at the forge', date: '2026-07-16',
       sha: '6ceef16',
