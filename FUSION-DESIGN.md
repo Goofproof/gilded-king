@@ -1,6 +1,6 @@
 # FUSION ABILITIES v2 - the 3-choice model (design map, NOT built)
 
-Status: DESIGN LOCKED-IN-SHAPE by Sam 2026-07-16: "two stats govern the selection
+Status: ALL 30 SHIPPED 2026-07-16 (v2.115-v2.117; mechanics deviations in DECISIONS-LOG.md). Originally: DESIGN LOCKED-IN-SHAPE by Sam 2026-07-16: "two stats govern the selection
 of three different potential fusion abilities... each of those fusion abilities to
 be diverse, unique, and scalable." This doc is the 30-ability map for the pair
 walkthrough (same process as the Q waves). Nothing is code yet.

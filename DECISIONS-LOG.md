@@ -1,3 +1,25 @@
+## 2026-07-16 (fusion waves 2+3, unattended /loop) - all 10 pairs live
+
+Waves 2 (v2.116) and 3 shipped unattended; all 30 fusions from FUSION-DESIGN.md
+now exist. Calls made without Sam (doc deviations, all logged in the doc's spirit):
+1. MJOLNIR is a periodic storm (zaps nearest every 0.8s + one chain) instead of
+   on-hit chaining - on-hit would touch every damage site; the beat is one hook.
+2. EL DORADO's fever builds per KILL (+3%/kill, cap +30%) not per coin picked -
+   the pickup pipeline has no per-item hook worth adding for one stance.
+3. GOLD RUSH: kills pay +2 coins and shave 0.5s off Q (not "spell kills pay
+   double" - kill attribution to spells vs swings is not tracked).
+4. LUCKY STREAK ramps +1% crit per CRIT (cap 50%) rather than per kill.
+5. ORACLE OF DELPHI: reveals the whole floor (rooms.visited) + strikes and chills
+   the current room, instead of a party-wide damage mark (marks on monsters would
+   need takeHit surgery); the co-op share is the SANCTUARY qzone instead.
+6. KING'S RANSOM targets the beefiest head (boss > elite > maxHp) and pays 14
+   coins + an instanced rare weapon on death.
+7. All economy channels hard-capped (transmute 80+4/rank, robbery 2/enemy/dash,
+   streak pay 1/crit) - PVP cannot farm them.
+8. Verified in the dbg harness at rank 10: transmute spent exactly 120, troll
+   regen 20/s and stemmed by >10% maxHp hits, sanctuary spawns both zones, oracle
+   reveals every room. Two false alarms during verify were dead-room artifacts.
+
 ## 2026-07-16 (fusion wave 1) - FUSION v2 build calls
 
 1. Sam's model ("two stats govern the selection of three fusion abilities") mapped
