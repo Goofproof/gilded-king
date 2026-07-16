@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.127', title: 'HUD cleanup', date: '2026-07-16',
       sha: '63221b0',
       items: [
-        'HUD cleanup: Q, R and Ultimate buttons moved to the bottom left under your weapons, and the FLOOR count is gone.',
+        'HUD cleanup: your Q, R and Ultimate buttons now live in the bottom LEFT, right under your weapons - everything about your kit in one corner. The FLOOR 1/3 counter is gone (the Descent still shows its depth, on the right).',
       ],
     },
     {
