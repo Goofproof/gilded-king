@@ -9,7 +9,7 @@ const UI = (() => {
   function scrollClasses(d) { classScroll += d; }        // clamped at draw time
 
   // canonical public home of the game (GitHub Pages) - what the share button copies
-  const GAME_URL = 'https://goofproof.github.io/gilded-king/';
+  const GAME_URL = 'https://goofproof.github.io/gilded-king/'; // TODO flip to /barrowlight/ the moment the GitHub repo rename lands - do not ship the new URL before it exists
 
   // --- META-PROGRESSION UPGRADES (hub screen; persisted in localStorage) --------
   // Kept deliberately modest so runs live or die on in-run choices.
@@ -2442,7 +2442,7 @@ const UI = (() => {
       c.fillStyle = 'rgba(50,40,8,0.95)'; c.fillRect(bx3, by3, bw3, bh3);
       c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(bx3, by3, bw3, bh3);
       c.textAlign = 'center'; c.font = 'bold 14px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText(`⬆ LEVEL UP · ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} waiting · press L`, W / 2, by3 + 26);
+      c.fillText(`⬆ LEVEL UP · ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} waiting · press V`, W / 2, by3 + 26);
       c.restore();
       rects.push({ x: bx3, y: by3, w: bw3, h: bh3, action: 'openSpend' });
     }
@@ -2460,7 +2460,7 @@ const UI = (() => {
       c.font = 'bold 28px monospace'; c.fillStyle = '#ffd24c';
       c.fillText('LEVEL UP!', 0, 0); c.restore();
       c.font = '12px monospace'; c.fillStyle = '#c8d2e0';
-      c.fillText(`choose where to grow  ·  ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} to spend  ·  click a card or press 1, 2, 3`, W / 2, py2 + 66);
+      c.fillText(`choose where to grow  ·  ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} to spend  ·  WASD + Enter, 1/2/3, or click`, W / 2, py2 + 66);
       const x0 = W / 2 - (cw2 * 3 + gap * 2) / 2, cy2 = py2 + 84;
       const clsId = (p.class && p.class.id) || '';
       const ruling = (typeof Abilities !== 'undefined' && Abilities.CLASS_STAT) ? Abilities.CLASS_STAT[clsId] : null;
@@ -2473,6 +2473,10 @@ const UI = (() => {
         c.fillStyle = 'rgba(14,16,26,0.98)'; c.fillRect(cx2, cy2, cw2, cardH);
         c.strokeStyle = nextMs ? '#ffd24c' : (ch.color || '#8fa3bf');
         c.lineWidth = nextMs ? 3 : 1.5; c.strokeRect(cx2, cy2, cw2, cardH);
+        if (i === (g.spendSel || 0)) { // #248 the WASD cursor
+          c.strokeStyle = '#ffffff'; c.lineWidth = 2.5;
+          c.strokeRect(cx2 - 4, cy2 - 4, cw2 + 8, cardH + 8);
+        }
         c.textAlign = 'center';
         c.font = 'bold 15px monospace'; c.fillStyle = ch.color || '#ffd24c';
         c.fillText(`${ch.icon || ''} ${ch.name}`, cx2 + cw2 / 2, cy2 + 32);
@@ -2503,7 +2507,7 @@ const UI = (() => {
       c.fillText(deny ? 'NOT ENOUGH GOLD' : `R · REROLL THE CARDS (${rCost}g)`, W / 2, rbY + 20);
       rects.push({ x: rbX, y: rbY, w: rbW, h: rbH, action: 'rerollCards' });
       c.font = '10px monospace'; c.fillStyle = '#667';
-      c.fillText('Esc · close and keep browsing (your cards wait for you)', W / 2, rbY + rbH + 16);
+      c.fillText('V or Esc · close and keep browsing (your cards wait for you)', W / 2, rbY + rbH + 16);
     }
 
     // ------------------------------------------------------------------- footer
