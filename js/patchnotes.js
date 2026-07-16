@@ -26,7 +26,10 @@ const PatchNotes = (() => {
       v: 'v2.121', title: 'NEW CLASS: THE GAMBLER', date: '2026-07-16',
       sha: 'a1c872c',
       items: [
-        'NEW CLASS: THE GAMBLER - Fortune rules it, and its Q is JACKPOT: the reels spin, and one pull in four hits TRIPLE and showers gold.',
+        'NEW CLASS: THE GAMBLER. Fortune rules it. You start with a dagger, 40 gold, and +10% coins from kills.',
+        'Its Q is JACKPOT: pull the lever, the reels spin over your head, and one strike in four hits TRIPLE and showers gold. Every Fortune point raises your odds.',
+        'Gambler milestones: rank 4 - every miss makes the machine DUE (+10% odds until you win). Rank 8 - a jackpot refunds half the cooldown. Rank 12 - a jackpot re-arms Q instantly.',
+        'JACKPOT left the fusion forge to become that Q - the Fortune x2 trio gets MOTHER LODE instead: crack the floor, shower gold, and sometimes unearth a weapon.',
       ],
     },
     {
