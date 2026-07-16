@@ -306,6 +306,26 @@ const Monsters = (() => {
     // knockback decay
     m.x += m.kvx * dt; m.y += m.kvy * dt;
     m.kvx *= Math.pow(0.002, dt); m.kvy *= Math.pow(0.002, dt);
+    // #257 (Sam) ENEMIES ARE AMMUNITION: a monster sent truly FLYING (Trebuchet,
+    // Rhino, Atlas - anything with launch-grade knockback) wounds whatever it
+    // crashes into. Momentum partially transfers, so a good line is a bowling shot;
+    // the transfer (45%) always lands under the launch threshold - no infinite chains.
+    const _fly = Math.hypot(m.kvx, m.kvy);
+    if (_fly > 300 && !m.isBoss && !m.airborne) {
+      for (const o of g.monsters) {
+        if (o === m || o.dead || o.spawnT > 0 || o.airborne) continue;
+        if (Math.hypot(o.x - m.x, o.y - m.y) < o.r + m.r) {
+          const crash = Math.round(10 + _fly * 0.06);
+          applyDamage(o, crash, g, {});
+          applyDamage(m, Math.round(crash * 0.6), g, {});
+          o.kvx += m.kvx * 0.45; o.kvy += m.kvy * 0.45;
+          m.kvx *= 0.25; m.kvy *= 0.25;
+          Fx.text((m.x + o.x) / 2, (m.y + o.y) / 2 - 14, 'CRASH', '#ffcc88', 12);
+          Fx.burst((m.x + o.x) / 2, (m.y + o.y) / 2, ['#ffcc88', '#fff'], 10, { speed: 160, life: 0.35 });
+          break;
+        }
+      }
+    }
     // #227 (Q wave 1) warrior R12 WALL SLAM: a Shield-Bashed monster smashed into a
     // wall (or the room's edge) while still flying takes the bash a second time.
     if (m._slam) {
