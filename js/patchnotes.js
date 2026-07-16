@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.99';
+  const VERSION = 'v2.100';
 
   const NOTES = [
+    {
+      v: 'v2.100', title: 'Level up like you mean it', date: '2026-07-16',
+      sha: '3567f43',
+      items: [
+        'Level-up is a real POPUP inside the character screen (#231): dims the sheet, big cards, pick by click or 1/2/3, and a card feeding your class stat announces the Q rank it reaches - in gold when it lands on a milestone.',
+      ],
+    },
     {
       v: 'v2.99', title: 'The VIGOR classes complete the rank system', date: '2026-07-15',
       sha: '9ff7051',
