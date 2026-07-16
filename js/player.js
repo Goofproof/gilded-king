@@ -1084,8 +1084,18 @@ const PlayerDef = (() => {
       dmg = dmg * (1 - reduce);
       // #252 ANTAEUS: while rooted, the earth remembers what hit you
       if (this.rootT > 0) this.rootStore = Math.min(this.rootCap || 220, (this.rootStore || 0) + dmg);
-      // #254 TROLL BLOOD: a truly heavy hit stems the blood for a moment
-      if (this.fstance && this.fstance.id === 'trollblood' && dmg > this.maxHp * 0.1) this.fstance.stunT = 1.5;
+      // #254 TROLL BLOOD: a truly heavy hit stems the blood for a moment (#257: visibly)
+      if (this.fstance && this.fstance.id === 'trollblood' && dmg > this.maxHp * 0.1) {
+        this.fstance.stunT = 1.5;
+        Fx.text(this.x, this.y - 42, 'STEMMED', '#9aa4b0', 13);
+        Fx.burst(this.x, this.y - 10, ['#9aa4b0', '#6e7a70'], 10, { speed: 120, life: 0.4 });
+      }
+      // #257 FORT KNOX: every blocked hit knocks a couple of coins out of orbit -
+      // wealth as armor has a visible, self-balancing price
+      if (this.fstance && this.fstance.goldArmorCap && this.coins > 0) {
+        this.coins = Math.max(0, this.coins - 2);
+        Fx.burst(this.x, this.y - 12, ['#ffd24c', '#ffe08a'], 4, { speed: 140, life: 0.45, glow: true });
+      }
 
       // #156 DEATH KNIGHT - LIFE AFTER DEATH. The rune eats the killing blow: you are
       // left on 1 HP instead of dying, once per cast, and the room pays for it. Checked
@@ -1225,10 +1235,19 @@ const PlayerDef = (() => {
           // straight to hp exactly like the stats.regen tick does
           if (this.moving) { fs.ramp = Math.min(6, fs.ramp + dt); this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt); }
           if (fs.ramp >= 6 && !fs.healed) { fs.healed = true; this.heal(this.maxHp * 0.15); Fx.text(this.x, this.y - 44, 'FULL STRIDE', '#7fd4ff', 14); }
-        }
-        if (fs.id === 'goldengoose') { // #255 the goose lays on a beat
-          fs.gooseT -= dt;
-          if (fs.gooseT <= 0) { fs.gooseT = 0.6; this.coins += 1; }
+          // #257 at full stride you are a battering ram - steer INTO them
+          if (fs.ramp >= 6 && g && g.monsters) {
+            fs.ramT = (fs.ramT || 0) - dt;
+            if (fs.ramT <= 0) for (const m of g.monsters) {
+              if (m.dead || m.spawnT > 0) continue;
+              if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 6) {
+                fs.ramT = 0.3;
+                m.takeHit(Math.round(10 + fs.regen), { sx: this.x, sy: this.y, knock: 280, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+                Fx.text(m.x, m.y - m.r - 8, 'RAM', '#7fd4ff', 11);
+                break;
+              }
+            }
+          }
         }
         if (fs.id === 'mjolnir' && g && g.monsters) { // #253/#255 the storm hammers on a beat
           fs.zapT -= dt;
@@ -1269,9 +1288,24 @@ const PlayerDef = (() => {
             if (this.coins <= 0) { this.coins = 0; this.fstance = null; Fx.text(this.x, this.y - 40, 'OUT OF GOLD', '#c9a86a', 13); }
           }
         }
+        if (fs.id === 'tailwind') { // #257 the wake carries the party
+          fs.wakeT = (fs.wakeT || 0) - dt;
+          if (this.moving && Math.random() < 0.35) Fx.burst(this.x - Math.cos(this.facing) * 14, this.y - Math.sin(this.facing) * 14, ['#7fd4ff', '#cfeeff'], 2, { speed: 60, life: 0.4 });
+          if (fs.wakeT <= 0 && g && g.coop && typeof Net !== 'undefined' && Net.connected) {
+            fs.wakeT = 1.0;
+            for (const [id, rp] of g.remotePlayers) {
+              if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+              if (Math.hypot(rp.x - this.x, rp.y - this.y) < 140) Net.sendR({ t: 'fwake', to: id });
+            }
+          }
+        }
         if (fs.id === 'trollblood') { // #254 heavy regen unless staggered
           if (fs.stunT > 0) fs.stunT -= dt;
-          else this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt);
+          else {
+            this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt);
+            // #257 legibility: the blood visibly knits
+            if (this.hp < this.maxHp && Math.random() < 0.25) Fx.burst(this.x + (Math.random() - 0.5) * 20, this.y + (Math.random() - 0.5) * 20, ['#6ee7a0', '#9effc0'], 1, { speed: 40, life: 0.5 });
+          }
         }
         if (fs.id === 'rabbitsfoot') { // #254 charmed feet: free rolls, robbed on the way through
           this.rollCd = 0;

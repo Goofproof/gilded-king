@@ -427,6 +427,7 @@
     // co-op: everyone builds the SAME floor from the shared run seed
     g.dungeon = Dungeon.generateFloor(g.floorNum, g.coop ? g.coopSeed : undefined);
     g.portal = null; // portals never carry across floors
+    g.oracleMark = null; g.goose = null; g.decoy = null; // #257 prophecies, geese and mirages don't either
     g.alarm = 0;     // #77 the dungeon's alertness resets each floor (rises per room cleared)
     if (typeof Ach !== 'undefined') Ach.floor(g.floorNum, g); // #86 depth + reset no-hit tracking
     const theme = Dungeon.themeFor(g.floorNum);
@@ -2478,6 +2479,18 @@
       }
     } else if (a.kind === 'foracle') { // #254 ORACLE OF DELPHI: sight, then insight
       if (g.dungeon) for (const rm of g.dungeon.rooms) rm.visited = true; // the floor lays itself bare
+      // #257 the PROPHECY: the Oracle names your fortune - the best room left on the
+      // floor gets a pulsing star on the minimap for the rest of the floor
+      if (g.dungeon) {
+        const PRIO = { mythicshop: 4, boss: 3, treasure: 2, shop: 1 };
+        let best = null, bp = 0;
+        for (const rm of g.dungeon.rooms) {
+          if (rm === g.room || rm.cleared) continue;
+          const pr = PRIO[rm.type] || 0;
+          if (pr > bp) { bp = pr; best = rm; }
+        }
+        if (best) { g.oracleMark = { gx: best.gx, gy: best.gy }; Fx.text(p.x, p.y - 56, 'THE ORACLE NAMES YOUR FORTUNE', '#b06bff', 12); }
+      }
       for (const m of g.monsters) {
         if (m.dead || m.spawnT > 0) continue;
         m.takeHit((a.dmg || 30) * dmgMul + m.maxHp * (a.qRider || 0) * (m.isBoss ? 1 / 3 : 1), { sx: m.x, sy: m.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
@@ -2485,7 +2498,13 @@
       }
       Fx.shake(3, 0.15);
       Fx.text(p.x, p.y - 40, 'THE ORACLE SPEAKS', a.color, 14);
-    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot' || a.kind === 'fgoose' || a.kind === 'fflame') { // #252-#256 the stances
+    } else if (a.kind === 'fgoose') { // #257 (Sam) GOLDEN GOOSE is a REAL BIRD now
+      g.goose = { x: p.x - 24, y: p.y + 10, r: 10, hp: 40, maxHp: 40, t: (a.dur || 8), dead: false,
+        layT: 1.0, bob: 0 };
+      p.fstance = { id: 'goldengoose', t: a.dur || 8, color: a.color }; // the aura ring tracks it
+      Fx.text(p.x, p.y - 40, 'THE GOOSE', a.color, 14);
+      Fx.burst(p.x - 24, p.y + 10, [a.color, '#fff'], 16, { speed: 140, life: 0.5, glow: true });
+    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot' || a.kind === 'fflame') { // #252-#256 the stances
       p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color,
         atkSpd: a.atkSpd || 0, spdMul: a.spdMul || 0, noSlow: !!a.noSlow, firstCrit: !!a.firstCrit, seen: a.firstCrit ? new Set() : null,
         echoBoost: a.echoBoost || 0, zap: a.zap || 0, zapT: 0, shotT: 0,
@@ -4107,6 +4126,12 @@
       riseSkeleton(m.x, m.y);
     });
     // #197 a cleric teammate Mended you: apply their heal to your own champion
+    // #257 TAILWIND: a teammate's wake carries you - brief haste, your client applies
+    Net.on('fwake', m => {
+      if (m.to !== Net.id || !g.player || g.player.dead) return;
+      g.player.buffs.hasteT = Math.max(g.player.buffs.hasteT || 0, 1.5);
+      Fx.text(g.player.x, g.player.y - 30, 'TAILWIND', '#7fd4ff', 11);
+    });
     // #252 ATLAS: a teammate's slam grants YOUR champion a shield charge
     Net.on('fshield', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
@@ -4677,6 +4702,9 @@
     }
     if (g.decoy && !g.decoy.dead) { // #253 MIRAGE draws every eye, exactly like a clone
       list.push({ x: g.decoy.x, y: g.decoy.y, r: 14, ref: g.decoy, isRemote: false, id: 'decoy' });
+    }
+    if (g.goose && !g.goose.dead) { // #257 the goose is huntable - protect it
+      list.push({ x: g.goose.x, y: g.goose.y, r: 10, ref: g.goose, isRemote: false, id: 'goose' });
     }
     // #224 with FRIENDLY FIRE on, every client enumerates its peers (a guest must be
     // able to aim at the host); without it, only the host does (monster AI targeting).
@@ -5350,6 +5378,7 @@
     updateGluePuddles(dt);   // #179 sticky glue on the floor slows everything in it
     updateBirdShadow(dt);    // #183 the hawk over the forest canopy
     updateDecoy(dt);         // #253 MIRAGE
+    updateGoose(dt);         // #257 the golden goose
     updateSmokeBanks(dt);    // #184 Wrath's drifting smoke
     updateTurrets(dt);
     updateSummons(dt);
@@ -6077,6 +6106,52 @@
       Fx.shake(5, 0.2);
     }
   }
+  // #257 GOLDEN GOOSE: waddles after you laying gold; monsters can kill it, and
+  // its death is a payout. Expiry = it flies away, no burst.
+  function updateGoose(dt) {
+    const gs = g.goose; if (!gs || gs.dead) return;
+    const p = g.player;
+    gs.t -= dt; gs.bob += dt * 6;
+    const tx = p.x - Math.cos(p.facing) * 30, ty = p.y - Math.sin(p.facing) * 30 + 8;
+    const k = 1 - Math.pow(0.02, dt);
+    gs.x += (tx - gs.x) * k; gs.y += (ty - gs.y) * k;
+    gs.layT -= dt;
+    if (gs.layT <= 0) { gs.layT = 1.0; spawnPickup('coin', gs.x, gs.y); Fx.text(gs.x, gs.y - 16, 'honk', '#ffe08a', 9); }
+    for (const m of g.monsters) {
+      if (m.dead || m.spawnT > 0) continue;
+      if (Math.hypot(m.x - gs.x, m.y - gs.y) < m.r + gs.r + 4) gs.hp -= 26 * dt;
+    }
+    if (gs.hp <= 0) { // the payout: a dead goose is a pile of gold
+      gs.dead = true; g.goose = null;
+      if (g.player.fstance && g.player.fstance.id === 'goldengoose') g.player.fstance = null;
+      for (let i = 0; i < 15; i++) spawnPickup('coin', gs.x, gs.y);
+      Fx.text(gs.x, gs.y - 18, 'THE GOOSE!', '#ffe08a', 14);
+      Fx.burst(gs.x, gs.y, ['#ffe08a', '#ffd24c', '#fff'], 26, { speed: 240, life: 0.7, glow: true });
+      Sfx.play('hitHeavy');
+    } else if (gs.t <= 0) { // time up: it flies off, keeping its unlaid eggs
+      gs.dead = true; g.goose = null;
+      if (g.player.fstance && g.player.fstance.id === 'goldengoose') g.player.fstance = null;
+      Fx.burst(gs.x, gs.y, ['#ffe08a', '#fff'], 14, { speed: 120, life: 0.5 });
+    }
+  }
+  function drawGoose(c) {
+    const gs = g.goose; if (!gs || gs.dead) return;
+    const bob = Math.sin(gs.bob) * 1.5;
+    c.save();
+    c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(gs.x, gs.y + 8, 9, 3, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffd24c';
+    c.beginPath(); c.ellipse(gs.x, gs.y + bob, 9, 7, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(gs.x + 7, gs.y - 7 + bob, 4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ff8a3d';
+    c.beginPath(); c.moveTo(gs.x + 10, gs.y - 8 + bob); c.lineTo(gs.x + 15, gs.y - 6 + bob); c.lineTo(gs.x + 10, gs.y - 5 + bob); c.closePath(); c.fill();
+    c.fillStyle = '#0a0a0a';
+    c.beginPath(); c.arc(gs.x + 8, gs.y - 8 + bob, 1, 0, Math.PI * 2); c.fill();
+    if (gs.hp < gs.maxHp) {
+      c.fillStyle = '#3a0f0f'; c.fillRect(gs.x - 9, gs.y - 16, 18, 3);
+      c.fillStyle = '#ffe08a'; c.fillRect(gs.x - 9, gs.y - 16, 18 * Math.max(0, gs.hp / gs.maxHp), 3);
+    }
+    c.restore();
+  }
   function drawDecoy(c) {
     const d = g.decoy; if (!d || d.dead) return;
     c.save();
@@ -6450,6 +6525,7 @@
     drawGluePuddles(c);   // #179 glue decals sit on the floor, under everything
     drawBirdShadow(c);    // #183 the shadow sweeps the floor, under all actors
     drawDecoy(c);         // #253 the mirage shimmers among the monsters
+    drawGoose(c);         // #257 the goose waddles behind you
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);
@@ -6508,6 +6584,36 @@
     for (const tr of g.turrets) if (!tr.dead) drawTurret(c, tr);
     drawSummon(c);
     if (g.coop) drawRemotePlayers(c);
+    // #257 (Sam) STANCE AURA: while any fusion stance is live, a colored ring with a
+    // draining arc circles the player - fourteen stances instantly legible.
+    if (g.player.fstance && g.player.fstance.t > 0 && g.player.fstance.t < 900) {
+      const fsr = g.player.fstance;
+      const frac = Math.min(1, fsr.t / (fsr.t0 || (fsr.t0 = fsr.t)));
+      c.save();
+      c.globalAlpha = 0.5 + Math.sin(Date.now() / 160) * 0.15;
+      c.strokeStyle = fsr.color || '#ffd24c'; c.lineWidth = 2.5;
+      c.beginPath(); c.arc(g.player.x, g.player.y, g.player.r + 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); c.stroke();
+      c.globalAlpha *= 0.35; c.lineWidth = 6;
+      c.beginPath(); c.arc(g.player.x, g.player.y, g.player.r + 9, 0, Math.PI * 2); c.stroke();
+      c.restore();
+    }
+    if (g.player.fstance && g.player.fstance.id === 'fortknox') { // #257 the treasury orbits you
+      const n = Math.min(8, 2 + (g.player.coins / 100 | 0));
+      c.save(); c.fillStyle = '#ffd24c';
+      for (let i = 0; i < n; i++) {
+        const a2 = Date.now() / 500 + (i / n) * Math.PI * 2;
+        c.globalAlpha = 0.85;
+        c.beginPath(); c.arc(g.player.x + Math.cos(a2) * (g.player.r + 16), g.player.y + Math.sin(a2) * (g.player.r + 16) * 0.6, 3, 0, Math.PI * 2); c.fill();
+      }
+      c.restore();
+    }
+    if (g.player.fstance && g.player.fstance.t >= 900) { // the Stone: no timer, just the glow
+      c.save();
+      c.globalAlpha = 0.45 + Math.sin(Date.now() / 200) * 0.15;
+      c.strokeStyle = g.player.fstance.color || '#c9a86a'; c.lineWidth = 3;
+      c.beginPath(); c.arc(g.player.x, g.player.y, g.player.r + 9, 0, Math.PI * 2); c.stroke();
+      c.restore();
+    }
     g.player.draw(c, g);
 
     // projectiles on top. #106 ENEMY fire (pr.from==='enemy') gets a dark outline and

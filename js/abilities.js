@@ -428,7 +428,7 @@ const Abilities = (() => {
       { name: 'GOLD STANDARD', role: 'STANCE', kind: 'fstance', stance: 'goldstandard', color: '#ffd24c', dur: 6, goldArmorCap: 0.4, critPay: true, critCh: 0.1, cdMax: 15,
         pp: { dur: 0.1, critCh: 0.008 }, desc: 'Back yourself with gold: your fortune is your armor, and every critical hit pays interest.' },
       { name: 'GOLDEN GOOSE', role: 'TRICK', kind: 'fgoose', stance: 'goldengoose', color: '#ffe08a', dur: 8, cdMax: 16,
-        pp: { dur: 0.15 }, desc: 'The goose lays while you fight: a steady trickle of gold, as long as you keep it alive.' },
+        pp: { dur: 0.15 }, desc: 'A REAL golden goose waddles after you laying gold. Monsters will hunt it - if it dies, it bursts into a fortune. Protect it or cash it.' },
     ],
     'FORTUNE+VIGOR': [ // the Treasurer
       { name: 'BLOOD MONEY', role: 'STRIKE', kind: 'nova', color: '#e05555', dmg: 60, radius: 175, knock: 160, missingHp: 1.2, coinPerHit: 2, fRider: true, cdMax: 10,
