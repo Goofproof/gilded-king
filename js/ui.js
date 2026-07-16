@@ -641,6 +641,21 @@ const UI = (() => {
         c.strokeRect(x - 1.5, y - 1.5, cell + 3, cell + 3);
       }
     }
+    // #245 (Sam) CONTRAPASSO tags: the floor's live rules stay on screen the whole
+    // floor, right under the map - you should never wonder mid-fight why the room
+    // is dark or why the wind keeps shoving you.
+    if (g.rules && g.rules.list && g.rules.list.length) {
+      let ty = oy + rows * (cell + gap) + 20;
+      c.textAlign = 'right';
+      c.font = 'bold 9px monospace'; c.fillStyle = '#8a7340';
+      c.fillText('CONTRAPASSO', W - pad, ty); ty += 13;
+      c.font = 'bold 10px monospace';
+      for (const r of g.rules.list) {
+        c.fillStyle = r.color || '#c9a86a';
+        c.fillText(`\u25c6 ${r.name}`, W - pad, ty);
+        ty += 13;
+      }
+    }
     c.restore();
   }
 
@@ -836,21 +851,17 @@ const UI = (() => {
     // floating coin particles handled by Fx from main
 
     c.textAlign = 'center';
-    // TITLE at the very top of the page. deliberately NOT the boss's real name - the
-    // reveal belongs to the boss intro
-    c.font = 'bold 44px monospace';
+    // #244 (Sam + the designer) THE GAME IS BARROWLIGHT now - light carried into the
+    // grave, down through the dark and out to the stars. The old title also spoiled
+    // the King; the barrow keeps his secret.
+    c.font = 'bold 64px monospace';
     c.fillStyle = '#241a08';
-    c.fillText('DUNGEON OF THE', W / 2 + 3, 53);
-    c.fillStyle = '#ffd24c';
-    c.fillText('DUNGEON OF THE', W / 2, 50);
-    c.font = 'bold 60px monospace';
-    c.fillStyle = '#241a08';
-    c.fillText('GILDED KING', W / 2 + 4, 112);
+    c.fillText('BARROWLIGHT', W / 2 + 4, 96);
     c.fillStyle = '#e8b52f';
-    c.fillText('GILDED KING', W / 2, 108);
+    c.fillText('BARROWLIGHT', W / 2, 92);
     // tagline directly under the title
     c.font = 'italic 12px monospace'; c.fillStyle = '#8a7340';
-    c.fillText('~ the King invites you to glimpse upon his realm ~', W / 2, 132);
+    c.fillText('~ carry your light into the deep ~', W / 2, 124);
 
     // solo + co-op buttons, side by side
     const startR = { x: W / 2 - 212, y: 152, w: 200, h: 46, action: 'start' };

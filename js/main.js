@@ -6429,19 +6429,33 @@
     // THE FLOOR RULE card: names the rule in force, in the circle's own colour, and
     // says what it does. A player should never be left wondering why they suddenly
     // slide, or burn on the scenery.
+    // #245 (Sam: "too long to read them all") the intro card is now CONTRAPASSO -
+    // one compact line per rule, name in the circle's colour, effect truncated. The
+    // full effect lives with you anyway: the tags under the minimap stay all floor.
     if (g.floorRule && g.floorRule.t > 0 && g.state === 'play') {
       const a = Math.min(1, g.floorRule.t) * Math.min(1, (5.5 - g.floorRule.t) * 1.6);
       c.save();
       c.globalAlpha = a;
       c.textAlign = 'center';
-      let y = 128;
+      let y = 122;
+      c.font = 'bold 11px monospace'; c.fillStyle = '#8a7340';
+      c.fillText('\u00b7 C O N T R A P A S S O \u00b7', W / 2, y); y += 20;
       for (const r of g.floorRule.lines) {
-        c.font = 'bold 15px monospace';
-        c.fillStyle = '#0a0a0a'; c.fillText(r.name, W / 2 + 1, y + 1);
-        c.fillStyle = r.color;   c.fillText(r.name, W / 2, y);
-        c.font = 'italic 11px monospace'; c.fillStyle = '#9a8f7a';
-        c.fillText(r.desc, W / 2, y + 18);
-        y += 40; // each rule (circle first, then mutators) gets its own stanza
+        const d = (r.desc || '').length > 46 ? (r.desc || '').slice(0, 45) + '\u2026' : (r.desc || '');
+        c.font = 'bold 13px monospace';
+        const nameW = c.measureText(r.name).width;
+        c.font = '11px monospace';
+        const sep = '  \u00b7  ';
+        const descW = c.measureText(sep + d).width;
+        const x0 = W / 2 - (nameW + descW) / 2;
+        c.textAlign = 'left';
+        c.font = 'bold 13px monospace';
+        c.fillStyle = '#0a0a0a'; c.fillText(r.name, x0 + 1, y + 1);
+        c.fillStyle = r.color;   c.fillText(r.name, x0, y);
+        c.font = '11px monospace'; c.fillStyle = '#9a8f7a';
+        c.fillText(sep + d, x0 + nameW, y);
+        c.textAlign = 'center';
+        y += 19;
       }
       c.restore();
     }

@@ -154,7 +154,7 @@ const Eulogy = (() => {
     if (!s) return '';
     const name = (s.initials || '???').toUpperCase();
     const parts = [
-      `${name} the ${titleCase(s.className || 'Adventurer')} - Dungeon of the Gilded King`,
+      `${name} the ${titleCase(s.className || 'Adventurer')} - Barrowlight`,
       `Score ${num(s.score, 0)} · Level ${num(s.level, 0)} · Floor ${num(s.floor, 0)} · ${num(s.kills, 0)} kills`,
       '',
       ...forSnap(s),
