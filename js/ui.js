@@ -1098,9 +1098,9 @@ const UI = (() => {
     if (roster.length) {
       c.textAlign = 'center';
       c.font = 'bold 11px monospace'; c.fillStyle = '#8fd0a0';
-      const petLabelY = spineBottom + 18;   // #156 the stable flows UNDER the class blurb
+      const petLabelY = spineBottom + 8;   // #156/#264 the stable rides tighter under the class blurb
       c.fillText(`PICK A COMPANION  ·  ${unlocked.length}/${roster.length}`, W / 2, petLabelY);
-      const chip = 24, cgap = 12, r = chip / 2, cyp = petLabelY + 22;
+      const chip = 24, cgap = 12, r = chip / 2, cyp = petLabelY + 18; // #264
       const rowW = roster.length * chip + (roster.length - 1) * cgap;
       let px = (W - rowW) / 2;
       for (const pet of roster) {
