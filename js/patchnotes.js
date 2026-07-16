@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.122';
+  const VERSION = 'v2.123';
 
   const NOTES = [
+    {
+      v: 'v2.123', title: 'The ante, the salvage, and the lightning', date: '2026-07-16',
+      sha: '1ded262',
+      items: [
+        'Gambler ANTE: every Jackpot pull costs 5 gold and you can fall into DEBT (red on the HUD) where your pulls hit WEAKER. Engineers can salvage turrets with E. Chain lightning got a real bolt.',
+      ],
+    },
     {
       v: 'v2.122', title: 'The Gambler dresses the part', date: '2026-07-16',
       sha: 'd2b228c',
