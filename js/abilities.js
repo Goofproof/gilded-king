@@ -159,6 +159,9 @@ const Abilities = (() => {
                    desc: 'Raise a skeletal knight. The grave gives more as you level: two knights, then three knights and two archers' },
     pyromancer:  { name: 'Immolate',      color: '#ff8a3d', kind: 'immolate', dps: 60, dur: 6, cdMax: 14, dmg: 90,
                    desc: 'EVERYTHING MUST BURN - the whole room catches, and the fire spreads from the dying to the living' },
+    // #258 (Sam) the Gambler: JACKPOT graduated from the fusion table to a class Q
+    gambler:     { name: 'Jackpot',       color: '#ffce54', kind: 'strike', dmg: 110, radius: 145, gamble: 0.25, coinLoose: 3, reel: true, cdMax: 9,
+                   desc: 'Pull the lever - one strike in four hits TRIPLE and showers gold. Fortune raises the odds' },
   };
   // #109 every class Q grows with player level (like the Engineer's turret count).
   // Returns multipliers for the value-driven Qs; the turret/summon Qs additionally
@@ -181,6 +184,7 @@ const Abilities = (() => {
     ranger: 'AGILITY', rogue: 'AGILITY', engineer: 'AGILITY',
     mage: 'ARCANE', summoner: 'ARCANE', mesmer: 'ARCANE', necromancer: 'ARCANE', pyromancer: 'ARCANE',
     paladin: 'VIGOR', cleric: 'VIGOR', druid: 'VIGOR', deathknight: 'VIGOR',
+    gambler: 'FORTUNE', // #258
   };
 
   // #226 (Q-DESIGN.md, agreed with Sam 2026-07-15) THE Q RANK SYSTEM.
@@ -206,6 +210,7 @@ const Abilities = (() => {
     mesmer:      { rider: 0.10, perPoint: { dur: 0.4 } },
     necromancer: { rider: 0,    perPoint: {} },
     pyromancer:  { rider: 0.02, perPoint: { dps: 4 } },  // rider is %/s folded into the burn
+    gambler:     { rider: 0.10, perPoint: { dmgMul: 0.04, radius: 2 } }, // #258 + win odds per rank (cast-site)
     paladin:     { rider: 0,    perPoint: { heal: 0.01 } },
     cleric:      { rider: 0,    perPoint: { heal: 0.01, radius: 6 } },
     druid:       { rider: 0,    perPoint: {} },          // forms rework in the VIGOR wave
@@ -231,6 +236,7 @@ const Abilities = (() => {
     mesmer:      [{ at: 4, txt: 'FOUR clones', impl: true }, { at: 8, txt: 'Clones echo your attacks', impl: true }, { at: 12, txt: 'Recast to swap with a clone', impl: true }],
     necromancer: [{ at: 4, txt: 'Two knights', impl: true }, { at: 8, txt: '3 knights + 2 archers', impl: true }, { at: 12, txt: 'A BONE GOLEM joins', impl: true }],
     pyromancer:  [{ at: 4, txt: 'Bigger spread from the dying', impl: true }, { at: 8, txt: 'Fire immunity while it burns', impl: true }, { at: 12, txt: 'Burning enemies EXPLODE on death', impl: true }],
+    gambler:     [{ at: 4, txt: 'PITY: every miss raises your jackpot odds until you WIN', impl: true }, { at: 8, txt: 'A jackpot refunds half the cooldown', impl: true }, { at: 12, txt: 'A jackpot re-arms Q instantly', impl: true }],
     paladin:     [{ at: 4, txt: 'Shield blocks 2 hits', impl: true }, { at: 8, txt: 'Cast cleanses bleeds and slows', impl: true }, { at: 12, txt: 'Overheal grants a bonus shield', impl: true }],
     cleric:      [{ at: 4, txt: 'Heals cure poison and bleed', impl: true }, { at: 8, txt: 'Leaves a consecrated regen circle', impl: true }, { at: 12, txt: 'Healed allies gain a shield', impl: true }],
     druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: true }, { at: 8, txt: 'Each form gains a MOVE', impl: true }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: true }],
@@ -247,7 +253,7 @@ const Abilities = (() => {
     }
     for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
                      'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter', 'dur',
-                     'clones', 'dps']) { // #156 mesmer clone count, pyromancer burn dps
+                     'clones', 'dps', 'gamble', 'coinLoose', 'reel']) { // #156 mesmer/pyro; #258 gambler
       if (spec[k] !== undefined) a[k] = spec[k];
     }
     a.name = spec.name;
@@ -423,8 +429,8 @@ const Abilities = (() => {
         pp: { dur: 0.1, radius: 3, grind: 1 }, desc: 'Bend the room: enemies inside crawl as if time thickened, and the void grinds them down.' },
     ],
     'FORTUNE+FORTUNE': [ // the Tycoon (#255)
-      { name: 'JACKPOT', role: 'STRIKE', kind: 'strike', color: '#ffce54', dmg: 90, radius: 130, gamble: 0.25, fRider: true, cdMax: 12,
-        pp: { dmg: 0.04, radius: 2, gamble: 0.005 }, desc: 'Pull the lever: one strike in four hits TRIPLE and showers gold from everything it touches.' },
+      { name: 'MOTHER LODE', role: 'STRIKE', kind: 'strike', color: '#e8c07a', dmg: 95, radius: 150, coinLoose: 6, loot: 0.2, fRider: true, cdMax: 12,
+        pp: { dmg: 0.04, radius: 2 }, desc: 'Crack the floor: a heavy eruption that showers gold from everything it hits - and sometimes unearths a weapon.' },
       { name: 'GOLD STANDARD', role: 'STANCE', kind: 'fstance', stance: 'goldstandard', color: '#ffd24c', dur: 6, goldArmorCap: 0.4, critPay: true, critCh: 0.1, cdMax: 15,
         pp: { dur: 0.1, critCh: 0.008 }, desc: 'Back yourself with gold: your fortune is your armor, and every critical hit pays interest.' },
       { name: 'GOLDEN GOOSE', role: 'TRICK', kind: 'fgoose', stance: 'goldengoose', color: '#ffe08a', dur: 8, cdMax: 16,

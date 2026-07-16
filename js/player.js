@@ -55,6 +55,10 @@ const PlayerDef = (() => {
     { id: 'pyromancer',  name: 'Pyromancer',   color: '#ff8a3d', icon: '✸', arch: 'wand',
       desc: 'Starts with a wand. Magic 3, +18% spell power. Everything you touch catches fire.', magic: 3, fx: { spellPower: 0.18, burnOnHit: 1 },
       q: 'Immolate',      qDesc: 'EVERYTHING MUST BURN. You erupt, and every enemy in the room is set alight - burning spreads from the dying to the living.' },
+    // #258 (Sam) the FORTUNE class - the gap the Q walkthrough left open
+    { id: 'gambler',     name: 'Gambler',      color: '#ffce54', icon: '⛀', arch: 'light',
+      desc: 'Starts with a dagger and 40 gold. +10% coins from kills. FORTUNE rules its Q.', coins: 40, fx: { coin: 0.10 },
+      q: 'Jackpot',       qDesc: 'Pull the lever: the reels spin, then the strike lands - one in four hits TRIPLE and showers gold.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -779,6 +783,7 @@ const PlayerDef = (() => {
       if (typeof Abilities !== 'undefined') this.ability = Abilities.classAbility(cls.id);
       if (cls.magic) this.stats.magic = cls.magic + (meta?.ranks?.arcane || 0); // #88 Arcane boost stacks on a caster's base Magic
       if (cls.hp) { this.maxHp += cls.hp; this.hp = this.maxHp; }
+      if (cls.coins) this.coins += cls.coins; // #258 the Gambler walks in with a bankroll
       if (cls.fx) this.applyEvolution(cls.fx); // the perk folds into evo -> mod()
 
       // #156 race: a smaller, always-on bias on top of the class, through the same mod()

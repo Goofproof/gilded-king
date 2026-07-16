@@ -2224,6 +2224,8 @@
       _qGates = { cls, rank };
       // #227 (Q wave 1) MIGHT milestones that act at cast time
       if (cls === 'warrior' && rank >= 8 && a.knock) a.knock *= 2; // R8: the shove DOUBLES
+      // #258 GAMBLER: FORTUNE raises the jackpot odds, +1% per rank (cap 50%)
+      if (cls === 'gambler' && a.gamble) a.gamble = Math.min(0.5, 0.25 + 0.01 * rank);
     }
     // #252 FUSION v2 scaling: an R fusion grows with POWER RANK = the combined points
     // in its two governing stats - the Q_TUNE recipe (per-rank channels, %-of-target
@@ -2274,9 +2276,24 @@
       let dmg = (a.dmg || 60) * dmgMul;
       if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
       if (a.missingHp) dmg += Math.round((p.maxHp - p.hp) * a.missingHp); // #252 BLOOD MONEY
-      if (a.gamble) { // #255 JACKPOT: pull the lever
-        a._jackpot = Math.random() < a.gamble;
-        if (a._jackpot) { dmg *= 3; Fx.text(p.x, p.y - 60, 'JACKPOT!', '#ffce54', 20); Fx.shake(8, 0.3); }
+      if (a.gamble) { // #255/#258 JACKPOT: pull the lever
+        a._jackpot = Math.random() < Math.min(0.85, a.gamble + (a._pity || 0));
+        if (_qGates && _qGates.cls === 'gambler') { // #258 the milestone ladder
+          if (a._jackpot) {
+            a._pity = 0;
+            if (_qGates.rank >= 8) a._halfCd = true;   // R8: the house pays back half
+            if (_qGates.rank >= 12) a._resetCd = true; // R12: and deals again
+          } else if (_qGates.rank >= 4) {
+            a._pity = (a._pity || 0) + 0.10;           // R4: the machine is DUE
+            Fx.text(p.x, p.y - 46, `DUE +${Math.round(a._pity * 100)}%`, '#c9a86a', 11);
+          }
+        }
+        if (a._jackpot) { // the win triples EVERYTHING, rider included - it must feel huge
+          dmg *= 3; a.qRider = (a.qRider || 0) * 3;
+          Fx.text(p.x, p.y - 60, 'JACKPOT!', '#ffce54', 20); Fx.shake(8, 0.3);
+        }
+        // #258 THE REEL: three glyphs spin over your head, then lock on the verdict
+        if (a.reel) g.ultFx.push({ type: 'reel', x: p.x, y: p.y - 46, t: 0, dur: 0.9, win: !!a._jackpot });
       }
       if (a.transmute) { // #254 PHILOSOPHER'S STONE: gold IS mana
         const spend = Math.min(a.transmute, p.coins);
@@ -2313,6 +2330,8 @@
         p.coins += pay;
         Fx.text(p.x, p.y - 46, `+${pay} BOUNTY`, '#ffce54', 13);
       }
+      // #258 MOTHER LODE: sometimes the eruption unearths a weapon
+      if (a.loot && Math.random() < a.loot) dropGearInstanced('weapon', p.x, p.y - 24, { tier: 2, minRarity: 2 });
       // #252 ATLAS: allies caught in the slam gain a shield charge (their client owns
       // their buffs - send it, they apply it, mirror of the 'pheal' flow)
       if (a.allyShield && g.coop && typeof Net !== 'undefined' && Net.connected) {
@@ -2832,6 +2851,7 @@
     // powers turn with it. Applied here, at the ONE place a cooldown is armed.
     const haste = p.trinketFlag('abilityHaste') ? (p.trinket.abilityCd || 0) : 0;
     a.cd = a.cdMax * (1 - haste);
+    if (a._halfCd) { a.cd *= 0.5; a._halfCd = false; } // #258 gambler R8
     // #228 rogue R4: the execute chained a kill - the blade is instantly ready again
     if (a._resetCd) { a.cd = 0; a._resetCd = false; }
     // #228 ranger R12: TWO tumbles in the tank. Resting a full cooldown restores both;
@@ -6261,6 +6281,11 @@
     for (let i = g.ultFx.length - 1; i >= 0; i--) {
       const e = g.ultFx[i];
       e.t += dt;
+      if (e.type === 'reel') {           // #258 the Gambler's slot reel
+        if (e.t >= e.dur) { g.ultFx.splice(i, 1); continue; }
+        e.x = g.player.x; e.y = g.player.y - 46; // it rides over your head
+        continue;
+      }
       if (e.type === 'qregen') {         // #230 cleric R8: consecrated ground
         if (e.t >= e.dur) { g.ultFx.splice(i, 1); continue; }
         const p2 = g.player;
@@ -6382,6 +6407,22 @@
   function drawUltFx(c) {
     // #229/#230 the rank-milestone ZONES: translucent breathing circles
     for (const e of g.ultFx) {
+      if (e.type === 'reel') {           // #258 three glyphs spin, then the verdict locks
+        const SYM = ['\u2694', '\u2665', '\u25cf', '\u2726', '\u27d0'];
+        const spin = e.t < 0.55;
+        c.save();
+        c.font = 'bold 14px monospace'; c.textAlign = 'center';
+        for (let k = 0; k < 3; k++) {
+          let ch;
+          if (spin) ch = SYM[(Math.floor(e.t * 24) + k * 2) % SYM.length];
+          else ch = e.win ? '\u27d0' : SYM[(k * 3 + 1) % SYM.length];
+          c.globalAlpha = e.t > e.dur - 0.25 ? (e.dur - e.t) / 0.25 : 1;
+          c.fillStyle = spin ? '#c8d2e0' : (e.win ? '#ffce54' : '#8a8f9a');
+          c.fillText(ch, e.x + (k - 1) * 16, e.y);
+        }
+        c.restore();
+        continue;
+      }
       if (e.type === 'qslow' || e.type === 'qregen' || e.type === 'miasma') {
         c.save();
         c.globalAlpha = 0.14 + 0.05 * Math.sin((e.t || 0) * 5);
