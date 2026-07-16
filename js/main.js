@@ -364,7 +364,7 @@
     g.levelChoices = [];
     g.evoQueue = [];
     g.evoChoices = null;
-    g.leveling = false; g.peerBusy = {}; g.peerDone = {}; // #32 gate reset
+    g.leveling = false; g.peerBusy = {}; g.peerDone = {}; g.pendingFloor = null; // #32 gate reset (+#236 deferred floor)
     g.levelWaitT = 0; g.pendingCoopRoom = null; g.pendingChoices = null; // #199
     g.rerollCount = 0; g.rerollDenyT = 0; // #20 paid-reroll counter
     g.winTimer = -1;
@@ -3856,7 +3856,11 @@
       // re-sends the floor (late-join path), and rebuilding it teleported the non-host
       // back to the first room every time. Same floor + same seed = nothing to do.
       if (g.coop && g.dungeon && g.floorNum === m.floor && g.coopSeed === m.seed) return;
-      if (g.coop) { releaseLevelGate(); g.leveling = false; g.floorNum = m.floor; g.coopSeed = m.seed; g.nightmareNext = !!m.nm; startFloor(); g.state = 'play'; }
+      // #236 (review #14) NEVER destroy an open pick: if this player is mid
+      // evolution/ultimate choice, the descent waits for them and applies the moment
+      // their pick closes (updatePlay drains g.pendingFloor).
+      if (g.coop && (g.state === 'evolution' || g.state === 'ultpick' || g.state === 'rpick')) { g.pendingFloor = m; return; }
+      if (g.coop) applyFloorMsg(m);
     });
     Net.on('peer-leave', m => { g.remotePlayers.delete(m.id); dropFromLevelGate(m.id); });
     // NOTE: a mid-run socket close must NOT yank the player to the menu (that kicked
@@ -4655,6 +4659,8 @@
   }
 
   function updatePlay(dt) {
+    // #236 a floor advance arrived while this player was mid-pick: apply it now
+    if (g.coop && g.pendingFloor) { const fm = g.pendingFloor; g.pendingFloor = null; applyFloorMsg(fm); return; }
     // #100 co-op text chat. Deliberately does NOT pause the world (the host is
     // authoritative over monsters - freezing here would freeze the guests). It only
     // captures typing; movement/ability keys are already swallowed by the keydown
@@ -4888,13 +4894,22 @@
     g.leveling = false;
     if (g.state === 'levelwait') g.state = 'play';
   }
+  // #236 the floor advance a mid-pick player deferred: applied by updatePlay the
+  // moment their pick closes (also reachable straight from the 'floor' handler)
+  function applyFloorMsg(m) {
+    releaseLevelGate(); g.leveling = false;
+    g.floorNum = m.floor; g.coopSeed = m.seed; g.nightmareNext = !!m.nm;
+    startFloor(); g.state = 'play';
+  }
   function finishLevelCycle() {
     g.leveling = false;
     if (typeof Net === 'undefined' || !Net.connected) { g.state = 'play'; return; }
     Net.sendR({ t: 'lvldone' }); // exactly one done per busy - WebSocket/TCP is reliable+ordered
-    // always hold in levelwait: updateLevelWait's 0.35s grace lets a co-leveler's
-    // lvlbusy arrive and be counted before we can resume (never resume-before-wait)
-    g.state = 'levelwait'; g.overlayT = 0; g.levelWaitT = 0;
+    // #236 (Sam: "whole game got paused because a player was choosing") the LEVELWAIT
+    // hold is GONE - finish your pick, play on. A teammate still choosing is safe
+    // (menus already drop incoming damage) and wears the CHOOSING tag so their frozen
+    // champion reads as deliberate. The 'levelwait' state remains only as dead code.
+    g.state = 'play';
   }
   // a teammate is downed / has left: it can't finish its pick, so settle its counter
   // (done := busy) so it no longer reads as "picking" and can't strand the party
