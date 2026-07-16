@@ -1,82 +1,148 @@
-# FUSION ABILITIES - binomials & trinomials (design map, NOT built)
+# FUSION ABILITIES v2 - the 3-choice model (design map, NOT built)
 
-Status: PROPOSAL for Sam + the designer, 2026-07-16. Asked for as "we need to talk
-about Fusion abilities and map out the binomials/trinomials." Nothing here is code
-yet - this is the menu to pick from.
+Status: DESIGN LOCKED-IN-SHAPE by Sam 2026-07-16: "two stats govern the selection
+of three different potential fusion abilities... each of those fusion abilities to
+be diverse, unique, and scalable." This doc is the 30-ability map for the pair
+walkthrough (same process as the Q waves). Nothing is code yet.
 
-## What already exists (verified in js/abilities.js)
+## The model
 
-The game ALREADY has a binomial fusion and nobody calls it that: the R ability.
-Your first evolution pick chooses an ACTION (9 of them: Bulwark/Cleave/Blink/
-Vault/Execute/Coin Storm/Bloom/Overclock/Arcane Surge), your second pick chooses
-a MODIFIER (9 tags: Aegis/Savage/Swift/Phantom/Lethal/Gilded/Vital/Frenzied/
-Arcane) = up to 81 combos, same-stat twice = a "Prime" amplified version. The
-ultimate then lets you pick a supercharged Q, supercharged R, or the FUSION
-CATACLYSM of both. That machinery (build(), MODS.apply, describe()) is the
-foundation - fusions below ride it, no new engine.
+- Your first two evolution picks name a STAT PAIR (e.g. MIGHT+VIGOR).
+- At the moment R is forged today, you instead get a PICKER: the pair's THREE
+  fusion abilities. You choose one. It becomes your R for the run.
+- The three options per pair follow one diversity rule so no two feel alike:
+  - **STRIKE** - a burst you aim (nova/dash/execute shape)
+  - **STANCE** - a timed power window that changes how you fight
+  - **TRICK** - utility/economy/survival, the clever pick
+- Same-stat doubles (Prime) keep today's behavior: an amplified pure action.
+  (Optionally later: a Prime trio per stat. Not in wave 1.)
+- Trinomials (see v1 appendix at bottom) stay a FUTURE tier on top of this.
 
-The proposal: name and map fusions at the BASE-STAT level (MIGHT / VIGOR /
-AGILITY / ARCANE / FORTUNE - the five rings), because that is the language the
-game speaks since the stat redesign, and it is the language the Q rank system
-already rewards.
+## The scaling law (the Q_TUNE recipe, proven on the Q ranks)
 
-## The Binomials - 10 pairs (+5 same-stat Primes already covered)
+Every fusion has a POWER RANK = statPoints[A] + statPoints[B] - the combined
+points in its two governing stats, uncapped, live-updating as you keep leveling.
 
-Every name references a real thing (Sam's rule). Mechanics reuse existing
-channels: nova / dash / strike / buff / heal kinds, castShield, rage, haste,
-iframes, coinBurst, thorns, echo.
+- Damage channels: base + %-per-rank, PLUS a %-of-target-max-HP rider
+  (bosses take the rider at 1/3) - flat numbers outscale, riders never do.
+  This is exactly what fixed "the player outscales Q" and it is already tuned.
+- Windows/durations/radii: +per-rank with soft caps so stances don't go infinite.
+- Economy channels (coin payouts): per-rank with hard caps (PVP-safe).
+- The HUD tooltip shows the rank like Q does, so growth is legible to a kid.
 
-| # | Pair | Name | What it does (sketch) |
-|---|------|------|----------------------|
-| 1 | MIGHT+VIGOR | ATLAS | Ground slam (big nova) that also grants the party a shield charge. The titan holds; so do you. |
-| 2 | MIGHT+AGILITY | TYPHOON | Dash that drags a whirlwind of blades: damage along the path, then a burst at the exit point. |
-| 3 | MIGHT+ARCANE | EXCALIBUR | One colossal sword-of-light strike: crits guaranteed, damage scales with both MIGHT and spell power. |
-| 4 | MIGHT+FORTUNE | CROESUS | A strike that hits harder the richer you are (Midas channel, higher cap) and knocks coins out of whatever survives. |
-| 5 | VIGOR+AGILITY | SECOND WIND | Instant heal + haste window + roll refund. The escape button. |
-| 6 | VIGOR+ARCANE | ASCLEPIUS | A healing ward pulse: heals the party in radius, damages enemies in the same ring (the serpent staff cuts both ways). |
-| 7 | VIGOR+FORTUNE | GOLDEN FLEECE | A shield that MINTS: every hit the shield eats pays out coins. Tanking becomes an economy. |
-| 8 | AGILITY+ARCANE | HERMES | Blink that chains: up to 3 short teleports in 2s, each leaving a damaging afterimage (echo channel). |
-| 9 | AGILITY+FORTUNE | RABBIT'S FOOT | For 4s every dodge roll is free (no cd) and every enemy you roll through drops coins. |
-| 10 | ARCANE+FORTUNE | PHILOSOPHER'S STONE | Transmute: spend up to N coins, convert to a spell nova at 1 damage per coin (capped). Gold IS mana. |
+## THE 30 - for the walkthrough (3 per pair: Strike / Stance / Trick)
 
-## The Trinomials - 10 triples (ultimate-tier)
+Names reference real things (myth, history, idiom) per the standing rule.
 
-Bigger, longer cooldown, meant to feel like a run-defining identity.
+### 1. MIGHT + VIGOR - the Immovable
+- **ATLAS** (Strike): ground slam nova; every ally in radius gains a shield
+  charge. Scales: damage/rank + %maxHp rider; +radius/rank.
+- **AJAX** (Stance): the tower shield, 5s: take half damage, heavy thorns, your
+  swings cleave the full arc. Scales: thorns/rank, +duration.
+- **ANTAEUS** (Trick): the wrestler the earth healed. Stand still 1s to root:
+  fast regen while rooted; leaving the root releases a retaliation burst scaled
+  by damage taken while rooted. Scales: regen/rank, burst cap/rank.
 
-| # | Triple | Name | What it does (sketch) |
-|---|--------|------|----------------------|
-| 1 | MIGHT+VIGOR+AGILITY | HERACLES | The physical trinity: 6s of rage + haste + damage reduction, melee swings cleave the whole arc. Twelve labors energy. |
-| 2 | MIGHT+VIGOR+ARCANE | GOLEM | Stoneform 5s: half damage taken, heavy thorns, then the shell EXPLODES as a nova scaled by damage absorbed. |
-| 3 | MIGHT+VIGOR+FORTUNE | GILGAMESH | The king stands: shield charges, rage, and every kill during the window pays double coins + heals. |
-| 4 | MIGHT+AGILITY+ARCANE | VALKYRIE | Choose the slain: mark up to 4 enemies, teleport-strike each in sequence, crits all. |
-| 5 | MIGHT+AGILITY+FORTUNE | DRAKE | The privateer's raid: dash through enemies, each one hit is robbed (coins) and staggered; damage scales with loot stolen this cast. |
-| 6 | MIGHT+ARCANE+FORTUNE | SOLOMON | Wisdom, wealth, power: one giant seal on the floor - enemies inside take %-max-HP damage (the Q-rider channel), coins fountain per kill. |
-| 7 | VIGOR+AGILITY+ARCANE | PROTEUS | Shapeless for 4s: untargetable between your own attacks, constant regen, each attack from stealth echoes. |
-| 8 | VIGOR+AGILITY+FORTUNE | NINE LIVES | Passive-until-it-isn't: for 8s, lethal damage instead leaves you at 1 HP, refunds your roll, and pays a coin burst. Once per cast. |
-| 9 | VIGOR+ARCANE+FORTUNE | AMBROSIA | The feast: party-wide heal over time + spell power + coin rain. The support trinomial. |
-| 10 | AGILITY+ARCANE+FORTUNE | WILL-O'-WISP | Become the wisp 5s: massive speed, pass through enemies, each pass-through chills and drops a coin - touch nothing, take nothing. |
+### 2. MIGHT + AGILITY - the Tempest
+- **TYPHOON** (Strike): dash that drags a whirlwind: damage along the path, burst
+  at the exit. Scales: path damage/rank + rider on the exit burst.
+- **ACHILLES** (Stance): 5s: +attack & move speed, immune to slows/knockback,
+  first hit on each enemy crits. Scales: speed/rank, +duration.
+- **PARTHIAN SHOT** (Trick): the horse-archer's retreat. For 6s, moving AWAY from
+  enemies auto-fires backward shots and rolling resets your attack cooldown.
+  Scales: shot damage/rank, shots-per-second cap.
 
-## How you EARN them - three options (pick one)
+### 3. MIGHT + ARCANE - the Spellblade
+- **EXCALIBUR** (Strike): one colossal blade of light: guaranteed crit, damage
+  from BOTH might and spell power. Scales: %maxHp rider/rank (boss ÷3).
+- **MJOLNIR** (Stance): 6s: every hit chains lightning to a nearby enemy.
+  Scales: chain damage/rank, +1 chain target at rank thresholds.
+- **PROMETHEUS** (Trick): steal fire: enemies you hit burn; you gain spell power
+  per enemy currently burning. Scales: burn dps/rank, spell power cap/rank.
 
-- **A. Ultimate replacement.** When your third-highest base stat crosses a
-  threshold (say 6 points), your ultimate offer becomes the matching trinomial
-  instead of the generic supercharge. Zero new UI, late-run payoff.
-- **B. R evolves in place.** R starts as today's binomial; when a third distinct
-  stat completes an evolution tier, R upgrades to the trinomial of your top three
-  stats. One button, visible growth arc. (Recommended: it keeps the existing
-  first-two-picks moment AND gives evolution #3 a reason to diversify.)
-- **C. A fourth slot.** New key (F?) unlocked at prestige 1+. Most work, most
-  clutter - listed for completeness, not recommended.
+### 4. MIGHT + FORTUNE - the Kingmaker
+- **CROESUS** (Strike): a strike that hits harder the richer you are (Midas
+  channel, higher cap) and knocks coins out of survivors. Scales: cap/rank.
+- **EL DORADO** (Stance): the gilded city, 6s: kills fountain coins and your
+  damage grows for every coin picked up during the window. Scales: per-coin
+  bonus/rank, capped.
+- **KING'S RANSOM** (Trick): mark one elite or boss: it takes bonus %maxHp
+  damage (boss ÷3) and drops double loot on death. Scales: rider/rank,
+  cooldown down with rank.
 
-## Open questions for the designers
+### 5. VIGOR + AGILITY - the Survivor
+- **SECOND WIND** (Trick): instant heal + haste window + roll refund. Scales:
+  heal %/rank, haste duration/rank.
+- **MARATHON** (Stance): 6s: speed ramps every second, regen while moving,
+  reaching full ramp releases a burst heal to the party. Scales: ramp/rank.
+- **HOUDINI** (Strike... of escapes): vanish 1.2s: untargetable, shed every DoT
+  and slow, reappear with i-frames and your next hit staggers. Scales: duration
+  and stagger/rank. (The "strike" here is the exit hit - it aims.)
 
-1. Base-stat pairs (this map) vs today's fine-grained card pairs - keep both?
-   Proposal: fine-grained keeps choosing the R FLAVOR, base-stat totals choose
-   WHICH named fusion you qualify for.
-2. Do trinomials respect the Q rank system's ruling stat (bonus if your class's
-   ruling stat is in the triple)?
-3. PVP: DRAKE and PHILOSOPHER'S STONE touch coins - fine in co-op, check the
-   duel/hunt economy before enabling there.
-4. Which 3-4 binomials ship first as the pilot wave? (Suggest: ATLAS, SECOND
-   WIND, GOLDEN FLEECE, PHILOSOPHER'S STONE - all four ride existing channels
-   end to end.)
+### 6. VIGOR + ARCANE - the Warden
+- **ASCLEPIUS** (Strike): the serpent-staff pulse: heals the party in the ring,
+  damages every enemy in the same ring. Scales: both ends/rank + rider.
+- **TROLL BLOOD** (Stance): folklore regeneration, 8s: constant heavy regen that
+  big hits briefly interrupt. Scales: regen/rank, interrupt window shrinks.
+- **SANCTUARY** (Trick): consecrate a zone 5s: allies inside heal, enemies
+  inside are slowed and take bonus spell damage. Scales: zone radius + slow/rank.
+
+### 7. VIGOR + FORTUNE - the Treasurer
+- **BLOOD MONEY** (Strike): nova scaled by your MISSING health; every enemy hit
+  pays a coin bounty. Scales: conversion rate/rank, bounty cap.
+- **FORT KNOX** (Stance): 6s: armor scales with gold held, immune to knockback.
+  Scales: gold-to-armor rate/rank, capped.
+- **GOLDEN FLEECE** (Trick): a shield that MINTS - every hit the shield eats
+  pays out coins. Scales: charges/rank, payout capped (PVP-safe).
+
+### 8. AGILITY + ARCANE - the Phantom
+- **HERMES** (Strike): up to 3 chained blinks in 2s, each leaving a damaging
+  afterimage. Scales: afterimage damage/rank, +1 blink at a rank threshold.
+- **QUICKSILVER** (Stance): 5s: attacks and spells noticeably faster, echo
+  chance doubled. Scales: haste/rank, +duration.
+- **MIRAGE** (Trick): drop a decoy that taunts the room while you go briefly
+  stealthed; the decoy detonates when it expires. Scales: decoy HP + blast/rank.
+
+### 9. AGILITY + FORTUNE - the Gambler
+- **HIGHWAYMAN** (Strike): dash through enemies, robbing coins from each and
+  staggering them; damage grows per coin stolen this cast. Scales: steal/rank.
+- **LUCKY STREAK** (Stance): 5s: every crit echoes and pays a coin; each kill
+  ramps your crit chance for the window. Scales: ramp/rank, echo cap.
+- **RABBIT'S FOOT** (Trick): 4s: dodge rolls are free and every enemy you roll
+  through drops coins and is chilled. Scales: duration/rank, coin cap.
+
+### 10. ARCANE + FORTUNE - the Alchemist
+- **PHILOSOPHER'S STONE** (Strike): transmute - spend up to N held coins into a
+  spell nova at damage-per-coin. Gold IS mana. Scales: N/rank, per-coin rate.
+- **GOLD RUSH** (Stance): 6s: spell kills pay double coins and every coin picked
+  up shaves your Q cooldown. Scales: shave rate/rank, capped.
+- **ORACLE OF DELPHI** (Trick): reveal this room and the next on the minimap;
+  enemies are MARKED 8s - marked enemies take bonus spell damage from the whole
+  party. Scales: mark bonus/rank. (The co-op support pick.)
+
+## Build order (proposed)
+
+- Wave 1: the picker UI (reuses the ultimate's 3-choice screen) + power-rank
+  plumbing + pairs 1, 5, 7 (Immovable / Survivor / Treasurer) - twelve... nine
+  abilities, all on existing channels.
+- Wave 2: pairs 2, 3, 8 (Tempest / Spellblade / Phantom) - needs the backward
+  auto-shot, chain-lightning window, decoy entity.
+- Wave 3: pairs 4, 6, 9, 10 + Prime pass + co-op sync review (dmg doctrine:
+  attacker resolves, victim applies; decoy + marks ride keyframes).
+- Each wave: dbg-harness numeric verify + a Sam/designer playtest before the next.
+
+## Open for the walkthrough
+
+1. Bless/rename the 30 (the designer gets veto - his game).
+2. STRIKE/STANCE/TRICK as the trio rule: keep, or vary it for some pairs?
+3. PVP: coin payouts capped in duel/hunt (listed per-ability above) - confirm.
+4. Trinomials stay parked until binomials are proven in play.
+
+---
+
+## Appendix: v1 trinomial map (parked, unchanged)
+
+HERACLES (M+V+A), GOLEM (M+V+Ar), GILGAMESH (M+V+F), VALKYRIE (M+A+Ar),
+DRAKE (M+A+F), SOLOMON (M+Ar+F), PROTEUS (V+A+Ar), NINE LIVES (V+A+F),
+AMBROSIA (V+Ar+F), WILL-O'-WISP (A+Ar+F). Earn-model options A/B/C from v1
+also parked; revisit after the binomial waves ship.
