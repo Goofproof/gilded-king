@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.121';
+  const VERSION = 'v2.122';
 
   const NOTES = [
+    {
+      v: 'v2.122', title: 'The Gambler dresses the part', date: '2026-07-16',
+      sha: 'd2b228c',
+      items: [
+        'Gambler polish: your BANKROLL loads the gun (held gold makes Jackpot hit harder), misses now say DUE UP, and the Gambler got his riverboat hat - black flat-brim, gold band, lucky coin.',
+      ],
+    },
     {
       v: 'v2.121', title: 'NEW CLASS: THE GAMBLER', date: '2026-07-16',
       sha: 'a1c872c',
