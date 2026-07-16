@@ -103,9 +103,9 @@ const UI = (() => {
     c.beginPath(); c.arc(hbX + 8, hbY + hbH + 32, 7, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#b8912f';
     c.beginPath(); c.arc(hbX + 8, hbY + hbH + 32, 4, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#ffd24c';
+    c.fillStyle = p.coins < 0 ? '#e05555' : '#ffd24c'; // #260 the Gambler's debt runs red
     c.font = 'bold 14px monospace';
-    c.fillText(`${p.coins}`, hbX + 22, hbY + hbH + 37);
+    c.fillText(`${p.coins}${p.coins < 0 ? ' IN DEBT' : ''}`, hbX + 22, hbY + hbH + 37);
 
     // shards (salvage currency) - shown once you have any
     if (p.shards > 0) {

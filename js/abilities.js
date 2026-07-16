@@ -160,8 +160,8 @@ const Abilities = (() => {
     pyromancer:  { name: 'Immolate',      color: '#ff8a3d', kind: 'immolate', dps: 60, dur: 6, cdMax: 14, dmg: 90,
                    desc: 'EVERYTHING MUST BURN - the whole room catches, and the fire spreads from the dying to the living' },
     // #258 (Sam) the Gambler: JACKPOT graduated from the fusion table to a class Q
-    gambler:     { name: 'Jackpot',       color: '#ffce54', kind: 'strike', dmg: 110, radius: 145, gamble: 0.25, coinScale: true, coinLoose: 3, reel: true, cdMax: 9,
-                   desc: 'Pull the lever - one strike in four hits TRIPLE and showers gold. Fortune raises the odds, and your held gold makes every pull hit harder' },
+    gambler:     { name: 'Jackpot',       color: '#ffce54', kind: 'strike', dmg: 110, radius: 145, gamble: 0.25, coinScale: true, reel: true, cdMax: 9,
+                   desc: 'Every pull costs 5 gold - and one in four hits TRIPLE and showers it back. Held gold makes pulls hit harder; DEBT makes them weaker' },
   };
   // #109 every class Q grows with player level (like the Engineer's turret count).
   // Returns multipliers for the value-driven Qs; the turret/summon Qs additionally

@@ -1131,12 +1131,19 @@ const Monsters = (() => {
     if (arcs) Sfx.play('bowfire');
   }
   function lightningFx(a, b) {
-    const steps = 6;
-    for (let i = 0; i <= steps; i++) {
-      const x = a.x + (b.x - a.x) * i / steps + (Math.random() * 12 - 6);
-      const y = a.y + (b.y - a.y) * i / steps + (Math.random() * 12 - 6);
-      Fx.burst(x, y, ['#bfe8ff', '#7fd4ff', '#fff'], 1, { speed: 18, life: 0.2, glow: true, size: 2.6 });
+    // #260 (Sam: "it needs a visual") a real BOLT now: a dense jagged white core
+    // with a blue glow, a crack of light where it lands, and a ZAP over the victim.
+    const steps = 10;
+    let px = a.x, py = a.y;
+    for (let i = 1; i <= steps; i++) {
+      const x = a.x + (b.x - a.x) * i / steps + (Math.random() * 16 - 8);
+      const y = a.y + (b.y - a.y) * i / steps + (Math.random() * 16 - 8);
+      Fx.burst((px + x) / 2, (py + y) / 2, ['#e8f6ff'], 1, { speed: 6, life: 0.16, glow: true, size: 3.4 });
+      Fx.burst(x, y, ['#7fd4ff', '#bfe8ff'], 2, { speed: 14, life: 0.22, glow: true, size: 2.8 });
+      px = x; py = y;
     }
+    Fx.burst(b.x, b.y, ['#ffffff', '#bfe8ff'], 8, { speed: 130, life: 0.3, glow: true });
+    Fx.text(b.x, b.y - b.r - 8, 'ZAP', '#7fd4ff', 11);
   }
 
   // the loot goblin got away: gone, and it takes its unclaimed gold with it (no onKill)

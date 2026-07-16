@@ -1783,6 +1783,7 @@
       if (d < bestD) { bestD = d; best = obj; }
     };
     for (const ch of g.room.chests) if (!ch.opened) consider(ch.x, ch.y, { kind: 'chest', ch });
+    for (const tu of g.turrets) consider(tu.x, tu.y, { kind: 'turret', t: tu }); // #260 salvage
     // the stranger with an offer. Once you have taken (or refused) it, they stop
     // being interactable - you do not get to shop the same deal twice.
     if (g.room.encounter && !g.room.encounter.taken && !g.room.encounter.refused) {
@@ -1900,6 +1901,19 @@
     const t = nearestInteractable();
     if (!t) return;
     const p = g.player;
+
+    // #260 (Sam) ENGINEER SALVAGE: scrap a standing turret to get its charge back
+    // and reset the deploy cooldown - reposition instead of waiting out the room.
+    if (t.kind === 'turret') {
+      const i = g.turrets.indexOf(t.t);
+      if (i >= 0) g.turrets.splice(i, 1);
+      p.turretCharges = Math.min(p.turretMax ? p.turretMax() : 5, (p.turretCharges | 0) + 1);
+      if (p.ability && p.ability.classQ && p.ability.kind === 'turret') p.ability.cd = 0;
+      Fx.text(t.t.x, t.t.y - 20, 'SALVAGED +1', '#c9a227', 13);
+      Fx.burst(t.t.x, t.t.y, ['#c9a227', '#8a6a2a'], 14, { speed: 140, life: 0.5 });
+      Sfx.play('ui');
+      return;
+    }
 
     // QUEST ENCOUNTER: they make you an offer. The game stops while you read it.
     if (t.kind === 'encounter') {
@@ -2228,6 +2242,14 @@
       if (cls === 'gambler' && a.gamble) a.gamble = Math.min(0.5, 0.25 + 0.01 * rank);
       // #259 (Sam) the BANKROLL loads the gun: held gold adds damage, cap grows with rank
       if (cls === 'gambler') a.coinScaleCap = 100 + 10 * rank;
+      // #260 (Sam) THE ANTE: every pull costs 5 gold, and the Gambler alone may go
+      // into DEBT (floored at -100). In debt the bankroll bonus runs BACKWARDS -
+      // negative coins flow straight through the same coinScale math as a penalty.
+      if (cls === 'gambler') {
+        p.coins = Math.max(-100, p.coins - 5);
+        Fx.text(p.x, p.y - 74, '-5g ANTE', '#c9a86a', 11);
+        if (p.coins < 0) Fx.text(p.x, p.y - 88, 'IN DEBT', '#e05555', 11);
+      }
     }
     // #252 FUSION v2 scaling: an R fusion grows with POWER RANK = the combined points
     // in its two governing stats - the Q_TUNE recipe (per-rank channels, %-of-target
@@ -2297,8 +2319,8 @@
         // #258 THE REEL: three glyphs spin over your head, then lock on the verdict
         if (a.reel) g.ultFx.push({ type: 'reel', x: p.x, y: p.y - 46, t: 0, dur: 0.9, win: !!a._jackpot });
       }
-      if (a.transmute) { // #254 PHILOSOPHER'S STONE: gold IS mana
-        const spend = Math.min(a.transmute, p.coins);
+      if (a.transmute) { // #254 PHILOSOPHER'S STONE: gold IS mana (#260: debt spends nothing)
+        const spend = Math.max(0, Math.min(a.transmute, p.coins));
         p.coins -= spend; dmg += spend;
         Fx.text(p.x, p.y - 46, `${spend}g TRANSMUTED`, '#c9a86a', 13);
       }

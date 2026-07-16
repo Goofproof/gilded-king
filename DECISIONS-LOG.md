@@ -1,3 +1,21 @@
+## 2026-07-16 (evening tweaks: ante/debt, salvage, chain visual)
+
+1. GAMBLER ANTE (Sam): 5 gold per pull, debt floored at -100, gambler-only.
+   Debt inverts the bankroll bonus through the SAME coinScale math (no new
+   channel): -100 coins = -50 damage. Symmetric to the benefit at small purses;
+   negligible next to the maxHp rider deep down - if debt should BITE late-game,
+   the knob is scaling the penalty by rank. Losses no longer shower coins (the
+   win's 8/enemy shower is the payout, so the ante economy is a real gamble).
+   Debt guard added to PHILOSOPHER'S STONE (negative gold must not transmute
+   into a refund). HUD shows debt in red with IN DEBT.
+2. ENGINEER SALVAGE (Sam): E on a standing turret scraps it, +1 charge (capped
+   at turretMax) and the deploy cooldown resets - repositioning is now free.
+3. CHAIN LIGHTNING (Sam: "doesn't work, or needs a visual"): VERIFIED WORKING
+   all along (melee + arrows + spells all pass the flag; arcs to 2 within 155px
+   at 45% - harness-measured exactly 13.5 off a 30 hit). The gap was the visual:
+   7 faint dots. Now a dense jagged bolt with a white core, an impact crack, and
+   a ZAP tag over the victim.
+
 ## 2026-07-16 (fun batch + GAMBLER class, Sam's picks 1-3 & 5-9 + class redirect)
 
 Sam approved the fun list and redirected #4: JACKPOT became the Q of a new GAMBLER
