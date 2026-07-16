@@ -56,10 +56,17 @@ describe('#252 fusion tables', () => {
     }
   });
 
-  it('a Prime double (same school) keeps the legacy grid', () => {
+  it('a Prime double (same school) gets its own trio, ranking the stat twice', () => {
     const out = Abilities.rOptions(['dmg', 'crit'], ['MIGHT', 'MIGHT']);
-    expect(out.length).toBe(3);
-    expect(out.every(r => !r.fusion)).toBe(true);
+    expect(out.map(r => r.name)).toEqual(['GORDIAN CUT', 'BERSERK', 'TREBUCHET']);
+    expect(out.every(r => r.fusion)).toBe(true);
+    expect(Abilities.fusionRank({ MIGHT: 6 }, ['MIGHT', 'MIGHT'])).toBe(12);
+  });
+
+  it('all five Prime pairs exist', () => {
+    for (const st of ['MIGHT', 'VIGOR', 'AGILITY', 'ARCANE', 'FORTUNE']) {
+      expect(Abilities.FUSIONS[st + '+' + st], st + ' Prime missing').toBeTruthy();
+    }
   });
 
   it('fusionRank sums the pair points', () => {

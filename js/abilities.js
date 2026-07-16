@@ -390,6 +390,46 @@ const Abilities = (() => {
       { name: 'ORACLE OF DELPHI', role: 'TRICK', kind: 'foracle', color: '#b06bff', dmg: 30, fRider: true, cdMax: 17,
         pp: { dmg: 0.04 }, desc: 'See everything: the whole floor is revealed, and every enemy in the room is struck by the insight and slowed.' },
     ],
+    'MIGHT+MIGHT': [ // the Warlord (#255 Primes - pure specialization ranks TWICE as fast)
+      { name: 'GORDIAN CUT', role: 'STRIKE', kind: 'strike', color: '#ff5a5a', dmg: 140, radius: 135, executeBelow: 0.5, fRider: true, cdMax: 11,
+        pp: { dmg: 0.05, radius: 2 }, desc: 'One cut solves the knot: a heavy blow that deals DOUBLE damage to anything below half health.' },
+      { name: 'BERSERK', role: 'STANCE', kind: 'fstance', stance: 'berserk', color: '#d6482e', dur: 5, cleave: true, rageAfter: 5, cdMax: 15,
+        pp: { dur: 0.1 }, desc: 'The old fury: rage burns in you and every swing cleaves the full circle.' },
+      { name: 'TREBUCHET', role: 'TRICK', kind: 'nova', color: '#c9a86a', dmg: 40, radius: 190, knock: 520, fRider: true, cdMax: 12,
+        pp: { dmg: 0.03, radius: 3 }, desc: 'The superior siege weapon: launch everything around you across the room.' },
+    ],
+    'VIGOR+VIGOR': [ // the Colossus (#255)
+      { name: 'RHINO', role: 'STRIKE', kind: 'dash', color: '#8fd0ff', dmg: 70, dist: 260, dashKnock: 430, fRider: true, cdMax: 11,
+        pp: { dmg: 0.05, dist: 3 }, desc: 'Two tons of forward: charge the crowd and send everything you touch FLYING.' },
+      { name: 'STONEWALL', role: 'STANCE', kind: 'fstance', stance: 'stonewall', color: '#a9b4c0', dur: 6, reduce: 0.6, thorns: 14, cdMax: 16,
+        pp: { thorns: 2, dur: 0.1 }, desc: 'Stand like the wall: barely feel their hits, and every one stings them back.' },
+      { name: 'HYDRA', role: 'TRICK', kind: 'heal', color: '#6ee7a0', heal: 0.5, radius: 200, castShield: true, cdMax: 14,
+        pp: { heal: 0.015 }, desc: 'Cut one head, two grow back: a mighty heal for you and nearby allies, plus a shield charge.' },
+    ],
+    'AGILITY+AGILITY': [ // the Wind (#255)
+      { name: 'ZEPHYR', role: 'STRIKE', kind: 'dash', color: '#b8f0ff', dmg: 65, dist: 420, refundRoll: true, fRider: true, cdMax: 10,
+        pp: { dmg: 0.04, dist: 5 }, desc: 'Become the west wind: an enormous dash that cuts everything in its path and refunds your roll.' },
+      { name: 'TAILWIND', role: 'STANCE', kind: 'fstance', stance: 'tailwind', color: '#7fd4ff', dur: 6, atkSpd: 0.45, spdMul: 0.22, noSlow: true, cdMax: 15,
+        pp: { dur: 0.1, atkSpd: 0.02 }, desc: 'The wind at your back: faster hands, faster feet, and nothing can slow you.' },
+      { name: 'SMOKE BOMB', role: 'TRICK', kind: 'fvanish', color: '#9aa4b0', dur: 1.6, smoke: true, cdMax: 13,
+        pp: { dur: 0.05 }, desc: 'Vanish and leave the smoke BEHIND: a choking cloud that slows everyone who stands in it.' },
+    ],
+    'ARCANE+ARCANE': [ // the Archmage (#255)
+      { name: 'SUPERNOVA', role: 'STRIKE', kind: 'nova', color: '#b06bff', dmg: 110, radius: 230, knock: 200, fRider: true, cdMax: 12,
+        pp: { dmg: 0.05, radius: 4 }, desc: 'A dying star in a dungeon room: the biggest blast the forge can make.' },
+      { name: 'TESLA COIL', role: 'STANCE', kind: 'fstorm', stance: 'mjolnir', color: '#9fe8ff', dur: 6, zap: 26, zapFast: true, cdMax: 15,
+        zapChain: 2, pp: { dur: 0.1, zap: 0.05 }, desc: 'Crackle: lightning arcs to the nearest enemy on a RAPID beat and forks through two more.' },
+      { name: 'EVENT HORIZON', role: 'TRICK', kind: 'fzone', color: '#7a5cff', dur: 6, radius: 170, grind: 14, cdMax: 16,
+        pp: { dur: 0.1, radius: 3, grind: 1 }, desc: 'Bend the room: enemies inside crawl as if time thickened, and the void grinds them down.' },
+    ],
+    'FORTUNE+FORTUNE': [ // the Tycoon (#255)
+      { name: 'JACKPOT', role: 'STRIKE', kind: 'strike', color: '#ffce54', dmg: 90, radius: 130, gamble: 0.25, fRider: true, cdMax: 12,
+        pp: { dmg: 0.04, radius: 2, gamble: 0.005 }, desc: 'Pull the lever: one strike in four hits TRIPLE and showers gold from everything it touches.' },
+      { name: 'GOLD STANDARD', role: 'STANCE', kind: 'fstance', stance: 'goldstandard', color: '#ffd24c', dur: 6, goldArmorCap: 0.4, critPay: true, critCh: 0.1, cdMax: 15,
+        pp: { dur: 0.1, critCh: 0.008 }, desc: 'Back yourself with gold: your fortune is your armor, and every critical hit pays interest.' },
+      { name: 'GOLDEN GOOSE', role: 'TRICK', kind: 'fgoose', stance: 'goldengoose', color: '#ffe08a', dur: 8, cdMax: 16,
+        pp: { dur: 0.15 }, desc: 'The goose lays while you fight: a steady trickle of gold, as long as you keep it alive.' },
+    ],
     'FORTUNE+VIGOR': [ // the Treasurer
       { name: 'BLOOD MONEY', role: 'STRIKE', kind: 'nova', color: '#e05555', dmg: 60, radius: 175, knock: 160, missingHp: 1.2, coinPerHit: 2, fRider: true, cdMax: 10,
         pp: { dmg: 0.04, radius: 3 }, desc: 'A blast that hits harder the more hurt you are - and every enemy struck pays a coin bounty.' },
@@ -408,7 +448,9 @@ const Abilities = (() => {
   function fusionPairKey(hist, schools) {
     const a = (schools && schools[0]) || FUSION_SCHOOL[hist[0]];
     const b = (schools && schools[1]) || FUSION_SCHOOL[hist[1]];
-    if (!a || !b || a === b) return null;
+    if (!a || !b) return null;
+    // #255 same-school doubles get their PRIME trio - and since fusionRank sums the
+    // pair, a pure build counts its stat twice: specialization ranks twice as fast.
     const stats = [a, b].sort();
     return { key: stats.join('+'), stats };
   }

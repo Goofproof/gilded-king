@@ -2232,7 +2232,7 @@
       const fRank = Abilities.fusionRank(p.statPoints, a.fusionStats);
       a._rank = fRank;
       const fpp = a.pp || {};
-      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd, ringDmg: a.ringDmg, transmute: a.transmute, critCh: a.critCh };
+      _fScaled = { dmg: a.dmg, radius: a.radius, heal: a.heal, dur: a.dur, thorns: a.thorns, regen: a.regen, charges: a.charges, mint: a.mint, burstCap: a.burstCap, qRider: a.qRider, zap: a.zap, dist: a.dist, decoyHp: a.decoyHp, atkSpd: a.atkSpd, ringDmg: a.ringDmg, transmute: a.transmute, critCh: a.critCh, grind: a.grind, gamble: a.gamble };
       if (a.fRider) a.qRider = 0.06; // +6% of each target's max HP (bosses 1/3) - the hit sites already honour it
       if (fpp.dmg && a.dmg) a.dmg = Math.round(a.dmg * (1 + fpp.dmg * fRank));
       if (fpp.radius && a.radius) a.radius = Math.round(a.radius + fpp.radius * fRank);
@@ -2250,6 +2250,8 @@
       if (fpp.ringDmg && a.ringDmg) a.ringDmg = Math.round(a.ringDmg * (1 + fpp.ringDmg * fRank));
       if (fpp.transmute && a.transmute) a.transmute = Math.round(a.transmute + fpp.transmute * fRank);
       if (fpp.critCh && a.critCh) a.critCh = +(a.critCh + fpp.critCh * fRank).toFixed(3);
+      if (fpp.grind && a.grind) a.grind = Math.round(a.grind + fpp.grind * fRank);
+      if (fpp.gamble && a.gamble) a.gamble = Math.min(0.4, +(a.gamble + fpp.gamble * fRank).toFixed(3));
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -2269,6 +2271,10 @@
       let dmg = (a.dmg || 60) * dmgMul;
       if (a.coinScale) dmg += Math.min(140, p.coins * 0.5); // Coin Storm scales with your purse
       if (a.missingHp) dmg += Math.round((p.maxHp - p.hp) * a.missingHp); // #252 BLOOD MONEY
+      if (a.gamble) { // #255 JACKPOT: pull the lever
+        a._jackpot = Math.random() < a.gamble;
+        if (a._jackpot) { dmg *= 3; Fx.text(p.x, p.y - 60, 'JACKPOT!', '#ffce54', 20); Fx.shake(8, 0.3); }
+      }
       if (a.transmute) { // #254 PHILOSOPHER'S STONE: gold IS mana
         const spend = Math.min(a.transmute, p.coins);
         p.coins -= spend; dmg += spend;
@@ -2282,14 +2288,15 @@
         if (m.dead || m.airborne || m.spawnT > 0) continue;
         if (Math.hypot(m.x - p.x, m.y - p.y) > R + m.r) continue;
         // #226 percent rider: + a slice of THIS target's max HP (bosses at 1/3)
-        const hitDmg = dmg + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0);
+        let hitDmg = dmg + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0);
+        if (a.executeBelow && m.hp <= m.maxHp * a.executeBelow) hitDmg *= 2; // #255 GORDIAN CUT
         // #227 warrior R12 WALL SLAM: shoved into a wall within the window = hit again
         if (_qGates && _qGates.cls === 'warrior' && _qGates.rank >= 12) m._slam = { dmg: Math.round(hitDmg), t: 0.6 };
         m.takeHit(hitDmg, { sx: p.x, sy: p.y, knock: a.knock || 120, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
         if (_qGates && _qGates.cls === 'mage' && _qGates.rank >= 12 && !m.dead) { m.chillT = Math.max(m.chillT || 0, 2.5); m.chillMul = 0.5; } // #229 R12: everything hit is CHILLED
         if (m.dead) qKills++;
         if (a.ignite && !m.dead) m.burn = { t: 3, tick: 0, dps: a.ignite }; // #253 PROMETHEUS
-        if (a.coinLoose) for (let ci = 0; ci < a.coinLoose; ci++) spawnPickup('coin', m.x, m.y); // #254 CROESUS
+        if (a.coinLoose || a._jackpot) for (let ci = 0; ci < (a.coinLoose || 8); ci++) spawnPickup('coin', m.x, m.y); // #254 CROESUS / #255 JACKPOT
         fHits++;
       }
       // #253 PROMETHEUS: stolen fire feeds your spells - power per enemy ignited
@@ -2333,7 +2340,7 @@
           if (m.dead || m.airborne || m.spawnT > 0 || hit.has(m)) continue;
           if (Math.hypot(m.x - px, m.y - py) < m.r + p.r + 8) {
             const dashDmg = (a.dmg || 55) * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0); // #226
-            m.takeHit(dashDmg, { sx: px, sy: py, knock: 150, crit: !!a.critAll, fromPlayer: true, hitSfx: 'hitLight' }, g);
+            m.takeHit(dashDmg, { sx: px, sy: py, knock: a.dashKnock || 150, crit: !!a.critAll, fromPlayer: true, hitSfx: a.dashKnock ? 'hitHeavy' : 'hitLight' }, g); // #255 RHINO sends them flying
             hit.add(m);
             if (a.rob) { p.coins += 2; Fx.text(m.x, m.y - 18, '+2', '#ffce54', 10); } // #254 HIGHWAYMAN
           }
@@ -2434,8 +2441,9 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
-    } else if (a.kind === 'fzone') { // #254 SANCTUARY: the cleric-R8 + mage-R4 rigs, together
-      g.ultFx.push({ type: 'qregen', x: p.x, y: p.y, t: 0, dur: a.dur || 5, radius: a.radius || 150, hps: Math.round(p.maxHp * 0.03) });
+    } else if (a.kind === 'fzone') { // #254 SANCTUARY / #255 EVENT HORIZON (grind: rot, no heal)
+      if (a.grind) g.ultFx.push({ type: 'miasma', x: p.x, y: p.y, t: 0, dur: a.dur || 6, radius: a.radius || 170, dps: a.grind, rider: 0.01 });
+      else g.ultFx.push({ type: 'qregen', x: p.x, y: p.y, t: 0, dur: a.dur || 5, radius: a.radius || 150, hps: Math.round(p.maxHp * 0.03) });
       g.ultFx.push({ type: 'qslow', x: p.x, y: p.y, t: 0, dur: a.dur || 5, radius: a.radius || 150, color: a.color });
       if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'qzone', x: Math.round(p.x), y: Math.round(p.y), dur: a.dur || 5, radius: a.radius || 150, fl: g.floorNum });
       Fx.text(p.x, p.y - 40, 'SANCTUARY', a.color, 14);
@@ -2461,18 +2469,19 @@
       }
       Fx.shake(3, 0.15);
       Fx.text(p.x, p.y - 40, 'THE ORACLE SPEAKS', a.color, 14);
-    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot') { // #252/#253/#254 the stances
+    } else if (a.kind === 'fstance' || a.kind === 'fparthian' || a.kind === 'fstorm' || a.kind === 'ffoot' || a.kind === 'fgoose') { // #252-#255 the stances
       p.fstance = { id: a.stance, t: a.dur || 5, reduce: a.reduce || 0, thorns: a.thorns || 0, cleave: !!a.cleave, goldArmorCap: a.goldArmorCap || 0, regen: a.regen || 0, ramp: 0, healed: false, color: a.color,
         atkSpd: a.atkSpd || 0, spdMul: a.spdMul || 0, noSlow: !!a.noSlow, firstCrit: !!a.firstCrit, seen: a.firstCrit ? new Set() : null,
         echoBoost: a.echoBoost || 0, zap: a.zap || 0, zapT: 0, shotT: 0,
-        critCh: a.critCh || 0, critPay: !!a.critPay, dmgStack: 0 };
+        critCh: a.critCh || 0, critPay: !!a.critPay, dmgStack: 0, zapFast: !!a.zapFast, zapChain: a.zapChain || 1, gooseT: 0 };
       Fx.text(p.x, p.y - 40, a.name.toUpperCase(), a.color, 14);
       Fx.burst(p.x, p.y, [a.color, '#fff'], 24, { speed: 200, life: 0.6, glow: true });
     } else if (a.kind === 'froot') { // #252 ANTAEUS: the release happens in player.update
       p.rootT = a.dur || 3; p.rootRegen = a.regen || 8; p.rootStore = 0; p.rootCap = a.burstCap || 220;
       Fx.text(p.x, p.y - 40, 'ROOTED', a.color, 14);
       Fx.burst(p.x, p.y, [a.color, '#6b4a2a'], 18, { speed: 120, life: 0.5 });
-    } else if (a.kind === 'fvanish') { // #252 HOUDINI: the flourish happens in player.update
+    } else if (a.kind === 'fvanish') { // #252 HOUDINI / #255 SMOKE BOMB
+      if (a.smoke) g.ultFx.push({ type: 'qslow', x: p.x, y: p.y, t: 0, dur: 4, radius: 140, color: a.color });
       p.invisT = Math.max(p.invisT || 0, a.dur || 1.2);
       p.iframes = Math.max(p.iframes, (a.dur || 1.2) + 0.3);
       p.bleed = null; p.slowT = 0; p.slowMul = 1; // shed every DoT and slow

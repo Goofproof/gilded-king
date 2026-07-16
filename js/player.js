@@ -1226,17 +1226,26 @@ const PlayerDef = (() => {
           if (this.moving) { fs.ramp = Math.min(6, fs.ramp + dt); this.hp = Math.min(this.maxHp, this.hp + fs.regen * dt); }
           if (fs.ramp >= 6 && !fs.healed) { fs.healed = true; this.heal(this.maxHp * 0.15); Fx.text(this.x, this.y - 44, 'FULL STRIDE', '#7fd4ff', 14); }
         }
-        if (fs.id === 'mjolnir' && g && g.monsters) { // #253 the storm hammers on a beat
+        if (fs.id === 'goldengoose') { // #255 the goose lays on a beat
+          fs.gooseT -= dt;
+          if (fs.gooseT <= 0) { fs.gooseT = 0.6; this.coins += 1; }
+        }
+        if (fs.id === 'mjolnir' && g && g.monsters) { // #253/#255 the storm hammers on a beat
           fs.zapT -= dt;
           if (fs.zapT <= 0) {
             let best = null, bd = 240;
             for (const m of g.monsters) { if (m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - this.x, m.y - this.y); if (d < bd) { bd = d; best = m; } }
             if (best) {
-              fs.zapT = 0.8;
+              fs.zapT = fs.zapFast ? 0.45 : 0.8; // #255 TESLA COIL crackles faster
               best.takeHit(fs.zap + best.maxHp * 0.02 * (best.isBoss ? 1 / 3 : 1), { sx: this.x, sy: this.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
-              let chain = null, cd2 = 160;
-              for (const m of g.monsters) { if (m === best || m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - best.x, m.y - best.y); if (d < cd2) { cd2 = d; chain = m; } }
-              if (chain) chain.takeHit(fs.zap * 0.5, { sx: best.x, sy: best.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
+              let from = best; const chained = new Set([best]);
+              for (let ci = 0; ci < (fs.zapChain || 1); ci++) { // #255 TESLA forks twice
+                let chain = null, cd2 = 160;
+                for (const m of g.monsters) { if (chained.has(m) || m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - from.x, m.y - from.y); if (d < cd2) { cd2 = d; chain = m; } }
+                if (!chain) break;
+                chain.takeHit(fs.zap * 0.5, { sx: from.x, sy: from.y, fromPlayer: true, hitSfx: 'hitArrow' }, g);
+                chained.add(chain); from = chain;
+              }
               Fx.burst(best.x, best.y, ['#ffe27a', '#fff'], 10, { speed: 180, life: 0.3, glow: true });
             }
           }
