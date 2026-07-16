@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.106';
+  const VERSION = 'v2.107';
 
   const NOTES = [
+    {
+      v: 'v2.107', title: 'Your loot is YOURS now', date: '2026-07-16',
+      sha: 'b85d0dd',
+      items: [
+        'PER-PLAYER LOOT INSTANCING (#239): kill, boss, mythic and trap drops are rolled separately on every player\'s client from a host \'lootroll\' event - your drops are yours, invisible and untakeable to teammates; mythics roll against each player\'s own collection.',
+      ],
+    },
     {
       v: 'v2.106', title: 'Flashbangs flash now', date: '2026-07-16',
       sha: '6380e51',
