@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.124', title: 'Bottomless debt, X to salvage', date: '2026-07-16',
       sha: 'b20d3a5',
       items: [
-        'Gambler debt is BOTTOMLESS now (dig deep enough and a pull does nothing), and Engineers salvage turrets with X - the same key as gear.',
+        'Gambler: the debt has NO FLOOR anymore. Keep pulling on credit and your Jackpots get weaker and weaker until they do nothing at all. The house always collects.',
+        'Engineers: turret salvage moved to X - the same key you salvage gear with. E stays for chests and doors.',
       ],
     },
     {
