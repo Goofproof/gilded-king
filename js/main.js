@@ -3182,26 +3182,32 @@
           if (over !== g.charDetail) { g.charDetail = over; if (over) Sfx.play('ui'); }
         }
         // 1-5 pick a ring by number (and it STICKS, so you can read it without holding
-        // the mouse still); 0 goes back to the portrait.
-        for (let i = 0; i < 5; i++) {
-          if (input.pressed('Digit' + (i + 1))) { g.charDetail = Evolutions.STATS[i]; Sfx.play('ui'); }
+        // the mouse still); 0 goes back to the portrait. While the LEVEL UP popup is
+        // open (#231), the digits belong to the CARDS instead.
+        if (!g.pendingChoices) {
+          for (let i = 0; i < 5; i++) {
+            if (input.pressed('Digit' + (i + 1))) { g.charDetail = Evolutions.STATS[i]; Sfx.play('ui'); }
+          }
+          if (input.pressed('Digit0')) { g.charDetail = null; Sfx.play('ui'); }
         }
-        if (input.pressed('Digit0')) { g.charDetail = null; Sfx.play('ui'); }
-        // #199 spend banked level-up points right here: three rolled cards at the foot
-        // of the sheet; click one (its rect carries action 'spendCard').
+        // #199/#231 spend banked level-up points right here - the popup over the sheet;
+        // click a card or press 1/2/3.
         if (g.levelUpQueue > 0 && !g.pendingChoices) g.pendingChoices = pickUpgrades();
         if (g.levelUpQueue <= 0) g.pendingChoices = null;
-        if (g.pendingChoices && input.mouse.clicked && g.uiRects) {
-          for (const r of g.uiRects) {
-            if (r.action === 'spendCard' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
-              const ch = g.pendingChoices[r.idx];
-              if (ch) {
-                applyUpgrade(ch);          // note: applyUpgrade ends in state 'play'...
-                g.state = 'charsheet';     // ...but we stay on the sheet to keep spending
-                g.levelUpQueue--;
-                g.pendingChoices = g.levelUpQueue > 0 ? pickUpgrades() : null;
-              }
-              break;
+        if (g.pendingChoices) {
+          const spend = (idx) => {
+            const ch = g.pendingChoices[idx];
+            if (!ch) return;
+            applyUpgrade(ch);          // note: applyUpgrade ends in state 'play'...
+            g.state = 'charsheet';     // ...but we stay on the sheet to keep spending
+            g.levelUpQueue--;
+            g.pendingChoices = g.levelUpQueue > 0 ? pickUpgrades() : null;
+            Sfx.play('upgrade');
+          };
+          for (let i = 0; i < 3; i++) if (input.pressed('Digit' + (i + 1))) { spend(i); break; }
+          if (g.pendingChoices && input.mouse.clicked && g.uiRects) {
+            for (const r of g.uiRects) {
+              if (r.action === 'spendCard' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { spend(r.idx); break; }
             }
           }
         }

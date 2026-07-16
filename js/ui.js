@@ -2397,29 +2397,56 @@ const UI = (() => {
       }
     }
 
-    // #199 (Sam) SPEND YOUR LEVEL-UP POINTS HERE. Level-ups bank points instead of
-    // pausing the game; the sheet offers three rolled cards per point. Click to take.
+    // #231 (Sam: "we need [the] pop up within the character screen") LEVEL UP is a
+    // real POPUP over the sheet now, not a slim band at the foot. It dims the sheet,
+    // celebrates, and - the payoff - a card that feeds your CLASS STAT announces the
+    // Q rank it takes you to, in gold when it lands ON a milestone.
     if (g.levelUpQueue > 0 && g.pendingChoices) {
-      const bandY = H - 118, cw2 = 268, gap = 18;
-      const x0 = W / 2 - (cw2 * 3 + gap * 2) / 2;
-      c.fillStyle = 'rgba(20,16,4,0.92)'; c.fillRect(0, bandY - 26, W, 124);
-      c.strokeStyle = 'rgba(255,210,76,0.4)'; c.lineWidth = 1;
-      c.beginPath(); c.moveTo(0, bandY - 26); c.lineTo(W, bandY - 26); c.stroke();
-      c.textAlign = 'center'; c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText(`LEVEL UP  ·  ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} to spend  ·  click a card`, W / 2, bandY - 9);
+      const p = g.player;
+      c.fillStyle = 'rgba(4,4,10,0.55)'; c.fillRect(0, 0, W, H);
+      const cw2 = 232, gap = 20, cardH = 172;
+      const pw2 = cw2 * 3 + gap * 2 + 56, ph2 = cardH + 130;
+      const px2 = W / 2 - pw2 / 2, py2 = H / 2 - ph2 / 2 + 12;
+      c.fillStyle = 'rgba(10,12,20,0.97)'; c.fillRect(px2, py2, pw2, ph2);
+      c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(px2, py2, pw2, ph2);
+      c.textAlign = 'center';
+      const pulse2 = 1 + Math.sin(Date.now() / 250) * 0.06;
+      c.save(); c.translate(W / 2, py2 + 42); c.scale(pulse2, pulse2);
+      c.font = 'bold 28px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText('LEVEL UP!', 0, 0); c.restore();
+      c.font = '12px monospace'; c.fillStyle = '#c8d2e0';
+      c.fillText(`choose where to grow  ·  ${g.levelUpQueue} point${g.levelUpQueue > 1 ? 's' : ''} to spend  ·  click a card or press 1, 2, 3`, W / 2, py2 + 66);
+      const x0 = W / 2 - (cw2 * 3 + gap * 2) / 2, cy2 = py2 + 84;
+      const clsId = (p.class && p.class.id) || '';
+      const ruling = (typeof Abilities !== 'undefined' && Abilities.CLASS_STAT) ? Abilities.CLASS_STAT[clsId] : null;
+      const qRk = (typeof Abilities !== 'undefined' && Abilities.qRank) ? Abilities.qRank(clsId, p.statPoints) : 0;
       for (let i = 0; i < g.pendingChoices.length; i++) {
         const ch = g.pendingChoices[i], cx2 = x0 + i * (cw2 + gap);
-        const hov = false;
-        c.fillStyle = 'rgba(12,14,22,0.95)'; c.fillRect(cx2, bandY, cw2, 74);
-        c.strokeStyle = ch.color || '#ffd24c'; c.lineWidth = 1.5; c.strokeRect(cx2, bandY, cw2, 74);
+        const feedsQ = ruling && ch.stat === ruling;
+        const nextMs = feedsQ && Abilities.Q_MILESTONES && Abilities.Q_MILESTONES[clsId]
+          ? Abilities.Q_MILESTONES[clsId].find(m => m.at === qRk + 1) : null;
+        c.fillStyle = 'rgba(14,16,26,0.98)'; c.fillRect(cx2, cy2, cw2, cardH);
+        c.strokeStyle = nextMs ? '#ffd24c' : (ch.color || '#8fa3bf');
+        c.lineWidth = nextMs ? 3 : 1.5; c.strokeRect(cx2, cy2, cw2, cardH);
         c.textAlign = 'center';
-        c.font = 'bold 13px monospace'; c.fillStyle = ch.color || '#ffd24c';
-        c.fillText(`${ch.icon || ''} ${ch.name}`, cx2 + cw2 / 2, bandY + 24);
+        c.font = 'bold 15px monospace'; c.fillStyle = ch.color || '#ffd24c';
+        c.fillText(`${ch.icon || ''} ${ch.name}`, cx2 + cw2 / 2, cy2 + 32);
         c.font = '11px monospace'; c.fillStyle = '#c8d2e0';
-        c.fillText(ch.desc || '', cx2 + cw2 / 2, bandY + 44);
-        c.font = '9px monospace'; c.fillStyle = '#7a8698';
-        c.fillText(ch.stat || '', cx2 + cw2 / 2, bandY + 62);
-        rects.push({ x: cx2, y: bandY, w: cw2, h: 74, action: 'spendCard', idx: i });
+        wrapText(c, ch.desc || '', cx2 + cw2 / 2, cy2 + 56, cw2 - 20, 14);
+        c.font = 'bold 10px monospace';
+        c.fillStyle = Evolutions.STAT_COLOR && Evolutions.STAT_COLOR[ch.stat] ? Evolutions.STAT_COLOR[ch.stat] : '#7a8698';
+        c.fillText(`+1 ${ch.stat || ''}`, cx2 + cw2 / 2, cy2 + 100);
+        if (feedsQ) {
+          c.font = 'bold 11px monospace'; c.fillStyle = '#9ee7ff';
+          c.fillText(`your Q: RANK ${qRk} → ${qRk + 1}`, cx2 + cw2 / 2, cy2 + 122);
+          if (nextMs) {
+            c.font = 'bold 11px monospace'; c.fillStyle = '#ffd24c';
+            wrapText(c, `UNLOCKS: ${nextMs.txt}`, cx2 + cw2 / 2, cy2 + 142, cw2 - 16, 13);
+          }
+        }
+        c.font = 'bold 12px monospace'; c.fillStyle = '#556';
+        c.fillText(`${i + 1}`, cx2 + 14, cy2 + 18);
+        rects.push({ x: cx2, y: cy2, w: cw2, h: cardH, action: 'spendCard', idx: i });
       }
     }
 
