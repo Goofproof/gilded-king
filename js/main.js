@@ -255,6 +255,12 @@
     duelScore: {},               // uid -> rounds won this set
     duelCountdownT: 0,           // 3-2-1 at round start (fighters invulnerable)
     duelFightT: 0,               // the FIGHT! flash after the countdown
+    huntMode: false,             // #241 PVP Phase 2: THE GILDED HUNT - battle royale on a full floor
+    lobbyHunt: false,            // the host's pending hunt choice
+    huntScore: {},               // uid -> hunts won
+    huntSwarmN: 0,               // how many rooms the swarm has consumed (host-clocked, seed-ordered)
+    huntSwarmT: 0,               // host: countdown to the next consumption
+    huntGraceT: 0,               // spawn grace before anyone can be hurt
     // #32 co-op synchronized level-up gate. MONOTONIC busy/done COUNTERS (not
     // level-tags or playerCount, both of which soft-lock; not a reset Set, which
     // wipes an already-arrived signal): each peer sends {lvlbusy} when a pick cycle
@@ -596,6 +602,7 @@
       Sfx.play('roar');
       return;
     }
+    if (g.huntMode) { room.spawned = true; room.cleared = true; g.monsters = []; } // #241 the Hunt has no monsters (yet - Phase 3)
     if ((room.type === 'combat') && !room.spawned) {
       room.spawned = true;
       if (isCoopGuest()) {
@@ -1544,6 +1551,7 @@
   // already standing on the exit (nearestInteractable range), so "gathered" means
   // teammates within 140px of the presser, same-room, alive and not downed.
   function partyGathered() {
+    if (g.huntMode) return false; // #241 the Hunt has no exit - it ends one way
     if (!g.coop) return true;
     const need = plateNeeded();
     const p = g.player;
@@ -1557,7 +1565,7 @@
   }
   function gatherDenied() {
     Sfx.play('error');
-    Fx.text(g.player.x, g.player.y - 34, 'GATHER THE PARTY TO DESCEND', '#ffd24c', 13);
+    Fx.text(g.player.x, g.player.y - 34, g.huntMode ? 'THE HUNT ENDS ONLY ONE WAY' : 'GATHER THE PARTY TO DESCEND', g.huntMode ? '#ff4040' : '#ffd24c', 13);
   }
 
   function tryRoomExit() {
@@ -1565,7 +1573,8 @@
     if (g.duelMode) { clampPlayer(); return; } // #240 the dueling ground has no exits
     if (doorsLocked()) { clampPlayer(); return; }
     // #101 co-op: leave via the majority-occupied door-plate, not by walking out
-    if (g.coop) {
+    // (#241: NOT in a hunt - hunters roam alone through solo-style doors)
+    if (g.coop && !g.huntMode) {
       const need = plateNeeded();
       if (!g.plateArmed) g.plateArmed = new Set();
       for (const d of doorRects(g.room)) {
@@ -1827,7 +1836,7 @@
 
     if (t.kind === 'chest') {
       const ch = t.ch;
-      if (ch.mimic) { wakeMimic(ch); return; }
+      if (ch.mimic && !g.huntMode) { wakeMimic(ch); return; } // #241 hunt chests never bite
       ch.opened = true;
       Sfx.play('pickup');
       Fx.burst(ch.x, ch.y, ['#ffd24c', '#d4af37', '#fff'], 22, { speed: 200, life: 0.7, glow: true, grav: 150 });
@@ -3567,7 +3576,7 @@
       // each pinned themself and broadcast. Deterministic tie-break: the LOWER clientId
       // keeps the pin; the other adopts their run. Both sides apply the same rule.
       if (g.coop && g.runHostU === g.clientId && m.hu && Date.now() - (g.runStartT || 0) < 3000) {
-        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff, m.duel); }
+        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff, m.duel, m.hunt); }
         return; // higher id: ignore theirs - they adopt ours by this same rule
       }
       // #173 a reconnecting client that KEPT its run must not restart it: same seed,
@@ -3576,7 +3585,7 @@
       // #194 pulled into the new party run while typing a high-score name: bank the
       // score with whatever was typed so PLAY AGAIN never eats a kid's high score
       if (g.state === 'initials') { try { commitInitials(); } catch (e) { /* score save must never block the restart */ } }
-      startCoop(m.seed, m.hu || null, m.ff, m.duel);
+      startCoop(m.seed, m.hu || null, m.ff, m.duel, m.hunt);
     });
     // #173 LATE-JOIN / REJOIN: a peer connected mid-run (fresh player, or a teammate whose
     // page reloaded). The pinned host hands them the run: a targeted 'start' with the seed
@@ -3584,7 +3593,7 @@
     // room-follow pulls them into the host's room from there.
     Net.on('peer-join', m => {
       if (!g.coop || !isRunHost() || !g.dungeon) return;
-      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0, duel: g.duelMode ? 1 : 0 });
+      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0, duel: g.duelMode ? 1 : 0, hunt: g.huntMode ? 1 : 0 });
       Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
     });
     // #100 a teammate's chat line
@@ -3592,6 +3601,8 @@
     // P1-C: downed / revive / party-wipe game-over
     Net.on('downed', m => { const rp = g.remotePlayers.get(m.id); if (rp) rp.downed = true; dropFromLevelGate(m.id); });
     Net.on('round', m => { if (g.coop && g.duelMode) applyRound(m); }); // #240 the host called the round
+    Net.on('swarm', m => { if (g.coop && g.huntMode && isCoopGuest()) applySwarm(m); });      // #241
+    Net.on('huntend', m => { if (g.coop && g.huntMode && isCoopGuest()) applyHuntEnd(m); });  // #241
     Net.on('revive', m => { if (m.id === Net.id && g.player && g.player.dead) reviveLocal(); });
     Net.on('gameover', m => { if (g.coop) coopGameOver(m); });
     // host -> guests: authoritative monster snapshot (guests render proxies)
@@ -3723,6 +3734,7 @@
       }
       g.keyFloorMiss = 0;
       if (m.al !== undefined) g.alarm = m.al;
+      if (g.huntMode && m.swn > g.huntSwarmN) g.huntSwarmN = m.swn; // #241 a missed swarm advance heals
       // #232 a guest that missed the portal event (blip, late join) heals it here
       if (m.pt && !g.portal) {
         const proom = g.dungeon.rooms.find(r => r.gx === m.pt.gx && r.gy === m.pt.gy);
@@ -3914,7 +3926,7 @@
       else { room.trapChest.opened = true; room.trapPending = true; } // #215 the wave spawns when the host arrives
     });
     // #175 drop a follow from a different floor (stale packet around a floor transition)
-    Net.on('room', m => { if (g.coop && g.dungeon && (m.fl === undefined || m.fl === g.floorNum)) coopEnterRoom(m.gx, m.gy, m.dir, false); });
+    Net.on('room', m => { if (g.huntMode) return; if (g.coop && g.dungeon && (m.fl === undefined || m.fl === g.floorNum)) coopEnterRoom(m.gx, m.gy, m.dir, false); }); // #241 hunters move alone
     // host advanced the floor - regenerate the shared floor and follow (a floor change
     // trumps any pending level-up gate: clear it so nothing is left stranded)
     Net.on('floor', m => {
@@ -3957,9 +3969,10 @@
     Sfx.play('ui');
   }
 
-  function startCoop(seed, hostU, ff, duel) {
+  function startCoop(seed, hostU, ff, duel, hunt) {
     g.duelMode = !!duel;   // #240 THE DUEL rides the run start like friendly fire does
-    g.friendlyFire = !!ff || !!duel; // a duel IS friendly fire
+    g.huntMode = !!hunt && !duel; // #241 THE GILDED HUNT (duel wins if both are set)
+    g.friendlyFire = !!ff || !!duel || g.huntMode; // duels and hunts ARE friendly fire
     g.coopSeed = (seed !== undefined && seed !== null) ? seed : (Math.random() * 1e9) | 0;
     g.remotePlayers.clear();
     g.lobby = null;
@@ -3974,6 +3987,14 @@
     g.runHostU = hostU || null;
     g.runStartT = Date.now(); // #217 for the dual PLAY AGAIN tie-break window
     newRun(true);
+    // #241 hunt setup: hunters start in far-apart rooms, the whole map is known
+    // (the swarm demands map awareness), every room pre-cleared, no tether.
+    if (g.huntMode) {
+      g.huntScore = {}; g.huntSwarmN = 0; g.huntSwarmT = 0; g.huntGraceT = 3; g._swarmOrd = null;
+      for (const r of g.dungeon.rooms) { r.visited = true; r.cleared = true; r.spawned = true; }
+      placeHuntSpawn();
+      g.floorBanner = { text: 'THE GILDED HUNT', t: 4.5, sub: 'gear up. the swarm is coming. last champion standing.' };
+    }
     // #240 duel setup: fighters start in opposite corners, scores clean, 3-2-1
     if (g.duelMode) {
       g.duelScore = {}; g.duelCountdownT = 3.2; g.duelFightT = 0;
@@ -4136,10 +4157,11 @@
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
           if (r.action === 'lobby-start') { // host picks the shared run seed
             const seed = (Math.random() * 1e9) | 0;
-            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel); return; // #173 pin authority
+            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt); return; // #173 pin authority
           }
           if (r.action === 'lobby-ff') { g.lobbyFF = !g.lobbyFF; Sfx.play('ui'); } // #224
-          if (r.action === 'lobby-duel') { g.lobbyDuel = !g.lobbyDuel; Sfx.play('ui'); } // #240
+          if (r.action === 'lobby-duel') { g.lobbyDuel = !g.lobbyDuel; if (g.lobbyDuel) g.lobbyHunt = false; Sfx.play('ui'); } // #240
+          if (r.action === 'lobby-hunt') { g.lobbyHunt = !g.lobbyHunt; if (g.lobbyHunt) g.lobbyDuel = false; Sfx.play('ui'); } // #241
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
       }
@@ -4387,6 +4409,7 @@
   }
   g.partyTargets = partyTargets;
   g.hurtTarget = hurtTarget;
+  g.swarmConsumed = swarmConsumed; // #241 the minimap paints consumed rooms
   // #229 mesmer R8: your clones ECHO your melee swings at 30% power around themselves
   g.cloneEcho = (p2, w, scale) => {
     if (!g.coop && false) return; // works solo and co-op alike
@@ -4427,7 +4450,7 @@
   }
   // a LIVING player standing on a downed peer for ~3s revives them
   function reviveNearbyDowned(dt) {
-    if (g.duelMode) return; // #240 a fallen duelist stays down - the ROUND revives them
+    if (g.duelMode || g.huntMode) return; // #240/#241 the fallen stay down - the next round revives them
     const p = g.player;
     if (p.dead) return; // the downed can't revive
     for (const [id, rp] of g.remotePlayers) {
@@ -4439,6 +4462,90 @@
       } else rp.reviveT = 0;
     }
   }
+  // #241 THE GILDED HUNT. Hunters spawn far apart, move INDEPENDENTLY (no tether,
+  // solo-style doors), see each other only in a shared room, gear up from their own
+  // instanced chests - and the SWARM consumes the floor from the outside in, on the
+  // host's clock but in a seed-deterministic order, herding both toward the middle.
+  function placeHuntSpawn() {
+    const rooms = g.dungeon.rooms;
+    const start = rooms.find(r => r.type === 'start') || rooms[0];
+    let far = rooms[0], fd = -1;
+    for (const r of rooms) { const d = Math.abs(r.gx - start.gx) + Math.abs(r.gy - start.gy); if (d > fd) { fd = d; far = r; } }
+    const mine = (g.runHostU === g.clientId) ? start : far;
+    enterRoom(mine, null);
+    g.player.x = PF.x + PF.w / 2; g.player.y = PF.y + PF.h / 2;
+    g.player.dead = false; g.player.downed = false; g.player.hp = g.player.maxHp;
+  }
+  // the seed-deterministic consumption order: farthest from the map's centroid first,
+  // the centre-most room NEVER falls (the showdown ground). State = one integer.
+  function swarmOrder() {
+    const rooms = g.dungeon.rooms;
+    let cx = 0, cy = 0;
+    for (const r of rooms) { cx += r.gx; cy += r.gy; }
+    cx /= rooms.length; cy /= rooms.length;
+    const ord = [...rooms].sort((a, b) => {
+      const da = Math.hypot(a.gx - cx, a.gy - cy), db = Math.hypot(b.gx - cx, b.gy - cy);
+      return db - da || a.gx - b.gx || a.gy - b.gy;
+    });
+    return ord.slice(0, Math.max(0, ord.length - 1)); // spare the final room
+  }
+  function swarmConsumed(room) {
+    if (!g.huntMode || g.huntSwarmN <= 0) return false;
+    const ord = g._swarmOrd || (g._swarmOrd = swarmOrder());
+    for (let i = 0; i < Math.min(g.huntSwarmN, ord.length); i++) if (ord[i] === room) return true;
+    return false;
+  }
+  function updateHunt(dt) {
+    if (!g.huntMode || !g.coop) return;
+    if (g.huntGraceT > 0) { g.huntGraceT -= dt; g.player.iframes = Math.max(g.player.iframes, 0.25); }
+    // the swarm eats whoever lingers in a consumed room - each client drains its OWN
+    // champion (it owns its hp), on a tick that outpaces hurt-iframes
+    if (g.room && swarmConsumed(g.room) && !g.player.dead) {
+      g._swarmTick = (g._swarmTick || 0) - dt;
+      if (g._swarmTick <= 0) {
+        g._swarmTick = 0.8;
+        g.player.damage(Math.max(8, Math.round(g.player.maxHp * 0.08)), g.player.x, g.player.y - 40, g);
+        Fx.text(g.player.x, g.player.y - 44, 'THE SWARM', '#ff4040', 12);
+      }
+    }
+    if (!isRunHost()) return;
+    // host clock: 75s of grace, then a room falls every 18s
+    g.huntSwarmT += dt;
+    const due = g.huntSwarmT < 75 ? 0 : 1 + Math.floor((g.huntSwarmT - 75) / 18);
+    const ord = g._swarmOrd || (g._swarmOrd = swarmOrder());
+    if (due > g.huntSwarmN && g.huntSwarmN < ord.length) {
+      g.huntSwarmN = Math.min(due, ord.length);
+      Net.sendR({ t: 'swarm', n: g.huntSwarmN });
+      applySwarm({ n: g.huntSwarmN });
+    }
+    // last champion standing: exactly one hunter down ends the hunt
+    if (g.huntGraceT > 0) return;
+    const meDown = g.player.dead || g.player.downed;
+    let theirDown = false, theirU = null;
+    for (const rp of g.remotePlayers.values()) { if (rp.u) theirU = rp.u; if (rp.downed) theirDown = true; }
+    if (meDown === theirDown) return; // both up, or a double-down = the swarm decides next round
+    const winnerU = meDown ? theirU : g.clientId;
+    g.huntScore[winnerU] = (g.huntScore[winnerU] || 0) + 1;
+    const payload = { t: 'huntend', w: winnerU, sc: g.huntScore };
+    Net.sendR(payload);
+    applyHuntEnd(payload);
+  }
+  function applySwarm(m) {
+    g.huntSwarmN = Math.max(g.huntSwarmN, +m.n || 0);
+    g.floorBanner = { text: 'THE SWARM ADVANCES', t: 2.2, sub: `${g.huntSwarmN} room${g.huntSwarmN > 1 ? 's' : ''} consumed - stay ahead of it` };
+    Sfx.play('roar'); Fx.shake(4, 0.25);
+  }
+  function applyHuntEnd(m) {
+    g.huntScore = m.sc || {};
+    const iWon = m.w === g.clientId;
+    triggerUltFlash(iWon ? 'HUNT CHAMPION' : 'HUNTED DOWN', iWon ? '#ffd24c' : '#e05555');
+    g.floorBanner = { text: iWon ? 'HUNT CHAMPION' : 'HUNTED DOWN', t: 4.5, sub: 'the hunt begins again' };
+    Sfx.play(iWon ? 'levelup' : 'hurt');
+    // run it back: fresh swarm, same ground, back to your corners of the map
+    g.huntSwarmN = 0; g.huntSwarmT = 0; g._swarmOrd = null; g.huntGraceT = 4;
+    placeHuntSpawn();
+  }
+
   // #240 THE DUEL referee. Both clients run the countdown (fighters untouchable);
   // only the HOST calls rounds (single announcer - each client owns its own hp, so
   // ties need one judge). A double-down is a DOUBLE KO: replayed, no point.
@@ -4488,7 +4595,7 @@
 
   // host: end the run only when EVERYONE is down
   function checkPartyWipe() {
-    if (g.duelMode) return; // #240 duels end in rounds, never in a game over
+    if (g.duelMode || g.huntMode) return; // #240/#241 pvp ends in rounds, never a game over
     if (!isRunHost() || g.runEnded) return;
     // a peer is only "down" if we've been TOLD so ({t:'downed'} / dd flag). A present
     // but lagging peer counts as ALIVE - never false-wipe on a network hiccup. Peers
@@ -4584,7 +4691,8 @@
       if (r.cleared || tc || mi) rooms.push({ gx: r.gx, gy: r.gy, cl: r.cleared ? 1 : 0, tc, mi });
     }
     Net.send({ t: 'key', fl: g.floorNum, al: g.alarm, nm: g.floorNightmare ? 1 : 0, rooms,
-      pt: g.portal && g.portal.room ? { gx: g.portal.room.gx, gy: g.portal.room.gy } : 0 }); // #232 the portal self-heals
+      pt: g.portal && g.portal.room ? { gx: g.portal.room.gx, gy: g.portal.room.gy } : 0,
+      swn: g.huntMode ? g.huntSwarmN : 0 }); // #232 the portal self-heals; #241 so does the swarm
   }
 
     // host: broadcast a compact snapshot of every monster (~15 Hz)
@@ -4923,6 +5031,7 @@
       broadcastSelf(dt); interpRemotes(dt); reviveNearbyDowned(dt);
       checkStrandedFollow(dt);
       if (g.duelMode) updateDuel(dt); // #240 the duel referee (countdown on both, rounds on the host)
+      if (g.huntMode) updateHunt(dt); // #241 the swarm clock + last-champion-standing
       if (isCoopGuest()) { updateGuestMobs(dt); checkHostAlive(); } else { broadcastMobs(dt); broadcastGear(dt); broadcastKeyframe(dt); checkPartyWipe(); }
     }
 
@@ -6135,6 +6244,26 @@
     }
 
     UI.drawHUD(c, g);
+    // #241 the hunt HUD: score, swarm count, and a red edge when your room is falling
+    if (g.huntMode && g.coop) {
+      c.save(); c.textAlign = 'center';
+      const my = (g.huntScore && g.huntScore[g.clientId]) || 0;
+      let their = 0; for (const k in (g.huntScore || {})) if (k !== g.clientId) their = Math.max(their, g.huntScore[k]);
+      c.font = 'bold 16px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`HUNTS  ${my} — ${their}`, W / 2, 30);
+      if (g.huntSwarmN > 0) {
+        c.font = '10px monospace'; c.fillStyle = '#ff7a6a';
+        c.fillText(`the swarm holds ${g.huntSwarmN} room${g.huntSwarmN > 1 ? 's' : ''}`, W / 2, 44);
+      }
+      if (g.room && swarmConsumed(g.room)) {
+        const th = 0.5 + Math.sin(Date.now() / 150) * 0.25;
+        c.globalAlpha = th; c.strokeStyle = '#ff3030'; c.lineWidth = 14;
+        c.strokeRect(0, 0, W, H);
+        c.globalAlpha = 1; c.font = 'bold 16px monospace'; c.fillStyle = '#ff6060';
+        c.fillText('RUN. THIS ROOM IS FALLING.', W / 2, 66);
+      }
+      c.restore();
+    }
     // #240 the duel scoreboard + the 3-2-1
     if (g.duelMode && g.coop) {
       c.save(); c.textAlign = 'center';
@@ -7745,7 +7874,7 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel); }, // #224/#240 mirrors the lobby-start click
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt); }, // #224/#240/#241
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
     // testing: pretend a net message arrived (drives the real Net.on handlers)
     mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },

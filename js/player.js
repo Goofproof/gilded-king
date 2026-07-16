@@ -1048,7 +1048,7 @@ const PlayerDef = (() => {
       // the die-after-victory race that double-banked essence
       // #240 in a DUEL, menus are not armor: the character sheet and pause still let
       // hits through (otherwise "open charsheet" would be god mode - he WOULD find it)
-      const menuVuln = g && g.duelMode && (g.state === 'charsheet' || g.state === 'pause');
+      const menuVuln = g && (g.duelMode || g.huntMode) && (g.state === 'charsheet' || g.state === 'pause'); // #240/#241
       if (this.iframes > 0 || this.dead || (g.state !== 'play' && !menuVuln) || g.winTimer > 0) return;
       // shield charm eats the whole hit
       if (this.buffs.shield > 0) {

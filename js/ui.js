@@ -611,6 +611,11 @@ const UI = (() => {
       const colors = { start: '#8899bb', combat: '#4a5468', treasure: '#c9a227', shop: '#d98e3d', boss: '#b03050', stairs: '#3dbf9d', mythicshop: '#ff2fb0', trap: '#c9a227' }; // #181 a trap room WEARS treasure gold - that is the bait
       c.fillStyle = colors[r.type] || '#4a5468';
       c.fillRect(x, y, cell, cell);
+      // #241 the swarm on the map: consumed rooms burn red - route around them
+      if (g.huntMode && g.swarmConsumed && g.swarmConsumed(r)) {
+        c.fillStyle = 'rgba(255,40,40,0.75)';
+        c.fillRect(x, y, cell, cell);
+      }
       if (!r.cleared && (r.type === 'combat' || r.type === 'boss')) {
         c.fillStyle = 'rgba(0,0,0,0.35)';
         c.fillRect(x, y, cell, cell);
@@ -1970,12 +1975,18 @@ const UI = (() => {
       // #224 PVP Phase 0: the host arms friendly fire for the whole run
       btn(W / 2 - 130, 384, 260, 36, `FRIENDLY FIRE: ${g.lobbyFF ? 'ON' : 'OFF'}`, 'lobby-ff', g.lobbyFF ? '255,90,90' : '143,163,191');
       // #240 PVP Phase 1: THE DUEL - a sealed arena, rounds, first to 3
-      btn(W / 2 - 130, 428, 260, 36, `⚔ DUEL MODE: ${g.lobbyDuel ? 'ON' : 'OFF'}`, 'lobby-duel', g.lobbyDuel ? '255,210,76' : '143,163,191');
-      if (g.lobbyDuel) {
-        c.font = '11px monospace'; c.fillStyle = '#c9b061';
+      btn(W / 2 - 130, 428, 126, 36, `⚔ DUEL ${g.lobbyDuel ? 'ON' : 'OFF'}`, 'lobby-duel', g.lobbyDuel ? '255,210,76' : '143,163,191');
+      // #241 PVP Phase 2: THE GILDED HUNT - battle royale across the whole floor
+      btn(W / 2 + 4, 428, 126, 36, `☠ HUNT ${g.lobbyHunt ? 'ON' : 'OFF'}`, 'lobby-hunt', g.lobbyHunt ? '255,120,60' : '143,163,191');
+      c.font = '11px monospace';
+      if (g.lobbyHunt) {
+        c.fillStyle = '#d99a61';
+        c.fillText('spawn apart. gear up. the swarm closes in. last one standing.', W / 2, 482);
+      } else if (g.lobbyDuel) {
+        c.fillStyle = '#c9b061';
         c.fillText('a sealed arena. no monsters. first to 3 rounds. good luck.', W / 2, 482);
       } else if (g.lobbyFF) {
-        c.font = '11px monospace'; c.fillStyle = '#c98080';
+        c.fillStyle = '#c98080';
         c.fillText('swords and arrows hurt your friends. chaos mode.', W / 2, 482);
       }
     } else if (lb.mode === 'join') {
