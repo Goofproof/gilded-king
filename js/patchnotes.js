@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.104', title: 'Nobody waits while you choose', date: '2026-07-16',
       sha: '1ac136b',
       items: [
-        'Co-op: the party never freezes for a chooser again (#236) - the levelwait hold is gone (finish your pick, play on; choosers are already damage-proof on menus), and a floor advance arriving mid-pick DEFERS until the pick closes instead of destroying it (review #14).',
+        'The co-op waiting screen is GONE. When your teammate opens an evolution or ultimate choice, you keep playing. No more standing frozen at "waiting for teammate to choose" while they read three cards. They are perfectly safe while choosing (menus block all incoming damage), and their champion wears the CHOOSING tag so you know why they stopped moving.',
+        'And if the party heads down the stairs while someone is still mid-choice, the game no longer rips the choice away from them. They finish picking in peace, and the moment they confirm, they ride down to the new floor automatically.',
       ],
     },
     {
