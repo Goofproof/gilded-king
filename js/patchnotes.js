@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.127';
+  const VERSION = 'v2.128';
 
   const NOTES = [
+    {
+      v: 'v2.128', title: 'The flame in the tab', date: '2026-07-16',
+      sha: '22e1b1e',
+      items: [
+        'Barrowlight has a favicon: a golden flame in the dark - the light you carry into the deep.',
+      ],
+    },
     {
       v: 'v2.127', title: 'HUD cleanup', date: '2026-07-16',
       sha: '63221b0',
