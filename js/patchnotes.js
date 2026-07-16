@@ -26,7 +26,9 @@ const PatchNotes = (() => {
       v: 'v2.123', title: 'The ante, the salvage, and the lightning', date: '2026-07-16',
       sha: '1ded262',
       items: [
-        'Gambler ANTE: every Jackpot pull costs 5 gold and you can fall into DEBT (red on the HUD) where your pulls hit WEAKER. Engineers can salvage turrets with E. Chain lightning got a real bolt.',
+        'THE ANTE: every JACKPOT pull now costs 5 gold - and only wins shower it back. The Gambler can fall into DEBT (your gold runs red), and in debt your pulls hit WEAKER. Climb out.',
+        'ENGINEERS: press E on a standing turret to SALVAGE it - the charge comes back and the deploy cooldown resets. Reposition freely.',
+        'Chain lightning was always working - now you can SEE it: a real jagged bolt leaps between enemies with a ZAP. (It arcs to 2 nearby enemies at 45% damage.)',
       ],
     },
     {
