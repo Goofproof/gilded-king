@@ -533,6 +533,7 @@
     g.playerTaunt = { src: null, t: 0 }; // taunts don't carry between rooms
     g.pickups = room.savedPickups || [];
     g.plateArmed = new Set(); // #137 all door-plates start disarmed (arm on first vacate)
+    g.plateHold = {};         // #235 dwell timers reset with the room
     g.roomSettleT = 0.4;      // and no plate fires for the first 0.4s, so remote positions settle first
     Fx.clear();
     g.boss = room.type === 'boss' ? g.boss : null;
@@ -1522,13 +1523,21 @@
         // arms on its first empty frame. Belt-and-suspenders with a short entry settle.
         if (occ === 0) g.plateArmed.add(d.dir);
         if (g.roomSettleT > 0) continue;
+        // #235 (Sam: "plates bounce us back and forth") DWELL: the plate must HOLD its
+        // majority for 0.45s before firing. Before this, one frame of overlap fired the
+        // door - so drifting off the entry plate (arming it) and drifting back sent the
+        // party straight back where it came from, and a laggy remote ghost crossing a
+        // plate could misfire it. The charge-up ring (drawDoorPlates) makes it legible.
+        if (!g.plateHold) g.plateHold = {};
         if (occ >= need && g.plateArmed.has(d.dir)) {
+          if (g.plateHold[d.dir] === undefined) g.plateHold[d.dir] = g.time;
+          if (g.time - g.plateHold[d.dir] < 0.45) continue;
           const next = g.room.doors[d.dir];
           if (typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir, fl: g.floorNum }); // #216
           g.transition = { dir: d.dir, next, t: 0 };
           g.state = 'transition';
           return;
-        }
+        } else delete g.plateHold[d.dir];
       }
       clampPlayer(); // the plate is the only way out; walls stay solid
       return;
@@ -1582,10 +1591,18 @@
       c.strokeStyle = ready ? '#ffd24c' : '#7fd4ff';
       c.lineWidth = 2;
       c.strokeRect(-half, -half, half * 2, half * 2);
+      // #235 the dwell charge-up: a gold ring sweeps closed while the plate holds its
+      // majority, so the 0.45s delay reads as "opening..." instead of lag
+      const hold = g.plateHold && g.plateHold[d.dir];
+      if (ready && hold !== undefined) {
+        const k = Math.min(1, (g.time - hold) / 0.45);
+        c.strokeStyle = '#ffd24c'; c.lineWidth = 4; c.lineCap = 'round';
+        c.beginPath(); c.arc(0, 0, half + 8, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); c.stroke();
+      }
       // occupancy label e.g. "1/2" -> "2/2"
       c.textAlign = 'center'; c.font = 'bold 11px monospace';
       c.fillStyle = ready ? '#ffe9a8' : '#bfe3ff';
-      c.fillText(`${on}/${need}`, 0, -half - 6);
+      c.fillText(ready && hold !== undefined ? 'OPENING...' : `${on}/${need}`, 0, -half - 6);
       c.restore();
     }
   }
