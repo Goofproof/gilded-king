@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.126';
+  const VERSION = 'v2.127';
 
   const NOTES = [
+    {
+      v: 'v2.127', title: 'HUD cleanup', date: '2026-07-16',
+      sha: '63221b0',
+      items: [
+        'HUD cleanup: Q, R and Ultimate buttons moved to the bottom left under your weapons, and the FLOOR count is gone.',
+      ],
+    },
     {
       v: 'v2.126', title: 'Performance pass 2: the big one', date: '2026-07-16',
       sha: '1ba5318',
