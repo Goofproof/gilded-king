@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.105', title: 'Descending is a party decision now', date: '2026-07-16',
       sha: '9fc9fb4',
       items: [
-        'Co-op: every next-floor exit needs the party MAJORITY gathered, like the door plates (#237) - stairs, portal shortcut, descent plunge and nightmare gate all refuse with GATHER THE PARTY until a majority stands together.',
+        'Going down is a group decision now, same rule as the doors. Every exit to the next floor - the stairs, the portal shortcut, the plunge after a boss, even the nightmare gate - refuses to fire until most of the party is standing together at it. Try to sneak down alone while your teammate is still looting and it just says GATHER THE PARTY TO DESCEND.',
+        'No more getting yanked down a floor because someone got excited near the stairs.',
       ],
     },
     {
