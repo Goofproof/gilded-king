@@ -1,3 +1,19 @@
+## 2026-07-16 (fun batch + GAMBLER class, Sam's picks 1-3 & 5-9 + class redirect)
+
+Sam approved the fun list and redirected #4: JACKPOT became the Q of a new GAMBLER
+class (the FORTUNE class the Q walkthrough left open). Shipped: monsters-as-
+ammunition (launch-grade knockback crashes into friends, 45% momentum transfer,
+no chain cascades), the goose is a REAL killable pet (lays gold, dies into a
+fortune - eggs vacuum to the purse, which fooled the first probe), stance aura
+rings (t0 stamped lazily at first draw), marathon ram, fort knox orbit + 2-coin
+knock-out per hit, tailwind fwake (pheal model), troll blood knit/STEMMED fx,
+oracle prophecy star (cleared on floor change along with goose/decoy). GAMBLER:
+strike Q with 25% + 1%/rank (cap 50%) TRIPLE; found in verify that the maxHp
+rider dwarfed the tripled base on big monsters - wins now triple the rider too
+(verified exactly 3.0x). Milestones all live: R4 pity +10%/miss (resets on win),
+R8 half-cd refund, R12 instant re-arm. MOTHER LODE (eruption + 20% gear drop)
+took JACKPOT's fusion slot. Starting kit: dagger, 40 gold, +10% coins.
+
 ## 2026-07-16 (fusion primes) - same-stat doubles get real trios (Sam's ask)
 
 Sam: "add fusions for doubling up, fortune + fortune for example" + "make sure all
