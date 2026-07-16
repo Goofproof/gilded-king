@@ -16,11 +16,14 @@
     // MIGHT - kill fast
     { key: 'dmg',      icon: '⚔', color: '#ffd24c', name: 'Brutal',     desc: '+10% damage',            stat: 'MIGHT' },
     { key: 'crit',     icon: '✦', color: '#ffd24c', name: 'Deadly',     desc: '+6% crit chance',        stat: 'MIGHT' },
+    { key: 'execution',icon: '✠', color: '#ffd24c', name: 'Executioner', desc: 'Critical hits strike 25% harder', stat: 'MIGHT', fx: { critDmg: 0.25 } },
+    { key: 'jackal',   icon: '➹', color: '#ffd24c', name: 'Jackal',     desc: '+12% damage to enemies below 30% health', stat: 'MIGHT', fx: { dmgVsWounded: 0.12 } },
     { key: 'atkspd',   icon: '≫', color: '#7fd4ff', name: 'Frenzy',     desc: '+10% attack speed',      stat: 'AGILITY' },
     // VIGOR - stay alive
     { key: 'hp',       icon: '♥', color: '#e05555', name: 'Tough',      desc: '+15 max health, heal 15', stat: 'VIGOR' },
     { key: 'regen',    icon: '✚', color: '#6ee7a0', name: 'Mending',    desc: 'Regenerate 0.6 HP/s',    stat: 'VIGOR' },
     { key: 'bulwark',  icon: '⛊', color: '#8fd0ff', name: 'Bulwark',    desc: 'Take 5% less damage',    stat: 'VIGOR',   fx: { reduce: 0.05 } },
+    { key: 'nettle',   icon: '✻', color: '#6ee7a0', name: 'Nettle',     desc: 'Enemies that hit you take 8 damage', stat: 'VIGOR', fx: { thorns: 8 } },
     // AGILITY - nimble / evasion
     { key: 'spd',      icon: '»', color: '#7fd4ff', name: 'Fleet',      desc: '+7% move speed',         stat: 'AGILITY' },
     { key: 'roll',     icon: '↻', color: '#7fd4ff', name: 'Acrobat',    desc: '-12% roll cooldown',     stat: 'AGILITY' },
@@ -29,10 +32,12 @@
     { key: 'magic',    icon: '✷', color: '#b06bff', name: 'Attunement', desc: '+1 Magic (stronger wands/staffs)', stat: 'ARCANE' },
     { key: 'focus',    icon: '❋', color: '#b06bff', name: 'Focus',      desc: '+15% spell power',       stat: 'ARCANE',  fx: { spellPower: 0.15 } },
     { key: 'resonance',icon: '◎', color: '#c88bff', name: 'Resonance',  desc: '+25 spell blast radius', stat: 'ARCANE',  fx: { blastBonus: 25 } },
+    { key: 'echo',     icon: '∿', color: '#c88bff', name: 'Echo',       desc: 'Spells have a 12% chance to cast twice', stat: 'ARCANE', fx: { echo: 0.12 } },
     // FORTUNE - luck / economy
     { key: 'coin',     icon: '●', color: '#ffce54', name: 'Greedy',     desc: '+20% coins from kills',  stat: 'FORTUNE' },
     { key: 'bounty',   icon: '⦿', color: '#ffce54', name: 'Bounty',     desc: 'Elites drop +3 coins',   stat: 'FORTUNE', fx: { eliteCoins: 3 } },
     { key: 'midas',    icon: '⟐', color: '#ffd24c', name: 'Midas',      desc: '+1 damage per 60 coins held', stat: 'FORTUNE', fx: { midasPer: 60, midasCap: 16 } },
+    { key: 'clover',   icon: '☘', color: '#ffce54', name: 'Clover',     desc: '+10% experience from kills', stat: 'FORTUNE', fx: { xpMult: 0.10 } },
   ];
 
   // --- SHOP TUNING ---------------------------------------------------------------
@@ -583,8 +588,19 @@
       // pick which King you face: the gold Gilded King on floor 3, or a recolored,
       // angrier Circle Warden in the Descent. Config is rolled ONCE here (it
       // advances the anger counter) and consumed when the boss actually spawns.
+      // #251 (Sam) THE HARPY. Everyone kept asking what the shadow over the canopy
+      // was - now the forest answers. She is the FIRST boss anyone ever meets, so the
+      // numbers are gentle (matriarch kit at ~30% hp, half damage). forest:true keeps
+      // her from counting as the King (victory bonus, accolades) or as a Warden
+      // (descent essence, mythics) - she is her own thing.
       g.pendingBossCfg = (typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum))
-        ? Descent.bossConfig(g) : null;
+        ? Descent.bossConfig(g)
+        : (g.floorNum === 1 ? {
+            anger: 0, variant: 'matriarch', skin: 'harpy', forest: true,
+            name: 'THE HARPY', subtitle: 'the shadow over the canopy comes down',
+            hpMul: 0.30, dmgMul: 0.5,
+            pal: { body: '#4a3a20', lidLo: '#31260f', lid: '#5c4a28', trim: '#e8b52f', crown: '#ffd24c', jewel: [232, 181, 47] },
+          } : null);
       // THE EMPYREAN. Not another recoloured Warden - the ORIGINAL, the one from floor
       // 3, gold again, waiting at the top of Heaven in the last castle. That is the
       // whole joke and it only works if he looks like himself.
@@ -729,8 +745,8 @@
       }
     }
     // #183 (Sam) THE BIRD. On forest floors, every third room you enter, something
-    // enormous glides over the canopy - a hawk's shadow sweeping the floor. Pure
-    // atmosphere: it cannot hurt you, it just reminds you the forest has an owner.
+    // enormous glides over the canopy. #251: it is THE HARPY, the floor-1 boss -
+    // the shadow is her, telegraphed. Still pure atmosphere until the boss room.
     try {
       const th = Dungeon.themeFor(g.floorNum);
       if (th && /FOREST/i.test(th.name || '')) {
@@ -1026,21 +1042,21 @@
       dropGearInstanced('weapon', m.x, m.y - 20, { tier, minRarity: 4 });      // #239 every player gets a boss legendary
       dropGearInstanced('armorItem', m.x + 40, m.y, { tier, minRarity: 3 });
       for (let i = 0; i < 36; i++) spawnPickup('coin', m.x, m.y);
-      const ne = m.isDescentBoss ? Descent.bossEssence(g.floorNum) : 12;
+      const ne = m.isDescentBoss ? Descent.bossEssence(g.floorNum) : (m.forestBoss ? 8 : 12); // #251
       for (let i = 0; i < ne; i++) spawnPickup('essence', m.x, m.y);
       // Circle Wardens are the only creatures that guard mythics
       if (m.isDescentBoss && Math.random() < Descent.MYTHIC_DROP_CHANCE) {
         // #239 instanced: each player rolls a mythic against their OWN collection
         dropGearInstanced('weapon', m.x, m.y + 24, { tier, mythic: true });
       }
-      if (!m.isDescentBoss) { g.kingSlain = true; p.essenceRun += 20; } // King's victory bonus
+      if (!m.isDescentBoss && !m.forestBoss) { g.kingSlain = true; p.essenceRun += 20; } // King's victory bonus (#251 not the Harpy's)
       g.winTimer = 2.6;                             // savor the kill; doors stay locked
       // every boss opens the plunge with a Toad line: the King's is verbatim, each
       // deeper Warden's is one notch more twisted (index = how many you've felled)
       const toadIdx = m.isDescentBoss ? g.circleBossSeen : 0;
-      g.pendingDescent = { toadIdx };
+      g.pendingDescent = { toadIdx, forest: !!m.forestBoss }; // #251 the Harpy opens plain stairs, no Toad
       // P1-E: tell guests the boss fell so they clear it + share the victory
-      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0 });
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0, fb: m.forestBoss ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
       dropGearInstanced('weapon', m.x, m.y, { tier, minRarity: 1, luck: 0.4 + 0.1 * (g.alarm || 0) }); // #239
@@ -1186,7 +1202,7 @@
       // message also says whether this clear FINISHED the floor, so the guest opens
       // the same portal - before this, only the host could see the way down.
       const floorDone = g.room.type !== 'boss' && Dungeon.uncleared(g.dungeon) === 0;
-      const bossNext = floorDone && (g.floorNum === 3 ||
+      const bossNext = floorDone && (g.floorNum === 1 || g.floorNum === 3 ||
         (typeof Descent !== 'undefined' && Descent.isBossFloor(g.floorNum)));
       if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'roomclear', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum, al: g.alarm, pt: floorDone ? 1 : 0, pb: bossNext ? 1 : 0 }); // #216/#232
       if (floorDone) {
@@ -1239,7 +1255,7 @@
   function openDescentPortal(opts) {
     if (g.descentPortal) return;
     g.descentPortal = { room: g.room, x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, t: 0 };
-    g.toadMsg = { text: Descent.toadLine(opts.toadIdx || 0), t: 5 };
+    g.toadMsg = { text: opts.forest ? 'the forest is quiet now. the way down stands open.' : Descent.toadLine(opts.toadIdx || 0), t: 5 }; // #251
     Fx.burst(g.descentPortal.x, g.descentPortal.y, ['#ff5a2c', '#ffcc44', '#ff2200', '#1a0a06'], 36, { speed: 210, life: 1.0, glow: true });
     Fx.shake(6, 0.4);
     Sfx.play('roar');
@@ -3265,15 +3281,23 @@
     // #123 advance the mythic-drop fanfare regardless of state/hit-stop
     if (g.mythicFx) { g.mythicFx.t += dt; if (g.mythicFx.t >= g.mythicFx.dur) g.mythicFx = null; }
 
-    // #192 (Sam, live playtest) KEEP PRESENCE ALIVE WHILE FROZEN. The pick screens,
-    // pause and the character sheet never sent 'p', so a player reading their level-up
-    // choices VANISHED from the teammate's screen within seconds - and with the
-    // majority-gather door plates unable to fire without them, the other player was
-    // sealed in the room. Both "we can't see each other" and "we can't leave" at once.
+    // #192 kept presence alive while frozen; #249 (Sam) goes all the way: NOTHING
+    // pauses in multiplayer. While any menu or pick screen is up in co-op, the whole
+    // world sim runs underneath with this player's controls idled (the model chat and
+    // the co-op pause overlay already use, applied to every menu). The state swap
+    // matters twice: it lets updatePlay past its own not-in-play early-outs, and it
+    // means damage resolves normally - a menu is NOT armor, the monsters don't wait.
+    // If the sim flips the state itself (death, a descent), that outranks the menu.
     if (g.coop && (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' ||
         g.state === 'rpick' || g.state === 'pause' || g.state === 'charsheet' || g.state === 'enchantpick' || g.state === 'offer' || g.state === 'craftpick')) {
-      broadcastSelf(dt); interpRemotes(dt);
-      if (isCoopGuest()) updateGuestMobs(dt);
+      const menuState = g.state;
+      const sPressed = input.pressed, sKey = input.key, sClicked = input.mouse.clicked;
+      input.pressed = () => false; input.key = () => false; input.mouse.clicked = false;
+      g.state = 'play';
+      try { updatePlay(dt); } finally {
+        input.pressed = sPressed; input.key = sKey; input.mouse.clicked = sClicked;
+        if (g.state === 'play') g.state = menuState;
+      }
     }
     switch (g.state) {
       case 'title': updateTitle(); break;
@@ -3324,10 +3348,16 @@
         }
         // #199/#231/#234 (Sam: "look at my stats without having to choose right away")
         // banked points do NOT auto-open the popup - a LEVEL UP button on the sheet
-        // (or L) opens it; Esc closes it back to browsing. Closing KEEPS the rolled
-        // cards, so open-close-open is never a free reroll.
+        // (or V - #246, L made the left hand travel; V sits next to C) opens it; V or
+        // Esc closes it back to browsing. Closing KEEPS the rolled cards, so
+        // open-close-open is never a free reroll.
+        // V is a TOGGLE, resolved in one branch - split open/close checks fired in
+        // the same frame (open at the top, the close-check below saw it open, closed it)
+        if (input.pressed('KeyV')) {
+          if (g.spendOpen && g.pendingChoices) { g.spendOpen = false; Sfx.play('ui'); break; }
+          if (g.levelUpQueue > 0) { g.spendOpen = true; Sfx.play('ui'); }
+        }
         if (g.levelUpQueue > 0 && !g.spendOpen) {
-          if (input.pressed('KeyL')) { g.spendOpen = true; Sfx.play('ui'); }
           if (input.mouse.clicked && g.uiRects) {
             for (const r of g.uiRects) {
               if (r.action === 'openSpend' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { g.spendOpen = true; Sfx.play('ui'); break; }
@@ -3359,6 +3389,12 @@
             Sfx.play('ui');
           };
           if (input.pressed('KeyR')) reroll();
+          // #248 (Sam) WASD walks the cards again, Enter/Space/E takes the glowing one
+          const nCh = g.pendingChoices.length;
+          g.spendSel = Math.min(g.spendSel || 0, nCh - 1);
+          if (input.pressed('KeyA') || input.pressed('KeyW') || input.pressed('ArrowLeft') || input.pressed('ArrowUp')) { g.spendSel = (g.spendSel + nCh - 1) % nCh; Sfx.play('ui'); }
+          if (input.pressed('KeyD') || input.pressed('KeyS') || input.pressed('ArrowRight') || input.pressed('ArrowDown')) { g.spendSel = (g.spendSel + 1) % nCh; Sfx.play('ui'); }
+          if (input.pressed('Enter') || input.pressed('Space') || input.pressed('KeyE')) { spend(g.spendSel); }
           for (let i = 0; i < 3; i++) if (input.pressed('Digit' + (i + 1))) { spend(i); break; }
           if (g.pendingChoices && input.mouse.clicked && g.uiRects) {
             for (const r of g.uiRects) {
@@ -3815,7 +3851,7 @@
       let b = g.boss;
       if (!b || !b.proxy || b.netId !== m.i) {
         if (b && b.proxy) { const i = g.monsters.indexOf(b); if (i >= 0) g.monsters.splice(i, 1); }
-        const opts = m.db ? { descent: { name: m.name, pal: m.pal, anger: m.an, hpMul: 1, dmgMul: 1, variant: m.vr || 'king', skin: m.sk || null } } : { variant: m.vr || 'king' }; // #188
+        const opts = (m.db || m.fb) ? { descent: { name: m.name, pal: m.pal, anger: m.an, hpMul: 1, dmgMul: 1, variant: m.vr || 'king', skin: m.sk || null, forest: !!m.fb } } : { variant: m.vr || 'king' }; // #188/#251
         b = Boss.make(opts);
         b.proxy = true; b.netId = m.i; b.dm = m.dm;
         b.update = function () { this.t += 1 / 60; if (this.flash > 0) this.flash -= 1 / 60; };
@@ -3838,7 +3874,7 @@
       // exactly like the host. Without pendingDescent the winTimer's else-branch fired
       // onVictory() and dumped the GUEST to the victory/name-entry screen mid-run while
       // the host kept playing. Found live in the two-instance harness.
-      g.pendingDescent = { toadIdx: m.toad || 0 };
+      g.pendingDescent = { toadIdx: m.toad || 0, forest: !!m.fb }; // #251
       if (typeof Descent !== 'undefined' && m.toad !== undefined) g.toadMsg = { text: Descent.toadLine(m.toad), t: 4 };
     });
     // guest -> host: "I hit monster <i> for <dmg>" (host is the source of truth)
@@ -4828,7 +4864,7 @@
     // P1-E: the boss rides its own message (crown/jaw/hop/shadow draw fields)
     const b = g.boss;
     if (b && !b.dead && b.netId) {
-      Net.send({ t: 'boss', i: b.netId, name: b.name, pal: b.pal, an: b.anger || 0, db: b.isDescentBoss ? 1 : 0, dm: b.dmg || 16, vr: b.variant || 'king', sk: b.skin || '', // #188 the Dante model
+      Net.send({ t: 'boss', i: b.netId, name: b.name, pal: b.pal, an: b.anger || 0, db: b.isDescentBoss ? 1 : 0, fb: b.forestBoss ? 1 : 0, dm: b.dmg || 16, vr: b.variant || 'king', sk: b.skin || '', // #188 the Dante model / #251 the Harpy
         x: Math.round(b.x), y: Math.round(b.y), f: +(b.facing || 0).toFixed(2), hp: Math.round(b.hp), mh: Math.round(b.maxHp),
         st: b.state, tg: +(b.telegraph || 0).toFixed(2), jaw: Math.round(b.jaw || 0), hop: Math.round(b.hop || 0),
         sx: Math.round(b.shadowX || 0), sy: Math.round(b.shadowY || 0) });
@@ -5028,7 +5064,7 @@
       handleCoopMenu();
       // fall through: monsters, sync, other players all keep updating below
     }
-    if (input.pressed('KeyC')) { // character sheet: stats + evolutions (pauses the action)
+    if (input.pressed('KeyC')) { // character sheet: stats + evolutions (pauses solo; in co-op the world runs on underneath - #249)
       g.state = 'charsheet'; g.overlayT = 0;
       g.player.drawT = -1;
       Sfx.play('ui');
@@ -5842,7 +5878,11 @@
     const k = b.t / b.dur;
     const x = b.fromLeft ? (PF.x - 140 + (PF.w + 280) * k) : (PF.x + PF.w + 140 - (PF.w + 280) * k);
     const y = b.y + Math.sin(k * Math.PI * 2) * 26;
-    const flap = Math.sin(b.t * 7); // slow wingbeats
+    // #251 (Sam: "it looks like a butterfly and everyone is asking") a RAPTOR now:
+    // the old wings were two fat ellipses - four round lobes, i.e. a butterfly. An
+    // eagle from below is the opposite shape: long THIN swept wings with fingered
+    // primaries, a small body, a wedge of tail. Mostly gliding, the beat is slow.
+    const flap = Math.sin(b.t * 2.6);
     const fade = Math.min(1, Math.min(k, 1 - k) * 5); // ease in/out at the edges
     c.save();
     c.translate(x, y);
@@ -5850,16 +5890,24 @@
     c.globalAlpha = 0.30 * fade;
     c.fillStyle = '#0a0f08';
     // body
-    c.beginPath(); c.ellipse(0, 0, 26, 9, 0, 0, Math.PI * 2); c.fill();
-    // head + beak
-    c.beginPath(); c.ellipse(24, -2, 8, 5, 0, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.moveTo(31, -2); c.lineTo(40, 0); c.lineTo(31, 2); c.closePath(); c.fill();
-    // tail fan
-    c.beginPath(); c.moveTo(-24, 0); c.lineTo(-44, -8); c.lineTo(-40, 0); c.lineTo(-44, 8); c.closePath(); c.fill();
-    // wings (flap by squashing the y radius)
-    const wy = 34 + flap * 14;
-    c.beginPath(); c.ellipse(-2, -wy * 0.55, 46, wy * 0.42, -0.18, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.ellipse(-2, wy * 0.55, 46, wy * 0.42, 0.18, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(0, 0, 22, 6.5, 0, 0, Math.PI * 2); c.fill();
+    // head + hooked beak
+    c.beginPath(); c.arc(23, 0, 5.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.moveTo(27, -2); c.quadraticCurveTo(36, 0, 27, 4); c.closePath(); c.fill();
+    // wedge tail
+    c.beginPath(); c.moveTo(-18, 0); c.lineTo(-38, -6); c.lineTo(-33, 0); c.lineTo(-38, 6); c.closePath(); c.fill();
+    // wings: thin swept blades, four finger feathers at each tip
+    const wr = 56 + flap * 9;
+    for (const side of [-1, 1]) {
+      c.beginPath();
+      c.moveTo(6, side * 4);
+      c.quadraticCurveTo(-4, side * wr * 0.55, -12, side * wr);
+      c.lineTo(-18, side * (wr - 4)); c.lineTo(-14, side * (wr - 9));
+      c.lineTo(-21, side * (wr - 12)); c.lineTo(-16, side * (wr - 17));
+      c.lineTo(-24, side * (wr - 20));
+      c.quadraticCurveTo(-14, side * wr * 0.35, -11, side * 4);
+      c.closePath(); c.fill();
+    }
     c.restore();
   }
 
@@ -6477,6 +6525,7 @@
       const sub = end ? 'she always was'
                 : heaven ? 'the spheres turn around you'
                 : climbing ? 'the mountain rises above you'
+                : g.floorNum < 3 ? 'the dungeon goes deeper' // #251 the Harpy's stairs are not the Descent
                 : 'the Descent yawns open below';
       c.font = 'bold 26px monospace';
       c.fillStyle = end ? 'rgba(255,255,255,0.85)' : '#1a0a04';   // the Empyrean is WHITE: the shadow must invert
@@ -8015,7 +8064,7 @@
   }
 
   // boot
-  console.log('[dungeon] loaded - Dungeon of the Gilded King');
+  console.log('[dungeon] loaded - Barrowlight');
   // MOBILE: bind the touch layer to the SAME input object the desktop game reads, so a
   // synthetic 'KeyE' from a thumb is indistinguishable from a real keypress. Returns
   // false and does nothing at all on a device with a real pointer.
