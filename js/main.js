@@ -1506,6 +1506,28 @@
   }
   function plateNeeded() { return Math.floor(livePartyCount() / 2) + 1; } // majority of who is actually here
 
+  // #237 (Sam: "make the next level portal majority like the doors") every exit to
+  // the next floor - stairs, portal shortcut, descent plunge, nightmare gate - needs
+  // a MAJORITY of the live party gathered at it before E works. The presser is
+  // already standing on the exit (nearestInteractable range), so "gathered" means
+  // teammates within 140px of the presser, same-room, alive and not downed.
+  function partyGathered() {
+    if (!g.coop) return true;
+    const need = plateNeeded();
+    const p = g.player;
+    let n = (!p.dead && !p.downed) ? 1 : 0;
+    for (const rp of g.remotePlayers.values()) {
+      if (g.time - (rp.last || 0) > 3 || rp.downed) continue;
+      if (!rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+      if (Math.hypot(rp.x - p.x, rp.y - p.y) < 140) n++;
+    }
+    return n >= need;
+  }
+  function gatherDenied() {
+    Sfx.play('error');
+    Fx.text(g.player.x, g.player.y - 34, 'GATHER THE PARTY TO DESCEND', '#ffd24c', 13);
+  }
+
   function tryRoomExit() {
     const p = g.player;
     if (doorsLocked()) { clampPlayer(); return; }
@@ -1931,6 +1953,7 @@
     }
 
     if (t.kind === 'stairs') {
+      if (!partyGathered()) { gatherDenied(); return; } // #237 descending is a party decision
       Sfx.play('stairs');
       g.floorNum++;
       g.player.heal(20); // breather between floors
@@ -1940,6 +1963,7 @@
     }
 
     if (t.kind === 'portal') {
+      if (!partyGathered()) { gatherDenied(); return; } // #237 the shortcut yanks the party (room-follow) - so the party decides
       // one-way ride to the floor's exit: the stairs room, or on a boss floor the
       // room right OUTSIDE the boss door (#21 - no long backtrack to the boss)
       const stairsRoom = g.dungeon.rooms.find(r => r.type === 'stairs');
@@ -1985,6 +2009,7 @@
     }
 
     if (t.kind === 'descentPortal') {
+      if (!partyGathered()) { gatherDenied(); return; } // #237
       // plunge straight to the next circle - no stairs room, the fall IS the descent
       Sfx.play('stairs');
       Fx.burst(p.x, p.y, ['#ff5a2c', '#ffcc44', '#ff2200'], 24, { speed: 200, life: 0.5, glow: true });
@@ -1999,6 +2024,7 @@
 
     // #13 (Sam) the NIGHTMARE portal: the next floor, but far deadlier and far richer.
     if (t.kind === 'nightmareExit') {
+      if (!partyGathered()) { gatherDenied(); return; } // #237 nobody gets dragged into a nightmare alone
       Sfx.play('roar');
       Fx.burst(p.x, p.y, ['#ff2020', '#ff5a2c', '#3a0000', '#000'], 30, { speed: 220, life: 0.6, glow: true });
       Fx.shake(9, 0.5);
