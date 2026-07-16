@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.105';
+  const VERSION = 'v2.106';
 
   const NOTES = [
+    {
+      v: 'v2.106', title: 'Flashbangs flash now', date: '2026-07-16',
+      sha: '6380e51',
+      items: [
+        'The glass mob\'s blind is a FLASHBANG now (#238) - a searing white-out that sight bleeds back through, instead of the borrowed Envy darkness; hit text says FLASHED with a shake and bang.',
+      ],
+    },
     {
       v: 'v2.105', title: 'Descending is a party decision now', date: '2026-07-16',
       sha: '9fc9fb4',
