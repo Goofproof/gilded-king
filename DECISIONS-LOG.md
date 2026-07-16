@@ -1,3 +1,28 @@
+## 2026-07-16 (fusion wave 1) - FUSION v2 build calls
+
+1. Sam's model ("two stats govern the selection of three fusion abilities") mapped
+   onto the EXISTING rpick flow: rOptions() now returns the pair's named trio
+   (STRIKE/STANCE/TRICK per FUSION-DESIGN.md) when the base-stat pair is mapped;
+   unmapped pairs and same-stat Primes keep the legacy 9x9 grid until waves 2-3.
+2. STAT_SCHOOL in evolutions.js is STALE (still maps spd/coin/magic to 'FLOW',
+   pre-5-stat-redesign). The fusion pair therefore comes from the BASE stat
+   recorded at evolution time (recordEvoPick now takes g.evoChoices.stat);
+   a corrected local FUSION_SCHOOL map is only the no-schools fallback. Did NOT
+   touch STAT_SCHOOL itself - other code may depend on the old grouping; flagged
+   for a later cleanup pass.
+3. Scaling = the Q_TUNE recipe verbatim: POWER RANK = summed pair points, per-rank
+   channels (pp) + a 6% maxHp rider on damage fusions (boss 1/3), economy channels
+   hard-capped (bounty 24/cast, mint 20/hit, charges 6) so PVP cannot farm them.
+4. New cast kinds fstance/froot/fvanish/ffleece; effects live in player.js update/
+   damage (stances stack reduce on top of the 0.6 armor cap, total capped 0.8).
+5. BUG found live: player.heal() rounds per call, so continuous trickles
+   (marathon 12/s, antaeus 20/s at 1/60th per frame) rounded to ZERO. Fixed by
+   adding straight to hp like the stats.regen tick. Lesson: heal() is for bursts.
+6. ATLAS ally-shield rides a new 'fshield' sendR event (mirror of 'pheal':
+   sender offers, the owning client applies) - damage-doctrine compliant.
+7. All nine verified numerically in the dbg harness at rank 10 (dmg/thorns/heal/
+   regen/root-store/burst/mint/gold-armor/vanish-chill within expected values).
+
 ## 2026-07-16 (day list) - Calls made while building Sam's morning list
 
 1. CASTER ATTACK SPEED (#247): Sam said wand/staff fire rate should not scale with
