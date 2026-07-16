@@ -26,7 +26,8 @@ const PatchNotes = (() => {
       v: 'v2.122', title: 'The Gambler dresses the part', date: '2026-07-16',
       sha: 'd2b228c',
       items: [
-        'Gambler polish: your BANKROLL loads the gun (held gold makes Jackpot hit harder), misses now say DUE UP, and the Gambler got his riverboat hat - black flat-brim, gold band, lucky coin.',
+        'Gambler polish: your BANKROLL loads the gun - the more gold you hold, the harder JACKPOT hits (the bonus cap grows with Fortune). Hoard or spend: your call.',
+        'Misses now read DUE UP as your odds build, and the Gambler finally dresses the part: black riverboat hat, gold band, lucky coin. No more being mistaken for the Adventurer.',
       ],
     },
     {
