@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.108';
+  const VERSION = 'v2.109';
 
   const NOTES = [
+    {
+      v: 'v2.109', title: 'THE GILDED HUNT: last one standing', date: '2026-07-16',
+      sha: 'f53d608',
+      items: [
+        'PVP Phase 2: THE GILDED HUNT (#241) - battle royale across a full floor: HUNT lobby toggle, far-apart spawns, hunters roam ALONE (no tether, solo doors, opponent visible only in a shared room), no monsters, per-player chest loot, and THE SWARM consumes rooms from the outside in on the host\'s clock (seed-ordered, keyframe-healed, red on the minimap) - last champion standing, then run it back.',
+      ],
+    },
     {
       v: 'v2.108', title: 'THE DUEL: fight your friend for real', date: '2026-07-16',
       sha: '9c1a6db',
