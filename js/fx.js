@@ -105,6 +105,10 @@ const Fx = (() => {
   }
 
   function draw(c) {
+    // #T2d perf: keep painter's order + per-particle alpha, but (a) only touch
+    // fillStyle when it actually changes, and (b) draw sub-2.2px particles as
+    // fillRect (visually identical at that size, skips path rasterization).
+    let lastStyle = null;
     for (const p of particles) {
       const a = 1 - p.life / p.maxLife;
       c.globalAlpha = a;
@@ -113,8 +117,12 @@ const Fx = (() => {
         const half = pr * 2;
         c.drawImage(glowSprite(p.color), p.x - half, p.y - half, half * 2, half * 2);
       } else {
-        c.fillStyle = p.color;
-        c.beginPath(); c.arc(p.x, p.y, pr, 0, Math.PI * 2); c.fill();
+        if (p.color !== lastStyle) { c.fillStyle = p.color; lastStyle = p.color; }
+        if (pr < 2.2) {
+          c.fillRect(p.x - pr, p.y - pr, pr * 2, pr * 2);
+        } else {
+          c.beginPath(); c.arc(p.x, p.y, pr, 0, Math.PI * 2); c.fill();
+        }
       }
     }
     c.globalAlpha = 1;

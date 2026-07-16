@@ -7061,7 +7061,19 @@
     return s - Math.floor(s);
   }
 
-  function drawRoom(c, room) {
+  // #T2a (PERF-NOTES) obstacle themes animated via Date.now() - these must draw
+  // in the live path every frame; every other theme draws identically each frame
+  // and gets baked into the room's static layer.
+  const ANIMATED_OBSTACLES = { plume: 1, tomb: 1, reed: 1, brazier: 1, flamewall: 1, orrery: 1, wheel: 1 };
+
+  // #T2a static room layer (PERF-NOTES: pre-render static content once to an
+  // offscreen canvas, drawImage per frame). Everything painted here is
+  // deterministic per (room, floor): palette/theme are floor-keyed, decoration
+  // uses roomRand (seeded per room+floor), pits and non-animated obstacles never
+  // change. Ambient Fx spawners, doors (lock/seal state changes mid-room) and
+  // Date.now()-animated obstacles stay live in drawRoom.
+  function renderRoomStatic(room, sc) {
+    const c = sc; // drawing code below kept verbatim from drawRoom
     const pal = Dungeon.paletteFor(room, g.floorNum);
     const theme = Dungeon.themeFor(g.floorNum);
     const descent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
@@ -7127,6 +7139,70 @@
       c.strokeStyle = 'rgba(0,0,0,0.55)'; c.lineWidth = 1.5;
       c.strokeRect(w.x + 0.75, w.y + 0.75, w.w - 1.5, w.h - 1.5);
     }
+
+    // molten rounded corners: mask the square corners so the arena reads oblong
+    // and cornerless (collision stays rectangular underneath - a deliberate call)
+    if (descent) drawMoltenCorners(c, pal, theme.accent);
+
+    // wall inner edge highlight - skip in the Descent, where the molten rounded
+    // corners define the oblong edge (the rectangle outline was showing through)
+    if (!descent) {
+      c.strokeStyle = pal.accent + '44';
+      c.lineWidth = 2;
+      c.strokeRect(PF.x + 1, PF.y + 1, PF.w - 2, PF.h - 2);
+    }
+
+    // #74/#82 PITS drawn first, in merge-friendly passes so a COMPOSITE pit (a
+    // group of overlapping circles - donut / missing corner / bridge) reads as one
+    // seamless hole instead of lumpy circles. Pass 1 lays all the soft lip shadows,
+    // pass 2 paints every void opaque (covering the interior overlap-darkening), so
+    // only the true outer edge keeps its shadow. Lone pits (no group) additionally
+    // get the pretty radial gradient + lit near-rim; grouped circles skip the rim
+    // (its arcs would cut across the middle of the merged shape).
+    const pits = room.obstacles.filter(o => o.kind === 'pit');
+    if (pits.length) {
+      c.fillStyle = 'rgba(0,0,0,0.32)';
+      for (const o of pits) { c.beginPath(); c.ellipse(o.x, o.y + 2, o.r + 5, (o.r + 5) * 0.82, 0, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = '#090a0c';
+      for (const o of pits) { c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, Math.PI * 2); c.fill(); }
+      for (const o of pits) {
+        const gr = c.createRadialGradient(o.x, o.y - o.r * 0.2, o.r * 0.15, o.x, o.y + o.r * 0.2, o.r);
+        gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(26,20,12,0.85)');
+        c.fillStyle = gr;
+        c.beginPath(); c.ellipse(o.x, o.y, o.r * 0.9, o.r * 0.72, 0, 0, Math.PI * 2); c.fill();
+      }
+      c.strokeStyle = 'rgba(150,138,110,0.4)'; c.lineWidth = 2;
+      for (const o of pits) {
+        if (o.group) continue;                                   // merged shapes: no internal rim seams
+        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
+      }
+    }
+
+    // non-animated obstacle themes draw identically every frame - bake them here
+    if (!ANIMATED_OBSTACLES[theme.obstacle]) drawRoomObstacles(c, room, pal, theme);
+  }
+
+  function drawRoom(c, room) {
+    const pal = Dungeon.paletteFor(room, g.floorNum);
+    const theme = Dungeon.themeFor(g.floorNum);
+    // #T2a static layer cache: rebuild only when the key changes. The key is
+    // lock-independent (doors/locks/seals draw live below); floorNum is in the
+    // key defensively even though rooms are recreated per floor. Cache canvas is
+    // exactly main-canvas size (PERF-NOTES: snug caches; full-room = W x H).
+    const staticKey = g.floorNum + ':' + room.gx + ',' + room.gy;
+    if (!room._staticCv || room._staticKey !== staticKey) {
+      if (!room._staticCv) {
+        room._staticCv = document.createElement('canvas');
+        room._staticCv.width = W;
+        room._staticCv.height = H;
+      }
+      const sc = room._staticCv.getContext('2d');
+      sc.clearRect(0, 0, W, H);
+      renderRoomStatic(room, sc);
+      room._staticKey = staticKey;
+    }
+    c.drawImage(room._staticCv, 0, 0);
+
     // theme ambience: drifting particles that sell the place
     if (theme.ambient === 'forest' && Math.random() < 0.06) {
       Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h * 0.4,
@@ -7223,18 +7299,6 @@
         ['#ffffff', '#ffe9a8', '#c9a227'], 1, { speed: 8, life: 3.6, grav: -22, glow: true, size: 2.1, drag: 0.998 });
     }
 
-    // molten rounded corners: mask the square corners so the arena reads oblong
-    // and cornerless (collision stays rectangular underneath - a deliberate call)
-    if (descent) drawMoltenCorners(c, pal, theme.accent);
-
-    // wall inner edge highlight - skip in the Descent, where the molten rounded
-    // corners define the oblong edge (the rectangle outline was showing through)
-    if (!descent) {
-      c.strokeStyle = pal.accent + '44';
-      c.lineWidth = 2;
-      c.strokeRect(PF.x + 1, PF.y + 1, PF.w - 2, PF.h - 2);
-    }
-
     // doors - open doorways must READ as exits from across the room:
     // lit passage + accent frame posts + a pulsing chevron pointing out
     const locked = doorsLocked();
@@ -7299,33 +7363,129 @@
       }
     }
 
-    // #74/#82 PITS drawn first, in merge-friendly passes so a COMPOSITE pit (a
-    // group of overlapping circles - donut / missing corner / bridge) reads as one
-    // seamless hole instead of lumpy circles. Pass 1 lays all the soft lip shadows,
-    // pass 2 paints every void opaque (covering the interior overlap-darkening), so
-    // only the true outer edge keeps its shadow. Lone pits (no group) additionally
-    // get the pretty radial gradient + lit near-rim; grouped circles skip the rim
-    // (its arcs would cut across the middle of the merged shape).
-    const pits = room.obstacles.filter(o => o.kind === 'pit');
-    if (pits.length) {
-      c.fillStyle = 'rgba(0,0,0,0.32)';
-      for (const o of pits) { c.beginPath(); c.ellipse(o.x, o.y + 2, o.r + 5, (o.r + 5) * 0.82, 0, 0, Math.PI * 2); c.fill(); }
-      c.fillStyle = '#090a0c';
-      for (const o of pits) { c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, Math.PI * 2); c.fill(); }
-      for (const o of pits) {
-        const gr = c.createRadialGradient(o.x, o.y - o.r * 0.2, o.r * 0.15, o.x, o.y + o.r * 0.2, o.r);
-        gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(26,20,12,0.85)');
-        c.fillStyle = gr;
-        c.beginPath(); c.ellipse(o.x, o.y, o.r * 0.9, o.r * 0.72, 0, 0, Math.PI * 2); c.fill();
+    // obstacles: Date.now()-animated themes draw live every frame; every other
+    // theme was baked into the static layer by renderRoomStatic.
+    if (ANIMATED_OBSTACLES[theme.obstacle]) drawRoomObstacles(c, room, pal, theme);
+
+    // chests
+    for (const ch of room.chests) if (!ch.opened) drawChest(c, ch);
+    if (room.chests.some(ch => ch.opened && !ch.mimic)) {
+      // opened chest husks stay as scenery
+      for (const ch of room.chests) if (ch.opened && !ch.mimic) drawOpenChest(c, ch);
+    }
+
+    // stairs
+    if (room.stairs) drawStairs(c, room);
+
+    // shop furnishing
+    if ((room.type === 'shop' || room.type === 'mythicshop') && room.shopStock) drawShop(c, room);
+    if (room.type === 'barracks' && room.barracks) drawBarracks(c, room);
+    if (room.type === 'trap' && room.trapChest) drawTrapChest(c, room.trapChest);
+
+    // hireable mercenary standing in the room
+    if (room.merc && !room.merc.hired) drawMercNPC(c, room.merc);
+    // dormant pet waiting to be activated
+    if (room.pet && !room.pet.activated) drawPetNPC(c, room.pet);
+
+    // floor-clear portal: a swirling ring of the stairs' teal + essence purple
+    if (g.portal && g.portal.room === room) {
+      const pt = g.portal;
+      c.save();
+      c.translate(pt.x, pt.y);
+      const spin = g.time * 2.2;
+      for (let i = 0; i < 3; i++) {
+        c.strokeStyle = i === 1 ? 'rgba(184,138,255,0.8)' : 'rgba(76,201,168,0.8)';
+        c.lineWidth = 4 - i;
+        c.beginPath();
+        c.ellipse(0, 0, 26 + i * 7 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.4, Math.PI * 2 - 0.4);
+        c.stroke();
       }
-      c.strokeStyle = 'rgba(150,138,110,0.4)'; c.lineWidth = 2;
-      for (const o of pits) {
-        if (o.group) continue;                                   // merged shapes: no internal rim seams
-        c.beginPath(); c.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
+      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 30);
+      grad.addColorStop(0, 'rgba(76,201,168,0.55)');
+      grad.addColorStop(1, 'rgba(76,201,168,0)');
+      c.fillStyle = grad;
+      c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
+      if (Math.random() < 0.25) Fx.burst(pt.x + (Math.random() * 40 - 20), pt.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#4cc9a8' : '#b88aff', 1, { speed: 30, life: 0.6, glow: true });
+      c.restore();
+      c.font = 'bold 12px monospace'; c.textAlign = 'center';
+      c.fillStyle = '#4cc9a8';
+      c.fillText('E - TO THE STAIRS', pt.x, pt.y + 48);
+    }
+
+    // descent portal: a molten tear in the world where a boss just fell
+    if (g.descentPortal && g.descentPortal.room === room) {
+      const pt = g.descentPortal;
+      c.save();
+      c.translate(pt.x, pt.y);
+      const spin = g.time * 2.6;
+      for (let i = 0; i < 3; i++) {
+        c.strokeStyle = i === 1 ? 'rgba(255,90,44,0.85)' : 'rgba(255,204,68,0.8)';
+        c.lineWidth = 5 - i;
+        c.beginPath();
+        c.ellipse(0, 0, 28 + i * 8 + Math.sin(spin * 2 + i) * 3, 15 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.3, Math.PI * 2 - 0.3);
+        c.stroke();
+      }
+      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 34);
+      grad.addColorStop(0, 'rgba(255,90,44,0.7)');
+      grad.addColorStop(1, 'rgba(120,20,0,0)');
+      c.fillStyle = grad;
+      c.beginPath(); c.arc(0, 0, 34, 0, Math.PI * 2); c.fill();
+      if (Math.random() < 0.4) Fx.burst(pt.x + (Math.random() * 44 - 22), pt.y + (Math.random() * 26 - 13), Math.random() < 0.5 ? '#ff5a2c' : '#ffcc44', 1, { speed: 40, life: 0.6, glow: true });
+      c.restore();
+      c.font = 'bold 12px monospace'; c.textAlign = 'center';
+      c.fillStyle = '#ff8a3d';
+      c.fillText('E · DESCEND', pt.x, pt.y + 50); // #169 shortened so it can't overlap the nightmare label beside it
+    }
+
+    // #13 (Sam) TWIN PORTAL: the NIGHTMARE rift, a bleeding red tear beside the normal
+    // descent exit. Only on descent floors, only in the exit room, only once it is open.
+    {
+      const ex = (typeof descentExitPoint === 'function') ? descentExitPoint() : null;
+      if (ex && room === g.room) {
+        const np = nightmarePos(ex);
+        c.save();
+        c.translate(np.x, np.y);
+        const spin = g.time * 3.2;
+        for (let i = 0; i < 3; i++) {
+          c.strokeStyle = i === 1 ? 'rgba(255,32,32,0.9)' : 'rgba(180,0,40,0.85)';
+          c.lineWidth = 5 - i;
+          c.beginPath();
+          c.ellipse(0, 0, 26 + i * 8 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.7 : 0.7), 0.3, Math.PI * 2 - 0.3);
+          c.stroke();
+        }
+        const grad = c.createRadialGradient(0, 0, 2, 0, 0, 32);
+        grad.addColorStop(0, 'rgba(120,0,10,0.85)');
+        grad.addColorStop(0.6, 'rgba(255,32,32,0.35)');
+        grad.addColorStop(1, 'rgba(60,0,0,0)');
+        c.fillStyle = grad; c.beginPath(); c.arc(0, 0, 32, 0, Math.PI * 2); c.fill();
+        if (Math.random() < 0.4) Fx.burst(np.x + (Math.random() * 40 - 20), np.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#ff2020' : '#7a0010', 1, { speed: 45, life: 0.7, glow: true });
+        c.restore();
+        // #169 shortened + a second smaller line, so the label no longer runs into the
+        // normal DESCEND label sitting beside it.
+        c.font = 'bold 12px monospace'; c.textAlign = 'center'; c.fillStyle = '#ff3b3b';
+        c.fillText('E · NIGHTMARE', np.x, np.y + 50);
+        c.font = '9px monospace'; c.fillStyle = 'rgba(255,90,90,0.85)';
+        c.fillText('harder · richer', np.x, np.y + 62);
       }
     }
 
-    // obstacles, dressed for the floor's theme
+    // start-room hint
+    if (room.type === 'start' && g.floorNum === 1) {
+      c.font = '13px monospace'; c.textAlign = 'center';
+      c.fillStyle = 'rgba(255,255,255,0.35)';
+      c.fillText('WASD move · aim with mouse · auto-attack · SPACE dodge · Q / R / click abilities', W / 2, PF.y + PF.h / 2 + 70);
+    }
+
+    // treasure room sparkle ambience
+    if (room.type === 'treasure' && Math.random() < 0.1) {
+      Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h, '#d4af37', 1, { speed: 15, life: 0.8, glow: true });
+    }
+  }
+
+  // obstacles, dressed for the floor's theme. Shared painter: called live from
+  // drawRoom for Date.now()-animated themes, and from renderRoomStatic (into the
+  // offscreen static layer) for every other theme.
+  function drawRoomObstacles(c, room, pal, theme) {
     for (const o of room.obstacles) {
       if (o.kind === 'pit') continue;
       c.fillStyle = 'rgba(0,0,0,0.3)';
@@ -7698,120 +7858,6 @@
         c.fillStyle = pal.accent + '33';
         c.beginPath(); c.arc(o.x - o.r * 0.25, o.y - o.r * 0.3, o.r * 0.5, 0, Math.PI * 2); c.fill();
       }
-    }
-
-    // chests
-    for (const ch of room.chests) if (!ch.opened) drawChest(c, ch);
-    if (room.chests.some(ch => ch.opened && !ch.mimic)) {
-      // opened chest husks stay as scenery
-      for (const ch of room.chests) if (ch.opened && !ch.mimic) drawOpenChest(c, ch);
-    }
-
-    // stairs
-    if (room.stairs) drawStairs(c, room);
-
-    // shop furnishing
-    if ((room.type === 'shop' || room.type === 'mythicshop') && room.shopStock) drawShop(c, room);
-    if (room.type === 'barracks' && room.barracks) drawBarracks(c, room);
-    if (room.type === 'trap' && room.trapChest) drawTrapChest(c, room.trapChest);
-
-    // hireable mercenary standing in the room
-    if (room.merc && !room.merc.hired) drawMercNPC(c, room.merc);
-    // dormant pet waiting to be activated
-    if (room.pet && !room.pet.activated) drawPetNPC(c, room.pet);
-
-    // floor-clear portal: a swirling ring of the stairs' teal + essence purple
-    if (g.portal && g.portal.room === room) {
-      const pt = g.portal;
-      c.save();
-      c.translate(pt.x, pt.y);
-      const spin = g.time * 2.2;
-      for (let i = 0; i < 3; i++) {
-        c.strokeStyle = i === 1 ? 'rgba(184,138,255,0.8)' : 'rgba(76,201,168,0.8)';
-        c.lineWidth = 4 - i;
-        c.beginPath();
-        c.ellipse(0, 0, 26 + i * 7 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.4, Math.PI * 2 - 0.4);
-        c.stroke();
-      }
-      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 30);
-      grad.addColorStop(0, 'rgba(76,201,168,0.55)');
-      grad.addColorStop(1, 'rgba(76,201,168,0)');
-      c.fillStyle = grad;
-      c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
-      if (Math.random() < 0.25) Fx.burst(pt.x + (Math.random() * 40 - 20), pt.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#4cc9a8' : '#b88aff', 1, { speed: 30, life: 0.6, glow: true });
-      c.restore();
-      c.font = 'bold 12px monospace'; c.textAlign = 'center';
-      c.fillStyle = '#4cc9a8';
-      c.fillText('E - TO THE STAIRS', pt.x, pt.y + 48);
-    }
-
-    // descent portal: a molten tear in the world where a boss just fell
-    if (g.descentPortal && g.descentPortal.room === room) {
-      const pt = g.descentPortal;
-      c.save();
-      c.translate(pt.x, pt.y);
-      const spin = g.time * 2.6;
-      for (let i = 0; i < 3; i++) {
-        c.strokeStyle = i === 1 ? 'rgba(255,90,44,0.85)' : 'rgba(255,204,68,0.8)';
-        c.lineWidth = 5 - i;
-        c.beginPath();
-        c.ellipse(0, 0, 28 + i * 8 + Math.sin(spin * 2 + i) * 3, 15 + i * 4, spin * (i % 2 ? -0.6 : 0.6), 0.3, Math.PI * 2 - 0.3);
-        c.stroke();
-      }
-      const grad = c.createRadialGradient(0, 0, 2, 0, 0, 34);
-      grad.addColorStop(0, 'rgba(255,90,44,0.7)');
-      grad.addColorStop(1, 'rgba(120,20,0,0)');
-      c.fillStyle = grad;
-      c.beginPath(); c.arc(0, 0, 34, 0, Math.PI * 2); c.fill();
-      if (Math.random() < 0.4) Fx.burst(pt.x + (Math.random() * 44 - 22), pt.y + (Math.random() * 26 - 13), Math.random() < 0.5 ? '#ff5a2c' : '#ffcc44', 1, { speed: 40, life: 0.6, glow: true });
-      c.restore();
-      c.font = 'bold 12px monospace'; c.textAlign = 'center';
-      c.fillStyle = '#ff8a3d';
-      c.fillText('E · DESCEND', pt.x, pt.y + 50); // #169 shortened so it can't overlap the nightmare label beside it
-    }
-
-    // #13 (Sam) TWIN PORTAL: the NIGHTMARE rift, a bleeding red tear beside the normal
-    // descent exit. Only on descent floors, only in the exit room, only once it is open.
-    {
-      const ex = (typeof descentExitPoint === 'function') ? descentExitPoint() : null;
-      if (ex && room === g.room) {
-        const np = nightmarePos(ex);
-        c.save();
-        c.translate(np.x, np.y);
-        const spin = g.time * 3.2;
-        for (let i = 0; i < 3; i++) {
-          c.strokeStyle = i === 1 ? 'rgba(255,32,32,0.9)' : 'rgba(180,0,40,0.85)';
-          c.lineWidth = 5 - i;
-          c.beginPath();
-          c.ellipse(0, 0, 26 + i * 8 + Math.sin(spin * 2 + i) * 3, 14 + i * 4, spin * (i % 2 ? -0.7 : 0.7), 0.3, Math.PI * 2 - 0.3);
-          c.stroke();
-        }
-        const grad = c.createRadialGradient(0, 0, 2, 0, 0, 32);
-        grad.addColorStop(0, 'rgba(120,0,10,0.85)');
-        grad.addColorStop(0.6, 'rgba(255,32,32,0.35)');
-        grad.addColorStop(1, 'rgba(60,0,0,0)');
-        c.fillStyle = grad; c.beginPath(); c.arc(0, 0, 32, 0, Math.PI * 2); c.fill();
-        if (Math.random() < 0.4) Fx.burst(np.x + (Math.random() * 40 - 20), np.y + (Math.random() * 24 - 12), Math.random() < 0.5 ? '#ff2020' : '#7a0010', 1, { speed: 45, life: 0.7, glow: true });
-        c.restore();
-        // #169 shortened + a second smaller line, so the label no longer runs into the
-        // normal DESCEND label sitting beside it.
-        c.font = 'bold 12px monospace'; c.textAlign = 'center'; c.fillStyle = '#ff3b3b';
-        c.fillText('E · NIGHTMARE', np.x, np.y + 50);
-        c.font = '9px monospace'; c.fillStyle = 'rgba(255,90,90,0.85)';
-        c.fillText('harder · richer', np.x, np.y + 62);
-      }
-    }
-
-    // start-room hint
-    if (room.type === 'start' && g.floorNum === 1) {
-      c.font = '13px monospace'; c.textAlign = 'center';
-      c.fillStyle = 'rgba(255,255,255,0.35)';
-      c.fillText('WASD move · aim with mouse · auto-attack · SPACE dodge · Q / R / click abilities', W / 2, PF.y + PF.h / 2 + 70);
-    }
-
-    // treasure room sparkle ambience
-    if (room.type === 'treasure' && Math.random() < 0.1) {
-      Fx.burst(PF.x + Math.random() * PF.w, PF.y + Math.random() * PF.h, '#d4af37', 1, { speed: 15, life: 0.8, glow: true });
     }
   }
 

@@ -78,7 +78,7 @@ const UI = (() => {
     c.fillStyle = '#8a6fd1';
     c.fillRect(hbX, hbY + hbH + 6, hbW * Math.min(1, p.xp / p.xpToNext()), 4);
     c.textAlign = 'left';
-    c.font = '9px monospace'; c.fillStyle = 'rgba(203,184,255,0.55)';   // #147 XP label
+    c.fillStyle = 'rgba(203,184,255,0.55)';   // #147 XP label (font: still the 9px set for the HP label)
     c.fillText('XP', hbX + hbW + 10, hbY + hbH + 11);
     c.font = '12px monospace'; c.fillStyle = '#cbb8ff';
     c.fillText(`Lv ${p.level}`, hbX + hbW + 32, hbY + hbH + 11);
@@ -152,10 +152,9 @@ const UI = (() => {
       c.fillText(b.label, hbX, by);
       by += 17;
     }
-    // active pet companion + its passive
+    // active pet companion + its passive (font: still the bold 12px set for the buffs)
     if (p.pet) {
       c.fillStyle = p.pet.color;
-      c.font = 'bold 12px monospace';
       c.fillText(`❤ ${p.pet.name} · ${p.pet.desc}`, hbX, by);
       by += 17;
     }
@@ -546,14 +545,17 @@ const UI = (() => {
   }
 
   // --- MINIMAP + FOG OF WAR (top-right, per the design doc) -----------------------
-  function drawMinimap(c, g) {
+  // T2c perf (PERF-NOTES practice #1): the STABLE minimap layers - backdrop, door
+  // connectors, room cells, swarm burn, crown glyph, type glyphs, CONTRAPASSO tags -
+  // are baked to a snug offscreen canvas and re-rendered only when mmKey changes;
+  // per frame the body is a single drawImage. The LIVE bits (score + floor label at
+  // mapAlpha, current-room highlight, oracle star pulse) draw on top every frame.
+  // mmDun guards dungeon identity: a fresh run can match the counts of the last one
+  // (floor 1, one visited room) while the layout - and its door stubs - differ.
+  let mmCanvas = null, mmKey = '', mmL = null, mmDun = null; // mmL = cached layout (origin/cell/bounds)
+  function buildMinimapCache(g, seeAll) {
     const gap = 6, pad = 10;
-    // #134 ARIADNE'S THREAD: she gave Theseus the thread so he could find his way out
-    // of the maze. Holding it, the whole floor is on your map from the moment you
-    // arrive - so a room counts as "visited" for the minimap even if you have not been.
-    const seeAll = g.player && g.player.trinketFlag && g.player.trinketFlag('revealMap');
     const rooms = g.dungeon.rooms.filter(r => r.visited || seeAll);
-    if (!rooms.length) return;
     // bounds of the VISITED map only - fog of war: unvisited rooms don't exist here
     let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
     for (const r of rooms) {
@@ -568,32 +570,25 @@ const UI = (() => {
     const mw = cols * (cell + gap);
     const ox = W - pad - mw, oy = pad + 22;
 
-    c.save();
-    // #13: the minimap/HUD sit over the room's top corners; fade them so mobs lurking
-    // behind them stay visible - and fade EXTRA when a live monster is under the map
-    let mapAlpha = 0.82;
-    if (g.monsters && g.monsters.some(m => !m.dead && m.x > ox - 10 && m.y < oy + rows * (cell + gap) + 10)) mapAlpha = 0.5;
-    c.globalAlpha = mapAlpha;
-    // #61 live run SCORE (what you'll post to the leaderboard = essence earned so far
-    // + 10% of unspent coins), above the floor name so you can track it mid-run
-    const p = g.player;
-    if (p) {
-      const score = (p.essenceRun || 0) + Math.floor((p.coins || 0) * 0.1);
-      c.textAlign = 'right';
-      c.font = 'bold 13px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText(`★ ${score}`, W - pad, oy - 27);
+    mmCanvas = mmCanvas || document.createElement('canvas');
+    const c = mmCanvas.getContext('2d');
+    // measure the CONTRAPASSO block BEFORE sizing the canvas (resizing resets the
+    // ctx) so the snug cache still fits tags wider than a small early-floor map
+    const rules = (g.rules && g.rules.list) || [];
+    let tagW = 0;
+    if (rules.length) {
+      c.font = 'bold 9px monospace';
+      tagW = c.measureText('CONTRAPASSO').width;
+      c.font = 'bold 10px monospace';
+      for (const r of rules) tagW = Math.max(tagW, c.measureText(`◆ ${r.name}`).width);
     }
-    // level name above the minimap, right-aligned to its edge
-    const theme = Dungeon.themeFor(g.floorNum);
-    c.textAlign = 'right';
-    c.font = 'bold 11px monospace';
-    c.fillStyle = '#c9a86a';
-    // "Floor 12", not "FL.12" (Sam). On the mountain it is an altitude, not a floor.
-    const upHere = (typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum))
-                || (typeof Paradiso !== 'undefined' && Paradiso.isParadiso(g.floorNum));
-    const label = upHere ? `Altitude ${Ascent.altitude(g.floorNum)}` : `Floor ${g.floorNum}`;
-    c.fillText(`${label} · ${theme.name}`, W - pad, oy - 11);
-    c.globalAlpha = 0.92;
+    const top = oy - 8;
+    const left = Math.min(ox - 8, Math.floor(W - pad - tagW) - 2);
+    const mapBot = oy + rows * (cell + gap);
+    const bottom = rules.length ? mapBot + 20 + 13 * rules.length + 4 : mapBot + 8;
+    mmCanvas.width = W - left;      // SNUG (PERF-NOTES #2): only the corner actually used
+    mmCanvas.height = bottom - top;
+    c.translate(-left, -top);       // everything below keeps its original screen coords
     // backdrop
     c.fillStyle = 'rgba(8,8,14,0.65)';
     c.fillRect(ox - 8, oy - 8, mw + 16, (maxY - minY + 1) * (cell + gap) + 16);
@@ -627,7 +622,8 @@ const UI = (() => {
         c.fillStyle = 'rgba(255,40,40,0.75)';
         c.fillRect(x, y, cell, cell);
       }
-      // #243 the crown room: both hunters see where the Champion waits
+      // #243 the crown room: both hunters see where the Champion waits (static, no
+      // pulse, so it is cacheable; crownedU + crown coords ride in mmKey)
       if (g.huntMode && g.huntCrownRoom === r && !g.crownedU) {
         c.font = `bold ${Math.max(10, Math.round(cell * 0.7))}px monospace`; c.textAlign = 'center';
         c.fillStyle = '#ffd24c';
@@ -647,18 +643,6 @@ const UI = (() => {
         c.fillStyle = 'rgba(255,255,255,0.85)';
         c.fillText(glyph, x + cell / 2, y + cell / 2 + gs * 0.36);
       }
-      if (r === g.room) {
-        c.strokeStyle = '#ffffff'; c.lineWidth = 2;
-        c.strokeRect(x - 1.5, y - 1.5, cell + 3, cell + 3);
-      }
-      // #257 the Oracle's prophecy: a pulsing star on the named room
-      if (g.oracleMark && r.gx === g.oracleMark.gx && r.gy === g.oracleMark.gy && !r.cleared) {
-        c.save();
-        c.globalAlpha = 0.6 + Math.sin(Date.now() / 220) * 0.35;
-        c.fillStyle = '#b06bff'; c.font = 'bold 11px monospace'; c.textAlign = 'center';
-        c.fillText('\u2726', x + cell / 2, y + cell / 2 + 4);
-        c.restore();
-      }
     }
     // #245 (Sam) CONTRAPASSO tags: the floor's live rules stay on screen the whole
     // floor, right under the map - you should never wonder mid-fight why the room
@@ -673,6 +657,84 @@ const UI = (() => {
         c.fillStyle = r.color || '#c9a86a';
         c.fillText(`\u25c6 ${r.name}`, W - pad, ty);
         ty += 13;
+      }
+    }
+    mmL = { ox, oy, minX, minY, rows, cell, left, top };
+  }
+
+  function drawMinimap(c, g) {
+    const gap = 6, pad = 10;
+    // #134 ARIADNE'S THREAD: she gave Theseus the thread so he could find his way out
+    // of the maze. Holding it, the whole floor is on your map from the moment you
+    // arrive - so a room counts as "visited" for the minimap even if you have not been.
+    const seeAll = g.player && g.player.trinketFlag && g.player.trinketFlag('revealMap');
+    // stable-layer cache key: floor, explored/cleared counts, rule count, and in
+    // hunt mode the swarm + crown state. Swarm consumption is deterministic - "the
+    // first huntSwarmN rooms of a fixed order" (main.js swarmConsumed) - so
+    // g.huntSwarmN IS the consumed-room count.
+    let visCount = 0, clrCount = 0;
+    for (const r of g.dungeon.rooms) {
+      if (r.visited || seeAll) visCount++;
+      if (r.cleared) clrCount++;
+    }
+    if (!visCount) return;
+    const huntK = g.huntMode
+      ? `${g.huntSwarmN || 0}.${g.crownedU ? 1 : 0}.${g.huntCrownRoom ? g.huntCrownRoom.gx + '_' + g.huntCrownRoom.gy : ''}`
+      : '';
+    const key = `${g.floorNum}|${visCount}|${clrCount}|${seeAll ? 1 : 0}|${g.rules && g.rules.list ? g.rules.list.length : 0}|${huntK}`;
+    if (key !== mmKey || g.dungeon !== mmDun) { buildMinimapCache(g, seeAll); mmKey = key; mmDun = g.dungeon; }
+    const L = mmL;
+
+    c.save();
+    // #13: the minimap/HUD sit over the room's top corners; fade them so mobs lurking
+    // behind them stay visible - and fade EXTRA when a live monster is under the map
+    let mapAlpha = 0.82;
+    if (g.monsters && g.monsters.some(m => !m.dead && m.x > L.ox - 10 && m.y < L.oy + L.rows * (L.cell + gap) + 10)) mapAlpha = 0.5;
+    c.globalAlpha = mapAlpha;
+    // #61 live run SCORE (what you'll post to the leaderboard = essence earned so far
+    // + 10% of unspent coins), above the floor name so you can track it mid-run
+    const p = g.player;
+    if (p) {
+      const score = (p.essenceRun || 0) + Math.floor((p.coins || 0) * 0.1);
+      c.textAlign = 'right';
+      c.font = 'bold 13px monospace'; c.fillStyle = '#ffd24c';
+      c.fillText(`\u2605 ${score}`, W - pad, L.oy - 27);
+    }
+    // level name above the minimap, right-aligned to its edge
+    const theme = Dungeon.themeFor(g.floorNum);
+    c.textAlign = 'right';
+    c.font = 'bold 11px monospace';
+    c.fillStyle = '#c9a86a';
+    // "Floor 12", not "FL.12" (Sam). On the mountain it is an altitude, not a floor.
+    const upHere = (typeof Ascent !== 'undefined' && Ascent.isAscent(g.floorNum))
+                || (typeof Paradiso !== 'undefined' && Paradiso.isParadiso(g.floorNum));
+    const label = upHere ? `Altitude ${Ascent.altitude(g.floorNum)}` : `Floor ${g.floorNum}`;
+    c.fillText(`${label} \u00b7 ${theme.name}`, W - pad, L.oy - 11);
+    // the stable map body: one blit. NOTE: the body has always drawn at a constant
+    // 0.92 (mapAlpha only ever governed the two text lines above - the old code set
+    // c.globalAlpha = 0.92 right after them); kept identical here, with the alpha
+    // applied LIVE at blit time rather than baked into the cache.
+    c.globalAlpha = 0.92;
+    c.drawImage(mmCanvas, L.left, L.top);
+    // LIVE: the current-room highlight tracks g.room exactly, every frame
+    if (g.room && (g.room.visited || seeAll)) {
+      const x = L.ox + (g.room.gx - L.minX) * (L.cell + gap);
+      const y = L.oy + (g.room.gy - L.minY) * (L.cell + gap);
+      c.strokeStyle = '#ffffff'; c.lineWidth = 2;
+      c.strokeRect(x - 1.5, y - 1.5, L.cell + 3, L.cell + 3);
+    }
+    // #257 LIVE: the Oracle's prophecy - a pulsing star on the named room
+    if (g.oracleMark) {
+      for (const r of g.dungeon.rooms) {
+        if (r.gx !== g.oracleMark.gx || r.gy !== g.oracleMark.gy) continue;
+        if ((r.visited || seeAll) && !r.cleared) {
+          const x = L.ox + (r.gx - L.minX) * (L.cell + gap);
+          const y = L.oy + (r.gy - L.minY) * (L.cell + gap);
+          c.globalAlpha = 0.6 + Math.sin(Date.now() / 220) * 0.35;
+          c.fillStyle = '#b06bff'; c.font = 'bold 11px monospace'; c.textAlign = 'center';
+          c.fillText('\u2726', x + L.cell / 2, y + L.cell / 2 + 4);
+        }
+        break;
       }
     }
     c.restore();
