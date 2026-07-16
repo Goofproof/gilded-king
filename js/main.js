@@ -1783,7 +1783,6 @@
       if (d < bestD) { bestD = d; best = obj; }
     };
     for (const ch of g.room.chests) if (!ch.opened) consider(ch.x, ch.y, { kind: 'chest', ch });
-    for (const tu of g.turrets) consider(tu.x, tu.y, { kind: 'turret', t: tu }); // #260 salvage
     // the stranger with an offer. Once you have taken (or refused) it, they stop
     // being interactable - you do not get to shop the same deal twice.
     if (g.room.encounter && !g.room.encounter.taken && !g.room.encounter.refused) {
@@ -1901,19 +1900,6 @@
     const t = nearestInteractable();
     if (!t) return;
     const p = g.player;
-
-    // #260 (Sam) ENGINEER SALVAGE: scrap a standing turret to get its charge back
-    // and reset the deploy cooldown - reposition instead of waiting out the room.
-    if (t.kind === 'turret') {
-      const i = g.turrets.indexOf(t.t);
-      if (i >= 0) g.turrets.splice(i, 1);
-      p.turretCharges = Math.min(p.turretMax ? p.turretMax() : 5, (p.turretCharges | 0) + 1);
-      if (p.ability && p.ability.classQ && p.ability.kind === 'turret') p.ability.cd = 0;
-      Fx.text(t.t.x, t.t.y - 20, 'SALVAGED +1', '#c9a227', 13);
-      Fx.burst(t.t.x, t.t.y, ['#c9a227', '#8a6a2a'], 14, { speed: 140, life: 0.5 });
-      Sfx.play('ui');
-      return;
-    }
 
     // QUEST ENCOUNTER: they make you an offer. The game stops while you read it.
     if (t.kind === 'encounter') {
@@ -2242,11 +2228,11 @@
       if (cls === 'gambler' && a.gamble) a.gamble = Math.min(0.5, 0.25 + 0.01 * rank);
       // #259 (Sam) the BANKROLL loads the gun: held gold adds damage, cap grows with rank
       if (cls === 'gambler') a.coinScaleCap = 100 + 10 * rank;
-      // #260 (Sam) THE ANTE: every pull costs 5 gold, and the Gambler alone may go
-      // into DEBT (floored at -100). In debt the bankroll bonus runs BACKWARDS -
-      // negative coins flow straight through the same coinScale math as a penalty.
+      // #260/#261 (Sam) THE ANTE: every pull costs 5 gold, and the Gambler alone may
+      // go into DEBT - NO FLOOR. In debt the bankroll bonus runs BACKWARDS through
+      // the same coinScale math; dig deep enough and a pull does nothing at all.
       if (cls === 'gambler') {
-        p.coins = Math.max(-100, p.coins - 5);
+        p.coins -= 5;
         Fx.text(p.x, p.y - 74, '-5g ANTE', '#c9a86a', 11);
         if (p.coins < 0) Fx.text(p.x, p.y - 88, 'IN DEBT', '#e05555', 11);
       }
@@ -2332,7 +2318,7 @@
         if (m.dead || m.airborne || m.spawnT > 0) continue;
         if (Math.hypot(m.x - p.x, m.y - p.y) > R + m.r) continue;
         // #226 percent rider: + a slice of THIS target's max HP (bosses at 1/3)
-        let hitDmg = dmg + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0);
+        let hitDmg = Math.max(0, dmg + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0)); // #261 bottomless debt zeroes a pull, never heals the target
         if (a.executeBelow && m.hp <= m.maxHp * a.executeBelow) hitDmg *= 2; // #255 GORDIAN CUT
         // #227 warrior R12 WALL SLAM: shoved into a wall within the window = hit again
         if (_qGates && _qGates.cls === 'warrior' && _qGates.rank >= 12) m._slam = { dmg: Math.round(hitDmg), t: 0.6 };
@@ -2906,6 +2892,21 @@
   const honeCost = w => { const lv = w.upLvl || 0; return lv < HONE_MAX ? 5 + lv * 4 : 25 + (lv - HONE_MAX) * 14; };
 
   function salvageNearest() {
+    // #261 (Sam) turrets salvage with X, exactly like gear. Own proximity check so a
+    // standing turret never shadows a chest or a drop in the E-interact list.
+    const p2 = g.player;
+    for (let i = 0; i < g.turrets.length; i++) {
+      const tu = g.turrets[i];
+      if (Math.hypot(p2.x - tu.x, p2.y - tu.y) < 55) {
+        g.turrets.splice(i, 1);
+        p2.turretCharges = Math.min(p2.turretMax ? p2.turretMax() : 5, (p2.turretCharges | 0) + 1);
+        if (p2.ability && p2.ability.classQ && p2.ability.kind === 'turret') p2.ability.cd = 0;
+        Fx.text(tu.x, tu.y - 20, 'SALVAGED +1', '#c9a227', 13);
+        Fx.burst(tu.x, tu.y, ['#c9a227', '#8a6a2a'], 14, { speed: 140, life: 0.5 });
+        Sfx.play('ui');
+        return;
+      }
+    }
     const t = nearestInteractable();
     if (!t || (t.kind !== 'weaponPickup' && t.kind !== 'armorPickup' && t.kind !== 'trinketPickup')) return;
     const item = t.pk.weapon || t.pk.armor || t.pk.trinket;
