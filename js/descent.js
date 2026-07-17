@@ -57,6 +57,10 @@ const Descent = (() => {
   // Dante boss. Beyond Hell (the climb) a recurring Warden still guards every 3rd floor.
   const BOSS_EVERY = 3;
   const HELL_LAST = FIRST_FLOOR + 8; // floor 12 = the ninth circle
+  // true only for the nine circles proper (floors 4-12). Purgatorio reuses sin
+  // names as terrace keys (WRATH, GLUTTONY, LUST), so backdrop code keyed by
+  // circle name MUST gate on this, not on the key alone.
+  const isHell = f => f >= FIRST_FLOOR && f <= HELL_LAST;
   function isBossFloor(f) {
     if (!isDescent(f)) return false;
     if (f >= FIRST_FLOOR && f <= HELL_LAST) return true;          // a guardian at every circle
@@ -230,7 +234,7 @@ const Descent = (() => {
   function toadLine(n) { return TOAD_LINES[Math.min(Math.max(0, n | 0), TOAD_LINES.length - 1)]; }
 
   return {
-    FIRST_FLOOR, isDescent, threat, eliteChance, rollAffix, AFFIXES,
+    FIRST_FLOOR, isDescent, isHell, threat, eliteChance, rollAffix, AFFIXES,
     isBossFloor, isMythicFloor, BOSS_EVERY, MYTHIC_DROP_CHANCE, PET_DROP_CHANCE,
     circleName, themeFor, bossConfig, bossEssence, toadLine, rollPet, PETS,
   };

@@ -7091,11 +7091,173 @@
   // uses roomRand (seeded per room+floor), pits and non-animated obstacles never
   // change. Ambient Fx spawners, doors (lock/seal state changes mid-room) and
   // Date.now()-animated obstacles stay live in drawRoom.
+  // --- HELL BACKDROPS: each circle's floor tells you where you ARE -------------
+  // One deterministic (roomRand) ground treatment per circle, baked into the
+  // static room cache (zero per-frame cost). Keyed by CIRCLE key and gated on
+  // Descent.isHell - Purgatorio reuses WRATH/GLUTTONY/LUST as terrace keys and
+  // must NOT get these. noGrid circles suppress the square tile grid where a
+  // frozen lake / mire / river of blood shouldn't be tiled.
+  const HELL_BACKDROPS = {
+    LIMBO: { // far monoliths standing in flat bands of fog
+      draw(c, room) {
+        c.fillStyle = 'rgba(70,76,86,0.4)';
+        for (let i = 0; i < 6; i++) {
+          const x = PF.x + 20 + roomRand(room, 300 + i) * (PF.w - 50);
+          const h = 24 + roomRand(room, 310 + i) * 36;
+          c.fillRect(x, PF.y + 6 + roomRand(room, 320 + i) * 46, 7 + roomRand(room, 330 + i) * 8, h);
+        }
+        c.fillStyle = 'rgba(143,151,163,0.07)';
+        for (let i = 0; i < 4; i++) {
+          const y = PF.y + (0.12 + i * 0.24) * PF.h + roomRand(room, 340 + i) * 12;
+          c.fillRect(PF.x, y, PF.w, 9 + roomRand(room, 350 + i) * 15);
+        }
+      } },
+    LUST: { // the storm: wind streaks dragged across the whole floor
+      draw(c, room) {
+        c.lineWidth = 1.5; c.lineCap = 'round';
+        for (let i = 0; i < 11; i++) {
+          const y = PF.y + roomRand(room, 300 + i) * PF.h;
+          const x = PF.x + roomRand(room, 320 + i) * PF.w * 0.5;
+          const len = 90 + roomRand(room, 340 + i) * 170;
+          const sag = 8 + roomRand(room, 360 + i) * 16;
+          c.strokeStyle = 'rgba(192,96,255,' + (0.10 + roomRand(room, 380 + i) * 0.12).toFixed(2) + ')';
+          c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + len * 0.5, y - sag, x + len, y); c.stroke();
+        }
+      } },
+    GLUTTONY: { noGrid: true, // cold rain on the mire: mud pools, pocked with rings
+      draw(c, room) {
+        for (let i = 0; i < 7; i++) {
+          const x = PF.x + roomRand(room, 300 + i) * PF.w, y = PF.y + roomRand(room, 320 + i) * PF.h;
+          const rx = 20 + roomRand(room, 340 + i) * 42;
+          c.fillStyle = 'rgba(16,18,6,0.5)';
+          c.beginPath(); c.ellipse(x, y, rx, rx * 0.45, 0, 0, Math.PI * 2); c.fill();
+          c.strokeStyle = 'rgba(154,174,74,0.18)'; c.lineWidth = 1.5;
+          c.beginPath(); c.ellipse(x, y, rx * 0.94, rx * 0.42, 0, 0, Math.PI * 2); c.stroke();
+        }
+        c.strokeStyle = 'rgba(160,220,200,0.15)'; c.lineWidth = 1;
+        for (let i = 0; i < 10; i++) { // rain rings on the wet ground
+          const x = PF.x + roomRand(room, 400 + i) * PF.w, y = PF.y + roomRand(room, 420 + i) * PF.h;
+          c.beginPath(); c.ellipse(x, y, 3 + roomRand(room, 440 + i) * 5, 1.6 + roomRand(room, 440 + i) * 2, 0, 0, Math.PI * 2); c.stroke();
+        }
+      } },
+    GREED: { // the hoard, spilled and half-buried where it fell
+      draw(c, room) {
+        for (let i = 0; i < 5; i++) { // sunken ingots
+          const x = PF.x + roomRand(room, 300 + i) * PF.w, y = PF.y + roomRand(room, 320 + i) * PF.h;
+          c.save(); c.translate(x, y); c.rotate((roomRand(room, 340 + i) - 0.5) * 1.2);
+          c.fillStyle = 'rgba(184,145,47,0.5)'; c.fillRect(-7, -3, 14, 6);
+          c.fillStyle = 'rgba(255,210,76,0.35)'; c.fillRect(-7, -3, 14, 2);
+          c.restore();
+        }
+        for (let i = 0; i < 26; i++) { // loose coins glinting in the dark
+          const x = PF.x + roomRand(room, 400 + i) * PF.w, y = PF.y + roomRand(room, 440 + i) * PF.h;
+          c.fillStyle = 'rgba(255,210,76,' + (0.18 + roomRand(room, 480 + i) * 0.3).toFixed(2) + ')';
+          c.beginPath(); c.ellipse(x, y, 2.2, 1.4, 0, 0, Math.PI * 2); c.fill();
+        }
+      } },
+    WRATH: { // the marsh of the Styx: dark channels, and the sullen below them
+      draw(c, room) {
+        for (let i = 0; i < 3; i++) {
+          const y = PF.y + (0.2 + i * 0.28) * PF.h + roomRand(room, 300 + i) * 20;
+          const sag = 20 + roomRand(room, 320 + i) * 26;
+          c.strokeStyle = 'rgba(8,4,6,0.55)'; c.lineWidth = 16 + roomRand(room, 340 + i) * 10; c.lineCap = 'round';
+          c.beginPath(); c.moveTo(PF.x, y);
+          c.quadraticCurveTo(PF.x + PF.w * 0.33, y + sag, PF.x + PF.w * 0.55, y);
+          c.quadraticCurveTo(PF.x + PF.w * 0.8, y - sag, PF.x + PF.w, y + sag * 0.4); c.stroke();
+        }
+        c.strokeStyle = 'rgba(255,68,68,0.22)'; c.lineWidth = 1.2;
+        for (let i = 0; i < 9; i++) { // sullen bubbles breaking the surface
+          const x = PF.x + roomRand(room, 400 + i) * PF.w, y = PF.y + roomRand(room, 430 + i) * PF.h;
+          c.beginPath(); c.arc(x, y, 2 + roomRand(room, 460 + i) * 2.5, Math.PI, Math.PI * 2); c.stroke();
+        }
+      } },
+    HERESY: { // the burning tombs, lids ajar, fire in the seams
+      draw(c, room) {
+        for (let i = 0; i < 6; i++) {
+          const x = PF.x + 14 + roomRand(room, 300 + i) * (PF.w - 60), y = PF.y + 10 + roomRand(room, 320 + i) * (PF.h - 50);
+          const w2 = 26 + roomRand(room, 340 + i) * 14, h2 = 14 + roomRand(room, 360 + i) * 8;
+          c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x, y, w2, h2);
+          c.strokeStyle = 'rgba(255,106,44,0.3)'; c.lineWidth = 1.5; c.strokeRect(x, y, w2, h2);
+          c.strokeStyle = 'rgba(255,106,44,0.5)';
+          c.beginPath(); c.moveTo(x + 2, y + h2 * 0.35); c.lineTo(x + w2 - 2, y + h2 * 0.35); c.stroke(); // the lid, ajar
+        }
+        c.strokeStyle = 'rgba(255,60,20,0.28)'; c.lineWidth = 1.2;
+        for (let i = 0; i < 7; i++) { // ember cracks between the tombs
+          const x = PF.x + roomRand(room, 400 + i) * PF.w, y = PF.y + roomRand(room, 430 + i) * PF.h;
+          c.beginPath(); c.moveTo(x, y);
+          c.lineTo(x + 8 + roomRand(room, 460 + i) * 10, y + 4 - roomRand(room, 470 + i) * 8);
+          c.lineTo(x + 18 + roomRand(room, 480 + i) * 12, y + roomRand(room, 490 + i) * 6); c.stroke();
+        }
+      } },
+    VIOLENCE: { noGrid: true, // Phlegethon: the river of boiling blood crosses the floor
+      draw(c, room) {
+        const y = PF.y + PF.h * (0.35 + roomRand(room, 300) * 0.3);
+        const sag = 26 + roomRand(room, 301) * 30;
+        const path = () => {
+          c.beginPath(); c.moveTo(PF.x, y);
+          c.quadraticCurveTo(PF.x + PF.w * 0.3, y - sag, PF.x + PF.w * 0.55, y + sag * 0.3);
+          c.quadraticCurveTo(PF.x + PF.w * 0.8, y + sag, PF.x + PF.w, y - sag * 0.4);
+        };
+        c.lineCap = 'round';
+        c.strokeStyle = 'rgba(20,2,6,0.75)'; c.lineWidth = 30; path(); c.stroke();   // the channel
+        c.strokeStyle = 'rgba(120,8,24,0.55)'; c.lineWidth = 20; path(); c.stroke(); // the blood
+        c.strokeStyle = 'rgba(255,42,74,0.30)'; c.lineWidth = 7; path(); c.stroke(); // the boil line
+        c.fillStyle = 'rgba(255,90,60,0.4)';
+        for (let i = 0; i < 8; i++) { // bursting boils along the run
+          const t = roomRand(room, 320 + i), bx = PF.x + t * PF.w;
+          const by = y + Math.sin(t * 6.2) * sag * 0.5;
+          c.beginPath(); c.arc(bx, by, 1.6 + roomRand(room, 340 + i) * 2, 0, Math.PI * 2); c.fill();
+        }
+      } },
+    FRAUD: { // Malebolge: concentric ditches, and shards that show you nothing true
+      draw(c, room) {
+        const cx = PF.x + PF.w * (0.3 + roomRand(room, 300) * 0.4), cy = PF.y + PF.h * (0.3 + roomRand(room, 301) * 0.4);
+        c.lineWidth = 5;
+        for (let i = 0; i < 4; i++) { // the ditch rings, fading out
+          c.strokeStyle = 'rgba(6,4,12,' + (0.4 - i * 0.08).toFixed(2) + ')';
+          c.beginPath(); c.arc(cx, cy, 46 + i * 44, 0, Math.PI * 2); c.stroke();
+        }
+        for (let i = 0; i < 6; i++) { // half-buried mirror shards
+          const x = PF.x + roomRand(room, 400 + i) * PF.w, y = PF.y + roomRand(room, 430 + i) * PF.h;
+          const s = 4 + roomRand(room, 460 + i) * 5, a = roomRand(room, 480 + i) * Math.PI;
+          c.save(); c.translate(x, y); c.rotate(a);
+          c.fillStyle = 'rgba(110,255,192,0.30)';
+          c.beginPath(); c.moveTo(0, -s); c.lineTo(s * 0.7, s * 0.6); c.lineTo(-s * 0.5, s * 0.4); c.closePath(); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.35)';
+          c.beginPath(); c.moveTo(0, -s); c.lineTo(s * 0.25, -s * 0.2); c.lineTo(-s * 0.2, -s * 0.15); c.closePath(); c.fill();
+          c.restore();
+        }
+      } },
+    TREACHERY: { noGrid: true, // Cocytus: crack webs in the ice, and shapes beneath it
+      draw(c, room) {
+        c.fillStyle = 'rgba(127,212,255,0.05)'; c.fillRect(PF.x, PF.y, PF.w, PF.h); // the sheet
+        c.fillStyle = 'rgba(6,14,22,0.4)';
+        for (let i = 0; i < 5; i++) { // the treacherous, frozen under your feet
+          const x = PF.x + roomRand(room, 300 + i) * PF.w, y = PF.y + roomRand(room, 320 + i) * PF.h;
+          c.beginPath(); c.ellipse(x, y, 9 + roomRand(room, 340 + i) * 8, 5 + roomRand(room, 350 + i) * 4, roomRand(room, 360 + i) * Math.PI, 0, Math.PI * 2); c.fill();
+        }
+        c.strokeStyle = 'rgba(200,240,255,0.22)'; c.lineWidth = 1.2;
+        for (let i = 0; i < 4; i++) { // crack webs spreading from impact points
+          let x = PF.x + roomRand(room, 400 + i) * PF.w, y = PF.y + roomRand(room, 420 + i) * PF.h;
+          for (let j = 0; j < 5; j++) {
+            const a = roomRand(room, 440 + i * 7 + j) * Math.PI * 2;
+            const len = 18 + roomRand(room, 480 + i * 7 + j) * 34;
+            const mx = x + Math.cos(a) * len * 0.55 + (roomRand(room, 520 + i * 7 + j) - 0.5) * 10;
+            const my = y + Math.sin(a) * len * 0.55 + (roomRand(room, 560 + i * 7 + j) - 0.5) * 10;
+            c.beginPath(); c.moveTo(x, y); c.lineTo(mx, my);
+            c.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); c.stroke();
+          }
+        }
+      } },
+  };
+
   function renderRoomStatic(room, sc) {
     const c = sc; // drawing code below kept verbatim from drawRoom
     const pal = Dungeon.paletteFor(room, g.floorNum);
     const theme = Dungeon.themeFor(g.floorNum);
     const descent = typeof Descent !== 'undefined' && Descent.isDescent(g.floorNum);
+    const hellBackdrop = (typeof Descent !== 'undefined' && Descent.isHell && Descent.isHell(g.floorNum))
+      ? HELL_BACKDROPS[theme.key] : null;
     // outer wall fill
     c.fillStyle = pal.wall;
     c.fillRect(0, 0, W, H);
@@ -7115,14 +7277,17 @@
     // floor
     c.fillStyle = pal.floor;
     c.fillRect(PF.x, PF.y, PF.w, PF.h);
-    // subtle tile grid
-    c.strokeStyle = 'rgba(0,0,0,0.15)';
-    c.lineWidth = 1;
-    for (let x = PF.x; x <= PF.x + PF.w; x += 54) {
-      c.beginPath(); c.moveTo(x, PF.y); c.lineTo(x, PF.y + PF.h); c.stroke();
-    }
-    for (let y = PF.y; y <= PF.y + PF.h; y += 54) {
-      c.beginPath(); c.moveTo(PF.x, y); c.lineTo(PF.x + PF.w, y); c.stroke();
+    // subtle tile grid - unless this circle's ground shouldn't be tiled
+    // (a frozen lake, a mire, a river of blood)
+    if (!(hellBackdrop && hellBackdrop.noGrid)) {
+      c.strokeStyle = 'rgba(0,0,0,0.15)';
+      c.lineWidth = 1;
+      for (let x = PF.x; x <= PF.x + PF.w; x += 54) {
+        c.beginPath(); c.moveTo(x, PF.y); c.lineTo(x, PF.y + PF.h); c.stroke();
+      }
+      for (let y = PF.y; y <= PF.y + PF.h; y += 54) {
+        c.beginPath(); c.moveTo(PF.x, y); c.lineTo(PF.x + PF.w, y); c.stroke();
+      }
     }
     // scattered floor detail (cracks/pebbles), deterministic per room
     c.fillStyle = pal.detail;
@@ -7131,6 +7296,8 @@
       const y = PF.y + roomRand(room, i + 50) * PF.h;
       c.fillRect(x, y, 3 + roomRand(room, i + 100) * 4, 2 + roomRand(room, i + 150) * 3);
     }
+    // the circle's signature ground (baked, deterministic, under walls/obstacles)
+    if (hellBackdrop) { c.save(); hellBackdrop.draw(c, room); c.restore(); }
     // #67b room-shape walls: a raised natural stone mass, tinted to the floor theme
     // so it reads as part of the room (a rock outcrop / cliff wall) rather than a flat
     // panel that doesn't belong. Cast shadow + lit top slab + rough speckle sell depth.
