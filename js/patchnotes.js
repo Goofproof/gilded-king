@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.129';
+  const VERSION = 'v2.130';
 
   const NOTES = [
+    {
+      v: 'v2.130', title: 'Every weapon looks like itself, Hell gets nine real floors, and fullscreen', date: '2026-07-17',
+      sha: '12f67e1',
+      items: [
+        'Every weapon has its own look now - a Maul, Cleaver, Warhammer and Greataxe are four different weapons on the ground and in your hands, same for every sword, bow, wand and staff (20 models, and each Mythic wears the right one).',
+        'The nine circles each got their own ground - monoliths in the Limbo fog, storm-streaks in Lust, mud pools in Gluttony, spilled gold in Greed, the marsh of the Styx, burning tombs, a river of boiling blood, mirror-shard ditches, and crack-webbed ice at the bottom.',
+        'Fullscreen is here - press F11 anywhere, or click the new corner button on the title screen and pause menu.',
+      ],
+    },
     {
       v: 'v2.129', title: 'The raiders are counted', date: '2026-07-17',
       sha: 'ddb876d',
