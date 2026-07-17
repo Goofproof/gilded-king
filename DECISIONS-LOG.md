@@ -1,3 +1,18 @@
+## 2026-07-17 (doppelganger = true mirror, Sam's ask)
+
+The Doppelganger no longer draws as a bruised-violet shade. It is now painted
+with the champion's own recipe: race face, class headgear (or druid beast head
+via formId), evolution cloak/body colours (evoPalFor at capture time), prestige
+cape (capeAt), and the exact weapon model (peerWeapon + wm). The ONLY tells:
+the visor slit burns MAGENTA (replaces the old magenta eyes) and the violet
+morph-in shimmer. Implementation: one mirrorSnapshot(pl, prestige) helper feeds
+both capture sites (makeDoppelBoss and the first-sight morph in update);
+drawRaceFeature is newly exported from PlayerDef. Evo BODY PARTS (horns/wings)
+are deliberately NOT mirrored - drawEvoParts is an entangled Player method;
+colours + face + gear + cape + weapon carry the read. Verified in-harness:
+snapshot fields correct (orc/dagger/pr), side-by-side screenshot, 4 sim
+seconds of combat with zero draw errors; 110 tests pass.
+
 ## 2026-07-17 (Sam's title-screen fixes, four reports)
 
 1. PLAYER COUNT MISSING: root cause was NOT client code - the worker's /presence

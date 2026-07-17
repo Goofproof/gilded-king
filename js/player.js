@@ -2496,5 +2496,5 @@ const PlayerDef = (() => {
     return (dom && EVO_PAL[dom]) || null;
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, evoPalFor };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor };
 })();

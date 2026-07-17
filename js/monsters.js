@@ -165,19 +165,33 @@ const Monsters = (() => {
   // empowered move often. Spawned seed-deterministically at the doppelRoom (host-owned in
   // co-op; syncs to guests via the mob snapshot). No Math.random here - spawn placement is
   // the seeded part (dungeon.js); the values below are deterministic from floor + player.
-  function makeDoppelBoss(x, y, floor, player) {
+  // everything drawDoppelganger needs to paint a TRUE mirror of the champion:
+  // race face, class gear (or beast head), evolution colours, cape, weapon model.
+  function mirrorSnapshot(pl, prestige) {
+    pl = pl || {};
+    const wp = pl.weapon || {};
+    const pal = (typeof PlayerDef !== 'undefined' && PlayerDef.evoPalFor) ? PlayerDef.evoPalFor(pl) : null;
+    return {
+      classId: (pl.class && pl.class.id) || '',
+      raceId: (pl.race && pl.race.id) || 'human',
+      formId: (pl.form && pl.form.id) || '',
+      cloakC: pal ? pal.cloak : null,
+      bodyC: pal ? pal.body : null,
+      pr: prestige || 0,
+      arch: wp.archetype || 'light',
+      wm: (typeof Weapons !== 'undefined' && wp.archetype) ? Weapons.modelFor(wp) : null,
+      wc: wp.color || '#9ee7ff',
+    };
+  }
+
+  function makeDoppelBoss(x, y, floor, player, prestige) {
     const f = Math.max(1, floor | 0);
     const m = make('doppel', x, y, Math.min(5, f));
     const pl = player || {}, wp = pl.weapon || {};
     m.miniBoss = true;
     m.r = 15;
-    m.mirror = {
-      classId: (pl.class && pl.class.id) || '',
-      arch: wp.archetype || 'light',
-      wm: (typeof Weapons !== 'undefined' && wp.archetype) ? Weapons.modelFor(wp) : null,
-      wc: wp.color || '#9ee7ff',
-      ready: true,               // pre-morphed: it IS the encounter, no first-sight reveal
-    };
+    m.mirror = mirrorSnapshot(pl, prestige);
+    m.mirror.ready = true;       // pre-morphed: it IS the encounter, no first-sight reveal
     m.morphT = 0.35;
     // #168 (Sam) it kept dying to the opening barrage before it could fight. A mini-boss
     // must SURVIVE the first ultimate (Meteor ~460, Cataclysm ~650) and trade blows. HP
@@ -684,12 +698,7 @@ const Monsters = (() => {
         // wand/staff, drawn with the player's own class headgear + weapon.
         if (!m.mirror && g.player) {
           const pl = g.player;
-          m.mirror = {
-            classId: (pl.class && pl.class.id) || '',
-            arch: (pl.weapon && pl.weapon.archetype) || 'light',
-            wm: (typeof Weapons !== 'undefined' && pl.weapon) ? Weapons.modelFor(pl.weapon) : null,
-            wc: (pl.weapon && pl.weapon.color) || '#9ee7ff',
-          };
+          m.mirror = mirrorSnapshot(pl, (g.meta && g.meta.prestige) || 0);
           m.morphT = 0.6;
           Fx.burst(m.x, m.y, ['#c9a3ff', '#ff5edb', '#fff'], 16, { speed: 150, life: 0.5, glow: true });
           Fx.text(m.x, m.y - m.r - 10, 'IT WEARS YOUR FACE', '#ff5edb', 11);
@@ -1224,7 +1233,7 @@ const Monsters = (() => {
     // a solo duel against a shadow of you. Staged opposite the door you came in.
     if (room.doppelRoom) {
       const bx = g.enterFrom === 'E' ? PF.x + PF.w * 0.28 : PF.x + PF.w * 0.72;
-      return [makeDoppelBoss(bx, PF.y + PF.h / 2, floor, g.player)];
+      return [makeDoppelBoss(bx, PF.y + PF.h / 2, floor, g.player, (g.meta && g.meta.prestige) || 0)];
     }
     const tier = tierFor(floor, room.dist);
     const table = SPAWN_TABLE[tier];
@@ -1667,20 +1676,40 @@ const Monsters = (() => {
       c.restore();
     }
   }
-  // #128 doppelganger: a dark shade of the player, wearing YOUR class headgear and
-  // weapon (reuses PlayerDef.classFeature/peerWeapon so it reads as a corrupt copy of
-  // you), with a violet morph-in shimmer.
+  // #128 -> the doppelganger is a TRUE MIRROR of the champion (Sam 2026-07-17):
+  // your race's face, your class gear (or your beast form), your evolution
+  // colours, your prestige cape, your weapon. The only tells that it isn't you:
+  // the visor slit burns MAGENTA, and the violet morph-in shimmer.
   function drawDoppelganger(c, m, flash, ex, ey) {
     const mir = m.mirror || {};
-    // shade body: the champion silhouette but darkened to a bruised violet
-    c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 11, 11, 3.5, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = flash ? '#fff' : '#241c34'; c.beginPath(); c.arc(0, 2, m.r, 0, Math.PI * 2); c.fill();
-    c.fillStyle = flash ? '#eee' : '#3a2a54'; c.beginPath(); c.arc(0, -2, m.r * 0.82, 0, Math.PI * 2); c.fill();
-    // menacing magenta eyes
-    eyes(c, ex, ey, 4, 2.2, '#ff5edb');
-    // YOUR class headgear + weapon, aimed at the target
-    if (mir.classId && typeof PlayerDef !== 'undefined' && PlayerDef.classFeature) PlayerDef.classFeature(c, mir.classId, m.r);
-    if (mir.arch && typeof PlayerDef !== 'undefined' && PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, mir.arch, mir.wc || '#cfe0f0', m.facing || 0, m.r, mir.wm);
+    const P = (typeof PlayerDef !== 'undefined') ? PlayerDef : null;
+    const R = m.r;
+    // shadow (same proportions as the champion's)
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.beginPath(); c.ellipse(0, R * 0.85, R * 0.9, R * 0.35, 0, 0, Math.PI * 2); c.fill();
+    // your prestige cape, behind the body
+    if (mir.pr > 0 && P && P.capeAt) P.capeAt(c, R, mir.pr, false, m.x, 0, 0);
+    // cloak + body in YOUR colours: beast form wins, then evolution palette, then default blue
+    const form = (mir.formId && P && P.formById) ? P.formById(mir.formId) : null;
+    c.fillStyle = flash ? '#ff8080' : (form ? form.cloak : (mir.cloakC || '#2c3e60'));
+    c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
+    c.fillStyle = flash ? '#ffb0b0' : (form ? form.body : (mir.bodyC || '#4a6fa5'));
+    c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
+    // the visor tracks its prey - but the slit burns magenta. That is the tell.
+    c.save(); c.rotate(m.facing || 0);
+    c.fillStyle = '#0e1420'; c.fillRect(R * 0.15, -4, R * 0.75, 8);
+    c.fillStyle = '#ff5edb'; c.fillRect(R * 0.3, -2.5, R * 0.5, 5);
+    c.restore();
+    // your face and headgear: beast head if shifted, else race face under class gear
+    if (P) {
+      if (form && P.drawFormHead) P.drawFormHead(c, form.id, R);
+      else {
+        if (P.drawRaceFeature) P.drawRaceFeature(c, mir.raceId || 'human', R);
+        if (mir.classId && P.classFeature) P.classFeature(c, mir.classId, R);
+      }
+      // your weapon, aimed at the target
+      if (mir.arch && P.peerWeapon) P.peerWeapon(c, mir.arch, mir.wc || '#cfe0f0', m.facing || 0, R, mir.wm);
+    }
     // morph-in shimmer
     if (m.morphT > 0) {
       const k = m.morphT / 0.6;
