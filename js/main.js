@@ -162,6 +162,9 @@
     key() { return false; }, pressed() { return false; },
   };
   window.addEventListener('keydown', e => {
+    // F11 = fullscreen toggle, everywhere (even mid-chat). Intercepted so the
+    // GAME goes fullscreen consistently instead of whatever the browser does.
+    if (e.code === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
     // #100 while the chat box is open, swallow game keys and collect real characters
     // (e.key, so punctuation + lowercase work) instead of driving movement/abilities.
     if (input.textCapture) {
@@ -174,6 +177,23 @@
     if (!e.repeat) { input.keys.add(e.code); input.just.add(e.code); }
     Sfx.ensure();
   });
+  // FULLSCREEN: browser API with the webkit fallback (iPad Safari). try/catch'd -
+  // an embed can refuse, in which case the UI button is hidden (ui.js fsAvailable)
+  // and this quietly does nothing. Reached from F11 and the ⛶ button (title/pause).
+  function toggleFullscreen() {
+    try {
+      const d = document;
+      let p;
+      if (d.fullscreenElement || d.webkitFullscreenElement) {
+        p = (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+      } else {
+        const el = d.documentElement;
+        p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      }
+      if (p && p.catch) p.catch(() => {}); // an embed can refuse; that's fine, stay windowed
+      Sfx.play('ui');
+    } catch (err) { /* unsupported here - nothing to do */ }
+  }
   window.addEventListener('keyup', e => input.keys.delete(e.code));
   window.addEventListener('blur', () => { input.keys.clear(); input.mouse.down = false; });
   function mousePos(e) {
@@ -188,6 +208,17 @@
   window.addEventListener('mousedown', e => {
     mousePos(e); Sfx.ensure();
     if (e.button === 0) { input.mouse.down = true; input.mouse.clicked = true; }
+    // the ⛶ button is handled HERE, inside the real event, not the frame loop:
+    // requestFullscreen only works during the click's transient user activation,
+    // and a throttled tab can process the frame after that window has closed.
+    // State-gated because g.uiRects is not cleared when an overlay closes.
+    if (e.button === 0 && (g.state === 'title' || g.state === 'pause' || g.coopMenu)) {
+      const fr = (g.uiRects || []).find(r => r.action === 'fullscreen');
+      if (fr && input.mouse.x > fr.x && input.mouse.x < fr.x + fr.w && input.mouse.y > fr.y && input.mouse.y < fr.y + fr.h) {
+        toggleFullscreen();
+        input.mouse.clicked = false; // consumed - the frame loop must not double-toggle
+      }
+    }
     // right-click = ULTIMATE (was weapon-swap; Tab still swaps). LMB attack + RMB
     // special is the pattern the newcomers already know, and it frees left-click
     // to be a manual attack when auto-attack is off.
@@ -1857,6 +1888,7 @@
       if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
         if (r.action === 'menu') { g.coopMenu = false; quitToTitle(); }
         else if (r.action === 'retire') { g.coopMenu = false; retireRun(); }
+        else if (r.action === 'fullscreen') toggleFullscreen();
       }
     }
   }
@@ -3580,6 +3612,7 @@
             if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
               if (r.action === 'menu') quitToTitle();
               else if (r.action === 'retire') retireRun();
+              else if (r.action === 'fullscreen') toggleFullscreen();
             }
           }
         }
@@ -3786,6 +3819,7 @@
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'start') { newRun(); return; }
           if (r.action === 'coop') { openLobby(); return; }
+          if (r.action === 'fullscreen') { toggleFullscreen(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }

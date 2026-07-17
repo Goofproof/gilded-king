@@ -1385,6 +1385,8 @@ const UI = (() => {
     }
     // SHARE
     dockBadge(c, rects, 763, 'share', '#8fa3bf', '#667', iconLink, 'SHARE', 'the link');
+    // FULLSCREEN (top-left corner, out of the dais's way)
+    drawFsButton(c, rects);
 
     // share toast (draws just above the dock)
     if (g.shareMsg && g.shareMsg.t > 0) {
@@ -2141,6 +2143,34 @@ const UI = (() => {
   }
 
   // --- pause / death / victory -----------------------------------------------------
+  // --- FULLSCREEN BUTTON (title + pause) -------------------------------------
+  // A small viewfinder-bracket button; F11 does the same from anywhere. Hidden
+  // where the browser refuses the API (some embeds / old Safari).
+  function fsAvailable() {
+    const el = document.documentElement;
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+  }
+  function fsActive() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function drawFsButton(c, rects) {
+    if (!fsAvailable()) return;
+    const s = 30, x = 12, y = 12;
+    c.save();
+    c.fillStyle = 'rgba(20,20,31,0.85)'; c.fillRect(x, y, s, s);
+    c.strokeStyle = '#3a4150'; c.lineWidth = 1.5; c.strokeRect(x, y, s, s);
+    c.strokeStyle = '#8fa3bf'; c.lineWidth = 2; c.lineCap = 'round';
+    const m = 8, a = 5.5;
+    for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { // the four brackets
+      const cx = x + (sx ? s - m : m), cy = y + (sy ? s - m : m);
+      c.beginPath();
+      c.moveTo(cx + (sx ? -a : a), cy); c.lineTo(cx, cy); c.lineTo(cx, cy + (sy ? -a : a));
+      c.stroke();
+    }
+    c.font = 'bold 8px monospace'; c.textAlign = 'center'; c.fillStyle = '#5a6478';
+    c.fillText(fsActive() ? 'EXIT' : 'F11', x + s / 2, y + s + 11);
+    c.restore();
+    rects.push({ x: x - 4, y: y - 4, w: s + 8, h: s + 8, action: 'fullscreen' });
+  }
+
   function drawPause(c, g) {
     const e = overlayEase(g);
     c.save();
@@ -2151,7 +2181,7 @@ const UI = (() => {
     c.font = 'bold 40px monospace'; c.fillStyle = '#dde3ee';
     c.fillText('PAUSED', W / 2, H / 2 - 40);
     c.font = '14px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('P / Esc to resume · C sheet · M mute', W / 2, H / 2 - 8);
+    c.fillText('P / Esc to resume · C sheet · M mute · F11 fullscreen', W / 2, H / 2 - 8);
     // #87 END RUN: retire on your terms - banks ALL your essence (carried + coins) and
     // posts your score, then the results screen. The graceful alternative to force-dying.
     // The box was 240px wide and 'END RUN · bank essence + score' MEASURES 247px at bold
@@ -2174,8 +2204,10 @@ const UI = (() => {
     c.fillText('ABANDON TO MENU', W / 2, r.y + 19);
     c.font = '10px monospace'; c.fillStyle = '#6a7688';
     c.fillText('no score, and you keep only what you already banked', W / 2, r.y + 34);
+    const rects = [er, r];
+    drawFsButton(c, rects);
     c.restore();
-    return [er, r];
+    return rects;
   }
 
   // --- CO-OP LOBBY -----------------------------------------------------------

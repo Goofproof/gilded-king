@@ -1,3 +1,33 @@
+## 2026-07-17 (hell backdrops + fullscreen, Sam's list items 2-3)
+
+HELL BACKDROPS ("more diversity in the backgrounds for the hell levels"): each
+of the nine circles now bakes a signature ground treatment into the static room
+cache (zero per-frame cost, deterministic via roomRand so co-op peers and
+reloads agree): Limbo fog-band monoliths, Lust wind streaks, Gluttony mud pools
++ rain rings, Greed sunken ingots + coin glints, Wrath Styx channels + sullen
+bubbles, Heresy tomb slabs ajar + ember cracks, Violence a meandering
+Phlegethon river, Fraud ditch rings + mirror shards, Treachery crack-webbed ice
+with shapes frozen beneath. GOTCHA CODIFIED: Purgatorio reuses WRATH/GLUTTONY/
+LUST as terrace keys, so the renderer is gated on the NEW Descent.isHell(f)
+(floors 4-12 only), never on theme.key alone. Gluttony/Violence/Treachery also
+suppress the square tile grid (a mire, a river of blood and a frozen lake
+should not be tiled). Verified floors 4-12 in-browser, screenshots eyeballed
+for Limbo/Greed/Violence/Treachery; 110 tests pass.
+
+FULLSCREEN ("add a full screen option"): F11 anywhere + a viewfinder-bracket
+button (top-left) on the title screen and pause menu. THE LOAD-BEARING CALL:
+the button's toggle runs inside the real mousedown EVENT, not the frame loop -
+requestFullscreen only works during the click's transient user activation, and
+a throttled tab can process its frame after that window closes (proved in the
+harness: the frame-loop path rejected with 'Permissions check failed', the
+event path hit-tests and fires). The frame-loop uiRects handlers remain as the
+touch/dbg fallback, and the event path consumes the click so it can't double-
+toggle. API calls are webkit-prefixed-fallback + promise-.catch'd so an embed
+that refuses (artifact iframe) stays windowed silently; the button hides
+entirely where the API is absent. g.uiRects is NOT cleared when overlays close,
+so the event path is state-gated (title/pause/coopMenu) - a mid-fight click at
+the top-left corner must never toggle.
+
 ## 2026-07-17 (weapon models: one look per NAME, not per archetype)
 
 Sam: "improve the weapon models both on the ground and when the player is using
