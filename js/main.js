@@ -3894,6 +3894,7 @@
       rp.facing = m.f; rp.room = m.r; rp.floor = m.fl; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
+      rp.wm = m.wm || null;                                       // weapon MODEL slug (per-name look)
       rp.cw = Array.isArray(m.cw) ? m.cw : null;                  // #117 cape wind vector
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
       rp.form = m.fm || '';                                       // #162 druid form id
@@ -4554,6 +4555,7 @@
       wc: p.weapon ? p.weapon.color : '#9ee7ff', dd: p.downed ? 1 : 0,
       nm: g.playerName || '',
       wa: p.weapon ? p.weapon.archetype : 'light',  // so peers can draw your weapon
+      wm: p.weapon ? Weapons.modelFor(p.weapon) : '', // ...with its per-name model
       pr: (g.meta.prestige || 0),                     // so peers can draw your prestige cape
       mv: p.moving ? 1 : 0,                            // so your cape waves for others too
       cw: [Math.round(p.capeWind.x), Math.round(p.capeWind.y)], // #117 cape wind vector for peers
@@ -4641,7 +4643,7 @@
       if (form && PlayerDef.drawFormHead) PlayerDef.drawFormHead(c, form.id, R);
       else if (rp.cl && PlayerDef.classFeature) PlayerDef.classFeature(c, rp.cl, 13);
       // held weapon (aimed where they're facing) - so teammates see each other's weapons
-      if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R);
+      if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R, rp.wm);
       c.restore();
       c.textAlign = 'center';
       c.fillStyle = '#7fd4ff'; c.font = 'bold 10px monospace';
@@ -8160,7 +8162,7 @@
     c.scale(scale, scale);
     c.shadowColor = w.color; c.shadowBlur = w.rarIdx >= 3 ? 12 : w.rarIdx >= 2 ? 6 : 0;
     c.strokeStyle = w.color; c.fillStyle = w.color;
-    UI.weaponSilhouette(c, w.archetype); // #70 shared unmistakable per-type silhouette
+    UI.weaponSilhouette(c, w.archetype, Weapons.modelFor(w)); // shared unmistakable per-MODEL silhouette
     c.restore();
   }
 

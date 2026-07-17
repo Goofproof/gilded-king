@@ -279,22 +279,79 @@ const PlayerDef = (() => {
   }
 
   // a compact weapon silhouette for remote peers, drawn at the origin, aimed at `ang`.
-  function peerWeapon(c, arch, color, facing, r) {
+  // `model` (optional, synced as `wm`) picks the same per-name shape the owner sees;
+  // without it we fall back to the old per-archetype stick.
+  function peerWeapon(c, arch, color, facing, r, model) {
     c.save();
     c.rotate(facing || 0);
     c.strokeStyle = color || '#cfe0f0'; c.fillStyle = color || '#cfe0f0'; c.lineCap = 'round';
     if (arch === 'bow') {
-      c.lineWidth = 2; c.beginPath(); c.arc(r * 0.5, 0, r * 0.7, -1.1, 1.1); c.stroke();
+      const cx = r * 0.5, rad = model === 'shortbow' ? r * 0.55 : model === 'longbow' ? r * 0.95 : r * 0.7;
+      c.lineWidth = model === 'shortbow' ? 3 : 2;
+      if (model === 'recurve') {
+        c.beginPath();
+        c.moveTo(cx - 2, -rad); c.quadraticCurveTo(cx + rad * 0.8, -rad * 0.7, cx + rad * 0.55, 0);
+        c.quadraticCurveTo(cx + rad * 0.8, rad * 0.7, cx - 2, rad); c.stroke();
+      } else if (model === 'longbow') {
+        c.beginPath(); c.moveTo(cx, -rad); c.quadraticCurveTo(cx + rad * 0.55, 0, cx, rad); c.stroke();
+      } else {
+        c.beginPath(); c.arc(cx, 0, rad, -1.1, 1.1); c.stroke();
+      }
       c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 1;
-      c.beginPath(); c.moveTo(r * 0.5 + Math.cos(-1.1) * r * 0.7, Math.sin(-1.1) * r * 0.7); c.lineTo(r * 0.5 + Math.cos(1.1) * r * 0.7, Math.sin(1.1) * r * 0.7); c.stroke();
+      const sx = model === 'recurve' || model === 'longbow' ? cx - (model === 'recurve' ? 2 : 0) : cx + Math.cos(1.1) * rad;
+      const sy = model === 'recurve' || model === 'longbow' ? rad : Math.sin(1.1) * rad;
+      c.beginPath(); c.moveTo(sx, -sy); c.lineTo(sx, sy); c.stroke();
     } else if (arch === 'wand' || arch === 'staff') {
-      c.lineWidth = arch === 'staff' ? 3 : 2;
-      c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * (arch === 'staff' ? 1.3 : 1.0), 0); c.stroke();
-      c.beginPath(); c.arc(r * (arch === 'staff' ? 1.35 : 1.05), 0, arch === 'staff' ? 4 : 3, 0, Math.PI * 2); c.fill();
+      const isStaff = arch === 'staff';
+      const len = r * (isStaff ? 1.3 : 1.0);
+      c.lineWidth = isStaff ? 3 : model === 'rod' ? 3 : 2;
+      c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(len, 0); c.stroke();
+      const tx = len + (isStaff ? 2 : 1.5);
+      if (model === 'scepter' || model === 'staff') {       // diamond head
+        c.beginPath(); c.moveTo(tx + 4, 0); c.lineTo(tx, 3); c.lineTo(tx - 3, 0); c.lineTo(tx, -3); c.closePath(); c.fill();
+      } else if (model === 'rod') {                          // square cap
+        c.fillRect(tx - 2.5, -2.5, 5, 5);
+      } else if (model === 'stave') {                        // ring head
+        c.lineWidth = 2; c.beginPath(); c.arc(tx, 0, 3.5, 0, Math.PI * 2); c.stroke();
+      } else if (model === 'runewood') {                     // forked tines
+        c.lineWidth = 2;
+        c.beginPath(); c.moveTo(tx - 4, 0); c.quadraticCurveTo(tx, -3, tx + 3, -4); c.stroke();
+        c.beginPath(); c.moveTo(tx - 4, 0); c.quadraticCurveTo(tx, 3, tx + 3, 4); c.stroke();
+        c.beginPath(); c.arc(tx, 0, 2, 0, Math.PI * 2); c.fill();
+      } else if (model === 'emberstaff') {                   // flame tip
+        c.beginPath(); c.moveTo(tx + 5, 0); c.quadraticCurveTo(tx + 1, 3, tx - 2, 1.8);
+        c.quadraticCurveTo(tx - 3, 0, tx - 2, -1.8); c.quadraticCurveTo(tx + 1, -3, tx + 5, 0); c.closePath(); c.fill();
+      } else {                                               // wand / willow orb
+        c.beginPath(); c.arc(tx, 0, isStaff ? 4 : 3, 0, Math.PI * 2); c.fill();
+      }
     } else if (arch === 'heavy') {
       c.lineWidth = 4; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 1.15, 0); c.stroke();
+      const hx = r * 1.0;
+      if (model === 'cleaver') {
+        c.fillRect(hx - 3, -4.5, r * 0.55, 9);
+      } else if (model === 'warhammer') {
+        c.fillRect(hx - 2, -5.5, 5.5, 5.5);
+        c.beginPath(); c.moveTo(hx - 1, 0.5); c.lineTo(hx + 1.5, 5); c.lineTo(hx + 4, 0.5); c.closePath(); c.fill();
+      } else if (model === 'maul') {
+        c.fillRect(hx - 2, -4.5, 7, 9);
+      } else { // greataxe
+        c.beginPath(); c.moveTo(hx, -2); c.quadraticCurveTo(hx + 8, -6, hx + 7, 0);
+        c.quadraticCurveTo(hx + 8, 6, hx, 2); c.closePath(); c.fill();
+      }
     } else { // light
-      c.lineWidth = 2.5; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 0.95, 0); c.stroke();
+      if (model === 'twinfang') {
+        c.lineWidth = 2;
+        for (const s of [-1, 1]) {
+          c.beginPath(); c.moveTo(r * 0.2, 0); c.quadraticCurveTo(r * 0.6, s * 2, r * 0.9, s * 1.2); c.stroke();
+        }
+      } else if (model === 'dagger') {
+        c.lineWidth = 3; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 0.7, 0); c.stroke();
+      } else if (model === 'rapier') {
+        c.lineWidth = 1.5; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 1.1, 0); c.stroke();
+        c.lineWidth = 1.5; c.beginPath(); c.arc(r * 0.32, 0, 2.5, Math.PI * 0.6, Math.PI * 1.4); c.stroke();
+      } else {
+        c.lineWidth = 2.5; c.beginPath(); c.moveTo(r * 0.2, 0); c.lineTo(r * 0.95, 0); c.stroke();
+      }
     }
     c.restore();
   }
@@ -2188,39 +2245,111 @@ const PlayerDef = (() => {
 
     drawWeapon(c) {
       const w = this.weapon;
+      const model = (typeof Weapons !== 'undefined' && Weapons.modelFor) ? Weapons.modelFor(w) : null;
       c.save();
       c.translate(this.x, this.y);
       c.rotate(this.facing);
       if (w.archetype === 'bow') {
+        // each bow MODEL has its own limbs; the string/pull/sparkle animation is shared.
         const pull = this.drawT >= 0 ? Math.min(1, this.drawT / 0.5) : 0;
-        c.strokeStyle = w.color; c.lineWidth = 3;
-        c.beginPath(); c.arc(this.r + 7, 0, 11, -Math.PI / 2.1, Math.PI / 2.1); c.stroke();
+        const cx = this.r + 7;
+        let tipX, tipY; // where the string anchors
+        c.strokeStyle = w.color;
+        if (model === 'shortbow') {          // small, deeply bent, thick limbs
+          c.lineWidth = 4;
+          c.beginPath(); c.arc(cx - 1, 0, 8, -Math.PI / 1.9, Math.PI / 1.9); c.stroke();
+          tipX = cx - 1 + Math.cos(Math.PI / 1.9) * 8; tipY = Math.sin(Math.PI / 1.9) * 8;
+        } else if (model === 'longbow') {    // tall, nearly straight stave
+          c.lineWidth = 2.5;
+          c.beginPath(); c.moveTo(cx - 2, -15); c.quadraticCurveTo(cx + 8, 0, cx - 2, 15); c.stroke();
+          c.lineWidth = 4; c.beginPath(); c.moveTo(cx + 2.6, -2.5); c.lineTo(cx + 2.6, 2.5); c.stroke(); // grip wrap
+          tipX = cx - 2; tipY = 15;
+        } else if (model === 'recurve') {    // limbs that curl back at the tips
+          c.lineWidth = 3;
+          c.beginPath();
+          c.moveTo(cx - 3, -13); c.quadraticCurveTo(cx + 9, -9, cx + 6, 0);
+          c.quadraticCurveTo(cx + 9, 9, cx - 3, 13);
+          c.stroke();
+          tipX = cx - 3; tipY = 13;
+        } else {                             // huntingbow: the classic arc
+          c.lineWidth = 3;
+          c.beginPath(); c.arc(cx, 0, 11, -Math.PI / 2.1, Math.PI / 2.1); c.stroke();
+          tipX = cx + Math.cos(Math.PI / 2.1) * 11; tipY = Math.sin(Math.PI / 2.1) * 11;
+        }
         c.strokeStyle = '#ccc'; c.lineWidth = 1;
-        const tipY = Math.sin(Math.PI / 2.1) * 11;
         c.beginPath();
-        c.moveTo(this.r + 7 + Math.cos(-Math.PI / 2.1) * 11, -tipY);
-        c.lineTo(this.r + 7 - pull * 8, 0);
-        c.lineTo(this.r + 7 + Math.cos(Math.PI / 2.1) * 11, tipY);
+        c.moveTo(tipX, -tipY);
+        c.lineTo(cx - pull * 8, 0);
+        c.lineTo(tipX, tipY);
         c.stroke();
         if (pull > 0) {
           c.strokeStyle = '#e8e3d0'; c.lineWidth = 2.5;
-          c.beginPath(); c.moveTo(this.r + 7 - pull * 8, 0); c.lineTo(this.r + 18 - pull * 8, 0); c.stroke();
+          c.beginPath(); c.moveTo(cx - pull * 8, 0); c.lineTo(cx + 11 - pull * 8, 0); c.stroke();
           // full-draw sparkle
-          if (pull >= 1) { c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(this.r + 19 - pull * 8, 0, 2.5, 0, Math.PI * 2); c.fill(); }
+          if (pull >= 1) { c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(cx + 12 - pull * 8, 0, 2.5, 0, Math.PI * 2); c.fill(); }
         }
         c.restore();
         return;
       }
       if (w.archetype === 'wand' || w.archetype === 'staff') {
-        // #16 a shaft with a glowing tip; the staff's tip swells as it charges a cast
+        // #16 -> per-MODEL heads on a shaft; the staff's tip still swells as it charges
         const isStaff = w.archetype === 'staff';
         const len = this.r + (isStaff ? 22 : 14);
-        c.strokeStyle = isStaff ? '#6a5030' : w.color; c.lineWidth = isStaff ? 3 : 2.5; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(this.r * 0.4, 0); c.lineTo(len - 4, 0); c.stroke();
         const charge = (isStaff && this.drawT >= 0) ? Math.min(1, this.drawT / w.windup) : 0;
+        const hot = charge > 0.05 ? '#ffd24c' : w.color;
+        c.lineCap = 'round';
+        // the shaft (willow is a crooked living twig, rod is thick, the rest straight)
+        c.strokeStyle = isStaff ? '#6a5030' : w.color;
+        c.lineWidth = isStaff ? 3 : model === 'rod' ? 3.5 : 2.5;
+        if (model === 'willow') {
+          c.beginPath(); c.moveTo(this.r * 0.4, 0); c.quadraticCurveTo(len * 0.55, -3.5, len * 0.75, 1.5); c.quadraticCurveTo(len * 0.88, 3.5, len - 4, 0); c.stroke();
+        } else {
+          c.beginPath(); c.moveTo(this.r * 0.4, 0); c.lineTo(len - 4, 0); c.stroke();
+        }
         c.shadowColor = w.color; c.shadowBlur = 6 + charge * 10;
-        c.fillStyle = charge > 0.05 ? '#ffd24c' : w.color;
-        c.beginPath(); c.arc(len, 0, (isStaff ? 4 : 3) + charge * 3.5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = hot;
+        if (model === 'scepter') {           // an orb held in an open crown
+          c.strokeStyle = w.color; c.lineWidth = 1.6;
+          c.beginPath();
+          c.moveTo(len - 4, -2.5); c.lineTo(len + 3, -4.5);
+          c.moveTo(len - 4, 2.5); c.lineTo(len + 3, 4.5);
+          c.moveTo(len - 4, 0); c.lineTo(len + 5.5, 0);
+          c.stroke();
+          c.beginPath(); c.arc(len + 1, 0, 3 + charge * 3, 0, Math.PI * 2); c.fill();
+        } else if (model === 'rod') {        // banded rod, square crystal cap
+          c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1.2;
+          c.beginPath(); c.moveTo(this.r + 3, -2.2); c.lineTo(this.r + 3, 2.2); c.moveTo(this.r + 7, -2.2); c.lineTo(this.r + 7, 2.2); c.stroke();
+          const s = 3 + charge * 2.5;
+          c.fillRect(len - s * 0.8, -s * 0.75, s * 1.6, s * 1.5);
+        } else if (model === 'willow') {     // leaves + a soft budding glow
+          c.beginPath(); c.ellipse(len * 0.62, -3.5, 3.4, 1.5, -0.5, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.ellipse(len * 0.82, 3.2, 3, 1.4, 0.5, 0, Math.PI * 2); c.fill();
+          c.globalAlpha = 0.8;
+          c.beginPath(); c.arc(len, 0, 3 + charge * 3, 0, Math.PI * 2); c.fill();
+          c.globalAlpha = 1;
+        } else if (model === 'stave') {      // ring head, gem floating in the eye
+          c.strokeStyle = w.color; c.lineWidth = 2.5;
+          c.beginPath(); c.arc(len, 0, 5, 0, Math.PI * 2); c.stroke();
+          c.beginPath(); c.arc(len, 0, 2 + charge * 2.5, 0, Math.PI * 2); c.fill();
+        } else if (model === 'runewood') {   // forked tines cradling the light
+          c.strokeStyle = '#6a5030'; c.lineWidth = 2.2;
+          c.beginPath(); c.moveTo(len - 6, 0); c.quadraticCurveTo(len - 1, -4.5, len + 4, -5.5); c.stroke();
+          c.beginPath(); c.moveTo(len - 6, 0); c.quadraticCurveTo(len - 1, 4.5, len + 4, 5.5); c.stroke();
+          c.beginPath(); c.arc(len, 0, 2.6 + charge * 3, 0, Math.PI * 2); c.fill();
+        } else if (model === 'emberstaff') { // a living flame that leans with the charge
+          const fl = 6 + charge * 5;
+          c.beginPath();
+          c.moveTo(len + fl, 0); c.quadraticCurveTo(len + fl * 0.4, 3.6, len - 2, 2.2);
+          c.quadraticCurveTo(len - 3.5, 0, len - 2, -2.2); c.quadraticCurveTo(len + fl * 0.4, -3.6, len + fl, 0);
+          c.closePath(); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.65)';
+          c.beginPath(); c.arc(len, 0, 1.6 + charge * 1.5, 0, Math.PI * 2); c.fill();
+        } else if (model === 'staff') {      // faceted crystal
+          const s = 4.5 + charge * 3.5;
+          c.beginPath(); c.moveTo(len + s, 0); c.lineTo(len, s * 0.62); c.lineTo(len - s, 0); c.lineTo(len, -s * 0.62); c.closePath(); c.fill();
+        } else {                             // wand: the classic glowing orb
+          c.beginPath(); c.arc(len, 0, 3 + charge * 3.5, 0, Math.PI * 2); c.fill();
+        }
         c.shadowBlur = 0;
         c.restore();
         return;
@@ -2276,24 +2405,76 @@ const PlayerDef = (() => {
         }
         c.restore();
       } else {
-        // #45: a distinct idle weapon MODEL per archetype so you can see what you wield
+        // #45 -> a distinct idle MODEL per weapon (not just per archetype): each melee
+        // name in weapons.js has its own held shape, so a Maul never reads as a Cleaver.
         const w = this.weapon, L = this.r * 0.6;
+        const m = (typeof Weapons !== 'undefined' && Weapons.modelFor) ? Weapons.modelFor(w) : (w.archetype === 'heavy' ? 'greataxe' : 'shortsword');
         c.save();
         c.translate(this.x, this.y);
         c.rotate(this.facing + 0.7);
-        if (w.archetype === 'heavy') {           // AXE: wooden haft + a broad blade head
-          c.strokeStyle = '#6a5030'; c.lineWidth = 3; c.lineCap = 'round';
-          c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 20, 0); c.stroke();
+        c.lineCap = 'round';
+        if (m === 'cleaver') {                    // one slab of butcher steel
+          c.strokeStyle = '#6a5030'; c.lineWidth = 3;
+          c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 4, 0); c.stroke();               // stub grip
+          c.fillStyle = w.color;
+          c.fillRect(L + 4, -5.5, 15, 11);                                                  // slab blade
+          c.fillStyle = 'rgba(255,255,255,0.3)';
+          c.fillRect(L + 4, 2.8, 15, 2.7);                                                  // edge shine
+          c.fillStyle = 'rgba(0,0,0,0.5)';
+          c.beginPath(); c.arc(L + 15.5, -3, 1.4, 0, Math.PI * 2); c.fill();                // hang-hole
+        } else if (m === 'warhammer') {           // block head + back spike
+          c.strokeStyle = '#6a5030'; c.lineWidth = 3;
+          c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 18, 0); c.stroke();               // haft
+          c.fillStyle = w.color;
+          c.fillRect(L + 12, -9, 8, 9);                                                     // hammer block
+          c.beginPath(); c.moveTo(L + 13, 1); c.lineTo(L + 16.5, 8.5); c.lineTo(L + 19.5, 1); c.closePath(); c.fill(); // spike
+          c.fillStyle = 'rgba(255,255,255,0.3)';
+          c.fillRect(L + 12, -9, 8, 2.6);                                                   // top shine
+        } else if (m === 'maul') {                // a banded sledge block
+          c.strokeStyle = '#6a5030'; c.lineWidth = 3;
+          c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 16, 0); c.stroke();               // haft
           c.fillStyle = w.color;
           c.beginPath();
-          c.moveTo(L + 11, -2.5);
-          c.quadraticCurveTo(L + 25, -10, L + 23, 0);
-          c.quadraticCurveTo(L + 25, 10, L + 11, 2.5);
-          c.closePath(); c.fill();
+          c.moveTo(L + 13, -7); c.lineTo(L + 25, -7); c.quadraticCurveTo(L + 27, 0, L + 25, 7);
+          c.lineTo(L + 13, 7); c.quadraticCurveTo(L + 11, 0, L + 13, -7); c.closePath(); c.fill();
+          c.strokeStyle = 'rgba(255,255,255,0.45)'; c.lineWidth = 1.4;
+          c.beginPath(); c.moveTo(L + 16.5, -7.6); c.lineTo(L + 16.5, 7.6); c.moveTo(L + 21.5, -7.6); c.lineTo(L + 21.5, 7.6); c.stroke(); // iron bands
+        } else if (m === 'greataxe') {            // the broad double-curve axe head
+          c.strokeStyle = '#6a5030'; c.lineWidth = 3;
+          c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 20, 0); c.stroke();               // haft
+          c.fillStyle = w.color;
+          c.beginPath();
+          c.moveTo(L + 11, -2.5); c.quadraticCurveTo(L + 25, -10, L + 23, 0);
+          c.quadraticCurveTo(L + 25, 10, L + 11, 2.5); c.closePath(); c.fill();
           c.fillStyle = 'rgba(255,255,255,0.25)';
           c.beginPath(); c.moveTo(L + 11, -2.5); c.quadraticCurveTo(L + 20, -7, L + 21, -1); c.lineTo(L + 12, -1); c.closePath(); c.fill();
-        } else {                                  // SWORD: blade, crossguard, grip, pommel
-          c.strokeStyle = '#6a5030'; c.lineWidth = 2.5; c.lineCap = 'round';
+        } else if (m === 'dagger') {              // short, broad, all point
+          c.strokeStyle = '#6a5030'; c.lineWidth = 2.5;
+          c.beginPath(); c.moveTo(L - 4, 0); c.lineTo(L, 0); c.stroke();                    // grip
+          c.strokeStyle = w.color; c.lineWidth = 2; c.lineCap = 'butt';
+          c.beginPath(); c.moveTo(L, -4); c.lineTo(L, 4); c.stroke();                       // wide guard
+          c.fillStyle = w.color;
+          c.beginPath(); c.moveTo(L, -3); c.lineTo(L + 12, 0); c.lineTo(L, 3); c.closePath(); c.fill(); // broad point
+        } else if (m === 'rapier') {              // a needle behind a bell guard
+          c.strokeStyle = '#6a5030'; c.lineWidth = 2.5;
+          c.beginPath(); c.moveTo(L - 4, 0); c.lineTo(L, 0); c.stroke();                    // grip
+          c.strokeStyle = w.color; c.lineWidth = 1.8;
+          c.beginPath(); c.arc(L + 1.5, 0, 3.5, Math.PI * 0.6, Math.PI * 1.4); c.stroke();  // bell sweep
+          c.lineWidth = 1.5;
+          c.beginPath(); c.moveTo(L + 1.5, 0); c.lineTo(L + 22, 0); c.stroke();             // needle blade
+        } else if (m === 'twinfang') {            // two curved fangs held together
+          for (const s of [-1, 1]) {
+            c.save(); c.rotate(s * 0.22);
+            c.strokeStyle = '#6a5030'; c.lineWidth = 2.2;
+            c.beginPath(); c.moveTo(L - 3, 0); c.lineTo(L + 1, 0); c.stroke();              // grip
+            c.strokeStyle = w.color; c.lineWidth = 2.2;
+            c.beginPath(); c.moveTo(L + 1, 0); c.quadraticCurveTo(L + 8, s * 2.5, L + 13, 0); c.stroke(); // curved fang
+            c.fillStyle = w.color;
+            c.beginPath(); c.moveTo(L + 12, s * 1.2); c.lineTo(L + 16, 0); c.lineTo(L + 12, -s * 1.2); c.closePath(); c.fill();
+            c.restore();
+          }
+        } else {                                  // shortsword: blade, crossguard, grip, pommel
+          c.strokeStyle = '#6a5030'; c.lineWidth = 2.5;
           c.beginPath(); c.moveTo(L - 4, 0); c.lineTo(L, 0); c.stroke();       // grip
           c.strokeStyle = w.color; c.lineWidth = 2; c.lineCap = 'butt';
           c.beginPath(); c.moveTo(L, -3.5); c.lineTo(L, 3.5); c.stroke();      // crossguard

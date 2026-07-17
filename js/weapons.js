@@ -51,20 +51,28 @@ const Weapons = (() => {
 
   // --- ARCHETYPE BASE STATS ---------------------------------------------------
   // dmg scales +10% per rarity step and +8% per dungeon tier (see rollWeapon).
+  // models[i] is the MODEL SLUG for names[i]: every name has its own drawn model
+  // (ground silhouette in ui.js, in-hand model in player.js) so a Maul never
+  // looks like a Cleaver again.
   const ARCHETYPES = {
     heavy: { dmg: 26, cooldown: 0.95, windup: 0.30, range: 82, arc: 2.4, stagger: 0.55,
-             names: ['Cleaver', 'Warhammer', 'Greataxe', 'Maul'] },
+             names: ['Cleaver', 'Warhammer', 'Greataxe', 'Maul'],
+             models: ['cleaver', 'warhammer', 'greataxe', 'maul'] },
     light: { dmg: 9,  cooldown: 0.30, windup: 0.0,  range: 54, arc: 1.15, stagger: 0.0,
-             names: ['Dagger', 'Shortsword', 'Rapier', 'Twinfang'] }, // #108 cd 0.22->0.30: ~30 DPS, near heavy (was a runaway 41)
+             names: ['Dagger', 'Shortsword', 'Rapier', 'Twinfang'],
+             models: ['dagger', 'shortsword', 'rapier', 'twinfang'] }, // #108 cd 0.22->0.30: ~30 DPS, near heavy (was a runaway 41)
     bow:   { dmg: 18, cooldown: 0.45, windup: 0.0,  range: 0,  arc: 0, projSpeed: 540,
-             names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'] }, // #108 base 14->18 + faster draw (player.js) to rescue bow/Ranger
+             names: ['Shortbow', 'Hunting Bow', 'Longbow', 'Recurve'],
+             models: ['shortbow', 'huntingbow', 'longbow', 'recurve'] }, // #108 base 14->18 + faster draw (player.js) to rescue bow/Ranger
     // #16 MAGIC: wand = fast single-target bolts; staff = slow charged fireball (AOE + burn)
     // #49 balance: base wand DPS (11/0.46 ~= 24) sits near a bow's; the Magic stat
     // scales it up from there (fireSpell), so a wand is only strong if you invest.
     wand:  { dmg: 11, cooldown: 0.46, windup: 0.0,  range: 0,  arc: 0, projSpeed: 470, magic: 'bolt',
-             names: ['Wand', 'Scepter', 'Rod', 'Willow Wand'] },
+             names: ['Wand', 'Scepter', 'Rod', 'Willow Wand'],
+             models: ['wand', 'scepter', 'rod', 'willow'] },
     staff: { dmg: 34, cooldown: 1.05, windup: 0.5,  range: 0,  arc: 0, projSpeed: 300, magic: 'fireball',
-             names: ['Staff', 'Stave', 'Runewood Staff', 'Emberstaff'] },
+             names: ['Staff', 'Stave', 'Runewood Staff', 'Emberstaff'],
+             models: ['staff', 'stave', 'runewood', 'emberstaff'] },
   };
   // legendary prefix must NOT be 'Mythic' (that's the tier ABOVE it) - it read as
   // "Legendary Mythic X" and looked like a mythic. 'Ancient' keeps the flavor.
@@ -139,10 +147,14 @@ const Weapons = (() => {
     const rarIdx = RARITY.indexOf(rar);
     const enchants = rollEnchants(archKey, rar);
     const dmgScale = (1 + rarIdx * 0.10) * (1 + (tier - 1) * 0.08);
+    // one roll picks both the name and its matching model (same Math.random count
+    // as before, so seed-determinism tests are unaffected)
+    const nameIdx = (Math.random() * arch.names.length) | 0;
     const w = {
       archetype: archKey,
       rarity: rar.key, rarityName: rar.name, color: rar.color, rarIdx,
-      name: `${PREFIX[rar.key]} ${arch.names[(Math.random() * arch.names.length) | 0]}`,
+      name: `${PREFIX[rar.key]} ${arch.names[nameIdx]}`,
+      model: arch.models[nameIdx],
       dmg: Math.round(arch.dmg * dmgScale),
       cooldown: arch.cooldown, windup: arch.windup,
       range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0,
@@ -282,35 +294,36 @@ const Weapons = (() => {
   // Descent boss drops one, or the secret mythic shop sells them. Each has its own
   // colour, signature enchant set (real keys, so the mechanics actually fire), and
   // a flavour line. Collecting one earns a laurel on the title screen.
+  // model = which drawn model this mythic wears (picked to match its flavor line)
   const MYTHIC_WEAPONS = [
-    { id: 'ragnarok',    name: 'Ragnarok',         archetype: 'heavy', color: '#ff5a2c', dmg: 62, enchants: ['fireaspect', 'executioner', 'knockback'], flavor: 'The end of all things, forged as an axe.' },
-    { id: 'worldbreaker',name: 'Worldbreaker',     archetype: 'heavy', color: '#ffb03a', dmg: 66, enchants: ['sharpness', 'knockback', 'sweeping'],      flavor: 'One swing moved a mountain. It never moved back.' },
-    { id: 'dawnhammer',  name: 'Dawnhammer',       archetype: 'heavy', color: '#fff2a0', dmg: 58, enchants: ['executioner', 'fireaspect', 'looting'],    flavor: 'It rang once at sunrise and the dark fled.' },
-    { id: 'gravetide',   name: 'Grave Tide',       archetype: 'heavy', color: '#4cc9a8', dmg: 60, enchants: ['vampiric', 'sweeping', 'knockback'],       flavor: 'Every soul it takes, it gives back to you.' },
-    { id: 'obsidian',    name: 'Obsidian Verdict', archetype: 'heavy', color: '#b06bff', dmg: 64, enchants: ['executioner', 'sharpness', 'fireaspect'],  flavor: 'Judge, jury, and the last thing you hear.' },
-    { id: 'doombringer', name: 'Doombringer',      archetype: 'heavy', color: '#e63fff', dmg: 68, enchants: ['executioner', 'fireaspect', 'sharpness'],  flavor: 'It hums the name of everyone it will meet.' },
-    { id: 'soulrender',  name: 'Soulrender',       archetype: 'heavy', color: '#8b1a1a', dmg: 64, enchants: ['vampiric', 'executioner', 'sweeping'],     flavor: 'It does not cut flesh. It cuts the thread.' },
-    { id: 'whisperfang', name: 'Whisperfang',      archetype: 'light', color: '#7fd4ff', dmg: 26, enchants: ['vampiric', 'momentum', 'sharpness'],       flavor: 'You never hear the blade that drinks you.' },
-    { id: 'zephyr',      name: 'Zephyr',           archetype: 'light', color: '#9be8d8', dmg: 24, enchants: ['sweeping', 'momentum', 'knockback'],        flavor: 'Faster than the wind that carries the ash.' },
-    { id: 'heartseeker', name: 'Heartseeker',      archetype: 'light', color: '#ff5edb', dmg: 28, enchants: ['executioner', 'vampiric', 'sharpness'],    flavor: 'It knows exactly where you keep your life.' },
-    { id: 'emberdance',  name: 'Emberdance',       archetype: 'light', color: '#ff6a2c', dmg: 27, enchants: ['fireaspect', 'momentum', 'sharpness'],      flavor: 'Two blades, one flame, no survivors.' },
-    { id: 'kingsbane',   name: 'Kingsbane',        archetype: 'light', color: '#ffd24c', dmg: 30, enchants: ['executioner', 'sharpness', 'looting'],     flavor: 'Forged from a crown that was never earned.' },
-    { id: 'serpentkiss', name: "Serpent's Kiss",   archetype: 'light', color: '#4ade80', dmg: 25, enchants: ['fireaspect', 'vampiric', 'momentum'],      flavor: 'A venom that learned to love its host.' },
-    { id: 'frostbite',   name: 'Frostbite',        archetype: 'light', color: '#aee7ff', dmg: 26, enchants: ['knockback', 'sharpness', 'momentum'],       flavor: 'Cold enough to still a beating heart mid-swing.' },
-    { id: 'stormcaller', name: 'Stormcaller',      archetype: 'bow',   color: '#7fd4ff', dmg: 34, enchants: ['multishot', 'power', 'punch'],              flavor: 'It does not miss. It simply chooses.' },
-    { id: 'sunpiercer',  name: 'Sunpiercer',       archetype: 'bow',   color: '#fff2a0', dmg: 36, enchants: ['flame', 'piercing', 'power'],               flavor: 'One arrow, and the horizon caught fire.' },
-    { id: 'widowloom',   name: "Widow's Loom",     archetype: 'bow',   color: '#b06bff', dmg: 33, enchants: ['multishot', 'flame', 'looting'],            flavor: 'She weaves arrows from the last breath of the fallen.' },
-    { id: 'deadeye',     name: 'Deadeye',          archetype: 'bow',   color: '#ff5a2c', dmg: 38, enchants: ['piercing', 'power', 'punch'],               flavor: 'It has never blinked. Not once.' },
-    { id: 'ghostwind',   name: 'Ghostwind',        archetype: 'bow',   color: '#9be8d8', dmg: 35, enchants: ['infinity', 'multishot', 'power'],           flavor: 'The quiver is empty. The arrows keep coming.' },
-    { id: 'hellfire',    name: 'Hellfire',         archetype: 'bow',   color: '#ff3a1a', dmg: 37, enchants: ['flame', 'piercing', 'multishot'],           flavor: 'Loosed from the seventh circle, aimed at the eighth.' },
+    { id: 'ragnarok',    name: 'Ragnarok',         archetype: 'heavy', model: 'greataxe',  color: '#ff5a2c', dmg: 62, enchants: ['fireaspect', 'executioner', 'knockback'], flavor: 'The end of all things, forged as an axe.' },
+    { id: 'worldbreaker',name: 'Worldbreaker',     archetype: 'heavy', model: 'maul',      color: '#ffb03a', dmg: 66, enchants: ['sharpness', 'knockback', 'sweeping'],      flavor: 'One swing moved a mountain. It never moved back.' },
+    { id: 'dawnhammer',  name: 'Dawnhammer',       archetype: 'heavy', model: 'warhammer', color: '#fff2a0', dmg: 58, enchants: ['executioner', 'fireaspect', 'looting'],    flavor: 'It rang once at sunrise and the dark fled.' },
+    { id: 'gravetide',   name: 'Grave Tide',       archetype: 'heavy', model: 'cleaver',   color: '#4cc9a8', dmg: 60, enchants: ['vampiric', 'sweeping', 'knockback'],       flavor: 'Every soul it takes, it gives back to you.' },
+    { id: 'obsidian',    name: 'Obsidian Verdict', archetype: 'heavy', model: 'greataxe',  color: '#b06bff', dmg: 64, enchants: ['executioner', 'sharpness', 'fireaspect'],  flavor: 'Judge, jury, and the last thing you hear.' },
+    { id: 'doombringer', name: 'Doombringer',      archetype: 'heavy', model: 'maul',      color: '#e63fff', dmg: 68, enchants: ['executioner', 'fireaspect', 'sharpness'],  flavor: 'It hums the name of everyone it will meet.' },
+    { id: 'soulrender',  name: 'Soulrender',       archetype: 'heavy', model: 'cleaver',   color: '#8b1a1a', dmg: 64, enchants: ['vampiric', 'executioner', 'sweeping'],     flavor: 'It does not cut flesh. It cuts the thread.' },
+    { id: 'whisperfang', name: 'Whisperfang',      archetype: 'light', model: 'dagger',    color: '#7fd4ff', dmg: 26, enchants: ['vampiric', 'momentum', 'sharpness'],       flavor: 'You never hear the blade that drinks you.' },
+    { id: 'zephyr',      name: 'Zephyr',           archetype: 'light', model: 'rapier',    color: '#9be8d8', dmg: 24, enchants: ['sweeping', 'momentum', 'knockback'],        flavor: 'Faster than the wind that carries the ash.' },
+    { id: 'heartseeker', name: 'Heartseeker',      archetype: 'light', model: 'rapier',    color: '#ff5edb', dmg: 28, enchants: ['executioner', 'vampiric', 'sharpness'],    flavor: 'It knows exactly where you keep your life.' },
+    { id: 'emberdance',  name: 'Emberdance',       archetype: 'light', model: 'twinfang',  color: '#ff6a2c', dmg: 27, enchants: ['fireaspect', 'momentum', 'sharpness'],      flavor: 'Two blades, one flame, no survivors.' },
+    { id: 'kingsbane',   name: 'Kingsbane',        archetype: 'light', model: 'shortsword',color: '#ffd24c', dmg: 30, enchants: ['executioner', 'sharpness', 'looting'],     flavor: 'Forged from a crown that was never earned.' },
+    { id: 'serpentkiss', name: "Serpent's Kiss",   archetype: 'light', model: 'dagger',    color: '#4ade80', dmg: 25, enchants: ['fireaspect', 'vampiric', 'momentum'],      flavor: 'A venom that learned to love its host.' },
+    { id: 'frostbite',   name: 'Frostbite',        archetype: 'light', model: 'twinfang',  color: '#aee7ff', dmg: 26, enchants: ['knockback', 'sharpness', 'momentum'],       flavor: 'Cold enough to still a beating heart mid-swing.' },
+    { id: 'stormcaller', name: 'Stormcaller',      archetype: 'bow',   model: 'recurve',   color: '#7fd4ff', dmg: 34, enchants: ['multishot', 'power', 'punch'],              flavor: 'It does not miss. It simply chooses.' },
+    { id: 'sunpiercer',  name: 'Sunpiercer',       archetype: 'bow',   model: 'longbow',   color: '#fff2a0', dmg: 36, enchants: ['flame', 'piercing', 'power'],               flavor: 'One arrow, and the horizon caught fire.' },
+    { id: 'widowloom',   name: "Widow's Loom",     archetype: 'bow',   model: 'huntingbow',color: '#b06bff', dmg: 33, enchants: ['multishot', 'flame', 'looting'],            flavor: 'She weaves arrows from the last breath of the fallen.' },
+    { id: 'deadeye',     name: 'Deadeye',          archetype: 'bow',   model: 'longbow',   color: '#ff5a2c', dmg: 38, enchants: ['piercing', 'power', 'punch'],               flavor: 'It has never blinked. Not once.' },
+    { id: 'ghostwind',   name: 'Ghostwind',        archetype: 'bow',   model: 'shortbow',  color: '#9be8d8', dmg: 35, enchants: ['infinity', 'multishot', 'power'],           flavor: 'The quiver is empty. The arrows keep coming.' },
+    { id: 'hellfire',    name: 'Hellfire',         archetype: 'bow',   model: 'recurve',   color: '#ff3a1a', dmg: 37, enchants: ['flame', 'piercing', 'multishot'],           flavor: 'Loosed from the seventh circle, aimed at the eighth.' },
     // WAND mythics - fast arcane bolts
-    { id: 'astra',       name: 'Astra',            archetype: 'wand',  color: '#b06bff', dmg: 28, magicReq: 3, enchants: ['multishot', 'power', 'piercing'], flavor: 'Every bolt is a fallen star, and it never runs out of sky.' },
-    { id: 'hemlock',     name: 'Hemlock',          archetype: 'wand',  color: '#4ade80', dmg: 27, magicReq: 3, enchants: ['venom', 'power', 'multishot'],    flavor: "Socrates' last cup, distilled into a wand." },
-    { id: 'voltaic',     name: 'Voltaic Scepter',  archetype: 'wand',  color: '#ffe27a', dmg: 26, magicReq: 3, enchants: ['chain', 'infinity', 'power'],      flavor: 'It remembers the storm that forged it, and repeats it on command.' },
+    { id: 'astra',       name: 'Astra',            archetype: 'wand',  model: 'wand',      color: '#b06bff', dmg: 28, magicReq: 3, enchants: ['multishot', 'power', 'piercing'], flavor: 'Every bolt is a fallen star, and it never runs out of sky.' },
+    { id: 'hemlock',     name: 'Hemlock',          archetype: 'wand',  model: 'willow',    color: '#4ade80', dmg: 27, magicReq: 3, enchants: ['venom', 'power', 'multishot'],    flavor: "Socrates' last cup, distilled into a wand." },
+    { id: 'voltaic',     name: 'Voltaic Scepter',  archetype: 'wand',  model: 'scepter',   color: '#ffe27a', dmg: 26, magicReq: 3, enchants: ['chain', 'infinity', 'power'],      flavor: 'It remembers the storm that forged it, and repeats it on command.' },
     // STAFF mythics - each casts a different element (frost/venom/storm/fire)
-    { id: 'emberfall',   name: 'Emberfall',        archetype: 'staff', color: '#ff6a2c', dmg: 84, magicReq: 4, enchants: ['flame', 'power', 'punch'],        flavor: 'The last coal of a dead sun, still hungry.' },
-    { id: 'rimeheart',   name: 'Rimeheart',        archetype: 'staff', color: '#aee7ff', dmg: 80, magicReq: 4, enchants: ['frost', 'power', 'punch'],        flavor: 'Its bearer\'s heart slowed, then stopped, then kept the room cold.' },
-    { id: 'verdigris',   name: 'Verdigris',        archetype: 'staff', color: '#6ee7a0', dmg: 82, magicReq: 4, enchants: ['venom', 'power', 'looting'],      flavor: 'The green rot that eats bronze and men alike.' },
+    { id: 'emberfall',   name: 'Emberfall',        archetype: 'staff', model: 'emberstaff',color: '#ff6a2c', dmg: 84, magicReq: 4, enchants: ['flame', 'power', 'punch'],        flavor: 'The last coal of a dead sun, still hungry.' },
+    { id: 'rimeheart',   name: 'Rimeheart',        archetype: 'staff', model: 'staff',     color: '#aee7ff', dmg: 80, magicReq: 4, enchants: ['frost', 'power', 'punch'],        flavor: 'Its bearer\'s heart slowed, then stopped, then kept the room cold.' },
+    { id: 'verdigris',   name: 'Verdigris',        archetype: 'staff', model: 'runewood',  color: '#6ee7a0', dmg: 82, magicReq: 4, enchants: ['venom', 'power', 'looting'],      flavor: 'The green rot that eats bronze and men alike.' },
   ];
   const MYTHIC_ARMOR = [
     { id: 'aegisfallen', name: 'Aegis of the Fallen',   color: '#ffd24c', defense: 0.16, enchants: ['juggernaut', 'bulwark'],               flavor: 'The last king who wore it never fell.' },
@@ -341,6 +354,7 @@ const Weapons = (() => {
     const tierMul = 1 + (tier - 1) * 0.08;
     const w = {
       archetype: e.archetype, rarity: 'mythic', rarityName: 'Mythic', color: e.color, rarIdx: 5,
+      model: e.model || ARCHETYPES[e.archetype].models[0],
       name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
       dmg: Math.round(e.dmg * 1.15 * tierMul), cooldown: arch.cooldown, windup: arch.windup,
       range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0, stagger: arch.stagger || 0,
@@ -399,11 +413,27 @@ const Weapons = (() => {
     return { colors: [w.color], glow: w.rarIdx >= 3 };
   }
 
+  // which drawn model a weapon wears. New rolls carry w.model; weapons from OLD
+  // saves don't, so fall back to matching the name against the archetype's name
+  // list, then to the archetype's first model. Never returns undefined.
+  function modelFor(w) {
+    if (!w) return 'shortsword';
+    if (w.model) return w.model;
+    const arch = ARCHETYPES[w.archetype];
+    if (!arch) return 'shortsword';
+    if (w.name) {
+      for (let i = 0; i < arch.names.length; i++) {
+        if (w.name.indexOf(arch.names[i]) !== -1) return arch.models[i];
+      }
+    }
+    return arch.models[0];
+  }
+
   function displayName(w) {
     const en = w.enchants.map(e => e.name + (e.level ? ' ' + ROMAN[e.level] : '')).join(', ');
     return w.name + (w.upLvl ? ` +${w.upLvl}` : '') + (en ? ` [${en}]` : '');
   }
 
   return { RARITY, ENCHANTS, ARCHETYPES, ARMOR_ENCHANTS, TIER_NAMES, rollWeapon, rollArmor, has, displayName, fxPalette,
-           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL, reEnchant, rollEnchantOffers, applyEnchantStats };
+           rollMythic, MYTHIC_WEAPONS, MYTHIC_ARMOR, MYTHIC_TOTAL, reEnchant, rollEnchantOffers, applyEnchantStats, modelFor };
 })();

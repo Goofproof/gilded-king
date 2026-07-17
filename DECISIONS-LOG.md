@@ -1,3 +1,38 @@
+## 2026-07-17 (weapon models: one look per NAME, not per archetype)
+
+Sam: "improve the weapon models both on the ground and when the player is using
+them. No more similarities between each type." Root cause: every heavy drew the
+same axe, every light the same sword, etc. - the 4 names inside each archetype
+were cosmetically identical everywhere.
+
+Built: a `model` slug on every weapon, one drawn design per NAME (20 total).
+- weapons.js: ARCHETYPES gains models[] parallel to names[]; rollWeapon records
+  the slug off the SAME name roll (no extra Math.random - seed tests unaffected).
+  Each of the 26 weapon mythics is hand-mapped to the model its flavor implies
+  (Ragnarok=greataxe, Worldbreaker=maul, Emberdance=twinfang, Ghostwind=shortbow,
+  Voltaic=scepter...). Weapons.modelFor(w) = slug, with name-match fallback for
+  weapons saved before this wave, then archetype default. Never undefined.
+- ui.js weaponSilhouette(c, arch, model): 20 ground/HUD silhouettes. Cleaver
+  slab+hang-hole / hammer block+spike / double-crescent greataxe / banded maul;
+  dagger point / classic shortsword / needle+bell rapier / crossed twinfang;
+  deep shortbow / classic huntingbow / tall longbow / curl-tipped recurve; orb
+  wand / orb-in-crown scepter / banded square-cap rod / crooked leafy willow;
+  crystal staff / ring stave / forked runewood / flame emberstaff.
+- player.js drawWeapon: per-model in-hand models. Bows share the pull/string/
+  sparkle rig with per-model limbs; wands/staves share the charge-swell with
+  per-model heads; melee idle has 8 distinct held shapes.
+- Co-op + doppelganger: position packet gains `wm` (model slug); peerWeapon
+  takes it and draws per-model minis. Missing wm falls back to the old sticks,
+  so mixed-version lobbies degrade gracefully, never crash.
+
+Calls made without Sam: scepter first drew as prongs+diamond and read as a
+HATCHET at drop size (verified in-browser) - redrew as orb-in-open-crown.
+Cleaver hang-hole first used destination-out, which would ERASE the floor
+pixels under the glyph - swapped to a dark dot. Greataxe keeps the familiar
+double-curve head (it was the old axe look, now exclusive to Greataxe).
+Verified: 110 vitest pass; all 20 ground glyphs + maul/rapier/twinfang/recurve
+in-hand eyeballed via dbg on 8471; all 20 stepped in-hand without draw errors.
+
 ## 2026-07-16 (perf: ultracode hunt, tier 1 shipped)
 
 24-agent perf hunt (6 lenses, adversarial verify): 14 confirmed findings, 4

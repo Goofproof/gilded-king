@@ -174,6 +174,7 @@ const Monsters = (() => {
     m.mirror = {
       classId: (pl.class && pl.class.id) || '',
       arch: wp.archetype || 'light',
+      wm: (typeof Weapons !== 'undefined' && wp.archetype) ? Weapons.modelFor(wp) : null,
       wc: wp.color || '#9ee7ff',
       ready: true,               // pre-morphed: it IS the encounter, no first-sight reveal
     };
@@ -686,6 +687,7 @@ const Monsters = (() => {
           m.mirror = {
             classId: (pl.class && pl.class.id) || '',
             arch: (pl.weapon && pl.weapon.archetype) || 'light',
+            wm: (typeof Weapons !== 'undefined' && pl.weapon) ? Weapons.modelFor(pl.weapon) : null,
             wc: (pl.weapon && pl.weapon.color) || '#9ee7ff',
           };
           m.morphT = 0.6;
@@ -1678,7 +1680,7 @@ const Monsters = (() => {
     eyes(c, ex, ey, 4, 2.2, '#ff5edb');
     // YOUR class headgear + weapon, aimed at the target
     if (mir.classId && typeof PlayerDef !== 'undefined' && PlayerDef.classFeature) PlayerDef.classFeature(c, mir.classId, m.r);
-    if (mir.arch && typeof PlayerDef !== 'undefined' && PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, mir.arch, mir.wc || '#cfe0f0', m.facing || 0, m.r);
+    if (mir.arch && typeof PlayerDef !== 'undefined' && PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, mir.arch, mir.wc || '#cfe0f0', m.facing || 0, m.r, mir.wm);
     // morph-in shimmer
     if (m.morphT > 0) {
       const k = m.morphT / 0.6;
