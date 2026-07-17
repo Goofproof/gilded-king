@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.131';
+  const VERSION = 'v2.132';
 
   const NOTES = [
+    {
+      v: 'v2.132', title: 'It wears your face', date: '2026-07-17',
+      sha: '0b12433',
+      items: [
+        'The Doppelganger truly wears your face now - your race, your gear, your colors, your cape, your weapon. Only the magenta glare in its visor gives it away.',
+      ],
+    },
     {
       v: 'v2.131', title: 'The title screen, put right', date: '2026-07-17',
       sha: '77d0b9c',
