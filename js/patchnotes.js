@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.130';
+  const VERSION = 'v2.131';
 
   const NOTES = [
+    {
+      v: 'v2.131', title: 'The title screen, put right', date: '2026-07-17',
+      sha: '77d0b9c',
+      items: [
+        'Title screen fixes: the raider count shows again, patch notes fit their page, your name lives in the Loadout panel (click it or press N to change), and renaming no longer blacks out the screen.',
+      ],
+    },
     {
       v: 'v2.130', title: 'Weapons, Hell floors, fullscreen', date: '2026-07-17',
       sha: '12f67e1',
