@@ -1,3 +1,22 @@
+## 2026-07-17 (Sam's title-screen fixes, four reports)
+
+1. PLAYER COUNT MISSING: root cause was NOT client code - the worker's /presence
+   endpoint 404'd live (curl-verified) because server/src/index.js shipped in the
+   v2.129 commit but `npx wrangler deploy` was NEVER RUN. Deployed (version
+   8127c311); /presence now answers {"n":N} and the counter renders. LESSON: a
+   server/ change is not live until wrangler deploy runs - the game repo push
+   does NOT deploy the worker.
+2. PATCH ENTRY TOO BIG: reworded the three v2.130 items short (allowed: item
+   text only, sha/VERSION untouched), shortened the headline, and drawPatchNotes
+   now ellipsis-truncates any headline that would run under the date column.
+3. RAIDER NAME: moved from the top-right corner into the YOUR LOADOUT panel
+   ("DUCK · N to change" under the header), clickable (action:'rename'), N kept.
+4. N = BLACK SCREEN (crash): pressing N on the title entered state 'initials',
+   and draw() fell through to drawRoom - but no run exists on the title, so
+   paletteFor(null) threw EVERY FRAME and the canvas stayed black. draw() now
+   renders the title underneath when state==='initials' && !g.room. Also hid
+   the "undefined ◆ essence" line on the rename path.
+
 ## 2026-07-17 (hell backdrops + fullscreen, Sam's list items 2-3)
 
 HELL BACKDROPS ("more diversity in the backgrounds for the hell levels"): each

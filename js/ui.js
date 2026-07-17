@@ -1065,9 +1065,8 @@ const UI = (() => {
     c.fillStyle = '#0d0d16';
     c.fillRect(0, 0, W, H);
 
-    // #203 whose scores these are: the standing name, changeable with N
-    c.textAlign = 'right'; c.font = '10px monospace'; c.fillStyle = '#7a8698';
-    c.fillText((g.playerName ? 'playing as ' + g.playerName : 'no name set') + '  ·  N to change', W - 14, 16);
+    // #203 the raider's name moved into the YOUR LOADOUT panel (Sam: the corner
+    // line read as clutter, and the loadout is where "who am I playing" belongs)
 
     // faint radial vignette spotlighting the title + play buttons
     {
@@ -1318,6 +1317,11 @@ const UI = (() => {
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
       c.fillText('YOUR LOADOUT', pcx, py + 26);
+      // #203 the raider's name lives here now (was a stray top-right corner line).
+      // Clickable, and N still works.
+      c.font = 'bold 11px monospace'; c.fillStyle = g.playerName ? '#dde3ee' : '#5a6478';
+      c.fillText((g.playerName || 'no name set') + ' · N to change', pcx, py + 42);
+      rects.push({ x: px + 10, y: py + 32, w: pw - 20, h: 14, action: 'rename' });
       // selected class portrait + name
       const cls = classes.find(cl => cl.id === (meta.selectedClass || '')) || classes[0];
       if (cls) {
@@ -1747,7 +1751,14 @@ const UI = (() => {
     let y = top + 12 - scroll;
     for (const rel of notes) {
       c.font = 'bold 14px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText(`${rel.v} - ${rel.title}`, px + 20, y);
+      // a long headline must not run under the date column - truncate with an ellipsis
+      let head = `${rel.v} - ${rel.title}`;
+      const headMax = pw - 40 - 80; // panel minus margins minus the date column
+      if (c.measureText(head).width > headMax) {
+        while (head.length > 4 && c.measureText(head + '…').width > headMax) head = head.slice(0, -1);
+        head += '…';
+      }
+      c.fillText(head, px + 20, y);
       c.font = '11px monospace'; c.fillStyle = '#7a8194';
       c.textAlign = 'right'; c.fillText(rel.date, px + pw - 20, y); c.textAlign = 'left';
       y += 20;
@@ -1974,9 +1985,11 @@ const UI = (() => {
     c.font = 'bold 38px monospace';
     c.fillStyle = '#ffd24c';
     c.fillText(g.renameOnly ? 'WHAT IS YOUR NAME?' : 'NEW HIGH SCORE!', W / 2, 130); // #203 doubles as the rename screen
-    c.font = 'bold 24px monospace';
-    c.fillStyle = '#b88aff';
-    c.fillText(`${g.essenceEarned} ◆ essence`, W / 2, 172);
+    if (!g.renameOnly) { // renaming earns nothing - no essence line
+      c.font = 'bold 24px monospace';
+      c.fillStyle = '#b88aff';
+      c.fillText(`${g.essenceEarned} ◆ essence`, W / 2, 172);
+    }
     c.font = '14px monospace';
     c.fillStyle = '#8fa3bf';
     c.fillText('enter your name', W / 2, 205);

@@ -3806,20 +3806,22 @@
       if (r.action === 'selectPet' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) { g.hoverPet = r.key; break; }
     }
     if (input.pressed('Enter')) { newRun(); return; }
-    // #203 N on the title: change the name your high scores are listed under
-    if (input.pressed('KeyN')) {
+    // #203 N (or clicking your name in the loadout panel): change the name your
+    // high scores are listed under
+    const openRename = () => {
       g.renameOnly = true;
       g.initials = { name: (g.playerName || ''), max: 10 };
       g.state = 'initials'; g.overlayT = 0;
       Sfx.play('ui');
-      return;
-    }
+    };
+    if (input.pressed('KeyN')) { openRename(); return; }
     if (input.mouse.clicked) {
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'start') { newRun(); return; }
           if (r.action === 'coop') { openLobby(); return; }
           if (r.action === 'fullscreen') { toggleFullscreen(); return; }
+          if (r.action === 'rename') { openRename(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
@@ -6638,6 +6640,14 @@
     }
     if (g.state === 'lobby') {
       g.uiRects = UI.drawLobby(c, g);
+      return;
+    }
+    // #203 rename opened FROM THE TITLE: no run exists, so there is no room to
+    // draw behind the overlay - drawing the world here crashed paletteFor(null)
+    // every frame and the screen went black. Draw the title underneath instead.
+    if (g.state === 'initials' && !g.room) {
+      UI.drawTitle(c, g);
+      g.uiRects = UI.drawInitials(c, g);
       return;
     }
 
