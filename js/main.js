@@ -1502,6 +1502,21 @@
   function leaderboardUrl() {
     try { return (Net.relayBase ? Net.relayBase() : '') + '/scores'; } catch { return ''; }
   }
+  // #265 (Sam) TITLE PLAYER COUNT: ping presence with a stable anonymous uid; the
+  // server answers with how many uids it saw in the last 30 minutes. The display
+  // adds the founding 87. Best-effort: no response, no counter - never an error.
+  function pingPresence() {
+    let uid = null;
+    try { uid = localStorage.getItem('drl_uid'); } catch { }
+    if (!uid) { uid = 'u' + Math.random().toString(36).slice(2, 12); try { localStorage.setItem('drl_uid', uid); } catch { } }
+    let base = '';
+    try { base = Net.relayBase ? Net.relayBase() : ''; } catch { }
+    if (!base) return;
+    fetch(base + '/presence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ u: uid }) })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && typeof d.n === 'number') g.playersOnline = 87 + d.n; })
+      .catch(() => { });
+  }
   // #118 the global board can hold only a handful of real scores early on (it launched
   // with almost nothing in it), which made the title show a lonely single raider. Blend
   // the returned global scores with the built-in seed "past raiders" - same trick the
@@ -3662,6 +3677,8 @@
   }
 
   function updateTitle() {
+    // #265 presence heartbeat: once on arrival, then every 60s while on the title
+    if (!g._presT || g.time - g._presT > 60) { g._presT = g.time || 0.001; pingPresence(); }
     if (g.shareMsg && g.shareMsg.t > 0) g.shareMsg.t -= 1 / 60;
     if (g.prestigeConfirm > 0) g.prestigeConfirm -= 1 / 60; // an armed prestige-reset confirm expires
     // #149 (Sam) a death-snapshot can be opened from the scoreboard OR the Top Raiders

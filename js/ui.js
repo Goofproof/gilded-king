@@ -943,6 +943,11 @@ const UI = (() => {
     // tagline directly under the title
     c.font = 'italic 12px monospace'; c.fillStyle = '#8a7340';
     c.fillText('~ carry your light into the deep ~', W / 2, 124);
+    // #265 (Sam) the living count: 87 founders + everyone seen in the last half hour
+    if (g.playersOnline) {
+      c.font = 'bold 11px monospace'; c.fillStyle = '#6ee7a0';
+      c.fillText(`● ${g.playersOnline} raiders carry the light`, W / 2, 140);
+    }
 
     // solo + co-op buttons, side by side
     const startR = { x: W / 2 - 212, y: 152, w: 200, h: 46, action: 'start' };

@@ -51,6 +51,13 @@ export default {
       return env.LEADERBOARD.get(id).fetch(request);
     }
 
+    // #265 /presence -> same global DO: POST {u} pings an anonymous uid, response is
+    // {n: unique uids seen in the last 30 minutes}. Powers the title-screen counter.
+    if (parts[0] === 'presence') {
+      const id = env.LEADERBOARD.idFromName('global');
+      return env.LEADERBOARD.get(id).fetch(request);
+    }
+
     return new Response('not found', { status: 404 });
   },
 };
@@ -143,6 +150,19 @@ export class Leaderboard {
       list = list.filter(x => !(x.initials === ini && x.score === sc));
       await this.state.storage.put('scores', list);
       return json({ removed: before - list.length, top: list.slice(0, 50) });
+    }
+
+    // #265 presence ping: tiny map of anon uid -> last-seen ms, pruned to 30 min.
+    // Path-based so it can never collide with score POSTs.
+    if (new URL(request.url).pathname.replace(/\/+$/, '').endsWith('/presence')) {
+      let b = {}; try { b = await request.json(); } catch { }
+      const u = String(b.u || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
+      const now = Date.now(), CUT = 30 * 60 * 1000;
+      let seen = (await this.state.storage.get('presence')) || {};
+      for (const k in seen) if (now - seen[k] > CUT) delete seen[k];
+      if (u) seen[u] = now;
+      await this.state.storage.put('presence', seen);
+      return json({ n: Object.keys(seen).length });
     }
 
     if (request.method === 'POST') {
