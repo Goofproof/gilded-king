@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.128';
+  const VERSION = 'v2.129';
 
   const NOTES = [
+    {
+      v: 'v2.129', title: 'The raiders are counted', date: '2026-07-17',
+      sha: 'ddb876d',
+      items: [
+        'The title screen counts the living: X raiders carry the light - everyone who played in the last half hour, plus the 87 founders.',
+      ],
+    },
     {
       v: 'v2.128', title: 'The flame in the tab', date: '2026-07-16',
       sha: '22e1b1e',
