@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.129', title: 'The raiders are counted', date: '2026-07-17',
       sha: 'ddb876d',
       items: [
-        'The title screen counts the living: X raiders carry the light - everyone who played in the last half hour, plus the 87 founders.',
+        'The title screen now counts the living: X RAIDERS CARRY THE LIGHT - everyone who has played in the last half hour, standing on the shoulders of the 87 founders.',
       ],
     },
     {
