@@ -2914,7 +2914,10 @@
     // #228 ranger R12: TWO tumbles in the tank. Resting a full cooldown restores both;
     // spending the first leaves the second ready almost immediately.
     if (_qGates && _qGates.cls === 'ranger' && _qGates.rank >= 12) {
-      if (g.time - (a._lastQ === undefined ? -999 : a._lastQ) > a.cdMax) a._stock = 2;
+      // "a full cooldown restores both" - compare against the REAL (hasted) cooldown, not
+      // the raw cdMax. With an abilityHaste trinket the recast lands before raw cdMax, so
+      // the old gate never refilled and the second charge was lost forever (#combat-review).
+      if (g.time - (a._lastQ === undefined ? -999 : a._lastQ) > a.cdMax * (1 - haste) - 0.05) a._stock = 2;
       a._stock = (a._stock === undefined ? 2 : a._stock) - 1;
       a._lastQ = g.time;
       if (a._stock > 0) a.cd = 0.2;
@@ -6381,7 +6384,9 @@
       if (e.type === 'qregen') {         // #230 cleric R8: consecrated ground
         if (e.t >= e.dur) { g.ultFx.splice(i, 1); continue; }
         const p2 = g.player;
-        if (p2 && !p2.dead && Math.hypot(p2.x - e.x, p2.y - e.y) < e.radius) p2.heal((e.hps || 2) * dt, true);
+        // continuous trickle: heal() rounds per-call so hps*dt (~0.2/frame) floors to 0
+        // and the zone healed NOTHING. Add straight to hp like the marathon/root regen do.
+        if (p2 && !p2.dead && Math.hypot(p2.x - e.x, p2.y - e.y) < e.radius) p2.hp = Math.min(p2.maxHp, p2.hp + (e.hps || 2) * dt * (1 + p2.mod('healMult')));
         continue;
       }
       if (e.type === 'miasma') {         // #230 death knight: the rot cloud
@@ -6400,7 +6405,9 @@
         if (e.regen) { // R8: the rot feeds you while anything is withering in it
           let rotting = 0;
           for (const m of g.monsters) if (!m.dead && m._wT > 0) rotting++;
-          if (rotting > 0 && g.player && !g.player.dead) g.player.heal(3 * dt, true);
+          // continuous trickle: heal(3*dt) rounds to 0 every frame, so the rot fed you
+          // NOTHING. Add straight to hp (the marathon/root regen use the same pattern).
+          if (rotting > 0 && g.player && !g.player.dead) g.player.hp = Math.min(g.player.maxHp, g.player.hp + 3 * dt * (1 + g.player.mod('healMult')));
         }
         continue;
       }
