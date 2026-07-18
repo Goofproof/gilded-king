@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.132';
+  const VERSION = 'v2.133';
 
   const NOTES = [
+    {
+      v: 'v2.133', title: 'Barrowlight comes to phones', date: '2026-07-18',
+      sha: 'b3c785e',
+      items: [
+        'The whole game plays on a phone now: tap to start and use every menu, a new pause button to stop or end a run, an on-screen keyboard to type your name, and a reminder to turn your phone sideways.',
+      ],
+    },
     {
       v: 'v2.132', title: 'It wears your face', date: '2026-07-17',
       sha: '0b12433',
