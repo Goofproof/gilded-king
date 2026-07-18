@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.141';
+  const VERSION = 'v2.142';
 
   const NOTES = [
+    {
+      v: 'v2.142', title: 'The Harpy\'s shadow looms three times larger', date: '2026-07-18',
+      sha: '3f38b03',
+      items: [
+        'The Harpy\'s shadow on the first floor is three times bigger now, a huge dark span sweeping the ground beneath her wings.',
+      ],
+    },
     {
       v: 'v2.141', title: 'Swipe to scroll the class list on your phone', date: '2026-07-18',
       sha: '6388cd7',
