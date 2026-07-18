@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.136';
+  const VERSION = 'v2.137';
 
   const NOTES = [
+    {
+      v: 'v2.137', title: 'Co-op: you and your friend find the same pet', date: '2026-07-18',
+      sha: 'cb8d63f',
+      items: [
+        'In co-op, you and your friend now find the SAME companion in a room, not two different ones: before, one of you might befriend an Imp while the other got an Owl in the very same spot.',
+      ],
+    },
     {
       v: 'v2.136', title: 'Healing abilities that did nothing now heal you', date: '2026-07-18',
       sha: '23d67a4',
