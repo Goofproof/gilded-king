@@ -1,3 +1,24 @@
+## 2026-07-17 (STAT-SYSTEM review - 3 fixes: dead Midas trinket + 2 display lies, 6h grind)
+
+Shipped v2.138. Scoped review of weapons/evolutions/trinkets stat math (3 finders x lens
+[aggregation/evolution/trinket] + verify-each; 5 candidates, 4 confirmed [Midas found twice],
+1 refuted [a damage-taken double-negative print that re-read as fine]). RE-VERIFIED each:
+- MIDAS TRINKETS DEAD (player.js:1064, real gameplay bug): computeDmg read the gold-to-damage
+  gift from this.evo.midasPer only, but trinkets (Splinter of Midas 55/40, Philosopher's Stone
+  80/80) write this.trinketMods; equipTrinket never copies midasPer into evo. So the trinkets'
+  HEADLINE gift added +0 (coin/crit prices still applied). Their own display path uses
+  mod('midasPer') (evolutions.js:373) which DID see the trinket -> display vs combat disagreed.
+  Fix: line 1064 now takes min(per)+max(cap) across evo AND trinketMods. Verified LIVE via dbg
+  computeDmg: +10 dmg at 550 coins, +40 (capped) at 2200; was +0.
+- ROLL-CD DISPLAY overstated (ui.js:2362): combat clamps 1-min(0.5,mod('rollCd')) (player.js:1602)
+  but the sheet omitted the cap, showing e.g. -70% when combat gives -50%. Added Math.min(0.5,).
+- ECHO "DEAD SLOT" verdict wrong for casters (evolutions.js:370): #250 made echo re-cast wand/
+  staff spells, but verdictFor only checked arch('light') and warned casters the pick was dead.
+  Added && !magic (magic=arch('wand')||arch('staff'), already computed at :359). Unit-tested via
+  the exported verdictFor (evolutions.test.js: wand/staff/light NOT dead, heavy IS dead).
+134 tests pass. Reviews done: combat/abilities(3 bugs), world-gen/rules/boss(1), stat-system(3).
+Next: co-op net/sync (had a prior 40-agent COOP-REVIEW so may be cleaner), then UI/economy.
+
 ## 2026-07-17 (WORLD-GEN review - co-op pet desync fixed + regression guard, 6h grind)
 
 Shipped v2.137. Scoped adversarial review of world-gen/rules/boss (3 finders x lens
