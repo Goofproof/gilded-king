@@ -60,6 +60,11 @@ const Mobile = (() => {
   // and in co-op it toggles the menu overlay, same as Escape does there.
   const PAUSE = { x: 930, y: 250, r: 16, downT: 0 };
 
+  // the title CLASS STRIP: a horizontal drag that begins on a class card pages the list,
+  // the natural phone gesture (the < > arrows still work for a tap). Tracked by touch id.
+  const strip = { id: null, x: 0 };
+  const STRIP_STEP = 55;   // horizontal px per one class page
+
   // canvas coords from a touch (the canvas is CSS-scaled, so map through the rect)
   function toGame(t) {
     const r = canvas.getBoundingClientRect();
@@ -118,6 +123,9 @@ const Mobile = (() => {
         // iOS raises the soft keyboard ONLY from a focus() inside the real touch
         // gesture (not a frame later), so any typed field is focused right here.
         if (textState()) focusKeyboard();
+        // a touch that lands on a class card can be DRAGGED sideways to page the strip
+        // (the tap still selects - selecting a class is a harmless highlight until PLAY).
+        if (hitsRect(p, 'selectClass')) { strip.id = t.identifier; strip.x = p.x; }
         continue;
       }
       // --- in play ---
@@ -144,6 +152,14 @@ const Mobile = (() => {
       if (t.identifier === stick.id) {
         const p = toGame(t);
         stick.x = p.x; stick.y = p.y;
+      } else if (strip.id !== null && t.identifier === strip.id) {
+        // drag the class strip: each STRIP_STEP of horizontal travel pages it one class.
+        // Dragging LEFT reveals the classes to the right (scrollClasses +1), like a phone list.
+        const dx = toGame(t).x - strip.x;
+        if (Math.abs(dx) >= STRIP_STEP) {
+          if (typeof UI !== 'undefined' && UI.scrollClasses) UI.scrollClasses(dx < 0 ? 1 : -1);
+          strip.x += dx < 0 ? -STRIP_STEP : STRIP_STEP;   // consume one page; keep the remainder
+        }
       }
     }
     e.preventDefault();
@@ -153,6 +169,7 @@ const Mobile = (() => {
     if (!enabled) return;
     for (const t of e.changedTouches) {
       if (t.identifier === stick.id) { stick.id = null; stick.active = false; }
+      if (t.identifier === strip.id) { strip.id = null; }
       for (const b of BUTTONS) {
         if (held[b.key] === t.identifier) { release(b); delete held[b.key]; }
       }
