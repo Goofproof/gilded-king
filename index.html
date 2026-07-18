@@ -33,6 +33,15 @@
 </head>
 <body>
 <canvas id="game" width="960" height="540"></canvas>
+<!-- MOBILE name entry: a hidden, focusable input. touch.js focuses it on the name
+     screen to raise the phone's soft keyboard, then reads its value into the game.
+     font-size:16px stops iOS auto-zooming when it gains focus. -->
+<input id="mkeyb" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+  style="position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;font-size:16px;background:transparent;color:transparent;caret-color:transparent;pointer-events:none">
+<!-- MOBILE: shown by touch.js when the phone is held upright (the 16:9 field is a thin strip in portrait). -->
+<div id="rotate" style="display:none;position:fixed;inset:0;z-index:10;background:#0b0b12;color:#c9a86a;
+  font:600 18px system-ui,sans-serif;align-items:center;justify-content:center;text-align:center;padding:24px">
+  Turn your phone sideways to play</div>
 <!-- Plain script tags, no modules: works from a local server AND by double-clicking the file. -->
 <script src="js/audio.js"></script>
 <script src="js/fx.js"></script>

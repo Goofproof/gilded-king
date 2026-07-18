@@ -31,7 +31,12 @@ const Mobile = (() => {
 
   let enabled = false;
   let W = 960, H = 540;
-  let canvas = null, input = null, getG = null;
+  let canvas = null, input = null;
+  // start() fires on a raw touchstart and has no `g`. update()/draw() DO get `g`
+  // every frame, so they stash the live state + game here for start() to read. This
+  // is what lets a tap KNOW whether it is a menu click or an in-play control.
+  let curState = null, curG = null;
+  let kbd = null;   // the hidden <input> that raises the phone's soft keyboard (name entry)
 
   // the left thumb: a floating stick that appears where you put your thumb down
   const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, active: false };
@@ -48,6 +53,12 @@ const Mobile = (() => {
   ];
   const held = {};   // buttonKey -> touch identifier
 
+  // the PAUSE pip. Drawn in the play HUD, right-edge centre (clear of the top-left
+  // health bar, the top-right minimap and the bottom-right button cluster). A tap
+  // synthesizes 'Escape', which is exactly how the keyboard opens the pause menu -
+  // and in co-op it toggles the menu overlay, same as Escape does there.
+  const PAUSE = { x: 930, y: 250, r: 16, downT: 0 };
+
   // canvas coords from a touch (the canvas is CSS-scaled, so map through the rect)
   function toGame(t) {
     const r = canvas.getBoundingClientRect();
@@ -63,24 +74,44 @@ const Mobile = (() => {
 
   let onUlt = null;
 
+  function clickAt(p) {
+    // a tap = a left mouse click at that point. Menus, the title screen, the level-up
+    // cards, the game-over screen and the pause menu ALL dispatch off input.mouse.clicked
+    // landing on a uiRect (handled in main.js) - so this is how every menu is tapped.
+    input.mouse.x = p.x; input.mouse.y = p.y;
+    input.mouse.clicked = true; input.mouse.down = true; input.mouse.moved = true;
+  }
+
   function start(e) {
     if (!enabled) return;
+    // THE root rule: the movement stick and the six thumb buttons exist ONLY while
+    // playing. Off play (title, cards, game-over, pause, lobby...) every tap is a click,
+    // whatever half of the screen it lands in - otherwise the whole LEFT half of every
+    // centred menu (SOLO PLAY, the leftmost card, PLAY AGAIN, the race tiles) is dead,
+    // because a left-half touch used to arm the invisible stick and never clicked.
+    const inPlay = curState === 'play';
     for (const t of e.changedTouches) {
       const p = toGame(t);
-      // a tap on the right half that is not on a button still counts as a CLICK, so
-      // menus, the title screen and the level-up cards all work by tapping them
+      if (!inPlay) {
+        clickAt(p);
+        // iOS raises the soft keyboard ONLY from a focus() inside the real touch
+        // gesture (not a frame later), so name entry is focused right here.
+        if (curState === 'initials') focusKeyboard();
+        continue;
+      }
+      // --- in play ---
       let onButton = false;
       for (const b of BUTTONS) {
         if (hit(p, b) && held[b.key] === undefined) { held[b.key] = t.identifier; press(b); onButton = true; break; }
       }
       if (onButton) continue;
+      if (hit(p, PAUSE)) { input.just.add('Escape'); PAUSE.downT = 0.18; continue; }
       if (p.x < W * 0.5 && stick.id === null) {     // left half -> the movement stick
         stick.id = t.identifier; stick.active = true;
         stick.ox = p.x; stick.oy = p.y; stick.x = p.x; stick.y = p.y;
       } else {
-        // anywhere else: a tap is a click (menus, cards, buttons in the UI)
-        input.mouse.x = p.x; input.mouse.y = p.y;
-        input.mouse.clicked = true; input.mouse.down = true; input.mouse.moved = true;
+        // right half, not a button: a click (manual attack when auto-attack is off)
+        clickAt(p);
       }
     }
     e.preventDefault();
@@ -112,6 +143,10 @@ const Mobile = (() => {
   // Called once per frame BEFORE the game reads input.
   function update(g) {
     if (!enabled) return;
+    curG = g; curState = g && g.state;          // so start() knows menu-vs-play
+    if (PAUSE.downT > 0) PAUSE.downT -= 1 / 60;  // brief press flash on the pause pip
+    // let go of the phone keyboard the moment we leave the name screen
+    if (kbd && curState !== 'initials' && typeof document !== 'undefined' && document.activeElement === kbd) kbd.blur();
     // the analog stick -> input.stick, read by player.js
     if (stick.active) {
       let dx = stick.x - stick.ox, dy = stick.y - stick.oy;
@@ -198,7 +233,59 @@ const Mobile = (() => {
       c.font = `bold ${b.r > 28 ? 12 : 11}px monospace`;
       c.fillText(b.label, b.x, b.y + 4);
     }
+    // the PAUSE pip (two bars), so a phone player can stop, end the run to bank the
+    // score, or head to the menu - none of which was reachable without a keyboard.
+    const down = PAUSE.downT > 0;
+    c.globalAlpha = down ? 0.75 : 0.34;
+    c.fillStyle = '#9fb0c8';
+    c.beginPath(); c.arc(PAUSE.x, PAUSE.y, PAUSE.r, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = down ? 1 : 0.7;
+    c.strokeStyle = '#9fb0c8'; c.lineWidth = 2;
+    c.beginPath(); c.arc(PAUSE.x, PAUSE.y, PAUSE.r, 0, Math.PI * 2); c.stroke();
+    c.globalAlpha = 1; c.fillStyle = '#0b0e14';
+    c.fillRect(PAUSE.x - 5, PAUSE.y - 6, 3, 12);
+    c.fillRect(PAUSE.x + 2, PAUSE.y - 6, 3, 12);
     c.restore();
+  }
+
+  // NAME ENTRY: a phone has no physical keyboard, so the 'initials' screen (high-score
+  // name + the title rename) could never be typed - every player saved as 'AAA'. One
+  // hidden, focusable <input> raises the native soft keyboard; its typed value flows
+  // straight into g.initials.name, and Enter/Escape commit or cancel the same as the
+  // desktop keys. The element lives in index.html (id "mkeyb").
+  function focusKeyboard() {
+    if (!kbd || !curG || !curG.initials) return;
+    kbd.maxLength = curG.initials.max || 12;
+    kbd.value = curG.initials.name || '';
+    try { kbd.focus(); } catch (e) { /* an embed can refuse focus; harmless */ }
+  }
+  function wireKeyboard() {
+    if (typeof document === 'undefined') return;
+    kbd = document.getElementById('mkeyb');
+    if (!kbd) return;
+    kbd.addEventListener('input', () => {
+      if (!curG || !curG.initials) return;
+      let v = kbd.value;
+      if (!curG.renameOnly) v = v.toUpperCase();  // the high-score board is uppercase; a rename keeps its case
+      curG.initials.name = v.slice(0, curG.initials.max || 12);
+    });
+    kbd.addEventListener('keydown', ev => {
+      // stop main.js's window keydown listener from ALSO seeing these (double input)
+      ev.stopPropagation();
+      if (ev.key === 'Enter') { input.just.add('Enter'); kbd.blur(); }
+      else if (ev.key === 'Escape') { input.just.add('Escape'); kbd.blur(); }
+    });
+  }
+
+  // PORTRAIT: the play field is a fixed 16:9, so upright it renders as a thin strip.
+  // Show a "rotate your phone" overlay instead of letting the son squint at a sliver.
+  // Prompt only - the internal resolution never changes (co-op seed parity).
+  function syncOrientation() {
+    if (typeof document === 'undefined') return;
+    const el = document.getElementById('rotate');
+    if (!el) return;
+    const portrait = window.innerHeight > window.innerWidth;
+    el.style.display = portrait ? 'flex' : 'none';
   }
 
   // wire up. `ultFn` fires the ultimate (right-click on desktop).
@@ -207,6 +294,7 @@ const Mobile = (() => {
     W = cv.width; H = cv.height;
     if (!isTouch) return false;
     enabled = true;
+    wireKeyboard();
     // the page must not scroll, zoom, or fire a 300ms synthetic click
     cv.addEventListener('touchstart', start, { passive: false });
     cv.addEventListener('touchmove', move, { passive: false });
@@ -214,6 +302,9 @@ const Mobile = (() => {
     cv.addEventListener('touchcancel', end, { passive: false });
     document.body.style.touchAction = 'none';
     document.body.style.userSelect = 'none';
+    syncOrientation();
+    window.addEventListener('resize', syncOrientation);
+    window.addEventListener('orientationchange', syncOrientation);
     return true;
   }
 
