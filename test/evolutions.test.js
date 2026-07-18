@@ -4,6 +4,23 @@ import { loadGame } from './harness.js';
 const { Evolutions } = loadGame();
 const STATS = Object.keys(Evolutions.STAT_NAMES);
 
+describe('verdictFor: echo is live for casters, not just light melee (regression)', () => {
+  // #250 made echo re-cast wand/staff spells, but the level-up advice still said
+  // "DEAD SLOT - echo only fires on a light weapon", scaring casters off a live pick.
+  const echoOpt = { fx: { echo: 0.25 }, desc: 'echo your attack' };
+  const carrying = a => ({ weapons: { a: { archetype: a } }, mod: () => 0 });
+  it('a wand or staff carrier is NOT told echo is a dead slot', () => {
+    expect(Evolutions.verdictFor(carrying('wand'), echoOpt).tag).not.toBe('DEAD SLOT');
+    expect(Evolutions.verdictFor(carrying('staff'), echoOpt).tag).not.toBe('DEAD SLOT');
+  });
+  it('a light-weapon carrier is NOT told echo is a dead slot', () => {
+    expect(Evolutions.verdictFor(carrying('light'), echoOpt).tag).not.toBe('DEAD SLOT');
+  });
+  it('a heavy-weapon carrier (neither light nor caster) IS warned it is dead', () => {
+    expect(Evolutions.verdictFor(carrying('heavy'), echoOpt).tag).toBe('DEAD SLOT');
+  });
+});
+
 describe('Evolutions table', () => {
   it('has the 9 stat paths', () => {
     expect(STATS).toEqual(
