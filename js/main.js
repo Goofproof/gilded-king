@@ -1437,8 +1437,11 @@
     if (g.runEnded) return; // never bank twice (death/victory race)
     g.runEnded = true;
     if (typeof Ach !== 'undefined') Ach.endRun(g, true); // #86 victory: wins + class-win
-    g.essenceEarned = g.player.essenceRun + Math.floor(g.player.coins * 0.10) + 20; // victory bonus
-    g.meta.essence += g.essenceEarned;
+    g.essenceEarned = g.player.essenceRun + Math.floor(g.player.coins * 0.10) + 20; // victory bonus (score display)
+    // bank only the UN-checkpointed part, exactly like every death path - otherwise any
+    // essence already banked at a mid-descent checkpoint is double-counted. onVictory is a
+    // legacy safety net today (the run descends forever), so this is defensive consistency.
+    g.meta.essence += (g.player.essenceRun - g.essenceCheckpoint) + Math.floor(g.player.coins * 0.10) + 20;
     saveMeta();
     endToScreen('win');
   }
