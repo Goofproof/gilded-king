@@ -1,3 +1,21 @@
+## 2026-07-17 (WORLD-GEN review - co-op pet desync fixed + regression guard, 6h grind)
+
+Shipped v2.137. Scoped adversarial review of world-gen/rules/boss (3 finders x lens
+[determinism/rules/boss] + verify-each). All 3 finders independently found the SAME one bug
+(0 others), verifier-confirmed high: rollPet() picked the pet SPECIES with raw Math.random
+(descent.js:218) inside the SEEDED generateFloor path (dungeon.js:378), while placement/
+position/bob and the sibling merc-class + encounter all use the seeded rnd. In co-op each peer
+runs generateFloor locally with the shared seed and only g.monsters are host-synced (r.pet is
+never sent), so both peers placed a pet in the same room but rolled DIFFERENT species -> divergent
+run buff AND divergent permanent stable unlock (recordPetUnlock). RE-VERIFIED in source; fix
+mirrors siblings: rollPet(rnd) threads the seeded stream (falls back to Math.random for any
+non-gen caller); dungeon.js:378 passes rnd. Added test/dungeon.test.js pet-species determinism
+guard (same seed -> identical pet type+pos across two generateFloor calls; 160 seeds x floors
+[6,12]; asserts petsSeen>0 so non-vacuous). PROVED it bites: reverting to Math.random fails it
+in 26ms; with the fix 3.7s pass. The old layout sig() only hashed room TYPE, which is why this
+slipped through. 133 tests pass. Rules/boss engine otherwise clean (well-guarded by rules.test/
+paradiso.test). Next review target: weapons/evolutions/trinkets stat math, or co-op net/sync.
+
 ## 2026-07-17 (COMBAT review - 3 real bugs fixed, 6h grind)
 
 Shipped v2.136. Ran a scoped adversarial review of combat/abilities (3 finders x lens
