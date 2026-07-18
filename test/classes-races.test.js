@@ -41,6 +41,25 @@ describe('#156 the five new classes', () => {
     expect(Abilities.classAbility('mesmer').clones).toBe(3);
   });
 
+  it('BARD (Sam): the class + its Discord Q are wired end to end', () => {
+    const c = PlayerDef.classById('bard');
+    expect(c.id).toBe('bard');
+    expect(c.desc.length).toBeGreaterThan(0);
+    const q = Abilities.classAbility('bard');
+    expect(q.kind).toBe('provoke');
+    expect(q.cdMax).toBeGreaterThan(0);
+    expect(q.dur).toBeGreaterThan(0);       // the brawl lasts a while
+    expect(q.radius).toBeGreaterThan(0);    // it has reach
+    expect(q.dps).toBeGreaterThan(0);       // the R12 rot has a rate
+    // VIGOR rules the Q (invest VIGOR -> milestones), and the rank reads that stat
+    expect(Abilities.CLASS_STAT.bard).toBe('VIGOR');
+    expect(Abilities.qRank('bard', { VIGOR: 8 })).toBe(8);
+    // the milestone ladder: haste @4, party regen @8, rot @12 - all shipped (impl:true)
+    const ms = Abilities.Q_MILESTONES.bard;
+    expect(ms.map(m => m.at)).toEqual([4, 8, 12]);
+    expect(ms.every(m => m.impl)).toBe(true);
+  });
+
   it('the necromancer scales: 1 knight, then 2, then 3 knights + 2 archers', () => {
     // the tier ladder lives in main.js castAbility; assert the shape it depends on so a
     // refactor that renames a level band trips here rather than in a 12-year-old's run.

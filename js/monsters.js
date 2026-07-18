@@ -429,6 +429,36 @@ const Monsters = (() => {
       }
     }
 
+    // BARD DISCORD (Sam): provoked, the monster turns on its OWN KIND - it chases and
+    // strikes the nearest other monster instead of the players, throwing no attacks your
+    // way, until the timer runs out. R4 hastes it so they close and trade blows faster.
+    // Bosses are immune. Host-authoritative: guests see the brawl via the mob snapshots.
+    if (m.provoked > 0 && !m.isBoss) {
+      m.provoked -= dt;
+      let foe = null, fd = 1e9;
+      for (const o of g.monsters) {
+        if (o === m || o.dead || o.spawnT > 0 || o.isBoss) continue;
+        const d = Math.hypot(o.x - m.x, o.y - m.y);
+        if (d < fd) { fd = d; foe = o; }
+      }
+      if (foe) {
+        const dx = foe.x - m.x, dy = foe.y - m.y, d = Math.hypot(dx, dy) || 1;
+        const sp = (m.speed || 60) * (m.provHaste || 1) * (m.chillT > 0 ? (m.chillMul || 1) : 1);
+        m.facing = Math.atan2(dy, dx);
+        if (d > m.r + foe.r + 2) {
+          m.x += (dx / d) * sp * dt; m.y += (dy / d) * sp * dt;
+          clampToField(m);
+        } else if (m.contactCd <= 0) {
+          applyDamage(foe, m.dmg, g, {});
+          m.contactCd = 0.7 / (m.provHaste || 1);
+          Fx.burst((m.x + foe.x) / 2, (m.y + foe.y) / 2, ['#ff6ea0', '#fff'], 5, { speed: 110, life: 0.28 });
+        }
+        if (Math.random() < 0.03) Fx.text(m.x, m.y - m.r - 8, '✦', '#ff8ad0', 11);
+      }
+      resolveTerrain(m, g);
+      return;   // provoked: no player-targeting AI this frame
+    }
+
     // #68/#94 FORMATION: a prepared UNIT. It doesn't sit still - it ADVANCES as one
     // rigid block (base-of-fire + maneuver): every mob's slot creeps forward along
     // the SAME shared axis so relative spacing is preserved, while ranged units lay

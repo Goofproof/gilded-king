@@ -162,6 +162,9 @@ const Abilities = (() => {
     // #258 (Sam) the Gambler: JACKPOT graduated from the fusion table to a class Q
     gambler:     { name: 'Jackpot',       color: '#ffce54', kind: 'strike', dmg: 110, radius: 145, gamble: 0.25, coinScale: true, reel: true, cdMax: 9,
                    desc: 'Every pull costs 5 gold - and one in four hits TRIPLE and showers it back. Held gold makes pulls hit harder; DEBT makes them weaker' },
+    // BARD (Sam): DISCORD - a provocation that turns the enemy against itself.
+    bard:        { name: 'Discord',       color: '#e06ec0', kind: 'provoke', dur: 6, radius: 320, dps: 18, cdMax: 11,
+                   desc: 'Provoke every enemy into a brawl - they turn on each other. Grows to haste the fight, heal your party, and rot the provoked' },
   };
   // #109 every class Q grows with player level (like the Engineer's turret count).
   // Returns multipliers for the value-driven Qs; the turret/summon Qs additionally
@@ -185,6 +188,7 @@ const Abilities = (() => {
     mage: 'ARCANE', summoner: 'ARCANE', mesmer: 'ARCANE', necromancer: 'ARCANE', pyromancer: 'ARCANE',
     paladin: 'VIGOR', cleric: 'VIGOR', druid: 'VIGOR', deathknight: 'VIGOR',
     gambler: 'FORTUNE', // #258
+    bard: 'VIGOR',      // the song is support: haste, regen, then rot
   };
 
   // #226 (Q-DESIGN.md, agreed with Sam 2026-07-15) THE Q RANK SYSTEM.
@@ -215,6 +219,7 @@ const Abilities = (() => {
     cleric:      { rider: 0,    perPoint: { heal: 0.01, radius: 6 } },
     druid:       { rider: 0,    perPoint: {} },          // forms rework in the VIGOR wave
     deathknight: { rider: 0.02, perPoint: { dps: 3 } }, // #230 Miasma: rider is rot %/s, points feed the poison
+    bard:        { rider: 0,    perPoint: { dur: 0.2, dps: 2 } }, // longer brawl + a meaner rot per VIGOR point
   };
 
   function qRank(classId, statPoints) {
@@ -241,6 +246,7 @@ const Abilities = (() => {
     cleric:      [{ at: 4, txt: 'Heals cure poison and bleed', impl: true }, { at: 8, txt: 'Leaves a consecrated regen circle', impl: true }, { at: 12, txt: 'Healed allies gain a shield', impl: true }],
     druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: true }, { at: 8, txt: 'Each form gains a MOVE', impl: true }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: true }],
     deathknight: [{ at: 4, txt: 'THE BLACK WIND: it follows you', impl: true }, { at: 8, txt: 'Regenerate while enemies rot', impl: true }, { at: 12, txt: 'Poison kills RISE as your skeletons', impl: true }],
+    bard:        [{ at: 4, txt: 'The brawl HASTES everyone - your party and the fighting enemies', impl: true }, { at: 8, txt: 'You and your allies regenerate health while it plays', impl: true }, { at: 12, txt: 'Provoked enemies also ROT - poison over time', impl: true }],
   };
 
   function classAbility(classId) {

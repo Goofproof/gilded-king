@@ -2526,6 +2526,31 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ff9a9a'], 34, { speed: 300, life: 0.6, glow: true });
       Fx.shake(6, 0.28);
+    } else if (a.kind === 'provoke') {
+      // BARD Discord: provoke every enemy in range into a brawl - they turn on each other.
+      // Milestones (VIGOR rank): 4 = haste the fight + your party; 8 = party regen; 12 = they rot.
+      const R = a.radius || 320;
+      const rank = _qGates ? _qGates.rank : 0;
+      const dur = a.dur || 6;
+      const hasted = rank >= 4, rots = rank >= 12;
+      for (const m of g.monsters) {
+        if (m.dead || m.isBoss || m.spawnT > 0 || Math.hypot(m.x - p.x, m.y - p.y) >= R + m.r) continue;
+        m.provoked = dur;
+        m.provHaste = hasted ? 1.4 : 1;                 // R4: they close + trade blows faster
+        if (rots) m.poison = { t: dur, dps: a.dps || 18, tick: 0.5 };  // R12: rot while they brawl
+        if (Math.random() < 0.6) Fx.text(m.x, m.y - m.r - 8, '✦', a.color, 12);
+      }
+      if (hasted) p.buffs.hasteT = Math.max(p.buffs.hasteT, dur);        // R4: your party dances too
+      if (rank >= 8) g.bardSong = { t: dur, hps: Math.round(p.maxHp * 0.02) }; // R8: real regen (added straight to hp)
+      // co-op: bless nearby allies with the same haste/regen; their own client applies it
+      if (_qGates && _qGates.cls === 'bard' && (hasted || rank >= 8) && g.coop && typeof Net !== 'undefined') {
+        for (const [id, rp] of g.remotePlayers) {
+          if (rp.downed || !rp.room || !g.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue;
+          Net.sendR({ t: 'qbuff', to: id, k: 'song', dur, haste: hasted ? 1 : 0, regen: rank >= 8 ? 1 : 0 });
+        }
+      }
+      Fx.burst(p.x, p.y, [a.color, '#fff', '#ffb3e6'], 32, { speed: 280, life: 0.6, glow: true });
+      Fx.shake(5, 0.22); Sfx.play('ui');
     } else if (a.kind === 'ftoggle') { // #256 PHILOSOPHER'S STONE: gold burns while it's lit
       if (p.fstance && p.fstance.id === 'stone') {
         p.fstance = null;
@@ -4216,7 +4241,13 @@
     // #227 a teammate's Q blessed you (barb R8 rage / adventurer R12 adrenaline)
     Net.on('qbuff', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
-      const P = g.player, d = Math.max(0.5, Math.min(6, +m.dur || 3));
+      const P = g.player, d = Math.max(0.5, Math.min(8, +m.dur || 3));
+      if (m.k === 'song') { // BARD Discord: haste + regen for the party, no rage
+        if (m.haste) P.buffs.hasteT = Math.max(P.buffs.hasteT, d);
+        if (m.regen) g.bardSong = { t: d, hps: Math.round(P.maxHp * 0.02) };
+        Fx.text(P.x, P.y - 30, 'DISCORD!', '#e06ec0', 12);
+        return;
+      }
       P.buffs.rageT = Math.max(P.buffs.rageT, d);
       if (m.k === 'adren') P.buffs.hasteT = Math.max(P.buffs.hasteT, d);
       Fx.text(P.x, P.y - 30, m.k === 'adren' ? 'ADRENALINE!' : 'RAGE!', '#d6482e', 12);
@@ -5418,6 +5449,13 @@
     const pInput = g.coopMenu ? IDLE_INPUT : input;
     if (!p.dead && pInput.pressed('Tab')) p.swapWeapon();
     p.update(dt, g, pInput);
+    // BARD Discord R8: the song regenerates the party. Added STRAIGHT to hp (heal() rounds a
+    // per-frame trickle to 0), so it genuinely heals - exactly what Sam asked for.
+    if (g.bardSong) {
+      g.bardSong.t -= dt;
+      if (p && !p.dead) p.hp = Math.min(p.maxHp, p.hp + g.bardSong.hps * dt);
+      if (g.bardSong.t <= 0) g.bardSong = null;
+    }
     // #156 DEATH KNIGHT: the rune ate a killing blow this frame - DEATH OVER EVERYTHING.
     // player.hurt() only raises the flag; the room is detonated here so the blast is not
     // resolved inside the damage path it was triggered from.

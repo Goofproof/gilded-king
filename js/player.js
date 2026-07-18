@@ -59,6 +59,10 @@ const PlayerDef = (() => {
     { id: 'gambler',     name: 'Gambler',      color: '#ffce54', icon: '⛀', arch: 'light',
       desc: 'Starts with a dagger and 40 gold. +10% coins from kills. FORTUNE rules its Q.', coins: 40, fx: { coin: 0.10 },
       q: 'Jackpot',       qDesc: 'Pull the lever: the reels spin, then the strike lands - one in four hits TRIPLE and showers gold.' },
+    // BARD (Sam): a support caster who turns the room against itself. VIGOR rules its Q.
+    { id: 'bard',        name: 'Bard',         color: '#e06ec0', icon: '♪', arch: 'wand',
+      desc: 'Starts with a wand. Magic 1, +8% move speed. Turns the enemy against itself.', magic: 1, fx: { spd: 0.08 },
+      q: 'Discord',       qDesc: 'Provoke every enemy into a brawl - they turn on each other. Later it hastes the fight, heals your party, and rots the provoked.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -594,7 +598,7 @@ const PlayerDef = (() => {
     const id = (typeof cls === 'string') ? cls : (cls && cls.id) || '';
     const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8',
       mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f',
-      gambler: '#8a6f2a' }[id] || '#5b6884';
+      gambler: '#8a6f2a', bard: '#a8478f' }[id] || '#5b6884';
     const race = raceById(raceId);
     c.save();
     c.translate(cx, cy);
