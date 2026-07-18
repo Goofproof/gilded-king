@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.133';
+  const VERSION = 'v2.134';
 
   const NOTES = [
+    {
+      v: 'v2.134', title: 'Join a game and type on your phone', date: '2026-07-18',
+      sha: '939e5d1',
+      items: [
+        'On your phone you can now type a friend\'s room code to join their game, set your name in the co-op menu, and tap the corner button to go fullscreen.',
+      ],
+    },
     {
       v: 'v2.133', title: 'Barrowlight comes to phones', date: '2026-07-18',
       sha: 'b3c785e',
