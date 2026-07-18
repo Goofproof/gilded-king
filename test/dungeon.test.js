@@ -46,6 +46,25 @@ describe('Dungeon.generateFloor', () => {
     expect(f2.rooms.some(r => r.type === 'boss')).toBe(false);
   });
 
+  it('the pet SPECIES is deterministic per seed (co-op peers must roll the same pet, not just place one)', () => {
+    // regression: rollPet() used raw Math.random, so co-op host+guest placed a pet in the
+    // same seeded room but disagreed on WHICH pet (Imp vs Owl -> different buff + stable unlock).
+    const petsOf = d => d.rooms.filter(r => r.pet)
+      .map(r => `${r.gx},${r.gy}:${r.pet.type}@${Math.round(r.pet.x)},${Math.round(r.pet.y)}`).sort();
+    let petsSeen = 0;
+    for (let s = 0; s < 160; s++) {
+      const seed = s * 13 + 7;
+      for (const floor of [6, 12]) {  // deeper floors have more treasure rooms -> more pets per gen
+        const a = Dungeon.generateFloor(floor, seed);
+        const b = Dungeon.generateFloor(floor, seed);
+        const pa = petsOf(a);
+        petsSeen += pa.length;
+        expect(petsOf(b)).toEqual(pa);   // same seed -> identical pet species + position
+      }
+    }
+    expect(petsSeen).toBeGreaterThan(0); // the sample must actually exercise the pet path
+  });
+
   it('every room is reachable from start (connected graph)', () => {
     const d = Dungeon.generateFloor(4, 314);
     const seen = new Set(['0,0']);
