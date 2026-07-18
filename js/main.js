@@ -1104,7 +1104,10 @@
       const toadIdx = m.isDescentBoss ? g.circleBossSeen : 0;
       g.pendingDescent = { toadIdx, forest: !!m.forestBoss }; // #251 the Harpy opens plain stairs, no Toad
       // P1-E: tell guests the boss fell so they clear it + share the victory
-      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0, fb: m.forestBoss ? 1 : 0 });
+      // sendR (reliable): 'bossDead' is the ONLY thing besides a floor rebuild that clears
+      // the guest's boss proxy. On the unreliable channel a single dropped packet leaves the
+      // guest boxed in with a phantom boss and locked doors until the host descends. #coop-review
+      if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.sendR({ t: 'bossDead', x: Math.round(m.x), y: Math.round(m.y), toad: toadIdx, king: g.kingSlain ? 1 : 0, fb: m.forestBoss ? 1 : 0 });
     } else if (m.elite && Math.random() < 0.3) {
       // elites drop gear far more often than trash mobs
       dropGearInstanced('weapon', m.x, m.y, { tier, minRarity: 1, luck: 0.4 + 0.1 * (g.alarm || 0) }); // #239
@@ -6344,7 +6347,12 @@
         s.fell = true;
         Fx.shake(5, 0.22); Sfx.play('explode');
         Fx.burst(s.x, s.y, ['#7a6a5a', '#3a2a1a', '#aaa'], 20, { speed: 240, life: 0.5, grav: 320 });
-        for (const t of g.partyTargets()) if (Math.hypot(t.x - s.x, t.y - s.y) < R + t.r) g.hurtTarget(t, DMG, s.x, s.y, null);
+        // PER-CLIENT hazard: stalactites spawn near the LOCAL player (see above), and each
+        // client runs this spawner, so damage ONLY the local player. Phit-ing remote peers
+        // double-hit the guest (its own local stalactites already damage it) with hazards it
+        // can neither see nor dodge because they were spawned near the host. #coop-review
+        const lp = g.player;
+        if (lp && !lp.dead && Math.hypot(lp.x - s.x, lp.y - s.y) < R + lp.r) g.hurtTarget(lp, DMG, s.x, s.y, null);
       }
       if (s.fell && (s.boom += dt) >= 0.4) g.stalactites.splice(i, 1);
     }
