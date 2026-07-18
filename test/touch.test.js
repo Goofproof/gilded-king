@@ -54,8 +54,8 @@ function makeMobile({ portrait = false } = {}) {
     (loc, win, nav, doc);
 
   const input = { keys: new Set(), just: new Set(), mouse: { x: 0, y: 0, down: false, clicked: false, moved: false }, stick: null };
-  let ultCalls = 0;
-  Mobile.init(canvas, input, () => { ultCalls++; });
+  let ultCalls = 0, fsCalls = 0;
+  Mobile.init(canvas, input, () => { ultCalls++; }, () => { fsCalls++; });
 
   // the canvas rect is 0,0 -> 960x540, so client coords ARE game coords (toGame is 1:1)
   const ev = touches => ({ changedTouches: touches, preventDefault() {} });
@@ -63,6 +63,7 @@ function makeMobile({ portrait = false } = {}) {
   return {
     Mobile, input, kbd, rotate, doc,
     ults: () => ultCalls,
+    fs: () => fsCalls,
     frame: g => Mobile.update(g),                       // one pre-input frame at state g
     down: (x, y, id) => handlers.touchstart(ev([T(x, y, id)])),
     move: (x, y, id) => handlers.touchmove(ev([T(x, y, id)])),
@@ -147,39 +148,57 @@ describe('mobile: the thumb buttons are cold outside play (no null-player ULT cr
   });
 });
 
-describe('mobile: soft-keyboard name entry', () => {
-  it('a tap on the initials screen focuses the hidden input and routes typing into the game', () => {
+describe('mobile: soft-keyboard text entry (a pure keystroke source)', () => {
+  it('a tap on the initials screen focuses the hidden input and types are synthesized as KeyCodes', () => {
     const m = makeMobile();
-    const g = { state: 'initials', initials: { name: '', max: 10 }, renameOnly: false };
-    m.frame(g);
+    m.frame({ state: 'initials', initials: { name: '', max: 10 } });
     m.down(400, 200);                    // any tap on the name screen
     expect(m.kbd.focused).toBe(true);    // iOS needs focus() inside the gesture
-    // the player types "sam" on the soft keyboard -> the <input> value changes
-    m.kbd.value = 'sam';
-    m.kbd.fire('input');
-    expect(g.initials.name).toBe('SAM'); // high-score board is uppercase
-    // Enter commits: it synthesizes the same key the desktop handler reads
+    // the soft keyboard types "sam" -> the game's updateInitials reads these from input.just
+    m.kbd.value = 'sam'; m.kbd.fire('input');
+    expect([...m.input.just]).toEqual(['KeyS', 'KeyA', 'KeyM']);  // uppercase KeyCodes, like desktop
+    // a delete shortens the buffer -> Backspace
+    m.clearFrame(); m.kbd.value = 'sa'; m.kbd.fire('input');
+    expect(m.input.just.has('Backspace')).toBe(true);
+    // Enter commits (same key the desktop handler reads)
     m.kbd.fire('keydown', { key: 'Enter', stopPropagation() {} });
     expect(m.input.just.has('Enter')).toBe(true);
   });
 
-  it('a rename keeps its original case (not the uppercase board rule)', () => {
+  it('the co-op JOIN screen focuses the keyboard and feeds the room code', () => {
     const m = makeMobile();
-    const g = { state: 'initials', initials: { name: '', max: 12 }, renameOnly: true };
-    m.frame(g);
-    m.down(400, 200);
-    m.kbd.value = 'Sam';
-    m.kbd.fire('input');
-    expect(g.initials.name).toBe('Sam');
+    m.frame({ state: 'lobby', lobby: { mode: 'join', entry: '' } });
+    m.down(480, 260);
+    expect(m.kbd.focused).toBe(true);
+    m.kbd.value = 'K7'; m.kbd.fire('input');
+    expect([...m.input.just]).toEqual(['KeyK', 'Digit7']); // updateLobby filters + appends these
   });
 
-  it('leaving the name screen blurs the keyboard', () => {
+  it('the keyboard does not focus on the co-op HOST screen (no typing there)', () => {
+    const m = makeMobile();
+    m.frame({ state: 'lobby', lobby: { mode: 'host' } });
+    m.down(480, 260);
+    expect(m.kbd.focused).toBe(false);
+  });
+
+  it('leaving every typed field blurs the keyboard', () => {
     const m = makeMobile();
     m.frame({ state: 'initials', initials: { name: '', max: 10 } });
     m.down(400, 200);
     expect(m.kbd.focused).toBe(true);
     m.frame({ state: 'title' });         // committed / cancelled -> back to the title
     expect(m.kbd.focused).toBe(false);
+  });
+});
+
+describe('mobile: fullscreen fires inside the touch gesture', () => {
+  it('tapping the fullscreen rect calls the toggle synchronously and does not also click', () => {
+    const m = makeMobile();
+    // the game exposes the ⛶ hit-rect in uiRects on the title
+    m.frame({ state: 'title', uiRects: [{ action: 'fullscreen', x: 12, y: 12, w: 30, h: 30 }] });
+    m.down(27, 27);
+    expect(m.fs()).toBe(1);                 // toggled inside the gesture
+    expect(m.input.mouse.clicked).toBe(false); // consumed, so the frame loop won't double-toggle
   });
 });
 
