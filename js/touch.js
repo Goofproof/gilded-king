@@ -65,12 +65,20 @@ const Mobile = (() => {
   const strip = { id: null, x: 0 };
   const STRIP_STEP = 55;   // horizontal px per one class page
 
+  // CONTROL SCALE (Sam): the stick + buttons are sized in the fixed 960x540 space, so on a
+  // BIG display (desktop / a large tablet showing the touch controls) they render huge. Shrink
+  // them there; a real phone (small rendered canvas) is left at full, finger-friendly size.
+  // Geometry is scaled around the bottom-right corner each frame into b.dx/b.dy/b.dr.
+  let ctlS = 1;
+  const CAX = 892, CAY = 508;   // the corner the button cluster shrinks toward
+  const sr = () => R * ctlS;    // scaled stick travel
+
   // canvas coords from a touch (the canvas is CSS-scaled, so map through the rect)
   function toGame(t) {
     const r = canvas.getBoundingClientRect();
     return { x: (t.clientX - r.left) * (W / r.width), y: (t.clientY - r.top) * (H / r.height) };
   }
-  const hit = (p, b) => Math.hypot(p.x - b.x, p.y - b.y) <= b.r + 12; // +12: thumbs are not precise
+  const hit = (p, b) => Math.hypot(p.x - (b.dx != null ? b.dx : b.x), p.y - (b.dy != null ? b.dy : b.y)) <= (b.dr != null ? b.dr : b.r) + 12 * ctlS; // +12: thumbs are not precise
 
   function press(b) {
     if (b.key === 'ult') { if (onUlt) onUlt(); return; }
@@ -182,16 +190,22 @@ const Mobile = (() => {
   function update(g) {
     if (!enabled) return;
     curG = g; curState = g && g.state;          // so start() knows menu-vs-play
+    // scale the controls down on a large rendered canvas (desktop); phones stay full-size
+    const dispW = (canvas && canvas.getBoundingClientRect) ? (canvas.getBoundingClientRect().width || W) : W;
+    ctlS = dispW <= 1000 ? 1 : Math.max(0.55, 1000 / dispW); // phone/tablet full size; desktop shrinks
+    for (const b of BUTTONS) { b.dx = CAX + (b.x - CAX) * ctlS; b.dy = CAY + (b.y - CAY) * ctlS; b.dr = b.r * ctlS; }
+    PAUSE.dx = CAX + (PAUSE.x - CAX) * ctlS; PAUSE.dy = CAY + (PAUSE.y - CAY) * ctlS; PAUSE.dr = PAUSE.r * ctlS;
     if (PAUSE.downT > 0) PAUSE.downT -= 1 / 60;  // brief press flash on the pause pip
     // let go of the phone keyboard the moment we leave any typed field
     if (kbd && !textState() && typeof document !== 'undefined' && document.activeElement === kbd) kbd.blur();
     // the analog stick -> input.stick, read by player.js
     if (stick.active) {
+      const Rs = sr();
       let dx = stick.x - stick.ox, dy = stick.y - stick.oy;
       const d = Math.hypot(dx, dy);
-      if (d > R) { dx = dx / d * R; dy = dy / d * R; }
-      const mag = Math.min(1, d / R);
-      input.stick = mag > 0.18 ? { x: dx / R, y: dy / R, mag } : null;  // a deadzone, so a resting thumb does not drift
+      if (d > Rs) { dx = dx / d * Rs; dy = dy / d * Rs; }
+      const mag = Math.min(1, d / Rs);
+      input.stick = mag > 0.18 ? { x: dx / Rs, y: dy / Rs, mag } : null;  // a deadzone, so a resting thumb does not drift
     } else {
       input.stick = null;
     }
@@ -218,25 +232,26 @@ const Mobile = (() => {
     // buttons do not sit on top of the menu the player is trying to tap.
     if (!enabled || !g || g.state !== 'play' || g.coopMenu) return;
     c.save();
-    // the stick
+    // the stick (travel + visuals scale with the controls)
+    const Rs = sr();
     if (stick.active) {
       c.globalAlpha = 0.30;
       c.strokeStyle = '#cfe0f0'; c.lineWidth = 2;
-      c.beginPath(); c.arc(stick.ox, stick.oy, R, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.arc(stick.ox, stick.oy, Rs, 0, Math.PI * 2); c.stroke();
       c.globalAlpha = 0.55;
       let dx = stick.x - stick.ox, dy = stick.y - stick.oy;
       const d = Math.hypot(dx, dy);
-      if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+      if (d > Rs) { dx = dx / d * Rs; dy = dy / d * Rs; }
       c.fillStyle = '#cfe0f0';
-      c.beginPath(); c.arc(stick.ox + dx, stick.oy + dy, 22, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(stick.ox + dx, stick.oy + dy, 22 * ctlS, 0, Math.PI * 2); c.fill();
     } else {
       // the resting hint. Sits clear of the weapon/armor slots in the bottom-left
       // corner - the stick itself is FLOATING and appears wherever your thumb lands.
       c.globalAlpha = 0.14;
       c.strokeStyle = '#cfe0f0'; c.lineWidth = 2;
-      c.beginPath(); c.arc(126, 372, R, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.arc(126, 372, Rs, 0, Math.PI * 2); c.stroke();
       c.globalAlpha = 0.45; c.fillStyle = '#8fa3bf';
-      c.font = '10px monospace'; c.textAlign = 'center';
+      c.font = `${Math.round(10 * ctlS)}px monospace`; c.textAlign = 'center';
       c.fillText('MOVE', 126, 376);
     }
     // the buttons. On touch these REPLACE the desktop ability badges (ui.js hides
@@ -252,39 +267,51 @@ const Mobile = (() => {
     };
     c.textAlign = 'center';
     for (const b of BUTTONS) {
+      const bx = b.dx, by = b.dy, br = b.dr;     // scaled geometry
       const down = held[b.key] !== undefined;
       const cd = cool(b);                       // 1 = just used, 0 = ready
       const ready = cd <= 0.001;
       c.globalAlpha = down ? 0.72 : (ready ? 0.34 : 0.16);
       c.fillStyle = b.col;
-      c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(bx, by, br, 0, Math.PI * 2); c.fill();
       c.globalAlpha = down ? 1 : (ready ? 0.75 : 0.35);
       c.strokeStyle = b.col; c.lineWidth = 2;
-      c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.arc(bx, by, br, 0, Math.PI * 2); c.stroke();
       if (cd > 0.001) {                          // the cooldown sweep, draining clockwise
         c.globalAlpha = 0.9;
         c.strokeStyle = b.col; c.lineWidth = 3;
         c.beginPath();
-        c.arc(b.x, b.y, b.r - 3, -Math.PI / 2, -Math.PI / 2 + (1 - cd) * Math.PI * 2);
+        c.arc(bx, by, br - 3, -Math.PI / 2, -Math.PI / 2 + (1 - cd) * Math.PI * 2);
         c.stroke();
       }
       c.globalAlpha = 1;
       c.fillStyle = ready ? '#0b0e14' : 'rgba(11,14,20,0.5)';
-      c.font = `bold ${b.r > 28 ? 12 : 11}px monospace`;
-      c.fillText(b.label, b.x, b.y + 4);
+      c.font = `bold ${Math.round((b.r > 28 ? 12 : 11) * ctlS)}px monospace`;
+      c.fillText(b.label, bx, by + 4 * ctlS);
+      // TOOLTIP (Sam): touch can't hover the desktop ability badge, so name Q/R/ULT right on
+      // the button - a new player pressing Q now knows it is Brimstone / Discord / whatever.
+      if (p && (b.key === 'q' || b.key === 'r' || b.key === 'ult')) {
+        const a = b.key === 'q' ? p.ability : b.key === 'r' ? p.abilityR : p.abilityUlt;
+        if (a && a.name) {
+          c.globalAlpha = 0.8; c.fillStyle = b.col;
+          c.font = `bold ${Math.round(9 * ctlS)}px monospace`;
+          c.fillText(a.name, bx, by - br - 4 * ctlS);
+          c.globalAlpha = 1;
+        }
+      }
     }
     // the PAUSE pip (two bars), so a phone player can stop, end the run to bank the
     // score, or head to the menu - none of which was reachable without a keyboard.
-    const down = PAUSE.downT > 0;
+    const down = PAUSE.downT > 0, px = PAUSE.dx, py = PAUSE.dy, pr = PAUSE.dr;
     c.globalAlpha = down ? 0.75 : 0.34;
     c.fillStyle = '#9fb0c8';
-    c.beginPath(); c.arc(PAUSE.x, PAUSE.y, PAUSE.r, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(px, py, pr, 0, Math.PI * 2); c.fill();
     c.globalAlpha = down ? 1 : 0.7;
     c.strokeStyle = '#9fb0c8'; c.lineWidth = 2;
-    c.beginPath(); c.arc(PAUSE.x, PAUSE.y, PAUSE.r, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.arc(px, py, pr, 0, Math.PI * 2); c.stroke();
     c.globalAlpha = 1; c.fillStyle = '#0b0e14';
-    c.fillRect(PAUSE.x - 5, PAUSE.y - 6, 3, 12);
-    c.fillRect(PAUSE.x + 2, PAUSE.y - 6, 3, 12);
+    c.fillRect(px - 5 * ctlS, py - 6 * ctlS, 3 * ctlS, 12 * ctlS);
+    c.fillRect(px + 2 * ctlS, py - 6 * ctlS, 3 * ctlS, 12 * ctlS);
     c.restore();
   }
 
