@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.143';
+  const VERSION = 'v2.144';
 
   const NOTES = [
+    {
+      v: 'v2.144', title: 'NEW CLASS: the Bard turns the room against itself', date: '2026-07-18',
+      sha: 'ad69966',
+      items: [
+        'NEW CLASS - the Bard: his Discord provokes every enemy into a brawl so they turn on each other, and as you pour points into Vigor it grows - first hasting the fight (and your party), then healing your whole party while it plays, and finally rotting the provoked with poison.',
+      ],
+    },
     {
       v: 'v2.143', title: 'Mines show their real blast size and hit a little softer', date: '2026-07-18',
       sha: '24b8395',
