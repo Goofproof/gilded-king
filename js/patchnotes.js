@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.144';
+  const VERSION = 'v2.145';
 
   const NOTES = [
+    {
+      v: 'v2.145', title: 'NEW CLASS: the Warlock and his Brimstone blood-laser', date: '2026-07-18',
+      sha: '6aa8178',
+      items: [
+        'NEW CLASS - the Warlock: his Brimstone Q looses a charged blood-laser straight down your aim that RIPS THROUGH every enemy in the line and ignores walls, ticking damage the whole time - and as you pour points into Arcane it splits into two beams, then curves to home in on enemies, and finally makes every enemy it kills erupt in a blood blast.',
+      ],
+    },
     {
       v: 'v2.144', title: 'NEW CLASS: the Bard turns the room against itself', date: '2026-07-18',
       sha: 'ad69966',
