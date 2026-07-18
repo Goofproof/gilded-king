@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.138';
+  const VERSION = 'v2.139';
 
   const NOTES = [
+    {
+      v: 'v2.139', title: 'Two co-op fixes for the deep floors and boss fights', date: '2026-07-18',
+      sha: '86192ee',
+      items: [
+        'Two co-op fixes: in the deep floors the falling rocks no longer hit your friend twice as hard (each player now only takes the rocks aimed at them), and killing a boss always clears it for everyone even on a shaky connection, so nobody gets boxed in the boss room behind a boss that is already dead.',
+      ],
+    },
     {
       v: 'v2.138', title: 'Midas trinkets work, and two menu numbers tell the truth', date: '2026-07-18',
       sha: 'f0e5476',
