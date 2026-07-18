@@ -367,8 +367,10 @@ const Evolutions = (() => {
     if ((fx.spellPower !== undefined || fx.blastBonus !== undefined) && !magic) {
       return { tag: 'DEAD SLOT', text: 'you carry no wand or staff - this does nothing right now', color: '#e0894a' };
     }
-    if (fx.echo !== undefined && !arch('light')) {
-      return { tag: 'DEAD SLOT', text: 'echo only fires on a light weapon - you carry none', color: '#e0894a' };
+    if (fx.echo !== undefined && !arch('light') && !magic) {
+      // echo fires on a LIGHT melee weapon (the extra swing) AND on wand/staff spells
+      // (#250 re-casts the volley), so it is only dead if you carry neither.
+      return { tag: 'DEAD SLOT', text: 'echo needs a light weapon or a wand/staff - you carry neither', color: '#e0894a' };
     }
     if (fx.midasPer !== undefined && !(p.mod && p.mod('midasPer'))) {
       return { tag: 'STACKS', text: 'turns the gold you are holding into damage', color: '#6ee7a0' };

@@ -2359,7 +2359,7 @@ const UI = (() => {
       case 'crit':   return Math.round((0.05 + p.stats.crit + p.mod('critCh')) * 100) + '% crit';
       case 'coin':   return pct(p.stats.coinMul + p.mod('coin') - 1);
       case 'regen':  return (p.stats.regen + p.mod('regenFlat')).toFixed(1) + '/s';
-      case 'roll':   return pct(p.stats.rollCdMul * (1 - p.mod('rollCd')) - 1) + ' cd';
+      case 'roll':   return pct(p.stats.rollCdMul * (1 - Math.min(0.5, p.mod('rollCd'))) - 1) + ' cd'; // 0.5 cap mirrors combat (player.js rollCd)
       case 'magic':  return 'lv ' + (p.magicLevel ? p.magicLevel() : (p.stats.magic || 0));
     }
     return '';
