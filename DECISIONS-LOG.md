@@ -776,3 +776,15 @@ last items rather than build them blind. Reasoning per item (for Sam to steer):
 
 ## #13 HUD corners - deferred (2026-07-12)
 - Vague (which element overlaps). Left pending for Sam rather than guess.
+
+## 2026-07-17 (mobile class-strip drag-scroll shipped v2.141; buildable list cleared)
+
+Shipped v2.141: touch.js class-strip drag-scroll - a horizontal drag beginning on a class card
+pages UI.scrollClasses (STRIP_STEP 55px/page; the < > arrow taps still work, the tap still
+selects as a harmless highlight). Uses the game's own selectClass uiRects to detect the strip
+(no hardcoded bounds). +3 touch tests (fake UI injected as an extra new-Function arg since the
+sandbox has no globals). Verified LIVE in ?touch=1: drag left 120px paged 2 classes. 139 tests.
+GRIND STATUS (~23:34, ~3h49 left): buildable wind-down list is now CLEARED. Mobile complete
+(WAVE1/2 + co-op join + fullscreen + drag-scroll). 6 review passes done (9 bugs). Sam's live
+asks done (invis, harpy). Perf measured fine (no Tier 3). Now on standby for Sam's direction;
+will only ship further changes that are genuinely worth it, no manufactured busywork.
