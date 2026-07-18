@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.137';
+  const VERSION = 'v2.138';
 
   const NOTES = [
+    {
+      v: 'v2.138', title: 'Midas trinkets work, and two menu numbers tell the truth', date: '2026-07-18',
+      sha: 'f0e5476',
+      items: [
+        'The Midas trinkets finally turn the gold you carry into real damage, the way they promise: before, the Splinter of Midas and Philosopher\'s Stone gave their coin and crit bonuses but the headline gold-to-damage gift did nothing.',
+        'Two menu honesty fixes: the character sheet\'s roll-cooldown number now matches the real 50% cap the game enforces (it used to promise more than you got), and Echo evolutions no longer wrongly tell wand and staff players the pick is a dead slot when it actually doubles their spells.',
+      ],
+    },
     {
       v: 'v2.137', title: 'Co-op: you and your friend find the same pet', date: '2026-07-18',
       sha: 'cb8d63f',
