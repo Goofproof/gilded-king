@@ -101,14 +101,19 @@ const Mobile = (() => {
     // whatever half of the screen it lands in - otherwise the whole LEFT half of every
     // centred menu (SOLO PLAY, the leftmost card, PLAY AGAIN, the race tiles) is dead,
     // because a left-half touch used to arm the invisible stick and never clicked.
-    const inPlay = curState === 'play';
+    // Menus route taps as clicks. The co-op PAUSE menu is the one 'menu' that keeps
+    // state==='play' (the shared world must not freeze for the party), so treat an open
+    // coopMenu as not-in-play too, or its buttons are dead and the stick draws over it.
+    const inPlay = curState === 'play' && !(curG && curG.coopMenu);
     for (const t of e.changedTouches) {
       const p = toGame(t);
       if (!inPlay) {
         // FULLSCREEN must fire INSIDE the touch gesture: requestFullscreen only works
         // during the browser's transient activation, which a frame-later dispatch misses
-        // (the desktop RMB path does the same at main.js). Consumed here, no click.
-        if (onFs && hitsRect(p, 'fullscreen')) { onFs(); continue; }
+        // (the desktop RMB path does the same at main.js). Only where the button actually
+        // lives (title / pause / co-op menu) - matches the desktop guard, ignores stale rects.
+        const fsHere = curState === 'title' || curState === 'pause' || (curG && curG.coopMenu);
+        if (onFs && fsHere && hitsRect(p, 'fullscreen')) { onFs(); continue; }
         clickAt(p);
         // iOS raises the soft keyboard ONLY from a focus() inside the real touch
         // gesture (not a frame later), so any typed field is focused right here.
@@ -192,7 +197,9 @@ const Mobile = (() => {
 
   // Drawn last, over the HUD, in game coordinates - so it scales with everything else.
   function draw(c, g) {
-    if (!enabled || !g || g.state !== 'play') return;
+    // hidden during the co-op pause menu (state is still 'play' there) so the stick and
+    // buttons do not sit on top of the menu the player is trying to tap.
+    if (!enabled || !g || g.state !== 'play' || g.coopMenu) return;
     c.save();
     // the stick
     if (stick.active) {
