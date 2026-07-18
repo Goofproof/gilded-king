@@ -1,3 +1,21 @@
+## 2026-07-17 (ECONOMY/LOOT review - CLEAN, 0 live bugs; 1 latent hardening, 6h grind)
+
+Scoped review of economy+loot (coins/shards/essence, shops, crafting, meta-upgrades, drops,
+pickups): 3 finders x lens [economy/loot/meta] + verify-each. 3 candidates, ALL the SAME flag
+(onVictory double-banks essence, main.js:1441) and ALL refuted at verify = 0 confirmed. The
+economy accounting is sound. RE-VERIFIED the refutation myself: onVictory() banks full
+essenceRun without subtracting g.essenceCheckpoint (unlike all 4 death paths which bank the
+un-checkpointed delta), BUT onVictory is legacy/dead - the run descends FOREVER (every boss
+death sets g.pendingDescent -> openDescentPortal; onVictory only fires if winTimer expires with
+no pendingDescent, labeled "legacy safety net (shouldn't trigger)" at main.js:5512). So the
+double-bank is unreachable today. Applied a defensive 1-line consistency fix anyway (bank
+essenceRun - essenceCheckpoint + bonuses, matching the death paths) so the landmine is defused
+if victory ever becomes reachable; committed [skip-notes] (no player-visible effect). 134 tests
+pass. REVIEWS DONE this grind: combat/abilities(3 bugs), world-gen/rules/boss(1), stat-system(3),
+economy/loot(0 - clean). Remaining unreviewed: co-op net/sync (had a 40-agent COOP-REVIEW
+2026-07-15, likely cleaner). Yield is dropping (economy clean), so after co-op, pivot to
+player-facing polish / perf / best-practices study before the 03:23 stop.
+
 ## 2026-07-17 (STAT-SYSTEM review - 3 fixes: dead Midas trinket + 2 display lies, 6h grind)
 
 Shipped v2.138. Scoped review of weapons/evolutions/trinkets stat math (3 finders x lens
