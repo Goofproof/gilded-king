@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.142';
+  const VERSION = 'v2.143';
 
   const NOTES = [
+    {
+      v: 'v2.143', title: 'Mines show their real blast size and hit a little softer', date: '2026-07-18',
+      sha: '24b8395',
+      items: [
+        'The minelayer\'s red danger ring now shows the ACTUAL blast size, so you can finally see where a mine really reaches - before, the ring was small but the explosion hit far outside it. Mines also hit a little softer now, especially if you\'re only clipped by the edge of the blast instead of standing on top of it.',
+      ],
+    },
     {
       v: 'v2.142', title: 'The Harpy\'s shadow looms three times larger', date: '2026-07-18',
       sha: '3f38b03',
