@@ -50,8 +50,12 @@ function makeMobile({ portrait = false } = {}) {
     addEventListener: (t, fn) => { handlers[t] = fn; },
   };
 
-  const Mobile = new Function('location', 'window', 'navigator', 'document', SRC + '\nreturn Mobile;')
-    (loc, win, nav, doc);
+  // in the browser UI is a global const (from ui.js); the sandbox has no globals, so we
+  // pass a fake UI as an extra Function arg (touch.js references bare `UI`).
+  const scrollCalls = [];
+  const UI = { scrollClasses: d => scrollCalls.push(d) };
+  const Mobile = new Function('location', 'window', 'navigator', 'document', 'UI', SRC + '\nreturn Mobile;')
+    (loc, win, nav, doc, UI);
 
   const input = { keys: new Set(), just: new Set(), mouse: { x: 0, y: 0, down: false, clicked: false, moved: false }, stick: null };
   let ultCalls = 0, fsCalls = 0;
@@ -64,6 +68,7 @@ function makeMobile({ portrait = false } = {}) {
     Mobile, input, kbd, rotate, doc,
     ults: () => ultCalls,
     fs: () => fsCalls,
+    scrolls: () => scrollCalls,
     frame: g => Mobile.update(g),                       // one pre-input frame at state g
     down: (x, y, id) => handlers.touchstart(ev([T(x, y, id)])),
     move: (x, y, id) => handlers.touchmove(ev([T(x, y, id)])),
@@ -226,6 +231,37 @@ describe('mobile: the co-op pause menu is tappable (it keeps state==="play")', (
     m.frame({ state: 'play', coopMenu: true, uiRects: [{ action: 'fullscreen', x: 12, y: 12, w: 30, h: 30 }] });
     m.down(27, 27);
     expect(m.fs()).toBe(1);
+  });
+});
+
+describe('mobile: drag the class strip to page it', () => {
+  const titleWithStrip = { state: 'title', uiRects: [{ action: 'selectClass', x: 250, y: 328, w: 90, h: 40 }] };
+  it('a horizontal drag beginning on a class card pages the list; the tap still selects', () => {
+    const m = makeMobile();
+    m.frame(titleWithStrip);
+    m.down(295, 348);                    // touchstart on the class card
+    expect(m.input.mouse.clicked).toBe(true);   // the tap still selects (harmless highlight)
+    m.move(235, 348);                    // drag left 60px (> STRIP_STEP 55) -> page forward
+    expect(m.scrolls()).toEqual([1]);
+    m.move(175, 348);                    // a further 60px -> another page
+    expect(m.scrolls()).toEqual([1, 1]);
+    m.up(175, 348);
+    m.move(100, 348);                    // after release, dragging does nothing
+    expect(m.scrolls()).toEqual([1, 1]);
+  });
+  it('dragging the other way pages backward', () => {
+    const m = makeMobile();
+    m.frame(titleWithStrip);
+    m.down(295, 348);
+    m.move(355, 348);                    // drag right -> page back
+    expect(m.scrolls()).toEqual([-1]);
+  });
+  it('a small wobble under the step threshold does not scroll (still a clean tap)', () => {
+    const m = makeMobile();
+    m.frame(titleWithStrip);
+    m.down(295, 348);
+    m.move(310, 348);                    // 15px < 55 -> no page
+    expect(m.scrolls()).toEqual([]);
   });
 });
 
