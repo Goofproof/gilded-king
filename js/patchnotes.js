@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.145';
+  const VERSION = 'v2.146';
 
   const NOTES = [
+    {
+      v: 'v2.146', title: 'Smaller touch controls on big screens, and the buttons name their ability', date: '2026-07-18',
+      sha: '346623e',
+      items: [
+        'On a big screen the on-screen touch controls (the move stick and the buttons) are smaller now so they don\'t swallow the desktop, and the Q, R and ULT buttons show the NAME of the ability they cast right above them - so you know pressing Q fires Brimstone, or Discord, or whatever your class has.',
+      ],
+    },
     {
       v: 'v2.145', title: 'NEW CLASS: the Warlock and his Brimstone blood-laser', date: '2026-07-18',
       sha: '6aa8178',
