@@ -1061,7 +1061,17 @@ const PlayerDef = (() => {
         if (this.mod('firstStrike') && target.hp >= target.maxHp) dmg *= 1 + this.mod('firstStrike');
         if (this.mod('bossSlayer') && target.isBoss) dmg *= 1 + this.mod('bossSlayer');
       }
-      if (this.evo.midasPer) dmg += Math.min(this.evo.midasCap || 0, Math.floor(this.coins / this.evo.midasPer));
+      // gold-to-damage: the effect lives on the Midas EVOLUTION (this.evo) AND on the
+      // Midas trinkets (Splinter of Midas / Philosopher's Stone -> this.trinketMods).
+      // Combat used to read only this.evo, so the trinkets' headline "gold becomes damage"
+      // gift did nothing. Use the best rate (lower midasPer = more dmg) and cap across both.
+      {
+        const mPer = Math.min(this.evo.midasPer || Infinity, (this.trinketMods && this.trinketMods.midasPer) || Infinity);
+        if (isFinite(mPer)) {
+          const mCap = Math.max(this.evo.midasCap || 0, (this.trinketMods && this.trinketMods.midasCap) || 0);
+          dmg += Math.min(mCap, Math.floor(this.coins / mPer));
+        }
+      }
       let crit = Math.random() < T.critBase + this.stats.crit + this.mod('critCh') + ((this.fstance && this.fstance.critCh) || 0); // #254 LUCKY STREAK
       // #253 ACHILLES: the first hit on each enemy in the window is always a crit
       if (!crit && this.fstance && this.fstance.firstCrit && target && this.fstance.seen && !this.fstance.seen.has(target)) { this.fstance.seen.add(target); crit = true; }
