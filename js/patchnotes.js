@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.139';
+  const VERSION = 'v2.140';
 
   const NOTES = [
+    {
+      v: 'v2.140', title: 'Invisibility loses the enemies, and the Harpy\'s big shadow', date: '2026-07-18',
+      sha: '48e6957',
+      items: [
+        'Vanishing works properly now: when you turn invisible the enemies truly lose track of you and search where you were last standing, instead of walking straight to you, and you now fade to a ghostly shimmer so you can tell it worked.',
+        'The Harpy on the first floor now throws a much bigger shadow across the ground, wide as her wingspan and widening with every beat of her wings.',
+      ],
+    },
     {
       v: 'v2.139', title: 'Two co-op fixes for the deep floors and boss fights', date: '2026-07-18',
       sha: '86192ee',
