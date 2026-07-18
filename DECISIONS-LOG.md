@@ -817,3 +817,14 @@ source before every fix): combat(3 bugs), world-gen/rules/boss(1), stat-system(3
 CLEAN, hardened 1 latent onVictory essence double-bank), co-op(2), monsters(0 - clean) = 9 real
 gameplay bugs. PERF measured (~0.3-1.1ms/frame, well under 16.7ms budget) -> no Tier 3 needed.
 Graphics left to the son (designer). Test count 110 -> 139. Loop ended cleanly at the 6h mark.
+
+## 2026-07-18 (post-grind Sam asks: Harpy shadow 3x, mine fixes)
+
+- v2.142: Harpy shadow tripled again per Sam (boss.js: b.r*2.5->7.5 wide, 0.52->1.56 tall).
+- v2.143: MINES (Sam: too strong at depth + blast reaches outside the red circle). Root cause of
+  the visual bug: drawMines drew the ring at the 42 PROXIMITY-TRIGGER radius, but the blast is
+  blastR=105 - so the explosion hit far outside the shown circle. Fix: ring now drawn at blastR
+  (faint while armed, bright+pulsing fill once the fuse is lit). Balance: added distance falloff
+  in detonateMine (1 - 0.35*d/blastR, like every other blast; the mine was the only no-falloff
+  one) + trimmed the base multiplier 3.2x -> 2.9x. Verified LIVE: ring renders at 105 (screenshot),
+  falloff center 1000 -> edge(d=100) 674. 139 tests pass.
