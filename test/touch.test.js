@@ -113,17 +113,17 @@ describe('mobile: in-play controls still work', () => {
   it('a thumb button synthesizes its KeyCode; releasing it clears the key', () => {
     const m = makeMobile();
     m.frame({ state: 'play' });
-    m.down(726, 424);                    // the Q button
+    m.down(726, 398);                    // the Q button
     expect(m.input.keys.has('KeyQ')).toBe(true);
     expect(m.input.just.has('KeyQ')).toBe(true);
-    m.up(726, 424);
+    m.up(726, 398);
     expect(m.input.keys.has('KeyQ')).toBe(false);
   });
 
   it('the ULT button fires the ultimate and adds no key', () => {
     const m = makeMobile();
     m.frame({ state: 'play' });
-    m.down(858, 424);                    // the ULT button
+    m.down(858, 398);                    // the ULT button
     expect(m.ults()).toBe(1);
     expect([...m.input.keys]).toEqual([]);
   });
@@ -131,7 +131,7 @@ describe('mobile: in-play controls still work', () => {
   it('the pause pip synthesizes Escape (opens the pause menu / co-op overlay)', () => {
     const m = makeMobile();
     m.frame({ state: 'play' });
-    m.down(930, 250);                    // the pause pip
+    m.down(930, 232);                    // the pause pip
     expect(m.input.just.has('Escape')).toBe(true);
   });
 
@@ -147,7 +147,7 @@ describe('mobile: the thumb buttons are cold outside play (no null-player ULT cr
   it('tapping the ULT hitbox on the TITLE screen does not fire the ult; it just clicks', () => {
     const m = makeMobile();
     m.frame({ state: 'title' });
-    m.down(858, 424);                    // exact ULT hitbox, but on the title (g.player is null)
+    m.down(858, 398);                    // exact ULT hitbox, but on the title (g.player is null)
     expect(m.ults()).toBe(0);            // must NOT reach useUltimate -> g.player.abilityUlt
     expect(m.input.mouse.clicked).toBe(true);
   });

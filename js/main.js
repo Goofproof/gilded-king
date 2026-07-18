@@ -3656,6 +3656,7 @@
         else if (input.mouse.clicked) {
           for (const r of g.uiRects) {
             if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+              if (r.action === 'resume') { g.state = 'play'; break; }
               if (r.action === 'menu') quitToTitle();
               else if (r.action === 'retire') retireRun();
               else if (r.action === 'fullscreen') toggleFullscreen();
@@ -3665,6 +3666,15 @@
         break;
       case 'charsheet':
         g.overlayT += dt;
+        // tappable CLOSE (touch has no Esc/C key) - the X in the corner
+        if (input.mouse.clicked && g.uiRects) {
+          for (const r of g.uiRects) {
+            if (r.action === 'closeSheet' && input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+              g.state = g.charReturn || 'play'; g.charReturn = null; g.charDetail = null; break;
+            }
+          }
+        }
+        if (g.state !== 'charsheet') break;
         // THE PORTRAIT: HOVER a ring to drill into it. Hovering rather than clicking is
         // the point - the drill-down is a glance, not a mode you have to click out of.
         // Moving the mouse off the rings returns you to the quiet default view.

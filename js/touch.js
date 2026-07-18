@@ -45,12 +45,13 @@ const Mobile = (() => {
 
   // the right thumb: the buttons. Laid out along the bottom-right, thumb-reachable.
   const BUTTONS = [
-    { key: 'roll',  label: 'ROLL', code: 'Space', x: 792, y: 470, r: 34, col: '#7fd4ff' },
-    { key: 'q',     label: 'Q',    code: 'KeyQ',  x: 726, y: 424, r: 27, col: '#ffd24c' },
-    { key: 'r',     label: 'R',    code: 'KeyR',  x: 792, y: 396, r: 27, col: '#ff9a4c' },
-    { key: 'ult',   label: 'ULT',  code: null,    x: 858, y: 424, r: 30, col: '#ff5a8a' }, // right-click on desktop
-    { key: 'use',   label: 'E',    code: 'KeyE',  x: 726, y: 494, r: 24, col: '#6ee7a0' },
-    { key: 'swap',  label: 'SWAP', code: 'Tab',   x: 858, y: 494, r: 24, col: '#9fb0c8' },
+    // raised ~26px (Sam: the bottom row sat under the edge of the screen)
+    { key: 'roll',  label: 'ROLL', code: 'Space', x: 792, y: 444, r: 34, col: '#7fd4ff' },
+    { key: 'q',     label: 'Q',    code: 'KeyQ',  x: 726, y: 398, r: 27, col: '#ffd24c' },
+    { key: 'r',     label: 'R',    code: 'KeyR',  x: 792, y: 370, r: 27, col: '#ff9a4c' },
+    { key: 'ult',   label: 'ULT',  code: null,    x: 858, y: 398, r: 30, col: '#ff5a8a' }, // right-click on desktop
+    { key: 'use',   label: 'E',    code: 'KeyE',  x: 726, y: 468, r: 24, col: '#6ee7a0' },
+    { key: 'swap',  label: 'SWAP', code: 'Tab',   x: 858, y: 468, r: 24, col: '#9fb0c8' },
   ];
   const held = {};   // buttonKey -> touch identifier
 
@@ -58,7 +59,10 @@ const Mobile = (() => {
   // health bar, the top-right minimap and the bottom-right button cluster). A tap
   // synthesizes 'Escape', which is exactly how the keyboard opens the pause menu -
   // and in co-op it toggles the menu overlay, same as Escape does there.
-  const PAUSE = { x: 930, y: 250, r: 16, downT: 0 };
+  const PAUSE = { x: 930, y: 232, r: 16, downT: 0 };
+  // the STATS pip (Sam): touch had no way to open the character sheet (desktop uses C).
+  // A tap synthesizes 'KeyC', which opens the sheet exactly like the keyboard.
+  const SHEET = { x: 930, y: 286, r: 16, downT: 0 };
 
   // the title CLASS STRIP: a horizontal drag that begins on a class card pages the list,
   // the natural phone gesture (the < > arrows still work for a tap). Tracked by touch id.
@@ -70,7 +74,7 @@ const Mobile = (() => {
   // them there; a real phone (small rendered canvas) is left at full, finger-friendly size.
   // Geometry is scaled around the bottom-right corner each frame into b.dx/b.dy/b.dr.
   let ctlS = 1;
-  const CAX = 892, CAY = 508;   // the corner the button cluster shrinks toward
+  const CAX = 892, CAY = 482;   // the corner the button cluster shrinks toward
   const sr = () => R * ctlS;    // scaled stick travel
 
   // canvas coords from a touch (the canvas is CSS-scaled, so map through the rect)
@@ -143,6 +147,7 @@ const Mobile = (() => {
       }
       if (onButton) continue;
       if (hit(p, PAUSE)) { input.just.add('Escape'); PAUSE.downT = 0.18; continue; }
+      if (hit(p, SHEET)) { input.just.add('KeyC'); SHEET.downT = 0.18; continue; } // open the character sheet
       if (p.x < W * 0.5 && stick.id === null) {     // left half -> the movement stick
         stick.id = t.identifier; stick.active = true;
         stick.ox = p.x; stick.oy = p.y; stick.x = p.x; stick.y = p.y;
@@ -194,8 +199,7 @@ const Mobile = (() => {
     const dispW = (canvas && canvas.getBoundingClientRect) ? (canvas.getBoundingClientRect().width || W) : W;
     ctlS = dispW <= 1000 ? 1 : Math.max(0.55, 1000 / dispW); // phone/tablet full size; desktop shrinks
     for (const b of BUTTONS) { b.dx = CAX + (b.x - CAX) * ctlS; b.dy = CAY + (b.y - CAY) * ctlS; b.dr = b.r * ctlS; }
-    PAUSE.dx = CAX + (PAUSE.x - CAX) * ctlS; PAUSE.dy = CAY + (PAUSE.y - CAY) * ctlS; PAUSE.dr = PAUSE.r * ctlS;
-    if (PAUSE.downT > 0) PAUSE.downT -= 1 / 60;  // brief press flash on the pause pip
+    for (const pip of [PAUSE, SHEET]) { pip.dx = CAX + (pip.x - CAX) * ctlS; pip.dy = CAY + (pip.y - CAY) * ctlS; pip.dr = pip.r * ctlS; if (pip.downT > 0) pip.downT -= 1 / 60; }
     // let go of the phone keyboard the moment we leave any typed field
     if (kbd && !textState() && typeof document !== 'undefined' && document.activeElement === kbd) kbd.blur();
     // the analog stick -> input.stick, read by player.js
@@ -312,6 +316,15 @@ const Mobile = (() => {
     c.globalAlpha = 1; c.fillStyle = '#0b0e14';
     c.fillRect(px - 5 * ctlS, py - 6 * ctlS, 3 * ctlS, 12 * ctlS);
     c.fillRect(px + 2 * ctlS, py - 6 * ctlS, 3 * ctlS, 12 * ctlS);
+    // the STATS pip ("C") - opens the character sheet
+    const sd = SHEET.downT > 0, sx = SHEET.dx, sy = SHEET.dy, sr2 = SHEET.dr;
+    c.globalAlpha = sd ? 0.75 : 0.34; c.fillStyle = '#b8a0d8';
+    c.beginPath(); c.arc(sx, sy, sr2, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = sd ? 1 : 0.7; c.strokeStyle = '#b8a0d8'; c.lineWidth = 2;
+    c.beginPath(); c.arc(sx, sy, sr2, 0, Math.PI * 2); c.stroke();
+    c.globalAlpha = 1; c.fillStyle = '#0b0e14';
+    c.font = `bold ${Math.round(13 * ctlS)}px monospace`; c.textAlign = 'center';
+    c.fillText('C', sx, sy + 5 * ctlS);
     c.restore();
   }
 

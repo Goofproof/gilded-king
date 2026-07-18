@@ -2203,7 +2203,13 @@ const UI = (() => {
     // each label is split into a title and a smaller sub-line, which also lets the
     // second button finally explain what abandoning actually costs you.
     const BW = 340, BX = W / 2 - BW / 2;
-    const er = { x: BX, y: H / 2 + 18, w: BW, h: 48, action: 'retire' };
+    // RESUME - a big tappable way back into the game (touch had none: resume was P/Esc only)
+    const resume = { x: BX, y: H / 2 + 14, w: BW, h: 46, action: 'resume' };
+    c.fillStyle = 'rgba(110,231,160,0.12)'; c.fillRect(resume.x, resume.y, resume.w, resume.h);
+    c.strokeStyle = '#6ee7a0'; c.lineWidth = 2; c.strokeRect(resume.x, resume.y, resume.w, resume.h);
+    c.font = 'bold 17px monospace'; c.fillStyle = '#6ee7a0';
+    c.fillText('RESUME', W / 2, resume.y + 29);
+    const er = { x: BX, y: H / 2 + 74, w: BW, h: 48, action: 'retire' };
     c.fillStyle = 'rgba(255,210,76,0.10)'; c.fillRect(er.x, er.y, er.w, er.h);
     c.strokeStyle = '#ffd24c'; c.lineWidth = 2; c.strokeRect(er.x, er.y, er.w, er.h);
     c.font = 'bold 15px monospace'; c.fillStyle = '#ffd24c';
@@ -2211,13 +2217,13 @@ const UI = (() => {
     c.font = '11px monospace'; c.fillStyle = 'rgba(255,210,76,0.72)';
     c.fillText('bank your essence and post your score', W / 2, er.y + 37);
     // abandon to title (only essence already banked at checkpoints is kept; no score)
-    const r = { x: BX, y: H / 2 + 78, w: BW, h: 44, action: 'menu' };
+    const r = { x: BX, y: H / 2 + 134, w: BW, h: 44, action: 'menu' };
     c.strokeStyle = '#6a7688'; c.lineWidth = 1.5; c.strokeRect(r.x, r.y, r.w, r.h);
     c.font = 'bold 13px monospace'; c.fillStyle = '#8fa3bf';
     c.fillText('ABANDON TO MENU', W / 2, r.y + 19);
     c.font = '10px monospace'; c.fillStyle = '#6a7688';
     c.fillText('no score, and you keep only what you already banked', W / 2, r.y + 34);
-    const rects = [er, r];
+    const rects = [resume, er, r];
     drawFsButton(c, rects);
     c.restore();
     return rects;
@@ -2794,6 +2800,14 @@ const UI = (() => {
     c.font = '10px monospace'; c.fillStyle = '#667';
     c.fillText(sel ? '1-5 or hover another ring  ·  0 back to the portrait  ·  C / Esc to resume'
                    : 'hover a ring or press 1-5  ·  C / Esc to resume', W / 2, H - 16);
+    // CLOSE (touch has no Esc): a tappable X in the top-right corner
+    const cb = { x: W - 52, y: 18, w: 34, h: 34, action: 'closeSheet' };
+    c.globalAlpha = 1; c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(cb.x, cb.y, cb.w, cb.h);
+    c.strokeStyle = '#8fa3bf'; c.lineWidth = 1.5; c.strokeRect(cb.x, cb.y, cb.w, cb.h);
+    c.strokeStyle = '#c8d2e0'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(cb.x + 10, cb.y + 10); c.lineTo(cb.x + cb.w - 10, cb.y + cb.h - 10); c.stroke();
+    c.beginPath(); c.moveTo(cb.x + cb.w - 10, cb.y + 10); c.lineTo(cb.x + 10, cb.y + cb.h - 10); c.stroke();
+    rects.push(cb);
     c.restore();
     return rects;
   }
