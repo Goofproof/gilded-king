@@ -1,3 +1,28 @@
+## 2026-07-17 (CO-OP net/sync review - 2 real bugs fixed, 6h grind)
+
+Shipped v2.139. Scoped review of co-op net/sync/damage-doctrine (net.js + main.js sync; 3 finders
+x lens [parity/doctrine/transport] + verify-each; 3 candidates, 2 confirmed, 1 refuted). Even
+after the 40-agent 2026-07-15 COOP-REVIEW, two survived. RE-VERIFIED both:
+- DESCENT STALACTITES double-damage the guest (main.js:6347, HIGH): updateStalactites runs on
+  BOTH clients unguarded (called at 5488, before the coop split), each rolling its own
+  Math.random spawner. The stalactites spawn NEAR THE LOCAL PLAYER (6332 nearP), but the fall
+  damaged g.partyTargets() which on the host includes remotes -> Net.sendR phit to the guest.
+  So the guest ate its OWN local stalactites AND the host's (spawned near the host, invisible/
+  undodgeable to the guest); host ate only one field. Fix: damage ONLY g.player (local) - a
+  clean per-client hazard (each faces the rocks aimed at them), no new netcode. Verified LIVE
+  solo: 24 dmg still lands (hp 90->66 on floor 6). Contrast: mines are host-authoritative
+  (guest guard at 6109 + draw proxies); stalactites had neither, so per-client is the right model.
+- bossDead on UNRELIABLE Net.send (main.js:1107, MEDIUM): the boss-death msg is the only thing
+  besides a floor rebuild that clears the guest's boss proxy (broadcastMobs stops emitting boss
+  snapshots at death, 5194; applyMobSnapshot never culls a boss, 5210/5234). A dropped packet
+  left the guest boxed in behind a phantom boss (doorsLocked keys on any live monster, 1626)
+  until the host descended. Fix: Net.send -> Net.sendR (reliable), matching loot (1169) + floor
+  msgs. Self-heals on floor change so it was a bounded stall not forever-desync (hence medium).
+136 tests pass (netbus sendR suite covers the channel). REVIEWS DONE: combat(3), world-gen(1),
+stat-system(3), economy(0-clean), co-op(2) = 9 real bugs across 5 passes. Bug-hunting still
+productive but agent-heavy; pivoting to PERF measurement + graphics/efficiency study (Sam's
+explicit fallback) and player-facing polish, mixing in at most 1-2 more targeted reviews.
+
 ## 2026-07-17 (ECONOMY/LOOT review - CLEAN, 0 live bugs; 1 latent hardening, 6h grind)
 
 Scoped review of economy+loot (coins/shards/essence, shops, crafting, meta-upgrades, drops,
