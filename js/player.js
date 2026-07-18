@@ -1294,6 +1294,7 @@ const PlayerDef = (() => {
 
       if (this.iframes > 0) this.iframes -= dt;
       if (this.invisT > 0) this.invisT -= dt; // Vanish ultimate: untargetable window
+      else { this._seenX = this.x; this._seenY = this.y; } // remember where you last stood in the open, so enemies search THERE when you vanish
       if (this.rollCd > 0) this.rollCd -= dt;
       // #247 (Sam) attack speed must NOT make wands/staves shoot faster - a spell's
       // cadence is part of its identity. Casters convert the stat instead: all
@@ -1983,6 +1984,9 @@ const PlayerDef = (() => {
 
       // i-frame flicker
       if (this.iframes > 0 && this.rollT < 0 && Math.sin(Date.now() / 30) > 0) c.globalAlpha = 0.45;
+      // VANISH: draw yourself ghost-faint (a slow shimmer) so you can SEE you are unseen -
+      // otherwise invisibility only affects the enemies and feels like nothing happened.
+      if (this.invisT > 0) c.globalAlpha = Math.min(c.globalAlpha, 0.28 + Math.sin(Date.now() / 110) * 0.06);
 
       // evolution aura: a soft halo that swells with each stage
       if (pal && evoStage >= 1) {

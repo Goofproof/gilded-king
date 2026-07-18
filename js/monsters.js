@@ -275,7 +275,15 @@ const Monsters = (() => {
   // g.partyTargets() returns [{x,y,r,ref,isRemote,id}] and is always defined by main.js.
   function nearestTarget(m, g) {
     const ts = g.partyTargets ? g.partyTargets() : null;
-    if (!ts || !ts.length) return g.player;
+    if (!ts || !ts.length) {
+      // #212 VANISH: with no visible target the enemy must LOSE track - drift toward where
+      // the player was LAST SEEN, not home straight in on the real (invisible) player, or
+      // invisibility does nothing but block contact damage. Fall back to the player only if
+      // no last-seen point was ever recorded.
+      const P = g.player;
+      if (P && P.invisT > 0 && P._seenX !== undefined) return { x: P._seenX, y: P._seenY, r: 6, ref: P };
+      return P;
+    }
     let best = ts[0], bd = 1e9;
     for (const t of ts) { const d = Math.hypot(t.x - m.x, t.y - m.y); if (d < bd) { bd = d; best = t; } }
     return best;
