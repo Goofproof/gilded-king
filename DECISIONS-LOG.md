@@ -1,3 +1,29 @@
+## 2026-07-17 (Sam's 2 live asks: invisibility + Harpy shadow; monsters review clean; 6h grind)
+
+Shipped v2.140. MONSTERS/AI review (5th & final review pass): 2 candidates, 0 confirmed (both
+"enemy status applies during i-frames" refuted at verify) - monster code is clean.
+Then SAM (live) asked: "invisibility in the abilities isn't working great" + "the harpy shadow
+needs to be much bigger on the first level". Both authorized (his design call). Fixes:
+- INVISIBILITY (the VANISH family: vanish ult / rogue R12 / HOUDINI+SMOKE fusions; all set
+  player.invisT). Root cause: nearestTarget (monsters.js:278) FELL BACK to `return g.player`
+  when partyTargets() was empty, so a vanished player (excluded from partyTargets at main.js:4808)
+  still got chased/faced - invis only blocked contact damage, not tracking, so it "did nothing".
+  Fixes: (1) monsters.js nearestTarget returns the player's LAST-SEEN point {x:_seenX,y:_seenY}
+  when invisT>0 and the list is empty, so enemies drift to where you vanished (lose track);
+  (2) player.js records _seenX/_seenY every frame while visible, freezes while invisible;
+  (3) player.js draw renders the hero ghost-faint (globalAlpha ~0.28 shimmer) while invisT>0 so
+  you can SEE you're unseen (there was NO invis visual before). Verified live: partyTargets 1->0
+  on vanish, _seenX freezes at last-visible spot, player faded in a screenshot. Full monster-
+  drift left unverified live only because the harness monster-spawn API (Monsters.make) is
+  config-shaped and fiddly; the logic chain (empty list + frozen _seenX -> steer to it) is
+  verified end to end otherwise.
+- HARPY SHADOW (boss.js:599): was the standard small boss ground-ellipse (b.r*1.1 x b.r*0.3);
+  she FLIES, so enlarged to b.r*(2.5+flap*0.35) x b.r*0.52, sitting lower (b.r*1.5) to sell the
+  height, breathing with each wingbeat. Parses + ships; NOT screenshotted live (spawning the
+  floor-1 boss in the harness needs full boss init) - Sam's eyes are the judge, easy to tune.
+136 tests pass. REVIEWS DONE (all 6): combat(3), world-gen(1), stat-system(3), economy(0),
+co-op(2), monsters(0) = 9 bugs. No more review workflows (agent budget). Wind-down next.
+
 ## 2026-07-17 (CO-OP net/sync review - 2 real bugs fixed, 6h grind)
 
 Shipped v2.139. Scoped review of co-op net/sync/damage-doctrine (net.js + main.js sync; 3 finders
