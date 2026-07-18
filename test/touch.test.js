@@ -200,6 +200,33 @@ describe('mobile: fullscreen fires inside the touch gesture', () => {
     expect(m.fs()).toBe(1);                 // toggled inside the gesture
     expect(m.input.mouse.clicked).toBe(false); // consumed, so the frame loop won't double-toggle
   });
+
+  it('does NOT fire on a screen where fullscreen does not live, even if a stale rect lingers', () => {
+    const m = makeMobile();
+    // uiRects were never cleared and still hold a fullscreen rect from the title
+    m.frame({ state: 'dead', uiRects: [{ action: 'fullscreen', x: 12, y: 12, w: 30, h: 30 }] });
+    m.down(27, 27);
+    expect(m.fs()).toBe(0);                 // guarded to title/pause/coopMenu, like desktop
+    expect(m.input.mouse.clicked).toBe(true); // just a normal menu tap
+  });
+});
+
+describe('mobile: the co-op pause menu is tappable (it keeps state==="play")', () => {
+  it('a left-half tap during coopMenu is a click, not the stick', () => {
+    const m = makeMobile();
+    m.frame({ state: 'play', coopMenu: true, uiRects: [] });
+    m.down(300, 200);                       // left half - would arm the stick in real play
+    expect(m.input.mouse.clicked).toBe(true);
+    m.frame({ state: 'play', coopMenu: true });
+    expect(m.input.stick).toBeNull();
+  });
+
+  it('fullscreen works from the co-op menu (fires inside the gesture)', () => {
+    const m = makeMobile();
+    m.frame({ state: 'play', coopMenu: true, uiRects: [{ action: 'fullscreen', x: 12, y: 12, w: 30, h: 30 }] });
+    m.down(27, 27);
+    expect(m.fs()).toBe(1);
+  });
 });
 
 describe('mobile: portrait shows the rotate prompt', () => {
