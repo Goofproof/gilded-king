@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.135';
+  const VERSION = 'v2.136';
 
   const NOTES = [
+    {
+      v: 'v2.136', title: 'Healing abilities that did nothing now heal you', date: '2026-07-18',
+      sha: '23d67a4',
+      items: [
+        'Healing powers that quietly did nothing now actually heal you: the Cleric\'s holy ground and the Death Knight\'s rot cloud were restoring zero life, and the Ranger\'s second quick tumble came back even with a cooldown trinket equipped.',
+      ],
+    },
     {
       v: 'v2.135', title: 'Co-op menus work on your phone', date: '2026-07-18',
       sha: 'a3c3e95',
