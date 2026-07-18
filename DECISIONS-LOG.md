@@ -1,3 +1,19 @@
+## 2026-07-17 (MOBILE post-wave review - 2 co-op-mobile bugs fixed, 6h grind)
+
+Shipped v2.135. The HANDOFF mandates an adversarial review after each wave; a focused pass
+on the touch integration found two real bugs, both verified live: (1) the co-op PAUSE menu
+(g.coopMenu) is the ONLY 'menu' that keeps state==='play' - the shared world can't freeze
+for the party - so touch start() treated its taps as in-play stick/buttons: left-half menu
+buttons (End Run / Menu / fullscreen) were dead and the thumb controls drew over the menu.
+Fix: inPlay = state==='play' && !coopMenu, and draw() also early-returns on coopMenu. (2) the
+touch fullscreen tap wasn't state-guarded like the desktop path (main.js:215 = title/pause/
+coopMenu), so a stale uiRects fullscreen rect could fire it on the wrong screen; now guarded
+to those three states. +3 touch tests (co-op menu tap routing, fullscreen NOT on a stale
+screen, fullscreen from the co-op menu). 132 tests pass. Son's 2026-07-14 asks all confirmed
+already shipped (coin vacuum=vacuumPickups, floor-12 ice-slide=_slide momentum, charsheet
+sub-stats=YOUR TOTALS via statTotals). Mobile is essentially complete; next: broader core
+review or perf, safe-area/visualViewport deferred (unverifiable headless, low value on iPad).
+
 ## 2026-07-17 (MOBILE WAVE 2 part 1 - co-op JOIN keyboard + touch fullscreen, 6h grind)
 
 Shipped v2.134. Generalized the hidden #mkeyb input from a name-only field into a pure
