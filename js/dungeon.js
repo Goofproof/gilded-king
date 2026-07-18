@@ -375,7 +375,7 @@ const Dungeon = (() => {
       const ox = PF.x + PF.w / 2 + (rnd() < 0.5 ? -110 : 110);
       const oy = PF.y + PF.h / 2 - 40;
       if (havePets && !petPlaced && rnd() < petChance) {
-        const pet = Descent.rollPet();
+        const pet = Descent.rollPet(rnd);
         pet.activated = false; pet.x = ox; pet.y = oy; pet.bob = rnd() * 6;
         r.pet = pet; petPlaced = true;
       } else if (floorNum >= 2 && rnd() < mercChance) {
