@@ -788,3 +788,32 @@ GRIND STATUS (~23:34, ~3h49 left): buildable wind-down list is now CLEARED. Mobi
 (WAVE1/2 + co-op join + fullscreen + drag-scroll). 6 review passes done (9 bugs). Sam's live
 asks done (invis, harpy). Perf measured fine (no Tier 3). Now on standby for Sam's direction;
 will only ship further changes that are genuinely worth it, no manufactured busywork.
+
+## 2026-07-18 (~03:25 - 6h unattended GRIND COMPLETE, summary + loop stop)
+
+Sam ran a 6-hour /loop grind (21:23 CDT 2026-07-17 -> 03:23 CDT 2026-07-18) with the ask:
+"improve the game... if you run out, study efficiency/graphics and come back with improvements."
+9 RELEASES shipped, all live at v2.141, tree clean, all pushed:
+- v2.133 MOBILE WAVE 1: the game plays on a phone at all (menu taps via the stick state-guard,
+  pause pip, on-screen keyboard for names, portrait rotate prompt) + test/touch.test.js +
+  test/mobile-states.test.js census guard + pre-push npm-test gate.
+- v2.134 MOBILE WAVE 2 pt1: co-op JOIN room-code keyboard + lobby name (synth-keys), touch
+  fullscreen inside the gesture, updateLobby typing-order fix (helps desktop paste too).
+- v2.135 co-op-mobile review fixes: coopMenu tap routing (it keeps state==='play'), fullscreen
+  state-guard.
+- v2.136 COMBAT: 2 zero-heal regen zones (heal(rate*dt) floored to 0; cleric/DK) + ranger R12
+  double-tumble lost with an abilityHaste trinket.
+- v2.137 co-op pet-species DESYNC (rollPet used Math.random at floor-gen) + determinism guard.
+- v2.138 STAT: dead Midas trinket (combat read this.evo not trinketMods) + roll-cd display cap +
+  echo "DEAD SLOT" verdict wrong for casters.
+- v2.139 CO-OP: descent stalactites double-damaged the guest (now per-client) + bossDead ->
+  Net.sendR (reliable, was drop-if-lost -> phantom-boss trap).
+- v2.140 SAM'S LIVE ASKS: invisibility now makes enemies LOSE track (drift to last-seen) +
+  ghost-faint visual; Harpy shadow much bigger (b.r*2.5, wingbeat-linked; UNVERIFIED-LIVE, tune
+  if needed).
+- v2.141 mobile class-strip drag-scroll.
+6 ADVERSARIAL REVIEW PASSES (3 finders x lens + verify-each, ~6 agents each, RE-VERIFIED in
+source before every fix): combat(3 bugs), world-gen/rules/boss(1), stat-system(3), economy(0 -
+CLEAN, hardened 1 latent onVictory essence double-bank), co-op(2), monsters(0 - clean) = 9 real
+gameplay bugs. PERF measured (~0.3-1.1ms/frame, well under 16.7ms budget) -> no Tier 3 needed.
+Graphics left to the son (designer). Test count 110 -> 139. Loop ended cleanly at the 6h mark.
