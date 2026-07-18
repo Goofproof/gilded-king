@@ -1,3 +1,20 @@
+## 2026-07-17 (MOBILE WAVE 2 part 1 - co-op JOIN keyboard + touch fullscreen, 6h grind)
+
+Shipped v2.134. Generalized the hidden #mkeyb input from a name-only field into a pure
+KEYSTROKE SOURCE: each typed char becomes the same KeyCode the desktop fires (KeyA/Digit3/
+Space/Backspace) pushed into input.just, so updateInitials AND updateLobby (name + JOIN code)
+reuse one path - filtering, max-length, saveName, Net.join all unchanged. Removed the
+direct-write initials casing special-case (synth is uppercase, matching desktop exactly).
+Fired the ⛶ fullscreen toggle from inside the touch gesture (new 4th arg to Mobile.init =
+toggleFullscreen; hitsRect() consults curG.uiRects) because requestFullscreen needs transient
+activation a frame-later dispatch misses. BUG FOUND + FIXED while verifying: updateLobby
+looped a fixed ALPHABET and appended in alphabetical order, so a swipe/autocomplete keyboard
+delivering several chars in one frame spelled "KQ37" for "K7Q3"; both lobby loops now iterate
+input.just in TYPING order (also fixes fast paste on desktop). Verified live in ?touch=1:
+initials "MAX", JOIN code correct order for both swipe (one frame) and tap (one/frame). 129
+tests pass. STILL OPEN in WAVE 2: safe-area/notch insets, iOS visualViewport address-bar fix,
+class-strip drag-scroll (arrows already tappable so this is polish).
+
 ## 2026-07-17 (MOBILE playable, WAVE 1 - Sam's "make mobile playable/testable/durable" + a 6h grind)
 
 Shipped v2.133. touch.js existed since 2026-07-14 but was ~40 waves stale and had one
