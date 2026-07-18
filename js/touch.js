@@ -37,6 +37,7 @@ const Mobile = (() => {
   // is what lets a tap KNOW whether it is a menu click or an in-play control.
   let curState = null, curG = null;
   let kbd = null;   // the hidden <input> that raises the phone's soft keyboard (name entry)
+  let lastKbd = '';  // its value last frame, to diff into synthetic keystrokes
 
   // the left thumb: a floating stick that appears where you put your thumb down
   const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, active: false };
@@ -72,7 +73,18 @@ const Mobile = (() => {
   }
   function release(b) { if (b.code) input.keys.delete(b.code); }
 
-  let onUlt = null;
+  let onUlt = null, onFs = null;
+
+  // does this touch point land on a uiRect carrying the given action? (curG.uiRects
+  // is the game's own hit-rect list, refreshed each draw)
+  function hitsRect(p, action) {
+    const rects = curG && curG.uiRects;
+    if (!rects) return false;
+    for (const r of rects) {
+      if (r.action === action && p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h) return true;
+    }
+    return false;
+  }
 
   function clickAt(p) {
     // a tap = a left mouse click at that point. Menus, the title screen, the level-up
@@ -93,10 +105,14 @@ const Mobile = (() => {
     for (const t of e.changedTouches) {
       const p = toGame(t);
       if (!inPlay) {
+        // FULLSCREEN must fire INSIDE the touch gesture: requestFullscreen only works
+        // during the browser's transient activation, which a frame-later dispatch misses
+        // (the desktop RMB path does the same at main.js). Consumed here, no click.
+        if (onFs && hitsRect(p, 'fullscreen')) { onFs(); continue; }
         clickAt(p);
         // iOS raises the soft keyboard ONLY from a focus() inside the real touch
-        // gesture (not a frame later), so name entry is focused right here.
-        if (curState === 'initials') focusKeyboard();
+        // gesture (not a frame later), so any typed field is focused right here.
+        if (textState()) focusKeyboard();
         continue;
       }
       // --- in play ---
@@ -145,8 +161,8 @@ const Mobile = (() => {
     if (!enabled) return;
     curG = g; curState = g && g.state;          // so start() knows menu-vs-play
     if (PAUSE.downT > 0) PAUSE.downT -= 1 / 60;  // brief press flash on the pause pip
-    // let go of the phone keyboard the moment we leave the name screen
-    if (kbd && curState !== 'initials' && typeof document !== 'undefined' && document.activeElement === kbd) kbd.blur();
+    // let go of the phone keyboard the moment we leave any typed field
+    if (kbd && !textState() && typeof document !== 'undefined' && document.activeElement === kbd) kbd.blur();
     // the analog stick -> input.stick, read by player.js
     if (stick.active) {
       let dx = stick.x - stick.ox, dy = stick.y - stick.oy;
@@ -248,27 +264,41 @@ const Mobile = (() => {
     c.restore();
   }
 
-  // NAME ENTRY: a phone has no physical keyboard, so the 'initials' screen (high-score
-  // name + the title rename) could never be typed - every player saved as 'AAA'. One
-  // hidden, focusable <input> raises the native soft keyboard; its typed value flows
-  // straight into g.initials.name, and Enter/Escape commit or cancel the same as the
-  // desktop keys. The element lives in index.html (id "mkeyb").
+  // TEXT ENTRY: a phone has no physical keyboard, so every typed field was unreachable -
+  // the high-score name ('initials'), the title rename, the co-op lobby name, and the
+  // 4-char JOIN room code. One hidden, focusable <input> (index.html id "mkeyb") raises
+  // the native soft keyboard. Rather than write game state from here, it acts as a pure
+  // KEYSTROKE SOURCE: each typed char is turned into the SAME KeyCode the desktop fires
+  // (KeyA / Digit3 / Space / Backspace) and pushed into input.just, so the game's own
+  // updateInitials + updateLobby handle it - filtering, max-length, saveName and Net.join
+  // all reuse one code path, exactly matching desktop (which is uppercase-only too).
+  const textState = () => curState === 'initials' ||
+    (curState === 'lobby' && curG && curG.lobby && curG.lobby.mode !== 'host');
   function focusKeyboard() {
-    if (!kbd || !curG || !curG.initials) return;
-    kbd.maxLength = curG.initials.max || 12;
-    kbd.value = curG.initials.name || '';
+    if (!kbd) return;
+    kbd.value = ''; lastKbd = '';   // a scratch buffer; the drawn field is the game's own state
     try { kbd.focus(); } catch (e) { /* an embed can refuse focus; harmless */ }
+  }
+  function pumpKbd() {
+    // diff the buffer against last frame and synthesize the added/removed keystrokes
+    const v = kbd.value, o = lastKbd;
+    if (v.length > o.length) {
+      for (const ch of v.slice(o.length)) {
+        const u = ch.toUpperCase();
+        if (u >= 'A' && u <= 'Z') input.just.add('Key' + u);
+        else if (u >= '0' && u <= '9') input.just.add('Digit' + u);
+        else if (ch === ' ') input.just.add('Space');
+      }
+    } else if (v.length < o.length) {
+      input.just.add('Backspace');
+    }
+    lastKbd = v;
   }
   function wireKeyboard() {
     if (typeof document === 'undefined') return;
     kbd = document.getElementById('mkeyb');
     if (!kbd) return;
-    kbd.addEventListener('input', () => {
-      if (!curG || !curG.initials) return;
-      let v = kbd.value;
-      if (!curG.renameOnly) v = v.toUpperCase();  // the high-score board is uppercase; a rename keeps its case
-      curG.initials.name = v.slice(0, curG.initials.max || 12);
-    });
+    kbd.addEventListener('input', pumpKbd);
     kbd.addEventListener('keydown', ev => {
       // stop main.js's window keydown listener from ALSO seeing these (double input)
       ev.stopPropagation();
@@ -288,9 +318,10 @@ const Mobile = (() => {
     el.style.display = portrait ? 'flex' : 'none';
   }
 
-  // wire up. `ultFn` fires the ultimate (right-click on desktop).
-  function init(cv, inp, ultFn) {
-    canvas = cv; input = inp; onUlt = ultFn;
+  // wire up. `ultFn` fires the ultimate (right-click on desktop); `fsFn` toggles
+  // fullscreen (must run inside the touch gesture for the browser to honor it).
+  function init(cv, inp, ultFn, fsFn) {
+    canvas = cv; input = inp; onUlt = ultFn; onFs = fsFn;
     W = cv.width; H = cv.height;
     if (!isTouch) return false;
     enabled = true;

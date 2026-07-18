@@ -4538,11 +4538,14 @@
     const lb = g.lobby;
     if (input.pressed('Escape')) { closeLobby(); return; }
     // #29: type your character name on the menu screen (persists in localStorage)
+    // We iterate input.just in TYPING order (not a fixed alphabet) so a phone swipe /
+    // autocomplete keyboard, which can deliver several characters in one frame, spells
+    // the name/code the way it was typed instead of re-sorting it alphabetically.
     if (lb.mode === 'menu' || !lb.mode) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      for (const ch of chars) {
-        const code = (ch >= '0' && ch <= '9') ? 'Digit' + ch : 'Key' + ch;
-        if (input.pressed(code) && (g.playerName || '').length < 12) { g.playerName = (g.playerName || '') + ch; saveName(); Sfx.play('ui'); }
+      for (const code of input.just) {
+        const kl = /^Key([A-Z])$/.exec(code), dg = /^Digit([0-9])$/.exec(code);
+        const ch = kl ? kl[1] : dg ? dg[1] : '';
+        if (ch && (g.playerName || '').length < 12) { g.playerName = (g.playerName || '') + ch; saveName(); Sfx.play('ui'); }
       }
       if (input.pressed('Space') && (g.playerName || '').length < 12) { g.playerName += ' '; saveName(); }
       if (input.pressed('Backspace') && (g.playerName || '').length) { g.playerName = g.playerName.slice(0, -1); saveName(); }
@@ -4551,10 +4554,11 @@
     // host generator uses (net.js) so a newcomer can't type an impossible code
     // (I/L/O/0/1 are never in a real code) and get silently dropped into an orphan room.
     if (lb.mode === 'join' && !Net.connected) {
-      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-      for (const ch of chars) {
-        const code = (ch >= '0' && ch <= '9') ? 'Digit' + ch : 'Key' + ch;
-        if (input.pressed(code) && lb.entry.length < 4) { lb.entry += ch; Sfx.play('ui'); }
+      const allowed = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      for (const code of input.just) {
+        const kl = /^Key([A-Z])$/.exec(code), dg = /^Digit([0-9])$/.exec(code);
+        const ch = kl ? kl[1] : dg ? dg[1] : '';
+        if (ch && allowed.includes(ch) && lb.entry.length < 4) { lb.entry += ch; Sfx.play('ui'); }
       }
       if (input.pressed('Backspace') && lb.entry.length) lb.entry = lb.entry.slice(0, -1);
       if (input.pressed('Enter') && lb.entry.length === 4) { Net.join(lb.entry); lb.status = 'connecting...'; }
@@ -8762,7 +8766,7 @@
   // MOBILE: bind the touch layer to the SAME input object the desktop game reads, so a
   // synthetic 'KeyE' from a thumb is indistinguishable from a real keypress. Returns
   // false and does nothing at all on a device with a real pointer.
-  if (typeof Mobile !== 'undefined' && Mobile.init(canvas, input, useUltimate)) {
+  if (typeof Mobile !== 'undefined' && Mobile.init(canvas, input, useUltimate, toggleFullscreen)) {
     console.log('[dungeon] touch controls ON');
   }
   maybeShowPatchNotes();
