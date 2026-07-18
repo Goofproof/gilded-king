@@ -396,6 +396,15 @@ const PlayerDef = (() => {
       c.beginPath(); c.ellipse(0, -r * 1.25, r * 0.58, r * 0.15, 0, 0, Math.PI * 2); c.fill(); // flat top
       c.fillStyle = '#ffce54'; c.fillRect(-r * 0.58, -r * 0.78, r * 1.16, r * 0.15);          // gold band
       c.beginPath(); c.arc(r * 0.3, -r * 0.71, r * 0.11, 0, Math.PI * 2); c.fill();           // the lucky coin
+    } else if (id === 'bard') {
+      // a jaunty peaked cap with a bright plume
+      c.fillStyle = '#7a2f66';
+      c.beginPath(); c.moveTo(-r * 0.72, -r * 0.5); c.quadraticCurveTo(-r * 0.1, -r * 1.3, r * 0.8, -r * 0.9);
+      c.quadraticCurveTo(r * 0.05, -r * 0.58, -r * 0.72, -r * 0.5); c.closePath(); c.fill();
+      c.strokeStyle = '#4a1a3e'; c.lineWidth = 1; c.stroke();
+      c.strokeStyle = '#ff9ad6'; c.lineWidth = 2;                                              // the feather
+      c.beginPath(); c.moveTo(r * 0.55, -r * 0.82); c.quadraticCurveTo(r * 1.15, -r * 1.5, r * 0.8, -r * 1.95); c.stroke();
+      c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-r * 0.42, -r * 0.66, 1.8, 0, Math.PI * 2); c.fill(); // gold pin
     } else if (id === 'mage') {
       // a full pointed wizard hat: wide brim, tall bent cone, a band and a gold star
       c.fillStyle = '#2a1840';
@@ -643,6 +652,15 @@ const PlayerDef = (() => {
       c.beginPath(); c.ellipse(0, -s * 1.02, s * 0.6, s * 0.16, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = '#ffce54'; c.fillRect(-s * 0.6, -s * 0.52, s * 1.2, s * 0.16);
       c.beginPath(); c.arc(s * 0.32, -s * 0.44, s * 0.12, 0, Math.PI * 2); c.fill();
+    } else if (id === 'bard') {
+      // a jaunty peaked cap with a plume, portrait size
+      c.fillStyle = '#7a2f66';
+      c.beginPath(); c.moveTo(-s * 0.74, -s * 0.28); c.quadraticCurveTo(-s * 0.1, -s * 1.08, s * 0.82, -s * 0.68);
+      c.quadraticCurveTo(s * 0.05, -s * 0.36, -s * 0.74, -s * 0.28); c.closePath(); c.fill();
+      c.strokeStyle = '#4a1a3e'; c.lineWidth = 1; c.stroke();
+      c.strokeStyle = '#ff9ad6'; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(s * 0.56, -s * 0.6); c.quadraticCurveTo(s * 1.16, -s * 1.28, s * 0.82, -s * 1.72); c.stroke();
+      c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-s * 0.44, -s * 0.44, s * 0.1, 0, Math.PI * 2); c.fill();
     } else if (id === 'rogue') {
       // #95 a full assassin cowl: it wraps the ENTIRE head and face, leaving only a
       // narrow eye-slit. The bottom edge bulges down past the chin so no skin shows.
