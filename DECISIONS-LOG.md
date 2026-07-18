@@ -1,3 +1,24 @@
+## 2026-07-17 (COMBAT review - 3 real bugs fixed, 6h grind)
+
+Shipped v2.136. Ran a scoped adversarial review of combat/abilities (3 finders x lens
+[null-safety/cooldown/damage] + verify-each; 3 candidates, all 3 confirmed high-confidence,
+0 refuted). RE-VERIFIED each in source myself before fixing:
+- Two REGEN ZONES healed 0 HP: qregen (cleric R8 consecrated ground / SANCTUARY fusion,
+  main.js:6384) and miasma regen (death knight R8, main.js:6403) both called heal(rate*dt);
+  heal() does Math.round (player.js:1265) with no fractional carry, so ~0.05-0.3/frame floored
+  to 0 EVERY frame - the zones were pure no-ops. Fixed by adding to hp directly (p.hp = min(max,
+  hp + rate*dt*(1+healMult))), the exact pattern the marathon/root regens already use and the
+  devs documented at player.js:1315/1424. Verified live via dbg: qregen +6 HP over 2s at 3/s
+  (was 0). Only 2 continuous heal(*dt) callers exist; every other heal() is a discrete amount>=1.
+- RANGER R12 two-charge tumble (main.js:2917): the "full cooldown restores both" gate compared
+  g.time-_lastQ against RAW a.cdMax, but a.cd is armed hasted (cdMax*(1-haste)); with any
+  abilityHaste trinket the recast lands before cdMax so _stock never refilled -> went negative ->
+  second charge lost forever. Fixed: compare against a.cdMax*(1-haste)-0.05. (haste modifiers
+  _halfCd/_resetCd are other classes, don't apply to a ranger Q.)
+These are main.js (updateUltFx/castAbility), not harness-loadable, so verified live not via
+vitest. 132 tests still pass. Review method worked well (0 false positives this run); rotating
+to another subsystem next (co-op net/sync or descent/rules/boss).
+
 ## 2026-07-17 (MOBILE post-wave review - 2 co-op-mobile bugs fixed, 6h grind)
 
 Shipped v2.135. The HANDOFF mandates an adversarial review after each wave; a focused pass
