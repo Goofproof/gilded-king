@@ -165,6 +165,9 @@ const Abilities = (() => {
     // BARD (Sam): DISCORD - a provocation that turns the enemy against itself.
     bard:        { name: 'Discord',       color: '#e06ec0', kind: 'provoke', dur: 6, radius: 320, dps: 18, cdMax: 11,
                    desc: 'Provoke every enemy into a brawl - they turn on each other. Grows to haste the fight, heal your party, and rot the provoked' },
+    // WARLOCK (Sam's son, based on BRIMSTONE from The Binding of Isaac): a charged blood laser.
+    warlock:     { name: 'Brimstone',     color: '#c81e3a', kind: 'beam', dur: 0.9, dmg: 0.6, tick: 0.06, range: 900, width: 22, cdMax: 10,
+                   desc: 'Loose a piercing blood-laser down your aim - it rips through EVERY enemy in the line and ignores walls, ticking damage. Grows wider, splits, homes, and makes its kills erupt' },
   };
   // #109 every class Q grows with player level (like the Engineer's turret count).
   // Returns multipliers for the value-driven Qs; the turret/summon Qs additionally
@@ -189,6 +192,7 @@ const Abilities = (() => {
     paladin: 'VIGOR', cleric: 'VIGOR', druid: 'VIGOR', deathknight: 'VIGOR',
     gambler: 'FORTUNE', // #258
     bard: 'VIGOR',      // the song is support: haste, regen, then rot
+    warlock: 'ARCANE',  // the blood laser is a spell - ARCANE grows it
   };
 
   // #226 (Q-DESIGN.md, agreed with Sam 2026-07-15) THE Q RANK SYSTEM.
@@ -220,6 +224,7 @@ const Abilities = (() => {
     druid:       { rider: 0,    perPoint: {} },          // forms rework in the VIGOR wave
     deathknight: { rider: 0.02, perPoint: { dps: 3 } }, // #230 Miasma: rider is rot %/s, points feed the poison
     bard:        { rider: 0,    perPoint: { dur: 0.2, dps: 2 } }, // longer brawl + a meaner rot per VIGOR point
+    warlock:     { rider: 0,    perPoint: { width: 1.2, range: 24 } }, // each ARCANE point widens + lengthens the beam
   };
 
   function qRank(classId, statPoints) {
@@ -247,6 +252,7 @@ const Abilities = (() => {
     druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: true }, { at: 8, txt: 'Each form gains a MOVE', impl: true }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: true }],
     deathknight: [{ at: 4, txt: 'THE BLACK WIND: it follows you', impl: true }, { at: 8, txt: 'Regenerate while enemies rot', impl: true }, { at: 12, txt: 'Poison kills RISE as your skeletons', impl: true }],
     bard:        [{ at: 4, txt: 'The brawl HASTES everyone - your party and the fighting enemies', impl: true }, { at: 8, txt: 'You and your allies regenerate health while it plays', impl: true }, { at: 12, txt: 'Provoked enemies also ROT - poison over time', impl: true }],
+    warlock:     [{ at: 4, txt: 'The beam SPLITS - a second laser at an angle, both wider', impl: true }, { at: 8, txt: 'The beam curves toward the nearest enemy (homing)', impl: true }, { at: 12, txt: 'Enemies it kills ERUPT in a blood blast', impl: true }],
   };
 
   function classAbility(classId) {
@@ -259,7 +265,7 @@ const Abilities = (() => {
     }
     for (const k of ['dmg', 'radius', 'knock', 'dist', 'iframe', 'heal', 'castShield',
                      'critAll', 'coinScale', 'coinBurst', 'refundRoll', 'rageAfter', 'hasteAfter', 'dur',
-                     'clones', 'dps', 'gamble', 'coinLoose', 'reel']) { // #156 mesmer/pyro; #258 gambler
+                     'clones', 'dps', 'gamble', 'coinLoose', 'reel', 'tick', 'range', 'width']) { // #156 mesmer/pyro; #258 gambler; warlock beam
       if (spec[k] !== undefined) a[k] = spec[k];
     }
     a.name = spec.name;

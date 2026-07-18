@@ -60,6 +60,24 @@ describe('#156 the five new classes', () => {
     expect(ms.every(m => m.impl)).toBe(true);
   });
 
+  it('WARLOCK (son, based on Brimstone): the class + its beam Q are wired end to end', () => {
+    const c = PlayerDef.classById('warlock');
+    expect(c.id).toBe('warlock');
+    expect(c.desc.length).toBeGreaterThan(0);
+    const q = Abilities.classAbility('warlock');
+    expect(q.kind).toBe('beam');
+    expect(q.cdMax).toBeGreaterThan(0);
+    expect(q.dur).toBeGreaterThan(0);       // the laser lasts a beat
+    expect(q.range).toBeGreaterThan(0);     // it reaches
+    expect(q.width).toBeGreaterThan(0);     // it has thickness
+    expect(q.tick).toBeGreaterThan(0);      // it ticks damage
+    expect(Abilities.CLASS_STAT.warlock).toBe('ARCANE');
+    expect(Abilities.qRank('warlock', { ARCANE: 8 })).toBe(8);
+    const ms = Abilities.Q_MILESTONES.warlock; // split @4, home @8, erupt @12
+    expect(ms.map(m => m.at)).toEqual([4, 8, 12]);
+    expect(ms.every(m => m.impl)).toBe(true);
+  });
+
   it('the necromancer scales: 1 knight, then 2, then 3 knights + 2 archers', () => {
     // the tier ladder lives in main.js castAbility; assert the shape it depends on so a
     // refactor that renames a level band trips here rather than in a 12-year-old's run.

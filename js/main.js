@@ -2551,6 +2551,18 @@
       }
       Fx.burst(p.x, p.y, [a.color, '#fff', '#ffb3e6'], 32, { speed: 280, life: 0.6, glow: true });
       Fx.shake(5, 0.22); Sfx.play('ui');
+    } else if (a.kind === 'beam') {
+      // WARLOCK Brimstone (son): a piercing, wall-ignoring BLOOD LASER down your aim that ticks
+      // damage. ARCANE rank: 4 splits it in two + widens; 8 homes toward the nearest enemy; 12
+      // makes its kills erupt. The beam follows your aim while it fires (a ~0.9s sustained laser).
+      const w = (p.weapons && p.weapons[p.slot]) || (p.weapons && p.weapons.a);
+      g.beam = {
+        t: 0, dur: a.dur || 0.9, tick: a.tick || 0.06, tickT: 0.14, // ~7-frame pause before the first tick (Isaac)
+        range: a.range || 900, width: a.width || 22, dmgMul: a.dmg || 0.6,
+        baseDmg: (w && w.dmg) || 16, color: a.color || '#c81e3a',
+        rank: _qGates ? _qGates.rank : 0, rays: [p.facing],
+      };
+      Fx.shake(4, 0.3); Sfx.play('nova');
     } else if (a.kind === 'ftoggle') { // #256 PHILOSOPHER'S STONE: gold burns while it's lit
       if (p.fstance && p.fstance.id === 'stone') {
         p.fstance = null;
@@ -5526,6 +5538,7 @@
     updateProjectiles(dt);
     updatePickups(dt);
     updateMines(dt);
+    updateBeam(dt);          // WARLOCK Brimstone: the sustained blood-laser ticks here
     updateStalactites(dt);   // #164 falling stalactites on the underground floors
     updateGluePuddles(dt);   // #179 sticky glue on the floor slows everything in it
     updateBirdShadow(dt);    // #183 the hawk over the forest canopy
@@ -6669,6 +6682,71 @@
     }
   }
 
+  // WARLOCK Brimstone: the sustained blood-laser. Aim (and rank-8 homing) recomputed EVERY
+  // frame so it tracks your cursor; damage ticks on its own cadence. Piercing + SPECTRAL -
+  // no wall check, hits every monster whose centre is within the beam's width of the line.
+  function updateBeam(dt) {
+    const b = g.beam; if (!b) return;
+    const p = g.player;
+    b.t += dt;
+    if (b.t >= b.dur || !p || p.dead) { g.beam = null; return; }
+    let dir = p.facing;
+    if (b.rank >= 8) { // home toward the nearest enemy
+      let best = null, bd = 1e9;
+      for (const m of g.monsters) { if (m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } }
+      if (best) { const want = Math.atan2(best.y - p.y, best.x - p.x); const dd = ((want - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI; dir += Math.max(-0.6, Math.min(0.6, dd)); }
+    }
+    b.rays = b.rank >= 4 ? [dir - 0.18, dir + 0.18] : [dir];        // rank 4: split in two
+    b.width2 = b.width * (b.rank >= 4 ? 1.25 : 1) * (b.rank >= 12 ? 1.3 : 1);
+    b.tickT -= dt;
+    if (b.tickT > 0) return;
+    b.tickT = b.tick;
+    for (const dr of b.rays) {
+      const dx = Math.cos(dr), dy = Math.sin(dr);
+      for (const m of g.monsters) {
+        if (m.dead || m.spawnT > 0 || m.airborne) continue;
+        const rx = m.x - p.x, ry = m.y - p.y;
+        const proj = rx * dx + ry * dy;                            // along the beam
+        if (proj < 0 || proj > b.range) continue;
+        if (Math.abs(rx * -dy + ry * dx) > b.width2 + m.r) continue; // perpendicular reach
+        const { dmg, crit } = p.computeDmg(b.baseDmg * b.dmgMul, m, g);
+        m.takeHit(dmg, { sx: p.x, sy: p.y, knock: 30, crit, fromPlayer: true, hitSfx: 'hitArrow' }, g);
+        if (b.rank >= 12 && m.dead && !m._brimErupt) { m._brimErupt = true; brimstoneErupt(m, b); }
+      }
+    }
+  }
+  function brimstoneErupt(m, b) { // rank 12: a beam kill bursts into a small blood blast
+    Fx.burst(m.x, m.y, ['#c81e3a', '#ff5a6e', '#fff'], 16, { speed: 210, life: 0.45, glow: true });
+    Fx.shake(3, 0.12);
+    const R = 95, D = Math.round(b.baseDmg * 3);
+    for (const o of g.monsters) {
+      if (o.dead || o === m || o.spawnT > 0) continue;
+      if (Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) o.takeHit(D, { sx: m.x, sy: m.y, knock: 130, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+    }
+  }
+  function drawBeam(c) {
+    const b = g.beam, p = g.player; if (!b || !p) return;
+    const rays = b.rays || [p.facing], width = b.width2 || b.width;
+    const a = Math.min(1, b.t / 0.07) * Math.min(1, (b.dur - b.t) / 0.15) * (0.75 + 0.25 * Math.sin(Date.now() / 35));
+    c.save(); c.lineCap = 'round';
+    for (const dr of rays) {
+      const dx = Math.cos(dr), dy = Math.sin(dr);
+      // clip the DRAWN length to the field edge (the DAMAGE stays spectral/full range)
+      let len = b.range;
+      if (dx > 0.001) len = Math.min(len, (PF.x + PF.w - p.x) / dx); else if (dx < -0.001) len = Math.min(len, (PF.x - p.x) / dx);
+      if (dy > 0.001) len = Math.min(len, (PF.y + PF.h - p.y) / dy); else if (dy < -0.001) len = Math.min(len, (PF.y - p.y) / dy);
+      len = Math.max(0, len);
+      const ex = p.x + dx * len, ey = p.y + dy * len;
+      c.globalAlpha = 0.45 * a; c.strokeStyle = b.color; c.lineWidth = width * 2.2;
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(ex, ey); c.stroke();
+      c.globalAlpha = 0.85 * a; c.lineWidth = width * 1.1;
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(ex, ey); c.stroke();
+      c.globalAlpha = a; c.strokeStyle = '#ffd0d6'; c.lineWidth = width * 0.4;
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(ex, ey); c.stroke();
+    }
+    c.restore();
+  }
+
   function updatePickups(dt) {
     const p = g.player;
     for (let i = g.pickups.length - 1; i >= 0; i--) {
@@ -6744,6 +6822,7 @@
     // pickups under actors
     for (const pk of g.pickups) drawPickup(c, pk);
     drawMines(c);
+    drawBeam(c);   // WARLOCK Brimstone: the blood-laser, over the world
     drawStalactites(c);   // #164 falling stalactites (underground floors)
     drawUltFx(c);
 

@@ -63,6 +63,10 @@ const PlayerDef = (() => {
     { id: 'bard',        name: 'Bard',         color: '#e06ec0', icon: '♪', arch: 'wand',
       desc: 'Starts with a wand. Magic 1, +8% move speed. Turns the enemy against itself.', magic: 1, fx: { spd: 0.08 },
       q: 'Discord',       qDesc: 'Provoke every enemy into a brawl - they turn on each other. Later it hastes the fight, heals your party, and rots the provoked.' },
+    // WARLOCK (Sam's son, based on BRIMSTONE): a blood-laser caster. ARCANE rules its Q.
+    { id: 'warlock',     name: 'Warlock',      color: '#c81e3a', icon: '☩', arch: 'wand',
+      desc: 'Starts with a wand. Magic 2, +12% spell power. Wields the blood laser.', magic: 2, fx: { spellPower: 0.12 },
+      q: 'Brimstone',     qDesc: 'Loose a piercing blood-laser down your aim - it tears through every enemy in a line and ignores walls. Grows to split, home, and erupt.' },
   ];
   const classById = id => CLASSES.find(k => k.id === (id || '')) || CLASSES[0];
 
@@ -405,6 +409,13 @@ const PlayerDef = (() => {
       c.strokeStyle = '#ff9ad6'; c.lineWidth = 2;                                              // the feather
       c.beginPath(); c.moveTo(r * 0.55, -r * 0.82); c.quadraticCurveTo(r * 1.15, -r * 1.5, r * 0.8, -r * 1.95); c.stroke();
       c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-r * 0.42, -r * 0.66, 1.8, 0, Math.PI * 2); c.fill(); // gold pin
+    } else if (id === 'warlock') {
+      // the Brimstone mark: a dark skullcap crowned with curved ram horns, a red ember between
+      c.fillStyle = '#3a1016';
+      c.beginPath(); c.arc(0, -r * 0.5, r * 0.6, Math.PI, 0); c.fill();
+      c.strokeStyle = '#8a1f2e'; c.lineWidth = Math.max(2, r * 0.18); c.lineCap = 'round';
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * r * 0.45, -r * 0.68); c.quadraticCurveTo(s * r * 1.15, -r * 0.9, s * r * 0.98, -r * 1.65); c.stroke(); }
+      c.fillStyle = '#ff3a4a'; c.beginPath(); c.arc(0, -r * 0.55, 2, 0, Math.PI * 2); c.fill();
     } else if (id === 'mage') {
       // a full pointed wizard hat: wide brim, tall bent cone, a band and a gold star
       c.fillStyle = '#2a1840';
@@ -607,7 +618,7 @@ const PlayerDef = (() => {
     const id = (typeof cls === 'string') ? cls : (cls && cls.id) || '';
     const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8',
       mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f',
-      gambler: '#8a6f2a', bard: '#a8478f' }[id] || '#5b6884';
+      gambler: '#8a6f2a', bard: '#a8478f', warlock: '#8a1f2e' }[id] || '#5b6884';
     const race = raceById(raceId);
     c.save();
     c.translate(cx, cy);
@@ -661,6 +672,13 @@ const PlayerDef = (() => {
       c.strokeStyle = '#ff9ad6'; c.lineWidth = 2;
       c.beginPath(); c.moveTo(s * 0.56, -s * 0.6); c.quadraticCurveTo(s * 1.16, -s * 1.28, s * 0.82, -s * 1.72); c.stroke();
       c.fillStyle = '#ffd24c'; c.beginPath(); c.arc(-s * 0.44, -s * 0.44, s * 0.1, 0, Math.PI * 2); c.fill();
+    } else if (id === 'warlock') {
+      // the Brimstone mark: dark skullcap + curved ram horns, portrait size
+      c.fillStyle = '#3a1016';
+      c.beginPath(); c.arc(0, -s * 0.3, s * 0.62, Math.PI, 0); c.fill();
+      c.strokeStyle = '#8a1f2e'; c.lineWidth = Math.max(2, s * 0.18); c.lineCap = 'round';
+      for (const q of [-1, 1]) { c.beginPath(); c.moveTo(q * s * 0.46, -s * 0.48); c.quadraticCurveTo(q * s * 1.18, -s * 0.7, q * s * 1.0, -s * 1.5); c.stroke(); }
+      c.fillStyle = '#ff3a4a'; c.beginPath(); c.arc(0, -s * 0.36, s * 0.1, 0, Math.PI * 2); c.fill();
     } else if (id === 'rogue') {
       // #95 a full assassin cowl: it wraps the ENTIRE head and face, leaving only a
       // narrow eye-slit. The bottom edge bulges down past the chin so no skin shows.
