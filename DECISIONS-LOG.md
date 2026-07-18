@@ -1,3 +1,28 @@
+## 2026-07-17 (MOBILE playable, WAVE 1 - Sam's "make mobile playable/testable/durable" + a 6h grind)
+
+Shipped v2.133. touch.js existed since 2026-07-14 but was ~40 waves stale and had one
+systemic defect: start() armed the movement stick on ANY left-half touch with no state
+guard, and every menu is centred on the 960px canvas, so the LEFT HALF of every menu was
+physically dead on a phone - including SOLO PLAY (game x=368), so a phone player could not
+start a solo run. Fix (verified live in ?touch=1 + a screenshot):
+- start() gates the stick + the six thumb buttons + a new pause pip to curState==='play'
+  (a module var set from update()/draw(), which get g; start() has no g). Off play, every
+  tap is a click routed through the existing uiRects/input.mouse.clicked dispatch in main.js
+  - so ONE fix restores SOLO PLAY, the leftmost card, PLAY AGAIN, race/class tiles, etc.
+- PAUSE pip (right-centre edge, clear of HP/minimap/buttons) synthesizes 'Escape'.
+- NAME ENTRY: a hidden <input id=mkeyb> in index.html; a tap on 'initials' focuses it
+  SYNCHRONOUSLY inside the touch gesture (iOS only raises the soft keyboard then). Its value
+  flows into g.initials.name (uppercased unless renameOnly). Before this every phone player
+  saved as 'AAA'. Verified: focus + "sam" -> "SAM" in-game.
+- Portrait shows a "turn your phone sideways" overlay (#rotate); null-player ult-on-title
+  crash closed by gating the button hit-test to play.
+TESTABLE + DURABLE: test/touch.test.js (12 synthetic-geometry tests, no browser, via the
+new Function shim like netbus.test.js) + test/mobile-states.test.js (a census guard that
+FAILS CI if a future patch adds a g.state with no touch reach path, or reverts the stick
+state-guard - proven to bite). Pre-push hook now runs npm test so a plain git push is gated.
+127 tests pass. WAVE 2 (co-op JOIN keyboard, safe-area/notch, iOS visualViewport address-bar,
+touch fullscreen button, class-strip drag-scroll) is scoped but NOT built - next in the grind.
+
 ## 2026-07-17 (doppelganger = true mirror, Sam's ask)
 
 The Doppelganger no longer draws as a bruised-violet shade. It is now painted
