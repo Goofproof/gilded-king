@@ -12,6 +12,26 @@
 #
 # Installed via: git config core.hooksPath .githooks
 
+# --- TEST GATE ---------------------------------------------------------------
+# Run the suite on every push, not just `npm run ship`. This is what keeps the
+# mobile guards (test/touch.test.js + test/mobile-states.test.js) - and the seed-
+# determinism co-op depends on - from being bypassed by a plain `git push`. A future
+# patch that adds a keyboard-only screen fails HERE, before players ever see it.
+# If node/npm is not on PATH in this hook's shell, warn and defer to the ship gate
+# rather than block a push on a missing toolchain. Genuinely need to bypass? --no-verify.
+if command -v npm >/dev/null 2>&1; then
+  echo "pre-push: running npm test ..." >&2
+  if ! npm test --silent >&2; then
+    echo "" >&2
+    echo "  PUSH BLOCKED - tests failed. Fix them (or --no-verify if you truly mean to)." >&2
+    echo "" >&2
+    exit 1
+  fi
+else
+  echo "pre-push: npm not on PATH - skipping tests here (npm run ship still gates them)." >&2
+fi
+# -----------------------------------------------------------------------------
+
 sha=$(grep -m1 -o "sha: '[0-9a-f]\{7,40\}'" js/patchnotes.js | grep -o "[0-9a-f]\{7,40\}")
 if [ -z "$sha" ]; then
   echo "pre-push: js/patchnotes.js NOTES[0] has no sha - cannot tell what is unreleased." >&2
