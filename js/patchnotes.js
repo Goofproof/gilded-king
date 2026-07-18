@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.140';
+  const VERSION = 'v2.141';
 
   const NOTES = [
+    {
+      v: 'v2.141', title: 'Swipe to scroll the class list on your phone', date: '2026-07-18',
+      sha: '6388cd7',
+      items: [
+        'On your phone you can now swipe across the class list to scroll through it, not just tap the little arrows.',
+      ],
+    },
     {
       v: 'v2.140', title: 'Invisibility loses the enemies, and the Harpy\'s big shadow', date: '2026-07-18',
       sha: '48e6957',
