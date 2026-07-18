@@ -327,7 +327,7 @@
     onKill(m) { onKill(m); },
     spawnPickup(kind, x, y, local) { spawnPickup(kind, x, y, local); }, // loot-goblin coin spill (monsters.js), quest payouts (encounters.js)
     mythicFanfare(x, y, item) { mythicFanfare(x, y, item); },           // THE PACT pays a mythic, and it deserves the full celebration
-    dropMine(x, y, dmg) { g.mines.push({ x, y, r: 8, blastR: 105, dmg: Math.round(dmg * 3.2), t: 0, armT: 0.6, armed: false, fuse: -1 }); }, // minelayer - TERRIFYING blast (big dmg + radius)
+    dropMine(x, y, dmg) { g.mines.push({ x, y, r: 8, blastR: 105, dmg: Math.round(dmg * 2.9), t: 0, armT: 0.6, armed: false, fuse: -1 }); }, // minelayer - a big blast (trimmed from 3.2x; falloff added in detonateMine)
     onPlayerDeath() { onPlayerDeath(); },
     dropWeaponPickup(w, x, y) { this.pickups.push({ kind: 'weapon', weapon: w, x, y, t: 0 }); },
     dropArmorPickup(a, x, y) { this.pickups.push({ kind: 'armorItem', armor: a, x, y, t: 0 }); },
@@ -6131,7 +6131,15 @@
   function detonateMine(mn) {
     Fx.shake(6, 0.25); Sfx.play('explode');
     Fx.burst(mn.x, mn.y, ['#ff8833', '#ffcc44', '#ff4422', '#888'], 24, { speed: 240, life: 0.55, glow: true });
-    for (const t of g.partyTargets()) if (Math.hypot(t.x - mn.x, t.y - mn.y) < mn.blastR + t.r) g.hurtTarget(t, mn.dmg, mn.x, mn.y, null);
+    for (const t of g.partyTargets()) {
+      const d = Math.hypot(t.x - mn.x, t.y - mn.y);
+      if (d < mn.blastR + t.r) {
+        // falloff with distance, like every other blast (clone/mesmer at ~3090) - the edge
+        // of the ring stings less than a point-blank hit, so being clipped isn't a full kill.
+        const dmg = Math.round(mn.dmg * (1 - 0.35 * Math.min(1, d / mn.blastR)));
+        g.hurtTarget(t, dmg, mn.x, mn.y, null);
+      }
+    }
     if (g.coop && typeof Net !== 'undefined' && isRunHost()) Net.send({ t: 'boom', x: Math.round(mn.x), y: Math.round(mn.y), r: mn.blastR });
   }
 
@@ -6607,7 +6615,17 @@
         const on = mn.fuse >= 0 ? (Math.sin(Date.now() / 40) > 0) : (Math.sin(Date.now() / 220) > 0);
         c.fillStyle = on ? '#ffec80' : '#3a2a10';
         c.beginPath(); c.arc(0, -mn.r * 0.2, 2.4, 0, Math.PI * 2); c.fill();
-        if (mn.fuse < 0) { c.strokeStyle = 'rgba(255,90,60,0.22)'; c.lineWidth = 1; c.beginPath(); c.arc(0, 0, 42, 0, Math.PI * 2); c.stroke(); }
+        // the danger ring shows the ACTUAL BLAST radius (was drawn at the 42 trigger radius,
+        // so the blast reached way outside the red circle). Faint while waiting, bright + a
+        // pulsing fill once the fuse is lit and it's about to go off.
+        const R = mn.blastR || 105, lit = mn.fuse >= 0;
+        c.strokeStyle = lit ? 'rgba(255,80,50,0.6)' : 'rgba(255,90,60,0.2)';
+        c.lineWidth = lit ? 2 : 1;
+        c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.stroke();
+        if (lit) {
+          c.globalAlpha = 0.1 + 0.06 * Math.sin(Date.now() / 40);
+          c.fillStyle = '#ff5533'; c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+        }
       }
       c.restore();
     }
