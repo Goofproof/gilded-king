@@ -828,3 +828,28 @@ Graphics left to the son (designer). Test count 110 -> 139. Loop ended cleanly a
   in detonateMine (1 - 0.35*d/blastR, like every other blast; the mine was the only no-falloff
   one) + trimmed the base multiplier 3.2x -> 2.9x. Verified LIVE: ring renders at 105 (screenshot),
   falloff center 1000 -> edge(d=100) 674. 139 tests pass.
+
+## 2026-07-18 (TWO NEW CLASSES: Bard + Warlock, Sam + son)
+
+Shipped v2.144 (Bard) + v2.145 (Warlock). Both fully verified LIVE via dbg (browser reconnected
+mid-build).
+- BARD (Sam's spec): id 'bard', wand, VIGOR-ruled, Q 'Discord' kind 'provoke'. Provoked enemies
+  turn on EACH OTHER (new monsters.js AI block mirroring the feared block: chase + strike the
+  nearest other monster, host-authoritative so co-op sees it via snapshots). Milestones VIGOR
+  4/8/12: haste (party buffs.hasteT + enemy provHaste 1.4 so they kill each other faster) /
+  party REGEN added straight to hp (g.bardSong, NOT heal() - Sam explicitly required it actually
+  heal; verified +415hp/2s) / poison DOT on the provoked. Co-op allies blessed via Net.sendR
+  qbuff k:'song'. Verified: 5 enemies provoked -> fought -> all dead; haste+regen+DOT all applied.
+- WARLOCK (son, based on BRIMSTONE / Binding of Isaac): id 'warlock', wand, ARCANE-ruled, Q
+  'Brimstone' kind 'beam'. A NEW sustained-laser mechanic (the existing beamMul is just a fast
+  projectile): g.beam ticks damage (updateBeam) along a piercing, SPECTRAL line down p.facing
+  (recomputed each frame so it tracks aim), ignoring walls; draws a red blood-laser (drawBeam)
+  clipped to PF for visuals but full-range for damage. Per-tick = weapon dmg * 0.6, ~0.14s pre-
+  pause then every 0.06s for 0.9s. Milestones ARCANE 4/8/12: split into 2 beams + widen / homing
+  (bends up to 0.6rad toward nearest) / kills ERUPT (brimstoneErupt blast). Verified: pierced all
+  4 in-line enemies, off-line untouched; rank4=2 rays; rank8 bent -0.67rad toward an off-axis foe.
+Both got distinct portraits (Bard feathered cap, Warlock ram horns) verified on screen. Ability
+wiring unit-tested in classes-races.test.js (kind/rule/rank/milestones). 141 tests pass.
+NUMBERS ARE FIRST-PASS + TUNABLE (beam dmg 0.6x, provoke poison 18dps, haste 1.4x, etc.) - Sam/
+son to playtest and call balance. Warlock name + milestone choices were my proposal (son didn't
+spec them); easy to rename/retune.
