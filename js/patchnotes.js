@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.134';
+  const VERSION = 'v2.135';
 
   const NOTES = [
+    {
+      v: 'v2.135', title: 'Co-op menus work on your phone', date: '2026-07-18',
+      sha: 'a3c3e95',
+      items: [
+        'The co-op pause menu works on a phone now: you can tap End Run, Menu, and the fullscreen button while playing with a friend.',
+      ],
+    },
     {
       v: 'v2.134', title: 'Join a game and type on your phone', date: '2026-07-18',
       sha: '939e5d1',
