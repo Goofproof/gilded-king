@@ -597,11 +597,10 @@ const Boss = (() => {
     harpy(b, c) { // #251 the forest's owner: a bird-woman, wings like reaping blades
       const s = b.r / 20, flash = b.flash > 0;
       const flap = Math.sin(b.t * 3.2);
-      // #251 the Harpy FLIES, so she throws a big looming ground shadow (Sam: make it much
-      // bigger on the first floor) - wide as her wingspan, sitting low to sell the height,
-      // and breathing wider with every wingbeat.
+      // #251 the Harpy FLIES, so she throws a huge looming ground shadow (Sam: 3x bigger) -
+      // wide as her wingspan, sitting low to sell the height, breathing with every wingbeat.
       c.fillStyle = 'rgba(0,0,0,0.34)';
-      c.beginPath(); c.ellipse(0, b.r * 1.5, b.r * (2.5 + flap * 0.35), b.r * 0.52, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(0, b.r * 1.5, b.r * (7.5 + flap * 1.05), b.r * 1.56, 0, 0, Math.PI * 2); c.fill();
       // WINGS: long, thin, swept - fingered primaries so she never reads as a moth
       for (const side of [-1, 1]) {
         const ext = b.r * (1.5 + flap * 0.25), lift = b.r * (0.55 + flap * 0.3);
