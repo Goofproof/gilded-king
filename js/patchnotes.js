@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.146';
+  const VERSION = 'v2.147';
 
   const NOTES = [
+    {
+      v: 'v2.147', title: 'Mobile: resume from pause, open your character sheet, and controls that fit', date: '2026-07-18',
+      sha: 'c8bd92f',
+      items: [
+        'Three mobile fixes: the pause menu now has a big RESUME button so you can get back into the game (before, on a phone there was no way to un-pause), a new C button opens your character sheet with an X to close it, and the whole button cluster sits a little higher so the bottom row is not cut off at the edge of the screen.',
+      ],
+    },
     {
       v: 'v2.146', title: 'Smaller touch controls on big screens, and the buttons name their ability', date: '2026-07-18',
       sha: '346623e',
