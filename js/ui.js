@@ -736,7 +736,7 @@ const UI = (() => {
     const cols = maxX - minX + 1, rows = maxY - minY + 1;
     const cell = Math.max(8, Math.min(18, Math.floor(150 / cols) - gap, Math.floor(105 / rows) - gap));
     const mw = cols * (cell + gap);
-    const ox = W - pad - mw, oy = pad + 22;
+    const ox = W - pad - mw, oy = pad + 34;
 
     mmCanvas = mmCanvas || document.createElement('canvas');
     const c = mmCanvas.getContext('2d');
