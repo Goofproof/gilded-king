@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.169';
+  const VERSION = 'v2.170';
 
   const NOTES = [
+    {
+      v: 'v2.170', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '13ceb3f',
+      items: [
+        'Bosses and the doppelganger shrug off more of your damage the deeper you go, so they stay a real fight.',
+      ],
+    },
     {
       v: 'v2.169', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '8a57d68',
