@@ -2626,12 +2626,16 @@ const PlayerDef = (() => {
       }
       c.restore();
 
+      // #276 (Sam BUG) the melee draws pivoted from the HEAD origin, so on the portrait body a
+      // swing came "from the eyes". Pivot from the TORSO like the ranged weapons do (my #269
+      // torso offset only reached bow/wand/staff, which return early above).
+      const wy = this.y + (this.form ? 0 : this.r * 0.7);
       // melee: draw the swing arc while swinging, otherwise blade at rest
       if (this.swing) {
         const s = this.swing;
         const w2 = this.weapon;
         c.save();
-        c.translate(this.x, this.y);
+        c.translate(this.x, wy);
         if (!s.fired) {
           // windup: blade raised behind, growing glow (the heavy telegraph);
           // epic+ weapons gather sparks at the blade tip while charging
@@ -2642,7 +2646,7 @@ const PlayerDef = (() => {
           c.beginPath(); c.moveTo(this.r, 0); c.lineTo(this.r + w2.range * 0.55, 0); c.stroke();
           if (s.rarIdx >= 2 && Math.random() < 0.5) {
             const tip = s.dir - s.arc * 0.7;
-            Fx.burst(this.x + Math.cos(tip) * w2.range * 0.55, this.y + Math.sin(tip) * w2.range * 0.55,
+            Fx.burst(this.x + Math.cos(tip) * w2.range * 0.55, wy + Math.sin(tip) * w2.range * 0.55,
               s.fx.colors, 1, { speed: 25, life: 0.25, glow: s.fx.glow, size: 2 });
           }
         } else {
@@ -2669,7 +2673,7 @@ const PlayerDef = (() => {
           c.globalAlpha = 1;
           // sparks stream off the leading edge of the sweep
           if (s.fx && Math.random() < 0.8) {
-            Fx.burst(this.x + Math.cos(a1) * w2.range * 0.95, this.y + Math.sin(a1) * w2.range * 0.95,
+            Fx.burst(this.x + Math.cos(a1) * w2.range * 0.95, wy + Math.sin(a1) * w2.range * 0.95,
               s.fx.colors, 1, { speed: 45, life: 0.28, glow: s.fx.glow, size: 2.2 });
           }
         }
@@ -2680,7 +2684,7 @@ const PlayerDef = (() => {
         const w = this.weapon, L = this.r * 0.6;
         const m = (typeof Weapons !== 'undefined' && Weapons.modelFor) ? Weapons.modelFor(w) : (w.archetype === 'heavy' ? 'greataxe' : 'shortsword');
         c.save();
-        c.translate(this.x, this.y);
+        c.translate(this.x, wy);
         c.rotate(this.facing + 0.7);
         c.lineCap = 'round';
         if (m === 'cleaver') {                    // one slab of butcher steel
