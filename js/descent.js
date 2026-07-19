@@ -172,10 +172,17 @@ const Descent = (() => {
 
   // Called when a descent boss is created. Reads/advances g.circleBossSeen and
   // returns the config boss.js needs. hp/dmg muls fold in the depth threat too.
+  // #273 (Sam) BOSS DAMAGE REDUCTION that scales with depth. Player damage climbs far faster
+  // than boss HP (crits, honing, evolutions), so deep bosses were melting in a few hits. A DR
+  // stat counters the player's damage SCALING directly (a % off every hit), keeping a boss a
+  // real fight without an absurd HP bar. Tunable: base + per-floor, capped. Starts at floor 4.
+  function bossDR(f) { return Math.min(0.55, 0.10 + 0.02 * Math.max(0, f - 4)); }
+
   function bossConfig(g) {
     const anger = g.circleBossSeen || 0;
     g.circleBossSeen = anger + 1;
     const t = threat(g.floorNum);
+    const dr = bossDR(g.floorNum);
     // #155 in Hell (floors 4-12) the guardian is fixed by the CIRCLE, so a co-op host and
     // guest meet the same boss and it always matches the floor you are on.
     const guardian = CIRCLE_BOSSES[g.floorNum - FIRST_FLOOR];
@@ -185,6 +192,7 @@ const Descent = (() => {
         name: guardian.name, subtitle: guardian.subtitle, ult: guardian.ult,
         hpMul: t.hp * (guardian.hpMul || 1),
         dmgMul: t.dmg * (guardian.dmgMul || 1),
+        dr,
       };
     }
     // beyond Hell (the climb): the recurring, rotating Warden, angrier each time.
@@ -198,6 +206,7 @@ const Descent = (() => {
       subtitle: VARIANT_SUB[variant],
       hpMul: t.hp * (1 + 0.18 * anger),   // #126 beefier each appearance (was 0.12), on top of the steeper depth curve so a burst build can't delete a Warden
       dmgMul: t.dmg,
+      dr,
     };
   }
 

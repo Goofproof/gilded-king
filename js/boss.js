@@ -53,6 +53,7 @@ const Boss = (() => {
       r: st.r, hp, maxHp: hp, st,
       dmg: Math.round(st.contactDmg * dmgMul), xp: 120, coins: [30, 45],
       pal, anger: d ? d.anger : 0, dmgMul,
+      dr: d ? (d.dr || 0) : 0, // #273 (Sam) depth-scaled damage reduction (descent.js bossDR)
       // #251 the Harpy is a boss but neither King nor Warden - the forest flag keeps
       // her out of kingSlain, descent essence, mythic rolls and the firstKing accolade
       isDescentBoss: !!d && !(d && d.forest), forestBoss: !!(d && d.forest),
@@ -515,6 +516,7 @@ const Boss = (() => {
     if (b.dead || b.airborne) return false; // can't be hit mid-slam-leap
     if (opts.flame) b.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
     if (typeof Ach !== 'undefined') Ach.hit(dmg, !!opts.crit, g); // #86 biggest hit / crit
+    if (b.dr) dmg *= (1 - b.dr); // #273 (Sam) depth-scaled damage reduction: keeps deep bosses a fight
     b.hp -= dmg;
     b.flash = 0.1;
     Fx.text(b.x + (Math.random() * 30 - 15), b.y - b.r - 10, Math.round(dmg), opts.crit ? '#ffd24c' : '#fff', opts.crit ? 16 : 12);

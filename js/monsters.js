@@ -207,6 +207,10 @@ const Monsters = (() => {
     m.empowerCd = 3.5;           // casts its "spell" (empowered attack) often
     m.xp = 60 + f * 8;
     m.coins = [18, 30];
+    // #273 (Sam) the doppel was still too weak - the player simply out-damages it. A depth-scaled
+    // DAMAGE REDUCTION (higher base than a boss, since it's a 1v1 mirror duel) counters the
+    // player's own damage scaling directly, applied in applyDamage. Tunable base + per-floor.
+    m.dr = Math.min(0.6, 0.20 + 0.02 * Math.max(0, f - 4));
     return m;
   }
 
@@ -1245,6 +1249,7 @@ const Monsters = (() => {
       for (let i = 0; i < n; i++) g.spawnPickup('coin', m.x, m.y);
     }
     if (m.type === 'bomber' && m.hp <= 0) return; // already in death throes, fuse lit
+    if (m.dr) dmg *= (1 - m.dr); // #273 (Sam) depth-scaled damage reduction (the doppel; keeps it a duel)
     m.hp -= dmg;
     m.flash = 0.12;
     // Executioner (ORIGINAL enchant): finish off weakened enemies (bosses resist)
