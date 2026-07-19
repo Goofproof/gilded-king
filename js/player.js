@@ -329,6 +329,40 @@ const PlayerDef = (() => {
     'Captain', 'Rear Admiral (Lower Half)', 'Rear Admiral', 'Vice Admiral', 'Admiral', 'Fleet Admiral'];
   function rankName(prestige) { return prestige >= 1 ? RANK_NAMES[Math.min(20, prestige)] : ''; }
 
+  // #285 (Sam) the WEAPON HEAD that leads a melee swing, so the arc reads as an axe blade
+  // or a maul head sweeping through, not a generic slash. Drawn in a frame already rotated
+  // to the leading edge of the sweep, head centred near `reach` (the blade tip).
+  function drawSwingHead(c, m, w, reach) {
+    const col = w.color || '#cfd6e0';
+    c.lineCap = 'round';
+    if (/greataxe|cleaver|axe|scythe|hatchet/.test(m)) {          // a broad curved axe blade
+      c.strokeStyle = '#6a5030'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(reach - 16, 0); c.lineTo(reach + 4, 0); c.stroke();            // haft
+      c.fillStyle = col;
+      c.beginPath();
+      c.moveTo(reach - 6, -3); c.quadraticCurveTo(reach + 11, -13, reach + 8, 0);
+      c.quadraticCurveTo(reach + 11, 13, reach - 6, 3); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.28)';
+      c.beginPath(); c.moveTo(reach - 6, -3); c.quadraticCurveTo(reach + 4, -8, reach + 6, -2); c.lineTo(reach - 5, -1); c.closePath(); c.fill();
+    } else if (/maul|warhammer|hammer|mace|club|sledge/.test(m)) { // a banded block head
+      c.strokeStyle = '#6a5030'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(reach - 18, 0); c.lineTo(reach + 2, 0); c.stroke();            // haft
+      c.fillStyle = col;
+      c.beginPath();
+      c.moveTo(reach - 6, -8); c.lineTo(reach + 6, -8); c.quadraticCurveTo(reach + 9, 0, reach + 6, 8);
+      c.lineTo(reach - 6, 8); c.quadraticCurveTo(reach - 9, 0, reach - 6, -8); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.42)'; c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(reach - 2, -8); c.lineTo(reach - 2, 8); c.moveTo(reach + 3, -8); c.lineTo(reach + 3, 8); c.stroke(); // iron bands
+    } else {                                                       // a bladed edge with a point
+      c.strokeStyle = '#6a5030'; c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(reach - 22, 0); c.lineTo(reach - 15, 0); c.stroke();           // grip
+      c.strokeStyle = col; c.lineWidth = 3.2; c.lineCap = 'butt';
+      c.beginPath(); c.moveTo(reach - 15, 0); c.lineTo(reach + 4, 0); c.stroke();            // blade
+      c.fillStyle = col;
+      c.beginPath(); c.moveTo(reach + 4, -3); c.lineTo(reach + 12, 0); c.lineTo(reach + 4, 3); c.closePath(); c.fill(); // point
+    }
+  }
+
   function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
@@ -2683,6 +2717,15 @@ const PlayerDef = (() => {
           c.lineWidth = (s.heavy ? 3 : 2) + (s.rarIdx || 0);
           c.beginPath(); c.arc(0, 0, w2.range * 0.99, a0, a1); c.stroke();
           c.globalAlpha = 1;
+          // #285 (Sam) the actual WEAPON HEAD rides the leading edge of the sweep - you
+          // see the axe blade / maul head travel, not just a coloured arc.
+          const model = (typeof Weapons !== 'undefined' && Weapons.modelFor) ? Weapons.modelFor(w2) : (w2.archetype === 'heavy' ? 'greataxe' : 'shortsword');
+          c.save();
+          c.rotate(a1);
+          c.globalAlpha = Math.min(1, 1.3 - k);
+          drawSwingHead(c, model, w2, w2.range * 0.82);
+          c.globalAlpha = 1;
+          c.restore();
           // sparks stream off the leading edge of the sweep
           if (s.fx && Math.random() < 0.8) {
             Fx.burst(this.x + Math.cos(a1) * w2.range * 0.95, wy + Math.sin(a1) * w2.range * 0.95,
