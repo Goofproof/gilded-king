@@ -331,6 +331,17 @@ const Rules = (() => {
     { key: 'greedy', name: 'TITHE', color: '#d4af37',
       desc: 'The chests are hungry. So is everything else.',
       mimicAdd: 0.4, coinMul: 1.6 },
+    // #307 a SPATIAL mutator (a new axis - the others touch stats/loot, this touches the
+    // floor itself): a steady drag toward the room's heart, so you can't hold a corner and
+    // every fight collapses to the middle. Player-only (monsters ignore it), gentle enough to
+    // still reach a door. The hook runs before wall resolution, so it never shoves you into one.
+    { key: 'maelstrom', name: 'THE MAELSTROM', color: '#6a8fff',
+      desc: 'The floor tilts toward its heart. You will not hold the edges.',
+      player(p, dt, g) {
+        const cx = 480, cy = 270;                 // PF centre (the 960x540 field is fixed)
+        const dx = cx - p.x, dy = cy - p.y, d = Math.hypot(dx, dy);
+        if (d > 26) { p.x += (dx / d) * 42 * dt; p.y += (dy / d) * 42 * dt; }
+      } },
   ];
 
   // how many mutators a floor carries. Depth is floors below the King.
