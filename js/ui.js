@@ -1402,7 +1402,7 @@ const UI = (() => {
     }
     // HIGH SCORES (opens the full board, which hosts the top-5 too)
     const topScore = (g.scoresReady && g.scores && g.scores[0]) ? `${g.scores[0].score}` : '-';
-    dockBadge(c, rects, 487, 'scores', '#ffd24c', '#c9a227', iconStar, topScore, 'HIGH SCORES');
+    dockBadge(c, rects, 487, 'scores', '#ffd24c', '#c9a227', iconStar, topScore, 'HALL OF HEROES');
     // PATCH NOTES
     if (typeof PatchNotes !== 'undefined') {
       dockBadge(c, rects, 625, 'patchnotes', '#8fd0ff', '#6fa8c0', iconScroll, `${PatchNotes.VERSION}`, 'PATCH NOTES');
@@ -1821,10 +1821,10 @@ const UI = (() => {
     c.textAlign = 'center';
     c.font = 'bold 26px monospace';
     c.fillStyle = '#ffd24c';
-    c.fillText('★ HIGH SCORES ★', W / 2, py + 40);
+    c.fillText('★ HALL OF HEROES ★', W / 2, py + 40);
     c.font = '11px monospace';
     c.fillStyle = '#667';
-    c.fillText('essence banked in a single run · ♛ = slew the king', W / 2, py + 60);
+    c.fillText('the most fame won in a single run · ♛ = slew the king', W / 2, py + 60);
     if (!scores.length) {
       c.font = '14px monospace'; c.fillStyle = '#8fa3bf';
       c.fillText('no runs on the board yet - go make history', W / 2, py + 180);
@@ -2004,7 +2004,7 @@ const UI = (() => {
     c.textAlign = 'center';
     c.font = 'bold 38px monospace';
     c.fillStyle = '#ffd24c';
-    c.fillText(g.renameOnly ? 'WHAT IS YOUR NAME?' : 'NEW HIGH SCORE!', W / 2, 130); // #203 doubles as the rename screen
+    c.fillText(g.renameOnly ? 'WHAT IS YOUR NAME?' : 'YOU\'RE FAMOUS!', W / 2, 130); // #203 doubles as the rename screen
     if (!g.renameOnly) { // renaming earns nothing - no essence line
       c.font = 'bold 24px monospace';
       c.fillStyle = '#b88aff';
@@ -2235,14 +2235,14 @@ const UI = (() => {
     c.font = 'bold 15px monospace'; c.fillStyle = '#ffd24c';
     c.fillText('END RUN', W / 2, er.y + 21);
     c.font = '11px monospace'; c.fillStyle = 'rgba(255,210,76,0.72)';
-    c.fillText('bank your essence and post your score', W / 2, er.y + 37);
+    c.fillText('bank your essence and claim your fame', W / 2, er.y + 37);
     // abandon to title (only essence already banked at checkpoints is kept; no score)
     const r = { x: BX, y: H / 2 + 134, w: BW, h: 44, action: 'menu' };
     c.strokeStyle = '#6a7688'; c.lineWidth = 1.5; c.strokeRect(r.x, r.y, r.w, r.h);
     c.font = 'bold 13px monospace'; c.fillStyle = '#8fa3bf';
     c.fillText('ABANDON TO MENU', W / 2, r.y + 19);
     c.font = '10px monospace'; c.fillStyle = '#6a7688';
-    c.fillText('no score, and you keep only what you already banked', W / 2, r.y + 34);
+    c.fillText('no fame, and you keep only what you already banked', W / 2, r.y + 34);
     const rects = [resume, er, r];
     drawFsButton(c, rects);
     c.restore();
@@ -2874,7 +2874,7 @@ const UI = (() => {
     if (g.newScoreRank) {
       c.font = 'bold 16px monospace';
       c.fillStyle = '#ffd24c';
-      c.fillText(`★ HIGH SCORE #${g.newScoreRank} ★`, W / 2, 240 + lines.length * 26 + 8);
+      c.fillText(`★ FAME RANK #${g.newScoreRank} ★`, W / 2, 240 + lines.length * 26 + 8);
     }
 
     const bw = 200, bh = 44, gap = 20, by = 420;
