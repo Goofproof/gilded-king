@@ -2594,7 +2594,7 @@
       Fx.shake(5, 0.22); Sfx.play('ui');
     } else if (a.kind === 'beam') {
       // WARLOCK Brimstone (son): a piercing, wall-ignoring BLOOD LASER down your aim that ticks
-      // damage. ARCANE rank: 4 splits it in two + widens; 8 homes toward the nearest enemy; 12
+      // damage. ARCANE rank: 4 makes it a TRIPLE beam (centre + two flanking) + widens; 8 homes toward the nearest enemy; 12
       // makes its kills erupt. The beam follows your aim while it fires (a ~0.9s sustained laser).
       const w = (p.weapons && p.weapons[p.slot]) || (p.weapons && p.weapons.a);
       g.beam = {
@@ -6776,7 +6776,7 @@
       for (const m of g.monsters) { if (m.dead || m.spawnT > 0) continue; const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } }
       if (best) { const want = Math.atan2(best.y - p.y, best.x - p.x); const dd = ((want - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI; dir += Math.max(-0.6, Math.min(0.6, dd)); }
     }
-    b.rays = b.rank >= 4 ? [dir - 0.18, dir + 0.18] : [dir];        // rank 4: split in two
+    b.rays = b.rank >= 4 ? [dir - 0.2, dir, dir + 0.2] : [dir];     // #282 (Sam) rank 4: TRIPLE beam - the centre ray still hits exactly what you aim at
     b.width2 = b.width * (b.rank >= 4 ? 1.25 : 1) * (b.rank >= 12 ? 1.3 : 1);
     b.tickT -= dt;
     if (b.tickT > 0) return;

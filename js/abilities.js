@@ -257,7 +257,7 @@ const Abilities = (() => {
     druid:       [{ at: 4, txt: 'Shifting heals 5%', impl: true }, { at: 8, txt: 'Each form gains a MOVE', impl: true }, { at: 12, txt: 'PRIMAL MASTERY: shifting fires the move', impl: true }],
     deathknight: [{ at: 4, txt: 'THE BLACK WIND: it follows you', impl: true }, { at: 8, txt: 'Regenerate while enemies rot', impl: true }, { at: 12, txt: 'Poison kills RISE as your skeletons', impl: true }],
     bard:        [{ at: 4, txt: 'The brawl HASTES everyone - your party and the fighting enemies', impl: true }, { at: 8, txt: 'You and your allies regenerate health while it plays', impl: true }, { at: 12, txt: 'Provoked enemies also ROT - poison over time', impl: true }],
-    warlock:     [{ at: 4, txt: 'The beam SPLITS - a second laser at an angle, both wider', impl: true }, { at: 8, txt: 'The beam curves toward the nearest enemy (homing)', impl: true }, { at: 12, txt: 'Enemies it kills ERUPT in a blood blast', impl: true }],
+    warlock:     [{ at: 4, txt: 'The beam becomes a TRIPLE laser - the centre still hits your aim, two more flank it', impl: true }, { at: 8, txt: 'The beam curves toward the nearest enemy (homing)', impl: true }, { at: 12, txt: 'Enemies it kills ERUPT in a blood blast', impl: true }],
   };
 
   function classAbility(classId) {
