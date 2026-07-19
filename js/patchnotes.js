@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.156';
+  const VERSION = 'v2.157';
 
   const NOTES = [
+    {
+      v: 'v2.157', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '00df874',
+      items: [
+        'Legendaries can no longer drop on the first three floors, so early gear ramps up more slowly.',
+      ],
+    },
     {
       v: 'v2.156', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '5c6331a',
