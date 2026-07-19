@@ -2405,6 +2405,28 @@
       if (fpp.gamble && a.gamble) a.gamble = Math.min(0.4, +(a.gamble + fpp.gamble * fRank).toFixed(3));
       if (fpp.beamMul && a.beamMul) a.beamMul = +(a.beamMul + fpp.beamMul * fRank).toFixed(2);   // #256 EXCALIBUR
       if (fpp.flameDmg && a.flameDmg) a.flameDmg = Math.round(a.flameDmg + fpp.flameDmg * fRank); // #256 PROMETHEUS
+      // #290 (Sam) fusions EVOLVE at power-rank milestones - a jump you can SEE, on top of the
+      // smooth per-point growth above. Rank 6 -> EVOLVED (recharges faster, hits harder); rank
+      // 12 -> ASCENDED (much faster + a bigger payload). Universal, so every fusion evolves. All
+      // boosted fields are in _fScaled, so they restore to base after this one cast.
+      const evoTier = fRank >= 12 ? 2 : fRank >= 6 ? 1 : 0;
+      a._cdEvo = evoTier === 2 ? 0.6 : evoTier === 1 ? 0.8 : 1;   // consumed where a.cd is set
+      if (evoTier) {
+        const powMul = evoTier === 2 ? 1.3 : 1.14;
+        if (a.dmg) a.dmg = Math.round(a.dmg * powMul);
+        if (a.radius) a.radius = Math.round(a.radius * (1 + (powMul - 1) * 0.6));
+        if (a.thorns) a.thorns = Math.round(a.thorns * powMul);
+        if (a.zap) a.zap = Math.round(a.zap * powMul);
+        if (a.flameDmg) a.flameDmg = Math.round(a.flameDmg * powMul);
+        if (a.beamMul) a.beamMul = +(a.beamMul * powMul).toFixed(2);
+        if (a.dur) a.dur = +(a.dur * (1 + (powMul - 1) * 0.5)).toFixed(2);
+        if ((a._evoTier || 0) < evoTier) {   // announce the FIRST cast at a new tier
+          a._evoTier = evoTier;
+          Fx.text(p.x, p.y - 52, `${a.name} ${evoTier === 2 ? 'ASCENDED' : 'EVOLVED'}!`, a.color || '#ffd24c', 16);
+          Fx.burst(p.x, p.y, [a.color || '#ffd24c', '#fff'], 30, { speed: 240, life: 0.8, glow: true });
+          if (typeof Sfx !== 'undefined') Sfx.play('levelup');
+        }
+      }
     }
 
     if (a.kind === 'nova' || a.kind === 'strike') {
@@ -3052,7 +3074,7 @@
     // #134 ANTIKYTHERA GEAR: the two-thousand-year-old machine still turns, and your
     // powers turn with it. Applied here, at the ONE place a cooldown is armed.
     const haste = p.trinketFlag('abilityHaste') ? (p.trinket.abilityCd || 0) : 0;
-    a.cd = a.cdMax * (1 - haste);
+    a.cd = a.cdMax * (1 - haste) * (a._cdEvo || 1); // #290 an EVOLVED/ASCENDED fusion recharges faster
     if (a._halfCd) { a.cd *= 0.5; a._halfCd = false; } // #258 gambler R8
     // #228 rogue R4: the execute chained a kill - the blade is instantly ready again
     if (a._resetCd) { a.cd = 0; a._resetCd = false; }

@@ -2655,8 +2655,14 @@ const UI = (() => {
       ];
       for (const [key, a] of powers) {
         if (!a) continue;
+        // #290 (Sam) a fusion R that has EVOLVED wears it in its name: + at rank 6, ✦ at rank 12
+        let nm = a.name;
+        if (a.fusion && a.fusionStats && Abilities.fusionRank) {
+          const fr = Abilities.fusionRank(p.statPoints, a.fusionStats);
+          if (fr >= 12) nm += ' ✦'; else if (fr >= 6) nm += ' +';
+        }
         c.font = 'bold 11px monospace'; c.fillStyle = a.color || '#ffd24c';
-        c.fillText(`${key}  ${a.name}`, rx, y); y += 14;
+        c.fillText(`${key}  ${nm}`, rx, y); y += 14;
         if (a.desc) {
           c.font = '10px monospace'; c.fillStyle = '#8b93a3';
           // #270 (Sam) wrapText returns the LAST baseline; a +6 gap let the next skill's bold
