@@ -2151,6 +2151,12 @@ const PlayerDef = (() => {
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 0.9, this.r * 0.35, 0, 0, Math.PI * 2); c.fill();
 
+      // #270 (Sam) IDLE LIFE: a gentle breathing bob while you stand still, so the champion
+      // reads as alive, not frozen. Zero while moving or mid-roll. The shadow and ground ring
+      // (drawn already) stay planted; body + cape + evolutions + weapon rise and settle as one.
+      this._idleBob = (!this.moving && this.rollT < 0) ? Math.sin(Date.now() / 460) * this.r * 0.1 : 0;
+      if (this._idleBob) c.translate(0, this._idleBob);
+
       // #43 PRESTIGE cape: a royal mantle that grows richer with each prestige level.
       // Purely cosmetic (earned by resetting your essence account). Drawn behind
       // everything so it flows out from under the champion. Distinct from the
@@ -2414,8 +2420,9 @@ const PlayerDef = (() => {
       const w = this.weapon;
       const model = (typeof Weapons !== 'undefined' && Weapons.modelFor) ? Weapons.modelFor(w) : null;
       c.save();
-      // #269 pivot the weapon around the TORSO (below the head origin), so it circles the body
-      c.translate(this.x, this.y + (this.form ? 0 : this.r * 0.7));
+      // #269 pivot the weapon around the TORSO (below the head origin), so it circles the body.
+      // #270 ride the idle breathing bob so the weapon stays in hand while standing still.
+      c.translate(this.x, this.y + (this.form ? 0 : this.r * 0.7) + (this._idleBob || 0));
       c.rotate(this.facing);
       if (w.archetype === 'bow') {
         // each bow MODEL has its own limbs; the string/pull/sparkle animation is shared.
