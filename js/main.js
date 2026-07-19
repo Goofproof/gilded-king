@@ -304,6 +304,7 @@
     gearSendT: 0,                // ground-gear-snapshot broadcast throttle (#136)
     lobby: null,                 // {mode,entry,status} while on the lobby screen
     chat: { open: false, buffer: '', log: [] }, // #100 co-op text chat (log: {name,text,t,mine})
+    feedback: { open: false, kind: 'idea', text: '', status: '', sending: false }, // #295 bug/idea box
     remotePlayers: new Map(),    // id -> {x,y,facing,room,hp,wc,tx,ty,last} (other players)
     netReady: false,             // Net handlers wired once
     posSendT: 0,                 // position-broadcast throttle
@@ -3987,6 +3988,7 @@
       g.overlayT += 1 / 60;
       return;
     }
+    if (g.feedback && g.feedback.open) { updateFeedback(); return; } // #295 the feedback modal captures all input while open
     // pet tooltip: which companion chip is the mouse hovering (previewed in the loadout
     // panel by ui.js). Uses last frame's uiRects, imperceptible one-frame lag.
     g.hoverPet = null;
@@ -4011,6 +4013,7 @@
           if (r.action === 'pvp') { g.lobbyPvp = true; g.lobbyDuel = true; g.lobbyHunt = false; openLobby(); return; } // #294 dedicated PVP entrance
           if (r.action === 'fullscreen') { toggleFullscreen(); return; }
           if (r.action === 'rename') { openRename(); return; }
+          if (r.action === 'feedback') { openFeedback(); return; } // #295 bug/idea box
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
@@ -5567,6 +5570,47 @@
     pushChat(name, text, true);
     if (typeof Net !== 'undefined' && Net.connected) Net.send({ t: 'chat', text, nm: name });
   }
+  // #295 (Sam) PLAYER FEEDBACK: a bug/idea box that posts to the worker (/feedback) for a
+  // later digest. Reuses the text-capture the chat uses. Best-effort - a dropped POST is fine.
+  function anonUid() {
+    let uid = null; try { uid = localStorage.getItem('drl_uid'); } catch { }
+    if (!uid) { uid = 'u' + Math.random().toString(36).slice(2, 12); try { localStorage.setItem('drl_uid', uid); } catch { } }
+    return uid;
+  }
+  function openFeedback() { const f = g.feedback; f.open = true; f.text = ''; f.status = ''; f.kind = 'idea'; f.sending = false; input.textCapture = true; input.textBuf = ''; input.keys.clear(); Sfx.play('ui'); }
+  function closeFeedback() { g.feedback.open = false; input.textCapture = false; input.textBuf = ''; }
+  function submitFeedback() {
+    const f = g.feedback; const text = f.text.trim();
+    if (!text) { f.status = 'type something first'; return; }
+    if (f.sending) return;
+    let base = ''; try { base = Net.relayBase ? Net.relayBase() : ''; } catch { }
+    if (!base) { f.status = 'offline - try again later'; return; }
+    f.sending = true; f.status = 'sending...';
+    fetch(base + '/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: f.kind, text: text.slice(0, 600), name: g.playerName || '', u: anonUid(), ver: (typeof PatchNotes !== 'undefined' && PatchNotes.VERSION) || '' }) })
+      .then(r => r.json().catch(() => ({}))).then(res => {
+        f.sending = false;
+        if (res && res.ok) { f.status = 'sent - thank you!'; f.text = ''; setTimeout(closeFeedback, 1000); }
+        else f.status = (res && res.error) || 'could not send';
+      }).catch(() => { f.sending = false; f.status = 'could not reach the server'; });
+  }
+  function updateFeedback() {
+    const f = g.feedback; if (!f.open) return;
+    if (input.textBuf) { f.text = (f.text + input.textBuf).slice(0, 600); input.textBuf = ''; }
+    if (input.pressed('Backspace')) { f.text = f.text.slice(0, -1); input.just.delete('Backspace'); }
+    if (input.pressed('Escape')) { closeFeedback(); input.just.delete('Escape'); return; }
+    if (input.mouse.clicked) {
+      for (const r of (g.uiRects || [])) {
+        if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+          if (r.action === 'fb-kind') { f.kind = r.key; Sfx.play('ui'); }
+          else if (r.action === 'fb-send') submitFeedback();
+          else if (r.action === 'fb-cancel') closeFeedback();
+        }
+      }
+      input.mouse.clicked = false;
+    }
+  }
+
   function updateChat() {
     const ch = g.chat;
     if (!ch.open) {

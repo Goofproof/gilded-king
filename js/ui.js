@@ -1431,6 +1431,15 @@ const UI = (() => {
     dockBadge(c, rects, 763, 'share', '#8fa3bf', '#667', iconLink, 'SHARE', 'the link');
     // FULLSCREEN (top-left corner, out of the dais's way)
     drawFsButton(c, rects);
+    // #295 (Sam) FEEDBACK button (top-right): report a bug or drop an idea, sent to the worker
+    {
+      const fw = 156, fx = W - fw - 12, fy = 12, fh = 24;
+      c.fillStyle = 'rgba(255,106,138,0.12)'; c.fillRect(fx, fy, fw, fh);
+      c.strokeStyle = 'rgba(255,106,138,0.7)'; c.lineWidth = 1; c.strokeRect(fx, fy, fw, fh);
+      c.font = 'bold 10px monospace'; c.fillStyle = '#ff8aa5'; c.textAlign = 'center';
+      c.fillText('BUG or IDEA?  tell us', fx + fw / 2, fy + 16);
+      rects.push({ x: fx, y: fy, w: fw, h: fh, action: 'feedback' });
+    }
 
     // share toast (draws just above the dock)
     if (g.shareMsg && g.shareMsg.t > 0) {
@@ -1454,9 +1463,57 @@ const UI = (() => {
     if (g.showAchievements) drawAchievements(c, g);
     // permanent-boosts (essence upgrades) popup
     if (g.showUpgrades) drawUpgrades(c, g);
+    // #295 the feedback modal, over everything
+    if (g.feedback && g.feedback.open) drawFeedback(c, g, rects);
 
     c.restore();
     return rects;
+  }
+
+  // #295 (Sam) FEEDBACK modal: a bug/idea toggle, a text box, and SEND. Buttons push onto the
+  // title's rects so the existing click loop routes them (fb-kind / fb-send / fb-cancel).
+  function drawFeedback(c, g, rects) {
+    const f = g.feedback;
+    c.save();
+    c.fillStyle = 'rgba(5,5,12,0.9)'; c.fillRect(0, 0, W, H);
+    const pw = 520, ph = 300, px = (W - pw) / 2, py = (H - ph) / 2;
+    c.fillStyle = '#12121c'; c.fillRect(px, py, pw, ph);
+    c.strokeStyle = '#ff6a8a'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
+    c.textAlign = 'center';
+    c.font = 'bold 20px monospace'; c.fillStyle = '#ff8aa5';
+    c.fillText('SEND FEEDBACK', W / 2, py + 32);
+    c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+    c.fillText('found a bug or have an idea? tell us - it helps the game get better', W / 2, py + 52);
+    const tw = 120, ty = py + 66;
+    const tog = (i, key, label, col) => {
+      const tx = W / 2 - tw - 8 + i * (tw + 16), on = f.kind === key;
+      c.fillStyle = on ? col + '22' : 'rgba(255,255,255,0.03)'; c.fillRect(tx, ty, tw, 30);
+      c.strokeStyle = on ? col : '#3a3f4d'; c.lineWidth = on ? 2 : 1; c.strokeRect(tx, ty, tw, 30);
+      c.font = 'bold 12px monospace'; c.fillStyle = on ? col : '#8fa3bf'; c.textAlign = 'center';
+      c.fillText(label, tx + tw / 2, ty + 20);
+      rects.push({ x: tx, y: ty, w: tw, h: 30, action: 'fb-kind', key });
+    };
+    tog(0, 'bug', 'BUG', '#ff6a6a');
+    tog(1, 'idea', 'IDEA', '#ffd24c');
+    const bx = px + 24, by = py + 110, bw = pw - 48, bh = 108;
+    c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(bx, by, bw, bh);
+    c.strokeStyle = '#5a6478'; c.lineWidth = 1; c.strokeRect(bx, by, bw, bh);
+    c.textAlign = 'left'; c.font = '12px monospace'; c.fillStyle = f.text ? '#e8edf6' : '#556';
+    const cursor = (Math.floor(Date.now() / 450) % 2) ? '_' : '';
+    wrapText(c, (f.text || 'type here...') + (f.text ? cursor : ''), bx + 10, by + 22, bw - 20, 16);
+    c.textAlign = 'right'; c.font = '9px monospace'; c.fillStyle = '#667'; c.fillText(`${f.text.length}/600`, bx + bw - 6, by + bh - 6);
+    c.textAlign = 'center';
+    const sy = py + ph - 46;
+    c.fillStyle = 'rgba(110,231,160,0.14)'; c.fillRect(W / 2 - 160, sy, 150, 34);
+    c.strokeStyle = '#6ee7a0'; c.lineWidth = 2; c.strokeRect(W / 2 - 160, sy, 150, 34);
+    c.font = 'bold 13px monospace'; c.fillStyle = '#6ee7a0'; c.fillText(f.sending ? 'SENDING...' : 'SEND', W / 2 - 85, sy + 22);
+    rects.push({ x: W / 2 - 160, y: sy, w: 150, h: 34, action: 'fb-send' });
+    c.fillStyle = 'rgba(143,163,191,0.08)'; c.fillRect(W / 2 + 10, sy, 150, 34);
+    c.strokeStyle = '#8fa3bf'; c.lineWidth = 1.5; c.strokeRect(W / 2 + 10, sy, 150, 34);
+    c.fillStyle = '#8fa3bf'; c.fillText('CANCEL (Esc)', W / 2 + 85, sy + 22);
+    rects.push({ x: W / 2 + 10, y: sy, w: 150, h: 34, action: 'fb-cancel' });
+    if (f.status) { c.font = '11px monospace'; c.fillStyle = /thank/.test(f.status) ? '#6ee7a0' : '#e0b070'; c.fillText(f.status, W / 2, py + ph - 8); }
+    c.restore();
   }
 
   // PERMANENT BOOSTS popup: the essence shop, moved off the title into a modal (like

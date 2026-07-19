@@ -58,6 +58,13 @@ export default {
       return env.LEADERBOARD.get(id).fetch(request);
     }
 
+    // #295 (Sam) /feedback -> same global DO. POST {kind,text,name,u,ver} files a bug or an
+    // idea (rate-limited, length-capped); GET is admin-only, for digesting the pile later.
+    if (parts[0] === 'feedback') {
+      const id = env.LEADERBOARD.idFromName('global');
+      return env.LEADERBOARD.get(id).fetch(request);
+    }
+
     return new Response('not found', { status: 404 });
   },
 };
@@ -163,6 +170,39 @@ export class Leaderboard {
       if (u) seen[u] = now;
       await this.state.storage.put('presence', seen);
       return json({ n: Object.keys(seen).length });
+    }
+
+    // #295 (Sam) FEEDBACK: players file bugs + ideas from inside the game. Path-based so it
+    // never collides with score POSTs. GET is admin-only (the digest); POST is public but
+    // rate-limited (a few per hour per anon uid) and hard length-capped.
+    if (new URL(request.url).pathname.replace(/\/+$/, '').endsWith('/feedback')) {
+      if (request.method === 'GET') {
+        const key = this.env && this.env.ADMIN_KEY;
+        const given = request.headers.get('x-admin-key') || '';
+        let ok = !!key && given.length === key.length;
+        for (let i = 0; key && i < key.length; i++) ok = ok && given.charCodeAt(i) === key.charCodeAt(i);
+        if (!ok) return json({ error: 'forbidden' }, 403);
+        const fb = (await this.state.storage.get('feedback')) || [];
+        return json({ count: fb.length, feedback: fb.slice(-300) });
+      }
+      let b; try { b = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const text = str(b.text, 600).trim();
+      if (!text) return json({ error: 'say something first' }, 400);
+      const kind = b.kind === 'bug' ? 'bug' : 'idea';
+      const name = String(b.name || '').replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 16);
+      const u = String(b.u || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
+      const now = Date.now();
+      // rate-limit: at most 5 per anon uid per rolling hour
+      let rl = (await this.state.storage.get('fbRate')) || {};
+      for (const k in rl) if (now - (rl[k].t0 || 0) > 3600e3) delete rl[k];
+      const r = rl[u] || { n: 0, t0: now }, win = now - (r.t0 || 0) < 3600e3;
+      if (u && win && r.n >= 5) return json({ error: 'easy - a few per hour, please' }, 429);
+      if (u) { rl[u] = win ? { n: r.n + 1, t0: r.t0 } : { n: 1, t0: now }; await this.state.storage.put('fbRate', rl); }
+      let fb = (await this.state.storage.get('feedback')) || [];
+      fb.push({ kind, text, name, ver: str(b.ver, 12), t: now });
+      fb = fb.slice(-1000); // keep the most recent thousand
+      await this.state.storage.put('feedback', fb);
+      return json({ ok: true });
     }
 
     if (request.method === 'POST') {
