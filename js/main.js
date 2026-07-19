@@ -2257,6 +2257,53 @@
   function useAbilityR() { castAbility(g.player.abilityR); }
   function useUltimate() { castAbility(g.player.abilityUlt); }
 
+  // #287 (Sam) DRUID FORM WHEEL: hold Q to open a radial picker and shift straight to any
+  // shape instead of cycling. Four slots at the cardinal points; the cursor DIRECTION picks.
+  const WHEEL_OPTS = [
+    { id: 'bear', ang: -Math.PI / 2, col: '#a8763f', tag: 'BEAR' },
+    { id: 'wolf', ang: 0, col: '#c8d0de', tag: 'WOLF' },
+    { id: 'owlbear', ang: Math.PI / 2, col: '#c9a86a', tag: 'OWLBEAR' },
+    { id: 'own', ang: Math.PI, col: '#7fd47f', tag: 'OWN' },
+  ];
+  function formWheelPick(p) {
+    let best = 0, bd = 9;
+    for (let i = 0; i < WHEEL_OPTS.length; i++) {
+      const d = Math.abs(((p.facing - WHEEL_OPTS[i].ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
+  function drawFormWheel(c) {
+    const p = g.player; if (!p) return;
+    const R = 66, sel = g.wheelSel;
+    c.save();
+    c.beginPath(); c.arc(p.x, p.y, R + 24, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(10,12,18,0.5)'; c.fill();
+    c.lineWidth = 2; c.strokeStyle = 'rgba(127,212,127,0.35)'; c.stroke();
+    for (let i = 0; i < WHEEL_OPTS.length; i++) {
+      const o = WHEEL_OPTS[i];
+      const nx = p.x + Math.cos(o.ang) * R, ny = p.y + Math.sin(o.ang) * R;
+      const on = i === sel;
+      const cur = (o.id === 'own' && !p.form) || (p.form && p.form.id === o.id);
+      const rad = on ? 20 : 15;
+      c.beginPath(); c.arc(nx, ny, rad, 0, Math.PI * 2);
+      c.fillStyle = on ? o.col : o.col + '66'; c.fill();
+      c.lineWidth = on ? 3 : 1.5; c.strokeStyle = on ? '#fff' : (cur ? '#ffd24c' : 'rgba(0,0,0,0.5)'); c.stroke();
+      c.font = 'bold 8px monospace'; c.textAlign = 'center';
+      c.fillStyle = on ? '#0e1016' : '#cdd6e4';
+      c.fillText(o.tag, nx, ny + rad + 11);
+    }
+    if (sel >= 0) {
+      const o = WHEEL_OPTS[sel];
+      const nm = o.id === 'own' ? 'OWN SHAPE' : (PlayerDef.formById(o.id) ? PlayerDef.formById(o.id).name.toUpperCase() : o.tag);
+      c.font = 'bold 12px monospace'; c.fillStyle = o.col; c.textAlign = 'center';
+      c.fillText(nm, p.x, p.y + R + 42);
+      c.font = '9px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText('release to shift', p.x, p.y + R + 55);
+    }
+    c.restore();
+  }
+
   // run ANY ability (Q/R/ultimate). Ults just carry bigger numbers + the ult flag.
   // #10 (Sam) a dungeon-wide ULTIMATE cast flash: a full-screen colour wash + a big
   // banner. Set here, ticked in updateUltFx, drawn over the HUD. In co-op it is also
@@ -2811,11 +2858,20 @@
       // DRUID: cycle Bear -> Wolf -> Owl -> back to your own body. Each form is a real
       // trade-off (PlayerDef.FORMS); shifting is nearly free so you shift constantly.
       const FORMS = PlayerDef.FORMS;
-      const cur = p.form ? FORMS.findIndex(f => f.id === p.form.id) : -1;
-      const next = cur + 1;
+      // #287 (Sam) the FORM WHEEL picks a target directly; a plain tap still cycles Bear ->
+      // Wolf -> Owlbear -> own body. Either way the same shift runs (FX, R-swap, milestones).
+      let target;
+      if (g.wheelTarget !== undefined) {
+        target = g.wheelTarget === 'own' ? null : (FORMS.find(f => f.id === g.wheelTarget) || null);
+        g.wheelTarget = undefined;
+      } else {
+        const cur = p.form ? FORMS.findIndex(f => f.id === p.form.id) : -1;
+        const next = cur + 1;
+        target = next >= FORMS.length ? null : FORMS[next];
+      }
       // #157 setForm sets the form AND the hitbox from the same scale, so a bear is really
       // a bigger target and an owl is really a smaller one. Never assign p.form directly.
-      PlayerDef.setForm(p, next >= FORMS.length ? null : FORMS[next]);
+      PlayerDef.setForm(p, target);
       // #286 (Sam) the current FORM dictates R. Swap in this form's R, carrying the cooldown
       // forward so shifting can't be used to reset it. Own-shape falls back to the Bear slam.
       if (p.class && p.class.id === 'druid' && Abilities.formR) {
@@ -5599,7 +5655,18 @@
         Fx.text(p.x, p.y - 34, p.autoAttack ? 'AUTO-ATTACK ON' : 'AUTO-ATTACK OFF', p.autoAttack ? '#7ee0a0' : '#ff9a3d', 13);
         Sfx.play('ui');
       }
-      if (input.pressed('KeyQ')) useAbility();
+      // #287 (Sam) DRUID: hold Q -> form wheel (aim to pick, release to shift); a quick TAP
+      // still cycles. Every other class fires Q instantly on press as before.
+      if (p.class && p.class.id === 'druid') {
+        if (input.keys.has('KeyQ')) {
+          p._qHoldT = (p._qHoldT || 0) + dt;
+          if (p._qHoldT >= 0.16) { g.formWheelOpen = true; g.wheelSel = formWheelPick(p); }
+        } else if (p._qHoldT > 0) {                 // released
+          if (g.formWheelOpen) { g.wheelTarget = WHEEL_OPTS[g.wheelSel].id; useAbility(); }
+          else useAbility();                        // quick tap = cycle
+          p._qHoldT = 0; g.formWheelOpen = false; g.wheelSel = -1;
+        }
+      } else if (input.pressed('KeyQ')) useAbility();
       if (input.pressed('KeyR')) useAbilityR();
       // left-click = manual attack while auto-attack is OFF (ultimate moved to RMB)
       if (input.mouse.clicked && !p.autoAttack) p.manualAttack(g, input.mouse.x, input.mouse.y);
@@ -7140,6 +7207,7 @@
       c.globalAlpha = 1;
     }
 
+    if (g.formWheelOpen) drawFormWheel(c);   // #287 druid form wheel, over the world, under the HUD
     UI.drawHUD(c, g);
     // #241 the hunt HUD: score, swarm count, and a red edge when your room is falling
     if (g.huntMode && g.coop) {
