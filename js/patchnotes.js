@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.157';
+  const VERSION = 'v2.158';
 
   const NOTES = [
+    {
+      v: 'v2.158', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '7d9a686',
+      items: [
+        'Mobile: tapping to play now fills your whole phone screen instead of a tiny window.',
+      ],
+    },
     {
       v: 'v2.157', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '00df874',
