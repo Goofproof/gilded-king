@@ -19,9 +19,17 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.152';
+  const VERSION = 'v2.153';
 
   const NOTES = [
+    {
+      v: 'v2.153', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '459f469',
+      items: [
+        'Warriors go back to their classic look.',
+        'Heroes now look like their character-select picture in the dungeon, race and all, in solo and co-op.',
+      ],
+    },
     {
       v: 'v2.152', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '2267703',
