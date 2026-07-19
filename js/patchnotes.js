@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.147';
+  const VERSION = 'v2.148';
 
   const NOTES = [
+    {
+      v: 'v2.148', title: 'The death touch can really kill, and blindness says so', date: '2026-07-19',
+      sha: '8b3816d',
+      items: [
+        'Dim Mak, the fabled death touch, now lives up to its name: on top of the +12% crit it has a 1% chance to INSTANTLY KILL anything you hit (bosses resist). And when an enemy blinds you the screen now says BLINDED - your sight is coming back, so the white-out reads as an effect and not a broken game.',
+      ],
+    },
     {
       v: 'v2.147', title: 'Mobile: resume from pause, open your character sheet, and controls that fit', date: '2026-07-18',
       sha: 'c8bd92f',
