@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.165';
+  const VERSION = 'v2.166';
 
   const NOTES = [
+    {
+      v: 'v2.166', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '034cbca',
+      items: [
+        'New Splitter elite bursts into a couple of small enemies when you kill it.',
+      ],
+    },
     {
       v: 'v2.165', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '894b71d',
