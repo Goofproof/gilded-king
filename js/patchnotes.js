@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.184';
+  const VERSION = 'v2.185';
 
   const NOTES = [
+    {
+      v: 'v2.185', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: 'cfc273f',
+      items: [
+        'Your run recap now shows your prestige RANK - the cape\'s insignia badge next to its name, from Seaman Recruit all the way up to Fleet Admiral - so you can see how high you have climbed.',
+      ],
+    },
     {
       v: 'v2.184', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '47fa84c',
