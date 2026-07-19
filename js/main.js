@@ -8872,7 +8872,8 @@
     // #226 the Q card shows your RANK and the milestone ladder - what each rank
     // unlocks, greyed until you reach it, "(coming soon)" until its wave ships.
     const qCls = (p.class && p.class.id) || '';
-    const qStat = (Abilities.CLASS_STAT && Abilities.CLASS_STAT[qCls]) || '';
+    const qStatRaw = (Abilities.CLASS_STAT && Abilities.CLASS_STAT[qCls]) || '';
+    const qStat = Array.isArray(qStatRaw) ? qStatRaw.join(' + ') : qStatRaw; // #274 dual-stat display: "FORTUNE + ARCANE"
     const qRk = Abilities.qRank ? Abilities.qRank(qCls, p.statPoints) : 0;
     const FORGED = {
       'Q': `your ${(p.class && p.class.name) || 'class'} ability · RANK ${qRk}  (rank = your ${qStat})`,

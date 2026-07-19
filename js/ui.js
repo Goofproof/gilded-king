@@ -2755,7 +2755,7 @@ const UI = (() => {
       const qRk = (typeof Abilities !== 'undefined' && Abilities.qRank) ? Abilities.qRank(clsId, p.statPoints) : 0;
       for (let i = 0; i < g.pendingChoices.length; i++) {
         const ch = g.pendingChoices[i], cx2 = x0 + i * (cw2 + gap);
-        const feedsQ = ruling && ch.stat === ruling;
+        const feedsQ = ruling && (Array.isArray(ruling) ? ruling.includes(ch.stat) : ch.stat === ruling); // #274 dual-stat: either ruling stat feeds the Q
         const nextMs = feedsQ && Abilities.Q_MILESTONES && Abilities.Q_MILESTONES[clsId]
           ? Abilities.Q_MILESTONES[clsId].find(m => m.at === qRk + 1) : null;
         c.fillStyle = 'rgba(14,16,26,0.98)'; c.fillRect(cx2, cy2, cw2, cardH);

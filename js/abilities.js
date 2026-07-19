@@ -191,7 +191,10 @@ const Abilities = (() => {
     mage: 'ARCANE', summoner: 'ARCANE', mesmer: 'ARCANE', necromancer: 'ARCANE', pyromancer: 'ARCANE',
     paladin: 'VIGOR', cleric: 'VIGOR', druid: 'VIGOR', deathknight: 'VIGOR',
     gambler: 'FORTUNE', // #258
-    bard: 'VIGOR',      // the song is support: haste, regen, then rot
+    // #274 (Sam) the BARD is the first DUAL-STAT class: its song draws on BOTH luck and magic,
+    // so its Q rank is the SUM of Fortune + Arcane. A ruling stat may now be an array; qRank
+    // adds the points across all of them (same total investment reaches the same milestones).
+    bard: ['FORTUNE', 'ARCANE'],
     warlock: 'ARCANE',  // the blood laser is a spell - ARCANE grows it
   };
 
@@ -223,12 +226,14 @@ const Abilities = (() => {
     cleric:      { rider: 0,    perPoint: { heal: 0.01, radius: 6 } },
     druid:       { rider: 0,    perPoint: {} },          // forms rework in the VIGOR wave
     deathknight: { rider: 0.02, perPoint: { dps: 3 } }, // #230 Miasma: rider is rot %/s, points feed the poison
-    bard:        { rider: 0,    perPoint: { dur: 0.2, dps: 2 } }, // longer brawl + a meaner rot per VIGOR point
+    bard:        { rider: 0,    perPoint: { dur: 0.2, dps: 2 } }, // #274 longer brawl + a meaner rot per rank (rank = Fortune + Arcane)
     warlock:     { rider: 0,    perPoint: { width: 1.2, range: 24 } }, // each ARCANE point widens + lengthens the beam
   };
 
   function qRank(classId, statPoints) {
     const st = CLASS_STAT[classId || ''];
+    // #274 a dual-stat class (Bard: Fortune + Arcane) ranks off the SUM of its ruling stats.
+    if (Array.isArray(st)) return st.reduce((n, s) => n + ((statPoints && statPoints[s]) | 0), 0);
     return ((st && statPoints && statPoints[st]) | 0);
   }
 
