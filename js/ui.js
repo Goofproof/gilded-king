@@ -2587,16 +2587,33 @@ const UI = (() => {
     c.font = '10px monospace'; c.fillStyle = '#7a8698';
     c.fillText('hover a ring (or press 1-5) to see exactly what it will offer you', cx, 444);
 
-    // health / gear, small, under the portrait: the facts you glance at, not study
-    c.font = '11px monospace';
-    c.fillStyle = '#c8d2e0';
+    // #288 (Sam) EQUIPPED GEAR with its real stats, under the portrait - on mobile the
+    // character sheet is the ONLY place to read them. Weapon / armour / trinket, each with
+    // the numbers that matter (damage, hone, defense) and the enchants riding on it.
     const wep = (p.weapons && p.weapons[p.slot]) || (p.weapons && p.weapons.a);
-    const gear = [
-      `${Math.ceil(p.hp)}/${Math.round(p.maxHp)} HP`,
-      wep ? wep.name : 'unarmed',
-      p.armor ? p.armor.name : 'no armour',
-    ].join('   ·   ');
-    c.fillText(gear, cx, 472);
+    c.textAlign = 'center';
+    c.font = '10px monospace'; c.fillStyle = '#7a8698';
+    c.fillText(`${Math.ceil(p.hp)}/${Math.round(p.maxHp)} HP`, cx, 452);
+    let gy = 470;
+    // name is coloured by rarity, so the stat line stays short (no redundant rarity text)
+    const gearRow = (label, item, stat) => {
+      c.textAlign = 'left'; const gx = cx - 132;
+      if (!item) { c.font = '10px monospace'; c.fillStyle = '#5a6478'; c.fillText(`${label}  —`, gx, gy); gy += 15; return; }
+      const nm = item.name.length > 22 ? item.name.slice(0, 21) + '…' : item.name;
+      c.font = 'bold 10px monospace'; c.fillStyle = item.color || '#c8d2e0';
+      c.fillText(`${label}  ${nm}`, gx, gy);
+      c.textAlign = 'right';
+      c.font = '9px monospace'; c.fillStyle = '#9aa6b6';
+      c.fillText(stat, cx + 132, gy);
+      const enc = (item.enchants || []).map(e => e && e.name).filter(Boolean);
+      gy += 12;
+      if (enc.length) { c.textAlign = 'left'; c.font = '9px monospace'; c.fillStyle = '#b088ff'; c.fillText('◇ ' + enc.join(', '), gx + 6, gy); gy += 12; }
+      gy += 3;
+    };
+    gearRow('WPN', wep, wep ? `${wep.dmg || 0} dmg${wep.upLvl ? '  +' + wep.upLvl : ''}` : '');
+    gearRow('ARM', p.armor, p.armor ? `${Math.round((p.armor.defense || 0) * 100)}% armour` : '');
+    gearRow('TRK', p.trinket, p.trinket ? (p.trinket.rarityName || p.trinket.rarity || 'equipped') : '');
+    c.textAlign = 'left';
 
     // #135 YOUR TOTALS (Sam): the raw derived combat numbers - crit chance, crit
     // damage, spell power, move speed, regen, damage reduction. The Portrait redesign
