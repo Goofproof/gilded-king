@@ -5772,6 +5772,21 @@
         if (d > 40 && d < 420) { const pull = 34 * dt; m.x += dx / d * pull; m.y += dy / d * pull; }
       }
     }
+    // #301 MEDUSA'S GAZE (trinket): everything caught in the arc you're aiming at is slowed to
+    // stone (reuses the Frost slow). The price - less damage - lives in the trinket's mods.
+    if (g.player && !g.player.dead && g.player.trinketFlag('medusa')) {
+      const p = g.player, fx = Math.cos(p.facing), fy = Math.sin(p.facing);
+      for (const m of g.monsters) {
+        if (m.dead || m.isBoss || m.spawnT > 0) continue;
+        const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
+        if (d > 300) continue;
+        if ((dx / d) * fx + (dy / d) * fy > 0.55) {          // inside a ~57-degree gaze cone
+          m.chillT = Math.max(m.chillT || 0, 0.25);
+          m.chillMul = Math.min(m.chillMul == null ? 1 : m.chillMul, 0.4); // slowed to 40%
+          if (typeof Fx !== 'undefined' && Math.random() < 0.03) Fx.burst(m.x, m.y - (m.r || 12), ['#9fe0b0', '#cfe8d0', '#bfae9a'], 2, { speed: 16, life: 0.6 });
+        }
+      }
+    }
     updateMercs(dt);
     updateProjectiles(dt);
     updatePickups(dt);

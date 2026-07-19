@@ -44,9 +44,9 @@ describe('Trinkets: the shape of the deal', () => {
   });
 
   it('the behaviour flags are all wired to something the engine reads', () => {
-    // if a trinket declares a flag, the engine has a matching check. These are the four
-    // that exist; a fifth flag with no consumer is a silent dead trinket.
-    const known = new Set(['abilityHaste', 'zeno', 'gravity', 'revealMap', 'noSecondChance']);
+    // if a trinket declares a flag, the engine has a matching check. A flag with no
+    // consumer is a silent dead trinket - keep this set in step with the read sites.
+    const known = new Set(['abilityHaste', 'zeno', 'gravity', 'revealMap', 'noSecondChance', 'medusa']);
     for (const t of Trinkets.TRINKETS) {
       if (t.flag) expect(known.has(t.flag), `${t.key} flag ${t.flag}`).toBe(true);
     }

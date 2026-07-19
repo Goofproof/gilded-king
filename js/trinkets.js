@@ -91,6 +91,14 @@ const Trinkets = (() => {
       flag: 'gravity',                 // read in the monster update
     },
     {
+      key: 'medusa', name: "Medusa's Gaze", color: '#9fe0b0', icon: 'ring',
+      gift: 'enemies caught in the arc you are aiming at are slowed to stone',
+      price: 'but meeting their eyes unnerves you: -15% damage',
+      lore: 'Look upon her and turn to stone. She never asked to be a monster.',
+      mods: { dmg: -0.15 },
+      flag: 'medusa',                  // read in the world update: a gaze-cone slow
+    },
+    {
       key: 'ariadne', name: "Ariadne's Thread", color: '#8effc0', icon: 'thread',
       gift: 'the whole floor is on your map from the moment you arrive',
       price: 'but there is no gold in a maze you have already solved (-40% coins)',
