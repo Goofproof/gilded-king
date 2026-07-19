@@ -341,6 +341,7 @@ const Weapons = (() => {
     { id: 'heartmount',  name: 'Heart of the Mountain', color: '#c0846a', defense: 0.19, enchants: ['juggernaut', 'thornmail'],             flavor: 'Stone that remembers being a heart.' },
     { id: 'gravewarden', name: 'Grave Warden',          color: '#8b1a1a', defense: 0.15, enchants: ['phoenix', 'thornmail'],                flavor: 'It has buried a hundred wearers and outlived them all.' },
     { id: 'radiantbast', name: 'Radiant Bastion',       color: '#e63fff', defense: 0.16, enchants: ['bulwark', 'juggernaut', 'recovery'],   flavor: 'Light given the shape of a shield.' },
+    { id: 'salamander',  name: 'Salamander Hide',       color: '#ff7a3a', defense: 0.15, enchants: ['phoenix', 'protection', 'recovery'],  flavor: 'The beast that walks through fire and steps out unburned.' },
   ];
   const MYTHIC_TOTAL = MYTHIC_WEAPONS.length + MYTHIC_ARMOR.length;
 
