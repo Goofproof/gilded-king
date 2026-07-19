@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.193';
+  const VERSION = 'v2.194';
 
   const NOTES = [
+    {
+      v: 'v2.194', title: 'Add BOUND enemy: a chained pair that protects each', date: '2026-07-19',
+      sha: '5274b5f',
+      items: [
+        'Add BOUND enemy: a chained pair that protects each other, then enrages.',
+        'Add TRIAL BY FIRE floor mutator: a risk/reward grind floor.',
+        'Add CIRCE\'S WAND mythic: a chain-and-venom wand for casters.',
+        'Add NEMESIS\' COIL trinket: a thorns artifact for the fourth slot.',
+      ],
+    },
     {
       v: 'v2.193', title: 'Add TORTOISE companion: the defensive pet the stable', date: '2026-07-19',
       sha: '6665e50',
