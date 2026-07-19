@@ -63,7 +63,12 @@ const commits = log ? log.split('\n').map(l => { const [sha, subject] = l.split(
 const touchesGame = sha =>
   git('show', '--name-only', '--format=', sha).split('\n').some(f => GAME.test(f.trim()));
 
-const items = [];
+// classify each change from its RAW subject BEFORE we strip prefixes: is it a
+// headline FEATURE or a minor FIX/polish? Features lead the entry as their own
+// exciting lines; the small fixes get bundled onto ONE line so a 12-year-old reads
+// meaningful updates, not a granular changelog (Sam: "less incremental").
+const FIXY = /^(fix|bug|hotfix|tweak)\b|\bfix(e[sd])?\b|\bclip(ped|ping)?\b|typo|crash|regression|off-?screen|overflow/i;
+const feats = [], fixes = [];
 for (const c of commits) {
   if (SKIP.test(c.subject)) continue;
   if (!touchesGame(c.sha)) continue;
@@ -71,26 +76,49 @@ for (const c of commits) {
   let s = c.subject.replace(/^#\d+[^:]*:\s*/, '').replace(/^([a-z-]+):\s*/i, m => /^(fix|feat)/i.test(m) ? '' : m);
   s = s.charAt(0).toUpperCase() + s.slice(1);
   if (!/[.!?]$/.test(s)) s += '.';
-  items.push(s);
+  (FIXY.test(c.subject) ? fixes : feats).push(s);
 }
+const changeCount = feats.length + fixes.length;
 
-if (!items.length) {
+if (!changeCount) {
   console.log(`No unreleased game changes since ${curVer} (${curSha}). Nothing to write.`);
   process.exit(0);
 }
 
-// A patch-notes popup is something a 12-year-old reads in ten seconds. If the
-// backlog is this big the notes were left to rot (v2.14 caught 86 items across
-// 87 commits) - generate it anyway, but say so, because it needs a human edit.
+// BATCH the notes: don't cut a fresh version for every single push (that is what made
+// the notes read as an endless list of tiny "Fixes & Improvements" bumps). Hold changes
+// until a handful have stacked up, THEN release them together as one themed update. A
+// curated release (--title) or --force/--major cuts immediately regardless.
+const BATCH = 4;
+const forceCut = flag('--title') || flag('--force') || flag('--major');
+if (!forceCut && changeCount < BATCH) {
+  console.log(`\n  ${changeCount} change(s) accumulating since ${curVer} (${feats.length} feature, ${fixes.length} fix).`);
+  console.log(`  Holding for a bigger update: need ${BATCH}, or pass --title "Headline" to cut one now.\n`);
+  process.exit(0);
+}
+
+// FEATURES first (the exciting stuff), then the small fixes bundled onto one line.
+const items = [...feats];
+if (fixes.length === 1) items.push(fixes[0]);
+else if (fixes.length > 1) items.push(`Plus a round of smaller fixes and polish: ${fixes.map(f => f.replace(/\.$/, '')).join('; ')}.`);
+
 if (items.length > 15) {
-  console.warn(`\n  ! ${items.length} items from ${commits.length} commits - too many to read.`);
-  console.warn(`  ! Ship the notes more often. Curate this entry down by hand before you push.\n`);
+  console.warn(`\n  ! ${items.length} lines - still a lot to read. Consider curating by hand before you push.\n`);
 }
 
 // --- the new entry -----------------------------------------------------------
 const [maj, min] = curVer.slice(1).split('.').map(Number);
 const newVer = flag('--major') ? `v${maj + 1}.0` : `v${maj}.${min + 1}`;
-const title = opt('--title') || 'Fixes & Improvements';
+// the entry's HEADLINE: an explicit --title wins; otherwise lead with the top feature
+// (trimmed to a short phrase) so the update reads as a real thing, not "Fixes & Improvements".
+// Fall back to that generic title only for a fixes-only batch.
+const headline = feats[0]
+  ? (() => {
+    let h = feats[0].replace(/[.!?]+$/, '').split(/ [-–] | \(| · |, /)[0];  // first clause only
+    return h.length > 54 ? h.slice(0, 54).replace(/\s+\S*$/, '') : h;        // never cut mid-word
+  })()
+  : null;
+const title = opt('--title') || headline || 'Fixes & polish';
 const date = new Date().toISOString().slice(0, 10);
 const head = git('rev-parse', '--short', 'HEAD');
 const esc = s => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");

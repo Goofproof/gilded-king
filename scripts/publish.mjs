@@ -41,7 +41,7 @@ run('node', [join(ROOT, 'scripts', 'patchnotes.mjs'), ...argv]);
 if (dry) { console.log('\n--dry: stopping before commit.\n'); process.exit(0); }
 
 if (!out('git', ['status', '--porcelain'])) {
-  console.log('\n  No notes were written (nothing unreleased). Pushing as-is.\n');
+  console.log('\n  No new notes entry this push (changes are accumulating for a bigger update, or nothing unreleased). Pushing code as-is.\n');
 } else {
   const ver = readFileSync(join(ROOT, 'js', 'patchnotes.js'), 'utf8').match(/const VERSION = '(v[\d.]+)';/)[1];
   const title = readFileSync(join(ROOT, 'js', 'patchnotes.js'), 'utf8').match(/title: '([^']*)'/)[1];
