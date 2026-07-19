@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.168';
+  const VERSION = 'v2.169';
 
   const NOTES = [
+    {
+      v: 'v2.169', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '8a57d68',
+      items: [
+        'Desktop: a \'Press F11 for the Full Experience\' prompt now sits beside the health bar.',
+        'Press V anytime to open Level Up and spend points, no need to open the character sheet first.',
+        'Character faces now have a weary, locked-in stare instead of blank dots.',
+      ],
+    },
     {
       v: 'v2.168', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '0b49c98',
