@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.153';
+  const VERSION = 'v2.154';
 
   const NOTES = [
+    {
+      v: 'v2.154', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: 'fb51883',
+      items: [
+        'Rolling folds you back into the classic spinning ball.',
+      ],
+    },
     {
       v: 'v2.153', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '459f469',
