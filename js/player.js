@@ -2001,7 +2001,7 @@ const PlayerDef = (() => {
       // head now). Highlight rings, buff auras and the weapon all pivot around this torso point
       // so they hug the body instead of circling the face. Druid beast forms are a round blob
       // centred on the origin, so they take no offset.
-      const bodyCY = this.form ? 0 : this.r * 0.7;
+      const bodyCY = (this.form || this.rollT >= 0) ? 0 : this.r * 0.7;
 
       // CO-OP IDENTITY RING: a flat coloured ground ring in YOUR colour, so in a party
       // scrum you can find yourself instantly. Drawn before the roll transform so it
@@ -2103,6 +2103,14 @@ const PlayerDef = (() => {
         c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
         // the animal head + any race feature layer on via drawClassFeature just below
         this.drawClassFeature(c, evoStage, pal);
+      } else if (this.rollT >= 0) {
+        // #269 (Sam) FOLD INTO A BALL while rolling - the iconic tuck. The portrait figure is
+        // too tall to read as a rolling ball, so during a dodge we draw the classic round body
+        // (which the roll's spin + squash-stretch is already twirling) and skip the face/headgear.
+        c.fillStyle = cloakCol;
+        c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = bodyCol;
+        c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
       } else {
         // #269 (Sam) the champion IS its character-select portrait now: shoulders in the class
         // colour, a skin head with a real face and race feature, and the class headgear sitting
