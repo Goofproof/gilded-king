@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.176';
+  const VERSION = 'v2.177';
 
   const NOTES = [
+    {
+      v: 'v2.177', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: 'bb38b36',
+      items: [
+        'The forge could craft a legendary on floors 1-3, dodging the no-early-legendaries rule - now capped at Epic there too.',
+      ],
+    },
     {
       v: 'v2.176', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '8cf50db',
