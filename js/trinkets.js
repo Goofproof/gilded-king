@@ -91,6 +91,13 @@ const Trinkets = (() => {
       flag: 'gravity',                 // read in the monster update
     },
     {
+      key: 'nemesis', name: "Nemesis' Coil", color: '#c04a6a', icon: 'ring',
+      gift: 'attackers that strike you take 22 damage back',
+      price: 'but retribution is all it knows: you deal 15% less damage yourself',
+      lore: 'The goddess of what you have coming. She always collects.',
+      mods: { thorns: 22, dmg: -0.15 },
+    },
+    {
       key: 'atlas', name: "Atlas' Burden", color: '#8a94a8', icon: 'gear',
       gift: '+40% maximum health, and take 22% less damage',
       price: 'but the weight of the world slows you by 28%',
