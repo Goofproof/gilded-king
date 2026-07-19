@@ -22,6 +22,10 @@ const Boss = (() => {
     colossus: { hp: 2600, contactDmg: 20, poundDmg: 22, boulderDmg: 18, chargeDmg: 26, speed: 46, r: 40 },
     matriarch:{ hp: 1900, contactDmg: 14, venomDmg: 11, novaDmg: 13, speed: 70, r: 30 },
   };
+  // #boss-hp (Sam): players were 3-4 shotting bosses. This multiplies EVERY boss's HP (the
+  // floor-3 King, the Harpy, every Descent Warden and the Empyrean) so they are a real fight.
+  // One number to tune - raise it if bosses still fold, lower it if they become a slog.
+  const BOSS_HP_MUL = 2.5;
 
   // default palettes. Descent recolors override these via opts.descent.pal.
   // Every palette exposes body/lidLo/lid/trim/crown/jewel so any recolor works
@@ -40,7 +44,7 @@ const Boss = (() => {
     const pal = d && d.pal ? d.pal : DEFAULT_PAL[variant];
     const hpMul = d ? d.hpMul : 1;
     const dmgMul = d ? d.dmgMul : 1;
-    const hp = Math.round(st.hp * hpMul);
+    const hp = Math.round(st.hp * hpMul * BOSS_HP_MUL);
     const b = {
       type: 'boss', variant,
       skin: (d && d.skin) || null, // #188 (Sam) bespoke Dante model key (charon..lucifer)
