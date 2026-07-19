@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.181';
+  const VERSION = 'v2.182';
 
   const NOTES = [
+    {
+      v: 'v2.182', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '6f53ef1',
+      items: [
+        'Renamed the battle-royale PVP mode from \'the Gilded Hunt\' to RAIDER ROYALE - on the lobby toggle, the drop-in banner, and the winner\'s crown.',
+      ],
+    },
     {
       v: 'v2.181', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '68c8775',
