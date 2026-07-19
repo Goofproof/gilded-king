@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.192';
+  const VERSION = 'v2.193';
 
   const NOTES = [
+    {
+      v: 'v2.193', title: 'Add TORTOISE companion: the defensive pet the stable', date: '2026-07-19',
+      sha: '6665e50',
+      items: [
+        'Add TORTOISE companion: the defensive pet the stable was missing.',
+        'Add GNOME race: the attack-speed archetype the roster was missing.',
+        'Add SALAMANDER HIDE mythic armor: a fire-walker\'s hide that cheats death.',
+        'Add BLACKOUT floor mutator: limited-vision darkness on any deep floor.',
+      ],
+    },
     {
       v: 'v2.192', title: 'Add THE MAELSTROM floor mutator: a steady pull toward', date: '2026-07-19',
       sha: '5e9bba1',
