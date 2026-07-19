@@ -26,7 +26,7 @@ const PatchNotes = (() => {
       v: 'v2.155', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '236f276',
       items: [
-        'Prestige capes are shorter with a Navy rank badge, and capes and wings now sit on the shoulders.',
+        'Prestige capes are shorter and now show a rank badge that climbs from a recruit\'s chevrons all the way to an admiral\'s stars, and capes and wings sit on the shoulders.',
       ],
     },
     {
