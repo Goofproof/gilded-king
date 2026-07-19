@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.149';
+  const VERSION = 'v2.150';
 
   const NOTES = [
+    {
+      v: 'v2.150', title: 'Bosses have a lot more health so they are a real fight', date: '2026-07-19',
+      sha: '097dee0',
+      items: [
+        'Every boss - the Harpy, the Gilded King, the Descent Wardens and the Empyrean - now has two and a half times the health, so they are an actual fight instead of falling in three or four hits.',
+      ],
+    },
     {
       v: 'v2.149', title: 'Every mythic gets a 4th enchant, so it out-classes a legendary', date: '2026-07-19',
       sha: '709d814',
