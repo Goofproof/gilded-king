@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.175';
+  const VERSION = 'v2.176';
 
   const NOTES = [
+    {
+      v: 'v2.176', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '8cf50db',
+      items: [
+        'Melee weapons swung from the character\'s head - now they swing from the torso like the ranged weapons.',
+      ],
+    },
     {
       v: 'v2.175', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '24da635',
