@@ -53,24 +53,41 @@ fi
 #
 # The bar is unchanged: a change is either IN THE NOTES, or it explicitly declares
 # itself invisible. It can never be silent by accident, which is the whole point.
-changed=$(
-  for cmt in $(git rev-list "$sha"..HEAD); do
-    case "$(git log -1 --format=%s "$cmt")" in
-      *"[skip-notes]"*) continue ;;
-    esac
-    git show --name-only --format= "$cmt" -- js index.html style.css assets server
-  done | grep -v '^js/patchnotes\.js$' | sort -u
-)
+#
+# BATCHING (Sam): notes are no longer cut one-per-push - that made them read as an
+# endless list of tiny bumps. The generator holds player-visible changes until a
+# handful stack up, then releases them as one themed update. So this guard must ALLOW
+# a few un-noted game changes to accumulate, and only block once enough have piled up
+# that an entry is due. BATCH must match scripts/patchnotes.mjs.
+BATCH=4
+count=0
+changed=""
+for cmt in $(git rev-list "$sha"..HEAD); do
+  subj=$(git log -1 --format=%s "$cmt")
+  lsub=$(printf '%s' "$subj" | tr 'A-Z' 'a-z')
+  case "$lsub" in
+    *"[skip-notes]"*) continue ;;
+    "patch notes"*|notes:*|chore*|test*|doc*|refactor*|wip*|merge*|revert*|bump*|ci*) continue ;;
+  esac
+  files=$(git show --name-only --format= "$cmt" -- js index.html style.css assets server | grep -v '^js/patchnotes\.js$')
+  if [ -n "$files" ]; then
+    count=$((count + 1))
+    changed="$changed$files
+"
+  fi
+done
 
-if [ -n "$changed" ]; then
+if [ "$count" -ge "$BATCH" ]; then
   echo "" >&2
-  echo "  PUSH BLOCKED - the game changed since patch notes $sha, but the notes did not." >&2
+  echo "  PUSH BLOCKED - $count player-visible changes have stacked up since patch notes $sha." >&2
+  echo "  That is enough for an update ($BATCH+). Cut the themed entry before pushing:" >&2
   echo "" >&2
-  echo "$changed" | sed 's/^/    /' >&2
+  printf '%s' "$changed" | grep -v '^$' | sort -u | sed 's/^/    /' >&2
   echo "" >&2
-  echo "  Run:  npm run notes -- --title \"Your Headline\"     then commit and push" >&2
-  echo "  Or:   npm run ship -- --title \"Your Headline\"   (test + notes + commit + push)" >&2
+  echo "  Run:  npm run ship            (auto-titles + batches features, bundles fixes)" >&2
+  echo "  Or:   npm run ship -- --title \"Your Headline\"   (curate the headline yourself)" >&2
   echo "" >&2
   exit 1
 fi
+# fewer than BATCH un-noted changes: still accumulating, let the push through.
 exit 0
