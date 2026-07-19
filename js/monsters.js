@@ -60,17 +60,21 @@ const Monsters = (() => {
     // shot in the game (540 px/s vs the old top of 430). A hit FREEZES you solid for
     // a beat. Long telegraph is the counterplay: move when the arm rears back.
     snowman:  { hp: 55, dmg: 12, speed: 55, r: 14, xp: 18, coins: [5, 9] },
+    // #289 (Sam) warden: a SUPPORT caster. No attack of its own - it hangs back and pulses
+    // a BARRIER that shields nearby allies (heavy damage reduction) and empowers them (their
+    // next hit is the big one, and it resets so they strike at once). Kill it first.
+    warden:   { hp: 52, dmg: 0,  speed: 50, r: 15, xp: 16, coins: [4, 8] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -332,6 +336,7 @@ const Monsters = (() => {
     m.px = m.x; m.py = m.y; // #81 pre-move position, for anti-tunnel wall resolution
     if (m.contactCd > 0) m.contactCd -= dt;
     if (m.flash > 0) m.flash -= dt;
+    if (m.wardBuffT > 0) m.wardBuffT -= dt; // #289 a warden's barrier shield, ticking down
 
     // #271 (Sam) ELITE AFFIX behaviours - deep-floor variety beyond bigger numbers.
     if (m.elite) {
@@ -481,6 +486,38 @@ const Monsters = (() => {
       }
       resolveTerrain(m, g);
       return;   // provoked: no player-targeting AI this frame
+    }
+
+    // #289 (Sam) WARDEN: a support caster. Kites to a standoff and every ~6s pulses a
+    // BARRIER around itself - allies inside take far less damage (wardBuffT) AND are
+    // empowered (their next hit is the big one, and their attack resets so they strike now).
+    // No attack of its own; the threat is what it does to everyone ELSE. Kill it first.
+    if (m.type === 'warden') {
+      const t = nearestTarget(m, g);
+      const dx = t.x - m.x, dy = t.y - m.y, d = Math.hypot(dx, dy) || 1;
+      m.facing = Math.atan2(dy, dx);
+      const want = 250, sp = m.speed * (m.chillT > 0 ? (m.chillMul || 1) : 1);
+      if (d < want - 50) { m.x -= (dx / d) * sp * dt; m.y -= (dy / d) * sp * dt; }        // back off if crowded
+      else if (d > want + 70) { m.x += (dx / d) * sp * 0.6 * dt; m.y += (dy / d) * sp * 0.6 * dt; } // drift in
+      m.castCd = (m.castCd === undefined ? 2.2 : m.castCd) - dt;
+      if (m.castCd <= 0) {
+        m.castCd = 5.5 + Math.random() * 1.5;
+        m.barrierT = 1.4;                                              // the flash the draw expands
+        const R = 168;
+        for (const o of g.monsters) {
+          if (o.dead || o.spawnT > 0) continue;
+          if (Math.hypot(o.x - m.x, o.y - m.y) <= R + o.r) {
+            o.wardBuffT = Math.max(o.wardBuffT || 0, 5);              // the shield
+            if (o !== m && o.emp !== undefined) { o.emp = true; o.empAura = 0.9; }        // empowered next hit
+            if (o !== m) { o.contactCd = Math.min(o.contactCd || 0, 0.1); if (o.empowerCd !== undefined) o.empowerCd = Math.min(o.empowerCd, 1.2); } // strike NOW
+          }
+        }
+        if (typeof Fx !== 'undefined') { Fx.text(m.x, m.y - m.r - 12, 'WARD', '#8fd0ff', 13); Fx.burst(m.x, m.y, ['#8fd0ff', '#cfe9ff', '#fff'], 22, { speed: 210, life: 0.6, glow: true }); }
+        if (typeof Sfx !== 'undefined') Sfx.play('roar');
+      }
+      if (m.barrierT > 0) m.barrierT -= dt;
+      resolveTerrain(m, g);
+      return;
     }
 
     // #68/#94 FORMATION: a prepared UNIT. It doesn't sit still - it ADVANCES as one
@@ -1253,6 +1290,7 @@ const Monsters = (() => {
     }
     if (m.type === 'bomber' && m.hp <= 0) return; // already in death throes, fuse lit
     if (m.dr) dmg *= (1 - m.dr); // #273 (Sam) depth-scaled damage reduction (the doppel; keeps it a duel)
+    if (m.wardBuffT > 0) dmg *= 0.45; // #289 (Sam) a warden's barrier: 55% off while it holds
     m.hp -= dmg;
     m.flash = 0.12;
     // Executioner (ORIGINAL enchant): finish off weakened enemies (bosses resist)
@@ -1526,6 +1564,46 @@ const Monsters = (() => {
     m.suppressAimT = m.type === 'lobber' ? 0.4 : 0.55;
   }
 
+  // #289 (Sam) the WARDEN: a hooded support caster with a glowing orb-staff. Reads clearly
+  // as "a mage that isn't shooting at me" - and the barrier flash + the shield rings it puts
+  // on everyone else tell the story.
+  function drawWarden(c, m, flash, ex, ey) {
+    const R = m.r;
+    // the barrier flash: an expanding ring on each cast
+    if (m.barrierT > 0) {
+      const k = 1 - m.barrierT / 1.4;
+      c.save();
+      c.globalAlpha = (1 - k) * 0.5; c.strokeStyle = '#8fd0ff'; c.lineWidth = 3;
+      c.beginPath(); c.arc(0, 0, 26 + k * 150, 0, Math.PI * 2); c.stroke();
+      c.restore();
+    }
+    // robe
+    c.fillStyle = flash ? '#fff' : '#3a6a8f';
+    c.beginPath();
+    c.moveTo(0, -R);
+    c.quadraticCurveTo(R, -R * 0.2, R * 0.8, R);
+    c.lineTo(-R * 0.8, R);
+    c.quadraticCurveTo(-R, -R * 0.2, 0, -R);
+    c.closePath(); c.fill();
+    // hood
+    c.fillStyle = flash ? '#fff' : '#2b5570';
+    c.beginPath(); c.arc(0, -R * 0.45, R * 0.62, Math.PI, 0); c.fill();
+    c.fillRect(-R * 0.62, -R * 0.45, R * 1.24, R * 0.5);
+    // shadowed face + two cold eyes
+    c.fillStyle = '#0a1420';
+    c.beginPath(); c.arc(0, -R * 0.22, R * 0.42, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#8fd0ff';
+    c.beginPath(); c.arc(ex - 3, -R * 0.24 + ey, 1.8, 0, Math.PI * 2); c.arc(ex + 3, -R * 0.24 + ey, 1.8, 0, Math.PI * 2); c.fill();
+    // the orb-staff, held toward the player
+    const ox = Math.cos(m.facing) * (R + 7), oy = Math.sin(m.facing) * (R + 7) - R * 0.15;
+    c.strokeStyle = '#5a4a3a'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(R * 0.2, R * 0.25); c.lineTo(ox, oy); c.stroke();
+    const glow = 3 + Math.sin(Date.now() / 200) * 1;
+    c.save(); c.fillStyle = '#cfe9ff'; c.shadowColor = '#8fd0ff'; c.shadowBlur = 8;
+    c.beginPath(); c.arc(ox, oy, glow, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
+
   // --- rendering ------------------------------------------------------------------
   function draw(m, c, g) {
     const p = g.player;
@@ -1571,6 +1649,7 @@ const Monsters = (() => {
       case 'miner': drawMiner(c, m, flash, ex, ey); break;
       case 'pulser': drawPulser(c, m, flash, ex, ey); break;
       case 'worm': drawWorm(c, m, flash, ex, ey); break;
+      case 'warden': drawWarden(c, m, flash, ex, ey); break;
     }
 
     // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
@@ -1616,6 +1695,17 @@ const Monsters = (() => {
       c.beginPath(); c.arc(0, 0, m.r + 8, 0, Math.PI * 2); c.fill();
       c.globalAlpha = 0.55 + Math.sin(Date.now() / 120) * 0.2; c.strokeStyle = '#cfe9ff'; c.lineWidth = 2;
       c.beginPath(); c.arc(0, 0, m.r + 8, 0, Math.PI * 2); c.stroke();
+      c.restore();
+    }
+
+    // #289 a WARDEN'S barrier on an ally: a soft teal shield ring so you can SEE who is
+    // protected (and learn to kill the warden). Distinct from the elite ward's white bubble.
+    if (m.wardBuffT > 0 && !m.warded) {
+      c.save();
+      c.globalAlpha = 0.10; c.fillStyle = '#7fe0d0';
+      c.beginPath(); c.arc(0, 0, m.r + 7, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 0.35 + Math.sin(Date.now() / 160 + m.x) * 0.15; c.strokeStyle = '#8fd0ff'; c.lineWidth = 1.8;
+      c.beginPath(); c.arc(0, 0, m.r + 7, 0, Math.PI * 2); c.stroke();
       c.restore();
     }
 
