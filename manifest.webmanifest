@@ -1,0 +1,13 @@
+{
+  "name": "Barrowlight",
+  "short_name": "Barrowlight",
+  "description": "A dungeon-crawler roguelike.",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0b12",
+  "theme_color": "#0b0b12",
+  "start_url": "./index.html",
+  "icons": [
+    { "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

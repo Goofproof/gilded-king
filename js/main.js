@@ -189,6 +189,9 @@
       } else {
         const el = d.documentElement;
         p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+        // #270 once fullscreen, pin to landscape where the platform allows it (Android
+        // Chrome). Best-effort: desktop and iOS reject the lock, which is harmless.
+        if (p && p.then) p.then(() => { try { if (screen.orientation && screen.orientation.lock) { const l = screen.orientation.lock('landscape'); if (l && l.catch) l.catch(() => {}); } } catch (e) { /* not supported here */ } });
       }
       if (p && p.catch) p.catch(() => {}); // an embed can refuse; that's fine, stay windowed
       Sfx.play('ui');

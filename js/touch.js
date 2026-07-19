@@ -91,6 +91,13 @@ const Mobile = (() => {
   function release(b) { if (b.code) input.keys.delete(b.code); }
 
   let onUlt = null, onFs = null;
+  // #270 (Sam) AUTO-FULLSCREEN on a phone: the game arrives as a tiny window inside the
+  // browser chrome. The first time you tap into the game we enter fullscreen (which must
+  // fire inside the touch gesture), reclaiming the address bar's stolen height. Once per
+  // session, ENTER only (never toggles you back out), and a silent no-op where fullscreen
+  // is unavailable - notably iPhone Safari, which offers it for <video> alone.
+  let autoFsDone = false;
+  const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 
   // does this touch point land on a uiRect carrying the given action? (curG.uiRects
   // is the game's own hit-rect list, refreshed each draw)
@@ -131,6 +138,10 @@ const Mobile = (() => {
         // lives (title / pause / co-op menu) - matches the desktop guard, ignores stale rects.
         const fsHere = curState === 'title' || curState === 'pause' || (curG && curG.coopMenu);
         if (onFs && fsHere && hitsRect(p, 'fullscreen')) { onFs(); continue; }
+        // #270 first tap into the game -> go fullscreen (enter only, once). The same tap
+        // still routes to whatever menu button it hit, so tapping SOLO PLAY both starts the
+        // run and fills the screen. onFs toggles, so guard on fsActive() to never exit here.
+        if (onFs && !autoFsDone && curState === 'title' && !fsActive()) { autoFsDone = true; onFs(); }
         clickAt(p);
         // iOS raises the soft keyboard ONLY from a focus() inside the real touch
         // gesture (not a frame later), so any typed field is focused right here.
