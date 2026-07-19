@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.158';
+  const VERSION = 'v2.159';
 
   const NOTES = [
+    {
+      v: 'v2.159', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '5b83dbf',
+      items: [
+        'Walk over a potion to grab it automatically when your potion slot is empty.',
+      ],
+    },
     {
       v: 'v2.158', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '7d9a686',
