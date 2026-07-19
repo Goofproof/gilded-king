@@ -95,7 +95,14 @@ const Dungeon = (() => {
       for (const dk of dirKeys) {
         if (grid.has(key(nx + DIRS[dk][0], ny + DIRS[dk][1]))) touching++;
       }
-      if (touching > 1) continue;
+      // #275 (Sam) LESS-LINEAR FLOORS: the old rule rejected any spot touching >1 room, which
+      // forced a single punishing corridor. Now a spot touching TWO existing rooms becomes a
+      // LOOP (a cross-connection / shortcut) about half the time - so picking the "wrong" path
+      // or skipping a side chamber rarely dead-ends you - while a 3+ junction is still rejected
+      // so floors never blob into a slab. Seeded (co-op stays in sync); doors-by-adjacency +
+      // the flood-fill guard below keep every room reachable.
+      if (touching > 2) continue;
+      if (touching > 1 && rnd() > 0.5) continue;
       const r = makeRoom(nx, ny);
       grid.set(key(nx, ny), r);
       list.push(r);
