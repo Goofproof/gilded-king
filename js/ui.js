@@ -1152,7 +1152,7 @@ const UI = (() => {
     {
       const di = (meta.difficulty == null ? 1 : meta.difficulty);
       const dif = difficultyAt(di);
-      const diffR = { x: W / 2 - 212, y: 200, w: 424, h: 16, action: 'difficulty' };
+      const diffR = { x: W / 2 - 212, y: 204, w: 424, h: 16, action: 'difficulty' };
       c.fillStyle = dif.color + '18'; c.fillRect(diffR.x, diffR.y, diffR.w, diffR.h);
       c.strokeStyle = dif.color + '88'; c.lineWidth = 1; c.strokeRect(diffR.x, diffR.y, diffR.w, diffR.h);
       c.font = 'bold 10px monospace'; c.fillStyle = dif.color; c.textAlign = 'center';
@@ -1173,8 +1173,8 @@ const UI = (() => {
     if (races.length) {
       c.textAlign = 'center';
       c.font = 'bold 11px monospace'; c.fillStyle = '#8fd0a0';
-      c.fillText('CHOOSE YOUR BLOOD', cx0, 219);
-      const rw = 76, rgap = 6, rh = 40, ry = 225;
+      c.fillText('CHOOSE YOUR BLOOD', cx0, 236);
+      const rw = 76, rgap = 6, rh = 40, ry = 242;
       const rowW = races.length * rw + (races.length - 1) * rgap;
       const selR = meta.selectedRace || 'human';
       races.forEach((ra, i) => {
@@ -1206,9 +1206,9 @@ const UI = (() => {
     if (classes.length) {
       c.textAlign = 'center';
       c.font = 'bold 12px monospace'; c.fillStyle = '#ffd24c';
-      c.fillText('CHOOSE YOUR CLASS', cx0, 308); // #264 breathing room under the race blurb
+      c.fillText('CHOOSE YOUR CLASS', cx0, 316); // #264/#305 breathing room under the race blurb
 
-      const gap = 6, cw = 88, chh = 54, y0 = 316; // #264
+      const gap = 6, cw = 88, chh = 54, y0 = 324; // #264/#305
       const VIS = 5;   // 5 x 88 + 4 x 6 = 464 wide; with a 24px arrow each side that is
                        // 528, which fits the 568px corridor between the two side panels.
                        // Go wider and the strip slides UNDER them (it did - that was a bug).
@@ -1257,7 +1257,7 @@ const UI = (() => {
       }
       // how far along the strip you are - on the HEADER line, so it costs no height
       c.textAlign = 'right'; c.font = '9px monospace'; c.fillStyle = '#5f6b80';
-      c.fillText(`${classScroll + 1}-${Math.min(classes.length, classScroll + VIS)} of ${classes.length} · scroll`, x0 + stripW, 308); // #264
+      c.fillText(`${classScroll + 1}-${Math.min(classes.length, classScroll + VIS)} of ${classes.length} · scroll`, x0 + stripW, 316); // #264/#305
 
       const gridBottom = y0 + chh;   // 350, exactly where the old grid ended
       const chosen = classes.find(cl => cl.id === sel) || classes[0];
