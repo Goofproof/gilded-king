@@ -245,6 +245,9 @@ const Monsters = (() => {
     }
     if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(m.x, m.y, m.r, w, m.px, m.py); if (q) { m.x = q.x; m.y = q.y; } }
     clampToField(m);
+    // #67c convex room polygon: keep mobs out of the cut corners (convex, so this always
+    // resolves inward - no eject backstop needed the way the wall-rects need one)
+    if (g.room.poly) { const q = Dungeon.polyPush(m.x, m.y, m.r, g.room.poly); if (q) { m.x = q.x; m.y = q.y; } }
     // #190 (Sam, player report) EJECT BACKSTOP. Wall rects sit flush against the field
     // edge, so the clamp above could shove a wall-pushed mob straight back INSIDE the
     // wall - where player shots die on the wall and the mob is unreachable, soft-locking
@@ -1370,6 +1373,7 @@ const Monsters = (() => {
     const blocked = (x, y) => {
       for (const w of room.walls || []) if (x > w.x - 20 && x < w.x + w.w + 20 && y > w.y - 20 && y < w.y + w.h + 20) return true;
       for (const o of room.obstacles) if (o.kind === 'pit' && Math.hypot(x - o.x, y - o.y) < o.r + 22) return true;
+      if (room.poly && !Dungeon.polyClear(x, y, 20, room.poly)) return true;    // #67c not in a cut corner
       return false;
     };
     // #27 THEMED ROOM: ~22% of combat rooms are a single enemy type (an all-archer

@@ -177,6 +177,7 @@ const Dungeon = (() => {
           if (Math.abs(x - cx) < 95 && Math.abs(y - cy) < 95) return false;      // keep the spawn area clear
           for (const dir in r.doors) { const dp = doorPt(dir); if (Math.hypot(x - dp.x, y - dp.y) < 88) return false; } // never seal a door lane
           for (const w of r.walls) { if (x > w.x - rad && x < w.x + w.w + rad && y > w.y - rad && y < w.y + w.h + rad) return false; } // not inside a wall
+          if (r.poly && !polyClear(x, y, rad, r.poly)) return false;             // #67c not outside the room polygon
           return true;
         };
         const push = (x, y, rad, kind) => { if (spotOk(x, y, rad)) r.obstacles.push({ x, y, r: rad, kind }); };
@@ -187,20 +188,18 @@ const Dungeon = (() => {
         // can never cover a mid-edge door, its inward lane, or the room centre. Verified
         // door-safe + fully connected across 400 floors before shipping.
         const W = PF.w, H = PF.h, X = PF.x, Y = PF.y;
-        const shape = ['rect', 'rect', 'rect', 'lshape', 'plus', 'octagon', 'notch'][(rnd() * 7) | 0];
+        // #67c the corner-BLOCK shapes (plus/octagon-of-rects) are retired in favour of a
+        // true convex POLYGON room (octagon / rounded hall / diamond / hex). lshape (one
+        // genuine missing corner) and notch (an interior divider) stay - they are real
+        // shapes, not corner-lumps.
+        const shape = ['rect', 'rect', 'rect', 'lshape', 'notch', 'poly', 'poly', 'poly', 'poly'][(rnd() * 9) | 0];
         r.shape = shape;
-        if (shape === 'lshape') {
+        if (shape === 'poly') {
+          r.poly = makeRoomPoly(X, Y, W, H, rnd);                                // walls stay empty; the poly IS the shape
+        } else if (shape === 'lshape') {
           const sx = rnd() < 0.5 ? 1 : -1, sy = rnd() < 0.5 ? 1 : -1;          // which corner is missing
           const wW = W * (0.33 + rnd() * 0.08), wH = H * (0.35 + rnd() * 0.08);
           r.walls.push({ x: sx > 0 ? X + W - wW : X, y: sy > 0 ? Y + H - wH : Y, w: wW, h: wH });
-        } else if (shape === 'plus') {
-          const wW = W * 0.31, wH = H * 0.33;
-          for (const s of [-1, 1]) for (const t of [-1, 1])
-            r.walls.push({ x: s > 0 ? X + W - wW : X, y: t > 0 ? Y + H - wH : Y, w: wW, h: wH });
-        } else if (shape === 'octagon') {
-          const wW = W * 0.16, wH = H * 0.22;                                   // chamfered corners
-          for (const s of [-1, 1]) for (const t of [-1, 1])
-            r.walls.push({ x: s > 0 ? X + W - wW : X, y: t > 0 ? Y + H - wH : Y, w: wW, h: wH });
         } else if (shape === 'notch') {
           // an off-centre divider that splits the room - open at BOTH ends (>=86px) AND
           // a wide gap through the MIDDLE (Sam: encourage flow, no full-width barrier),
@@ -312,6 +311,7 @@ const Dungeon = (() => {
             const x = X + gx * step, y = Y + gy * step;
             for (const w of r.walls) if (x > w.x - PRR && x < w.x + w.w + PRR && y > w.y - PRR && y < w.y + w.h + PRR) return true;
             for (const o of r.obstacles) if (Math.hypot(x - o.x, y - o.y) < o.r + PRR) return true;
+            if (r.poly && !polyClear(x, y, PRR, r.poly)) return true;            // #67c outside the room polygon = wall
             return false;
           };
           const cgx = Math.round((W / 2) / step), cgy = Math.round((H / 2) / step);
@@ -498,5 +498,88 @@ const Dungeon = (() => {
     return false;
   }
 
-  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush, segBlocked };
+  // #67c (Sam) A REAL non-rect ROOM SHAPE, done elegantly: a convex WALKABLE POLYGON
+  // instead of blocky corner-rects. The mid-edges stay at full extent so every door
+  // opens straight in; only the CORNERS are cut (or rounded), which is what makes the
+  // chamber read as an octagon / rounded hall / diamond rather than a box with lumps.
+  // Convex => no interior line-of-sight ever crosses the boundary, so collision is just
+  // "keep the circle inside", and LoS/segBlocked need no changes at all.
+  function makeRoomPoly(X, Y, W, H, rnd) {
+    const style = ['octagon', 'octagon', 'round', 'diamond', 'hex'][(rnd() * 5) | 0];
+    // corner cut depth - clamped so the mid-edge FLAT stays >= 150px each side of centre
+    // (a door lane is 88px), guaranteeing the door approach is never pinched.
+    const maxCx = W * 0.5 - 150, maxCy = H * 0.5 - 120;
+    let cx = Math.min(maxCx, W * (0.14 + rnd() * 0.14));
+    let cy = Math.min(maxCy, H * (0.20 + rnd() * 0.16));
+    if (style === 'diamond') { cx = maxCx; cy = maxCy; }       // deepest cut -> a lozenge
+    if (style === 'hex') { cx = Math.min(maxCx, W * 0.30); cy = Math.min(maxCy, H * 0.10); } // pointy sides
+    const poly = [];
+    const arc = (ccx, ccy, rx, ry, a0, a1, steps) => {
+      for (let i = 0; i <= steps; i++) { const a = a0 + (a1 - a0) * i / steps; poly.push({ x: ccx + Math.cos(a) * rx, y: ccy + Math.sin(a) * ry }); }
+    };
+    if (style === 'round') {
+      const S = 5;
+      poly.push({ x: X + cx, y: Y }, { x: X + W - cx, y: Y });
+      arc(X + W - cx, Y + cy, cx, cy, -Math.PI / 2, 0, S);        // TR
+      poly.push({ x: X + W, y: Y + H - cy });
+      arc(X + W - cx, Y + H - cy, cx, cy, 0, Math.PI / 2, S);     // BR
+      poly.push({ x: X + cx, y: Y + H });
+      arc(X + cx, Y + H - cy, cx, cy, Math.PI / 2, Math.PI, S);   // BL
+      poly.push({ x: X, y: Y + cy });
+      arc(X + cx, Y + cy, cx, cy, Math.PI, Math.PI * 1.5, S);     // TL
+    } else {
+      // straight corner cuts: 8 vertices (octagon family; diamond is just a deep cut)
+      poly.push(
+        { x: X + cx, y: Y }, { x: X + W - cx, y: Y },
+        { x: X + W, y: Y + cy }, { x: X + W, y: Y + H - cy },
+        { x: X + W - cx, y: Y + H }, { x: X + cx, y: Y + H },
+        { x: X, y: Y + H - cy }, { x: X, y: Y + cy },
+      );
+    }
+    // arc endpoints meet the flats on the same point - drop consecutive (and wrap-around)
+    // DUPLICATES so there are no zero-length edges (their normals would be NaN and break
+    // both the collision push and the fill).
+    const clean = [];
+    for (const v of poly) { const p = clean[clean.length - 1]; if (!p || Math.abs(p.x - v.x) > 0.5 || Math.abs(p.y - v.y) > 0.5) clean.push(v); }
+    if (clean.length > 2) { const f = clean[0], l = clean[clean.length - 1]; if (Math.abs(f.x - l.x) < 0.5 && Math.abs(f.y - l.y) < 0.5) clean.pop(); }
+    return clean;
+  }
+  // per-edge inward unit normals + offset, cached on the poly so we don't rebuild them
+  // every collision test. Inward is decided against the centroid (winding-agnostic).
+  function polyEdges(poly) {
+    if (poly._edges) return poly._edges;
+    const n = poly.length; let cxp = 0, cyp = 0;
+    for (const v of poly) { cxp += v.x; cyp += v.y; } cxp /= n; cyp /= n;
+    const edges = [];
+    for (let i = 0; i < n; i++) {
+      const a = poly[i], b = poly[(i + 1) % n];
+      let nx = -(b.y - a.y), ny = (b.x - a.x); const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+      if (nx * (cxp - a.x) + ny * (cyp - a.y) < 0) { nx = -nx; ny = -ny; }  // point it inward
+      // a boundary FLAT (axis-aligned normal) sits on the room's rect edge, where the
+      // DOORS are - main.js owns those (it must let you walk out). Only the diagonal /
+      // arc corner-cut edges are the poly's own to enforce. Flagged so polyPush skips them.
+      const axis = Math.abs(nx) < 0.02 || Math.abs(ny) < 0.02;
+      edges.push({ nx, ny, ox: a.x, oy: a.y, axis });
+    }
+    Object.defineProperty(poly, '_edges', { value: edges, enumerable: false });
+    return edges;
+  }
+  // keep a circle of radius rad inside the convex poly; returns a corrected {x,y} or null.
+  function polyPush(x, y, rad, poly) {
+    const edges = polyEdges(poly);
+    let px = x, py = y, moved = false;
+    for (let pass = 0; pass < 2; pass++) for (const e of edges) {
+      if (e.axis) continue;                                     // boundary flat -> main.js/door logic owns it
+      const dist = e.nx * (px - e.ox) + e.ny * (py - e.oy);
+      if (dist < rad) { px += e.nx * (rad - dist); py += e.ny * (rad - dist); moved = true; }
+    }
+    return moved ? { x: px, y: py } : null;
+  }
+  // is a disc of radius rad fully inside the poly? (obstacle/spawn placement, connectivity)
+  function polyClear(x, y, rad, poly) {
+    for (const e of polyEdges(poly)) if (e.nx * (x - e.ox) + e.ny * (y - e.oy) < rad) return false;
+    return true;
+  }
+
+  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush, segBlocked, makeRoomPoly, polyPush, polyClear };
 })();

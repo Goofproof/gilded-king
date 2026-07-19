@@ -7597,6 +7597,29 @@
     }
     // the circle's signature ground (baked, deterministic, under walls/obstacles)
     if (hellBackdrop) { c.save(); hellBackdrop.draw(c, room); c.restore(); }
+    // #67c a POLYGON chamber (octagon / rounded hall / diamond): the floor+grid+detail
+    // already drew across the full rect; now mask the frame OUTSIDE the walkable poly back
+    // to raised rock (same look as the wall-rects) and outline the chamber edge. Convex, so
+    // it reads as one clean shaped room. ringPath = the rect with the poly punched out.
+    if (room.poly) {
+      const P = room.poly;
+      const ringPath = () => {
+        c.beginPath();
+        c.rect(PF.x, PF.y, PF.w, PF.h);
+        c.moveTo(P[0].x, P[0].y);
+        for (let i = P.length - 1; i >= 0; i--) c.lineTo(P[i].x, P[i].y);   // reverse -> even-odd hole
+        c.closePath();
+      };
+      const edgePath = () => { c.beginPath(); c.moveTo(P[0].x, P[0].y); for (let i = 1; i < P.length; i++) c.lineTo(P[i].x, P[i].y); c.closePath(); };
+      ringPath(); c.fillStyle = '#2b3038'; c.fill('evenodd');                 // rock base
+      ringPath(); c.fillStyle = (pal.accent || '#556677') + '1c'; c.fill('evenodd'); // theme wash
+      c.save(); ringPath(); c.clip('evenodd');                               // speckle the rock, clipped to the ring
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      for (let i = 0; i < 130; i++) c.fillRect(PF.x + roomRand(room, i * 3 + 7) * PF.w, PF.y + roomRand(room, i * 3 + 11) * PF.h, 2, 2);
+      c.restore();
+      edgePath(); c.lineWidth = 4; c.strokeStyle = 'rgba(0,0,0,0.5)'; c.stroke();   // seam shadow
+      edgePath(); c.lineWidth = 2; c.strokeStyle = (pal.accent || '#7788aa') + '4d'; c.stroke(); // lit accent
+    }
     // #67b room-shape walls: a raised natural stone mass, tinted to the floor theme
     // so it reads as part of the room (a rock outcrop / cliff wall) rather than a flat
     // panel that doesn't belong. Cast shadow + lit top slab + rough speckle sell depth.
@@ -7627,11 +7650,12 @@
 
     // molten rounded corners: mask the square corners so the arena reads oblong
     // and cornerless (collision stays rectangular underneath - a deliberate call)
-    if (descent) drawMoltenCorners(c, pal, theme.accent);
+    if (descent && !room.poly) drawMoltenCorners(c, pal, theme.accent);
 
     // wall inner edge highlight - skip in the Descent, where the molten rounded
-    // corners define the oblong edge (the rectangle outline was showing through)
-    if (!descent) {
+    // corners define the oblong edge (the rectangle outline was showing through), and
+    // skip for poly rooms (their own chamber outline is the edge, #67c)
+    if (!descent && !room.poly) {
       c.strokeStyle = pal.accent + '44';
       c.lineWidth = 2;
       c.strokeRect(PF.x + 1, PF.y + 1, PF.w - 2, PF.h - 2);

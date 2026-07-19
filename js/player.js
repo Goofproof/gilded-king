@@ -1861,6 +1861,8 @@ const PlayerDef = (() => {
       }
       // #67b solid wall rects that carve the room shape (anti-tunnel via pre-move pos)
       if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w, this.px, this.py); if (q) { this.x = q.x; this.y = q.y; } }
+      // #67c convex room-shape polygon: keep inside its cut corners (flats = doors, main.js)
+      if (g.room.poly) { const q = Dungeon.polyPush(this.x, this.y, this.r, g.room.poly); if (q) { this.x = q.x; this.y = q.y; } }
       // (room-boundary walls/doors are handled by main.js so it can detect room exits)
 
       // --- attacking -----------------------------------------------------------
