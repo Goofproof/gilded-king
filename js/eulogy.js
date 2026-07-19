@@ -67,6 +67,52 @@ const Eulogy = (() => {
     return ['wanderer', 'far-travelled', 'deep-roader', 'stranger-to-fear', 'lantern-bearer', 'last-of-the-lightfoot'];
   }
 
+  // #280 (Sam) the epithet ("NAME the ___") was CLASS-only, so casters kept landing on
+  // "sky-caller". These give the title three MORE axes to draw from - the raider's tallest
+  // stat, the ultimate they wielded, the weapon they carried - so the noun reflects the
+  // whole RUN, not just the class. All bare noun forms (they follow "the"/"a" in the verse).
+  function statNoun(r, s) {
+    const cands = [
+      { v: Math.round((num(s.dmgMul, 1) - 1) * 100), ep: ['iron-armed', 'heavy-handed', 'bull-strong', 'breaker'] },
+      { v: Math.round((num(s.spdMul, 1) - 1) * 100), ep: ['wind-heeled', 'quicksilver', 'fleet-foot', 'uncatchable'] },
+      { v: num(s.crit, 0),                           ep: ['keen-eyed', 'sharp-set', 'edge-blessed', 'scalpel'] },
+      { v: Math.round((num(s.coinMul, 1) - 1) * 100), ep: ['gold-fingered', 'coin-hungry', 'purse-proud', 'magpie-hearted'] },
+      { v: (num(s.magic, 1) - 1) * 18,               ep: ['spell-veined', 'ember-blooded', 'star-touched', 'old-word'] },
+    ];
+    let best = cands[0];
+    for (const c of cands) if (c.v > best.v) best = c;
+    return best.v > 0 ? pick(r, best.ep) : null; // no stat stood out -> skip this axis
+  }
+  // the ultimate they leaned on, matched loosely by keyword in its NAME.
+  function ultNoun(ult) {
+    const u = String(ult || '').toLowerCase();
+    if (!u) return null;
+    if (/meteor|star|comet|sky|astra/.test(u)) return 'star-caller';
+    if (/bulwark|shield|ward|aegis|wall|bastion/.test(u)) return 'shield-sworn';
+    if (/blade|sword|edge|cleave|slash|scythe/.test(u)) return 'blade-bound';
+    if (/fire|flame|immolat|inferno|ember|pyre|burn/.test(u)) return 'flame-borne';
+    if (/storm|thunder|lightning|bolt|tempest|gale/.test(u)) return 'storm-touched';
+    if (/frost|ice|freeze|winter|glaci|snow/.test(u)) return 'winter-willed';
+    if (/blood|vamp|leech|siphon|sanguin/.test(u)) return 'blood-marked';
+    if (/shadow|dark|void|night|umbra|eclipse/.test(u)) return 'shadow-sworn';
+    if (/heal|bless|light|holy|radian|vital|dawn/.test(u)) return 'light-bearer';
+    if (/beast|swarm|horde|raise|summon|legion/.test(u)) return 'host-caller';
+    return 'the-unbound';
+  }
+  // the weapon in hand, matched by archetype keyword.
+  function weaponNoun(weapon) {
+    const w = String(weapon || '').toLowerCase();
+    if (!w) return null;
+    if (/axe|cleaver|maul|hammer|great|mace/.test(w)) return 'heavy-blade';
+    if (/bow|sling|dart|crossbow/.test(w)) return 'far-shot';
+    if (/wand|staff|scepter|sceptre|rod|orb|tome|grimoire/.test(w)) return 'spell-hand';
+    if (/dagger|knife|kris|shiv|dirk/.test(w)) return 'quick-knife';
+    if (/sword|blade|saber|sabre|rapier|katana|falchion/.test(w)) return 'sure-sword';
+    if (/spear|lance|glaive|pike|halberd|naginata/.test(w)) return 'long-reach';
+    if (/whip|flail|chain/.test(w)) return 'the-lash';
+    return null; // unknown weapon -> lean on the other axes
+  }
+
   const cap = w => { const t = String(w || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
 
   // the raider's SIGNATURE stat: whichever of dmg / speed / crit / coins / magic stood
@@ -110,11 +156,16 @@ const Eulogy = (() => {
     // different poems now - a boast, a warning, a ledger entry, a tavern tale - not
     // ten rewordings of the same Homeric invocation.
     const r = rng(hash(name + '|' + (s.score || 0) + '|' + (s.className || '') + '|' + (s.rank != null ? s.rank : '')));
-    const classEp = pick(r, classEpithets(s.className));
-    const aClass = (/^[aeiou]/i.test(classEp) ? 'an ' : 'a ') + classEp; // "an iron-hearted", "a lock-whisperer"
     const statEp = signature(r, s);
     const weapon = (s.weapons && s.weapons.length) ? cleanWeapon(s.weapons[0]) : null;
     const ult = s.ult ? titleCase(s.ult) : null;
+    // #280 (Sam) the epithet noun draws from FOUR axes now - class, tallest stat, ultimate,
+    // weapon - so "NAME the ___" reflects the run, not just the class. Two class picks keep
+    // it grounded; the run-facet nouns (when present) add the diversity.
+    const epPool = [pick(r, classEpithets(s.className)), pick(r, classEpithets(s.className)),
+                    statNoun(r, s), ultNoun(ult), weaponNoun(weapon)].filter(Boolean);
+    const classEp = pick(r, [...new Set(epPool)]);
+    const aClass = (/^[aeiou]/i.test(classEp) ? 'an ' : 'a ') + classEp; // "an iron-hearted", "a lock-whisperer"
     const place = floorName(s.floor);
     const kills = num(s.kills, 0);
 
