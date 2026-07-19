@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.151';
+  const VERSION = 'v2.152';
 
   const NOTES = [
+    {
+      v: 'v2.152', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '2267703',
+      items: [
+        'Warriors now look like real armored knights: steel shoulders, a helmet crest, a crimson tabard, and boots.',
+      ],
+    },
     {
       v: 'v2.151', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: 'df5b3b8',
