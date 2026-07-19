@@ -39,6 +39,19 @@ const Dungeon = (() => {
   const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
   const OPP = { N: 'S', S: 'N', E: 'W', W: 'E' };
 
+  // #299 SPIKE TRAP cycle: a floor plate that pops steel spikes on a beat. Derived from the
+  // global clock + a per-plate phase, so it is stateless (co-op peers agree without syncing).
+  // Down most of the cycle -> a TELEGRAPH (cracks glint, tips peek) -> UP (spikes out, damage).
+  const SPIKE_PERIOD = 2.6, SPIKE_UP = 0.8, SPIKE_TELE = 0.55;
+  function spikeState(s, t) {
+    const lt = (((t + s.phase) % SPIKE_PERIOD) + SPIKE_PERIOD) % SPIKE_PERIOD;
+    const upStart = SPIKE_PERIOD - SPIKE_UP;      // spikes out for the tail of each period
+    const teleStart = upStart - SPIKE_TELE;       // warning window just before
+    if (lt >= upStart) return { up: true, tele: false, k: (lt - upStart) / SPIKE_UP };
+    if (lt >= teleStart) return { up: false, tele: true, k: (lt - teleStart) / SPIKE_TELE };
+    return { up: false, tele: false, k: 0 };
+  }
+
   function key(x, y) { return x + ',' + y; }
 
   // seedable PRNG (co-op: host + joiners generate the SAME floor from one seed).
@@ -364,6 +377,25 @@ const Dungeon = (() => {
             i++;
           }
         }
+
+        // #299 SPIKE TRAPS - a timed floor HAZARD (the rhythm counterpart to static lava).
+        // Plates sit flush and safe most of the time, then pop steel spikes on a beat; step
+        // off before they rise. Each plate carries a seeded PHASE so they fire out of sync -
+        // a shifting no-stand grid you fight around. Traversable, so no connectivity guard.
+        r.spikes = [];
+        if (!r.arena && rnd() < Math.min(0.30, 0.05 + 0.03 * floorNum)) {
+          const nS = 2 + ((rnd() * 3) | 0);
+          for (let i = 0, tries = 0; i < nS && tries < 40; tries++) {
+            const sr = 26 + rnd() * 14;
+            const sx = PF.x + 100 + rnd() * (PF.w - 200), sy = PF.y + 90 + rnd() * (PF.h - 180);
+            if (!spotOk(sx, sy, sr)) continue;                                                    // clear of spawn, doors, walls, poly
+            if (r.obstacles.some(o => Math.hypot(o.x - sx, o.y - sy) < o.r + sr + 10)) continue;   // not on a rock/pit
+            if (r.lava.some(o => Math.hypot(o.x - sx, o.y - sy) < o.r + sr + 10)) continue;        // not on lava
+            if (r.spikes.some(o => Math.hypot(o.x - sx, o.y - sy) < o.r + sr + 8)) continue;       // not on another plate
+            r.spikes.push({ x: sx, y: sy, r: sr, phase: rnd() * SPIKE_PERIOD });
+            i++;
+          }
+        }
       }
       if (r.type === 'treasure') {
         // each chest rolls its mimic chance INDEPENDENTLY - twins can both bite.
@@ -607,5 +639,5 @@ const Dungeon = (() => {
     return true;
   }
 
-  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush, segBlocked, makeRoomPoly, polyPush, polyClear };
+  return { generateFloor, uncleared, paletteFor, themeFor, FLOOR_THEMES, PF, DOOR_W, DIRS, OPP, MIMIC_CHANCE, rectPush, segBlocked, makeRoomPoly, polyPush, polyClear, spikeState };
 })();

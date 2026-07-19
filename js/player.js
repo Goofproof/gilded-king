@@ -1925,6 +1925,21 @@ const PlayerDef = (() => {
           }
         }
       }
+      // #299 (Sam) SPIKE TRAPS: hurt only while the plate's spikes are UP (telegraphed first).
+      // Hit harder than lava per beat since they are avoidable - step off the plate in time.
+      if (g.room.spikes && g.room.spikes.length) {
+        this._spikeCd = Math.max(0, (this._spikeCd || 0) - dt);
+        if (this._spikeCd <= 0) {
+          for (const S of g.room.spikes) {
+            if (!Dungeon.spikeState(S, g.time).up) continue;
+            if (Math.hypot(this.x - S.x, this.y - S.y) < S.r - 4) {
+              this.damage(14, S.x, S.y, g); this._spikeCd = 0.55;
+              if (typeof Fx !== 'undefined') Fx.burst(this.x, this.y - 4, ['#cfd8e0', '#9aa6b2', '#e8eef4'], 8, { speed: 120, life: 0.35, glow: true });
+              break;
+            }
+          }
+        }
+      }
       // (room-boundary walls/doors are handled by main.js so it can detect room exits)
 
       // --- attacking -----------------------------------------------------------

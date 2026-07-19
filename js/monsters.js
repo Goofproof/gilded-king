@@ -352,6 +352,19 @@ const Monsters = (() => {
         }
       }
     }
+    // #299 SPIKE TRAPS skewer monsters too (light, never a boss) - so you can bait a mob onto
+    // a plate as it pops, or a knockback onto one punishes it. Mobs do not path around them.
+    if (g.room && g.room.spikes && g.room.spikes.length && !m.isBoss) {
+      m._spikeCd = Math.max(0, (m._spikeCd || 0) - dt);
+      if (m._spikeCd <= 0) for (const S of g.room.spikes) {
+        if (!Dungeon.spikeState(S, g.time).up) continue;
+        if (Math.hypot(m.x - S.x, m.y - S.y) < S.r - 2) {
+          applyDamage(m, 9, g, {}); m._spikeCd = 0.7;
+          if (typeof Fx !== 'undefined') Fx.burst(m.x, m.y, ['#cfd8e0', '#9aa6b2'], 5, { speed: 80, life: 0.3, glow: true });
+          break;
+        }
+      }
+    }
 
     // #271 (Sam) ELITE AFFIX behaviours - deep-floor variety beyond bigger numbers.
     if (m.elite) {

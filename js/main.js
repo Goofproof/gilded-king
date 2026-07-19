@@ -7909,6 +7909,44 @@
     c.restore();
   }
 
+  // #299 SPIKE plates: a recessed stone disc of holes that stays visible (so you learn the
+  // spot), flashes a red telegraph as its beat comes round, then pops steel spikes UP.
+  function drawSpikes(c, room) {
+    for (const S of room.spikes) {
+      const st = Dungeon.spikeState(S, g.time);
+      const R = S.r;
+      c.save();
+      // recessed stone plate
+      c.fillStyle = '#33383f';
+      c.beginPath(); c.arc(S.x, S.y, R, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 2;
+      c.beginPath(); c.arc(S.x, S.y, R, 0, Math.PI * 2); c.stroke();
+      // telegraph: a pulsing red wash as the spikes are about to fire
+      if (st.tele) {
+        const a = Math.max(0, 0.22 + Math.sin(g.time * 18) * 0.14 + st.k * 0.25);
+        c.fillStyle = `rgba(255,70,50,${a * 0.5})`;
+        c.beginPath(); c.arc(S.x, S.y, R * 0.92, 0, Math.PI * 2); c.fill();
+      }
+      // 3x3 grid of spike holes inside the plate
+      const step = R * 0.5, rise = st.up ? 1 : (st.tele ? st.k * 0.4 : 0);
+      for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+        const hx = S.x + gx * step, hy = S.y + gy * step;
+        if (Math.hypot(hx - S.x, hy - S.y) > R - 6) continue;
+        c.fillStyle = '#14171b';
+        c.beginPath(); c.arc(hx, hy, 4.5, 0, Math.PI * 2); c.fill();
+        if (rise > 0.02) {
+          const h = 13 * rise;
+          c.fillStyle = st.up ? '#c2cad4' : '#8a929c';
+          c.beginPath(); c.moveTo(hx - 4, hy + 2); c.lineTo(hx, hy - h); c.lineTo(hx + 4, hy + 2); c.closePath(); c.fill();
+          if (st.up) { c.fillStyle = '#eef3f8'; c.beginPath(); c.arc(hx, hy - h + 1, 1.3, 0, Math.PI * 2); c.fill(); }
+        }
+      }
+      // steel sheen on the rim while up
+      if (st.up) { c.strokeStyle = 'rgba(220,230,240,0.5)'; c.lineWidth = 2; c.beginPath(); c.arc(S.x, S.y, R, 0, Math.PI * 2); c.stroke(); }
+      c.restore();
+    }
+  }
+
   function drawRoom(c, room) {
     const pal = Dungeon.paletteFor(room, g.floorNum);
     const theme = Dungeon.themeFor(g.floorNum);
@@ -7931,6 +7969,7 @@
     c.drawImage(room._staticCv, 0, 0);
     if (room.arena) drawArenaFloor(c, room);               // #298 colosseum sand ring, on the floor
     if (room.lava && room.lava.length) drawLava(c, room); // #293 animated, over the floor, under everything alive
+    if (room.spikes && room.spikes.length) drawSpikes(c, room); // #299 timed spike plates
 
     // theme ambience: drifting particles that sell the place
     if (theme.ambient === 'forest' && Math.random() < 0.06) {
