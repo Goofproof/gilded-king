@@ -213,6 +213,95 @@ const PlayerDef = (() => {
     { dark: '#1a1416', lite: '#2f2226' }, // 6 - obsidian
   ];
 
+  // #269 (Sam) US NAVY RANK on the cape patch. Prestige climbs the ladder (warrant officers
+  // skipped): E-1..E-9 then O-1..O-11, capping at O-11. Enlisted wear gold chevrons + a rocker
+  // under an eagle "crow"; officers wear bars, then oak leaves, a spread eagle, then stars.
+  // The CAPE colour still cycles per level (kept, per Sam); this PATCH shows the exact rank.
+  const RK_GOLD = '#ffd24c', RK_GOLD_D = '#e0a91e', RK_SILVER = '#dfe4ea', RK_SILVER_D = '#aeb6c1';
+  function rkChevron(c, cx, cy, w, col) {           // an up-pointing enlisted chevron
+    c.strokeStyle = col; c.lineWidth = Math.max(1.1, w * 0.22); c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(cx - w, cy + w * 0.5); c.lineTo(cx, cy - w * 0.3); c.lineTo(cx + w, cy + w * 0.5); c.stroke();
+  }
+  function rkRocker(c, cx, cy, w, col) {            // the CPO rocker arc under the chevrons
+    c.strokeStyle = col; c.lineWidth = Math.max(1.1, w * 0.2); c.lineCap = 'round';
+    c.beginPath(); c.arc(cx, cy - w * 0.8, w * 1.25, Math.PI * 0.32, Math.PI * 0.68); c.stroke();
+  }
+  function rkStar(c, cx, cy, s, col) {              // a 5-point star
+    c.fillStyle = col; c.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * Math.PI * 2 / 5, a2 = a + Math.PI / 5;
+      c.lineTo(cx + Math.cos(a) * s, cy + Math.sin(a) * s);
+      c.lineTo(cx + Math.cos(a2) * s * 0.42, cy + Math.sin(a2) * s * 0.42);
+    }
+    c.closePath(); c.fill();
+  }
+  function rkStars(c, cx, cy, s, n, col) {          // 1..5 stars in the officer-flag cluster
+    const LAY = { 1: [[0, 0]], 2: [[-1, 0], [1, 0]], 3: [[-1, 0.5], [0, -0.6], [1, 0.5]],
+      4: [[-1, -0.7], [1, -0.7], [-1, 0.7], [1, 0.7]],
+      5: [[0, -1], [0.95, -0.3], [0.6, 0.95], [-0.6, 0.95], [-0.95, -0.3]] }[Math.min(5, n)] || [[0, 0]];
+    const d = s * 1.6;
+    for (const g of LAY) rkStar(c, cx + g[0] * d, cy + g[1] * d, s, col);
+  }
+  function rkBar(c, cx, cy, w, h, col) {            // an officer bar
+    c.fillStyle = col; c.strokeStyle = 'rgba(0,0,0,0.4)'; c.lineWidth = 0.8;
+    c.beginPath();
+    if (c.roundRect) c.roundRect(cx - w, cy - h, w * 2, h * 2, 1.4); else c.rect(cx - w, cy - h, w * 2, h * 2);
+    c.fill(); c.stroke();
+  }
+  function rkOakLeaf(c, cx, cy, s, col) {           // a clean pointed leaf with veins (field-grade)
+    c.save(); c.translate(cx, cy); c.rotate(-0.32); c.fillStyle = col;
+    c.beginPath();
+    c.moveTo(0, -s * 1.15);
+    c.quadraticCurveTo(s * 0.72, -s * 0.15, 0, s * 1.15);      // right edge
+    c.quadraticCurveTo(-s * 0.72, -s * 0.15, 0, -s * 1.15);    // left edge
+    c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.34)'; c.lineWidth = 0.7;      // midrib + angled veins
+    c.beginPath();
+    c.moveTo(0, -s * 1.1); c.lineTo(0, s * 1.1);
+    c.moveTo(0, -s * 0.45); c.lineTo(s * 0.4, -s * 0.15); c.moveTo(0, -s * 0.45); c.lineTo(-s * 0.4, -s * 0.15);
+    c.moveTo(0, s * 0.1); c.lineTo(s * 0.38, s * 0.45); c.moveTo(0, s * 0.1); c.lineTo(-s * 0.38, s * 0.45);
+    c.stroke();
+    c.restore();
+  }
+  function rkEagle(c, cx, cy, s, col, spread) {     // the crow (perched) / spread eagle (O-6)
+    c.save(); c.translate(cx, cy); c.fillStyle = col;
+    const wing = spread ? 1.6 : 1.2, drop = spread ? -0.4 : -0.5;
+    for (const sgn of [-1, 1]) {
+      c.beginPath(); c.moveTo(0, -s * 0.15);
+      c.quadraticCurveTo(sgn * s * wing, s * drop, sgn * s * (wing + 0.15), s * 0.15);
+      c.quadraticCurveTo(sgn * s * wing * 0.6, s * 0.12, 0, s * 0.28);
+      c.closePath(); c.fill();
+    }
+    c.beginPath(); c.ellipse(0, s * 0.02, s * 0.2, s * 0.52, 0, 0, Math.PI * 2); c.fill();  // body
+    c.beginPath(); c.arc(0, -s * 0.55, s * 0.19, 0, Math.PI * 2); c.fill();                  // head
+    c.restore();
+  }
+  // draw the rank insignia for `prestige`, centred at (cx,cy), sized to half-height s
+  function drawRankPatch(c, prestige, cx, cy, s) {
+    const p = Math.max(1, Math.min(20, prestige));   // cap at O-11
+    c.save(); c.translate(cx, cy);
+    c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 2;
+    if (p <= 9) {
+      // ENLISTED - gold. crow (E-4+) over chevrons, a rocker (E-7+), stars (E-8/E-9)
+      const chev = p <= 3 ? p : 3, hasCrow = p >= 4, hasRocker = p >= 7, stars = p >= 8 ? p - 7 : 0;
+      const top = s * 0.05;
+      for (let i = 0; i < chev; i++) rkChevron(c, 0, top + i * s * 0.52, s * 0.62, RK_GOLD);
+      if (hasRocker) rkRocker(c, 0, top + chev * s * 0.52 + s * 0.32, s * 0.62, RK_GOLD);
+      if (hasCrow) rkEagle(c, 0, -s * 0.62, s * 0.5, RK_GOLD, false);
+      for (let i = 0; i < stars; i++) rkStar(c, (i - (stars - 1) / 2) * s * 0.66, -s * 1.28, s * 0.26, RK_GOLD);
+    } else {
+      const o = p - 9;                                // O-1..O-11
+      if (o === 1) rkBar(c, 0, 0, s * 0.26, s * 0.72, RK_GOLD_D);
+      else if (o === 2) rkBar(c, 0, 0, s * 0.26, s * 0.72, RK_SILVER);
+      else if (o === 3) { rkBar(c, -s * 0.42, 0, s * 0.24, s * 0.72, RK_SILVER); rkBar(c, s * 0.42, 0, s * 0.24, s * 0.72, RK_SILVER); }
+      else if (o === 4) rkOakLeaf(c, 0, 0, s * 0.8, RK_GOLD_D);
+      else if (o === 5) rkOakLeaf(c, 0, 0, s * 0.8, RK_SILVER);
+      else if (o === 6) rkEagle(c, 0, 0, s * 0.82, RK_SILVER, true);
+      else rkStars(c, 0, 0, s * 0.4, o - 6, RK_SILVER);   // O-7..O-11 -> 1..5 stars
+    }
+    c.restore();
+  }
+
   function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
@@ -229,16 +318,15 @@ const PlayerDef = (() => {
     const hemL = Math.sin(ph) * amp;
     const hemR = Math.sin(ph + 0.38) * amp;
     const hemM = Math.sin(ph + 0.19) * amp * 0.5;
-    // #131 PRESTIGE MUST BE VISIBLE. It used to grow the cape by r*0.14 per level -
-    // about TWO PIXELS - and only changed colour at levels 3 and 5, so Sam prestiged
-    // twice and saw nothing at all. Every level now changes the size AND the colour,
-    // and carries a gold chevron so you can literally count your rank off the cape.
-    const base = r * (2.0 + t * 0.40);                  // ~5px longer per level, not 1.8
-    const L = base;
-    const tw = r * 0.5, bw = r * (1.0 + t * 0.14);      // and visibly wider each time
+    // #269 (Sam) the cape is now a FIXED SHORT length - rank is shown by the Navy insignia
+    // PATCH, not by an ever-growing tail that buried the champion. Colour still cycles every
+    // prestige level (Sam kept that), just no longer capped at 6.
+    const L = r * 3.0;
+    const tw = r * 0.5, bw = r * 1.05;
     const sx = hemM * 0.6, sy = L * 0.86;               // the seam - SHARED by both panels
-    const dark = PRESTIGE_PAL[Math.max(0, t - 1)] ? PRESTIGE_PAL[Math.max(0, t - 1)].dark : '#4e1226';
-    const lite = PRESTIGE_PAL[Math.max(0, t - 1)] ? PRESTIGE_PAL[Math.max(0, t - 1)].lite : '#72203a';
+    const palIdx = (Math.max(1, prestige) - 1) % PRESTIGE_PAL.length;
+    const dark = PRESTIGE_PAL[palIdx].dark;
+    const lite = PRESTIGE_PAL[palIdx].lite;
     c.save();
     c.fillStyle = dark;
     c.beginPath();
@@ -260,27 +348,10 @@ const PlayerDef = (() => {
     c.quadraticCurveTo(bw * 0.42 + hemM, L * 0.9, bw + hemR, L);
     c.quadraticCurveTo(bw * 1.12 + hemR, L * 0.5, tw, -r * 0.16);
     c.stroke();
-    // #131 PRESTIGE CHEVRONS: one gold chevron down the spine of the cape per prestige
-    // level, so the rank is COUNTABLE and every prestige changes the cape whether or
-    // not you can tell violet from wine. Rank you can read at a glance, which is the
-    // whole point of a prestige cosmetic.
-    const chevrons = Math.min(8, prestige);
-    if (chevrons > 0) {
-      c.strokeStyle = '#ffd24c'; c.lineWidth = 1.6; c.lineCap = 'round'; c.lineJoin = 'round';
-      c.shadowColor = '#ffd24c'; c.shadowBlur = 3;
-      const top = r * 0.35, span = L * 0.72 - top;
-      const gap = span / (chevrons + 0.6);
-      const wch = bw * 0.42;
-      for (let i = 0; i < chevrons; i++) {
-        const cy = top + gap * (i + 0.7);
-        c.beginPath();
-        c.moveTo(-wch, cy);
-        c.lineTo(0, cy + wch * 0.55);
-        c.lineTo(wch, cy);
-        c.stroke();
-      }
-      c.shadowBlur = 0;
-    }
+    // #269 (Sam) the RANK PATCH: the US Navy insignia for this prestige, centred on the cape.
+    // Rank now reads from the insignia (a Chief's crow, a Commander's oak leaf, an Admiral's
+    // stars) instead of a counted stack of chevrons that kept lengthening the cape.
+    if (prestige > 0) drawRankPatch(c, prestige, 0, L * 0.66, bw * 0.5);
     c.fillStyle = '#ffd24c';
     c.beginPath(); c.ellipse(0, -r * 0.18, tw * 0.9, 2.6 + t * 0.2, 0, 0, Math.PI * 2); c.fill();
     c.restore();
@@ -2082,11 +2153,12 @@ const PlayerDef = (() => {
       // everything so it flows out from under the champion. Distinct from the
       // ACROBAT roll-tail (that one is a small coloured triangle).
       const prestige = (g && g.meta && g.meta.prestige) || 0;
-      if (prestige > 0) this.drawPrestigeCape(c, prestige);
+      // #269 (Sam) the cape clasps at the SHOULDERS, which sit below the head origin now
+      if (prestige > 0) { c.save(); c.translate(0, bodyCY); this.drawPrestigeCape(c, prestige); c.restore(); }
 
       // #22: evolution BODY PARTS grow from the paths you take - wings sit BEHIND
       // the body, so draw them before the cloak
-      this.drawEvoParts(c, 'back');
+      this.drawEvoParts(c, 'back', bodyCY);
 
       // cloak - recoloured to the dominant path from stage 2 on
       // #157 DRUID FORM: the beast's colours win over the evolution palette - if you are a
@@ -2123,7 +2195,7 @@ const PlayerDef = (() => {
 
       // #22: front body parts (horns / claws / pauldrons / crown / halo) grown
       // from your evolution paths, drawn over the body
-      this.drawEvoParts(c, 'front');
+      this.drawEvoParts(c, 'front', bodyCY);
 
       c.restore();
 
@@ -2176,7 +2248,7 @@ const PlayerDef = (() => {
     // #22: physical evolution features. Each stat you've evolved (>=3 stacks, i.e.
     // at least a tier-I evolution) grows its own body part, sized up with tier - so a
     // Might build sprouts horns, a Swift build gets wings, an assassin grows claws.
-    drawEvoParts(c, layer) {
+    drawEvoParts(c, layer, bodyCY) {
       const r = this.r;
       // #52b harmonize with the class look: mage/ranger/rogue wear headgear, so head
       // evolutions (horns/crown) defer to it (flank/band) instead of piling on top;
@@ -2189,6 +2261,12 @@ const PlayerDef = (() => {
         const tier = Math.min(4, Math.floor(stacks / 3));   // 1..4
         const g = 0.55 + tier * 0.11;                        // grow with tier
         const col = (EVO_PAL[k] || {}).accent || '#fff';
+        // #269 (Sam) BODY-worn evolutions (wings, tail, claws, shoulder plates, back blades)
+        // hang off the torso, which now sits BELOW the head origin - so shift them down by
+        // bodyCY. HEAD evolutions (horns, crown, halo) keep sitting on the head at the origin.
+        const bodyWorn = k === 'spd' || k === 'roll' || k === 'crit' || k === 'hp' || k === 'atkspd';
+        c.save();
+        if (bodyWorn && bodyCY) c.translate(0, bodyCY);
         if (layer === 'back' && k === 'spd') {               // SWIFT -> wings (compact)
           c.save(); c.globalAlpha = 0.85;
           const wr = 0.75 + g * 0.28;                        // much smaller than before
@@ -2279,6 +2357,7 @@ const PlayerDef = (() => {
           }
           c.restore();
         }
+        c.restore();   // #269 close the per-part torso-offset save()
       }
     }
 

@@ -4726,13 +4726,13 @@
       if (rp.swing) drawPeerSwing(c, rp);
       c.save();
       c.translate(rp.x, rp.y);
-      // prestige cape (behind the body) - so teammates see each other's capes
-      if (rp.pr > 0 && PlayerDef.capeAt) PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x, rp.cw ? rp.cw[0] : 0, rp.cw ? rp.cw[1] : 0);
       // #162 (Sam) a shifted druid teammate reads as their BEAST - the body recolours and
       // resizes and grows the animal head, exactly like their own screen shows it.
       const form = rp.form && PlayerDef.formById ? PlayerDef.formById(rp.form) : null;
       const R = form ? Math.round(13 * form.scale) : 13;
       const pcy = form ? 0 : R * 0.7;   // #269 torso centre offset (origin = head on the portrait body)
+      // prestige cape (behind the body) - so teammates see each other's capes, clasped at the shoulders
+      if (rp.pr > 0 && PlayerDef.capeAt) { c.save(); c.translate(0, pcy); PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x, rp.cw ? rp.cw[0] : 0, rp.cw ? rp.cw[1] : 0); c.restore(); }
       const tint = PlayerDef.partySlotColor ? PlayerDef.partySlotColor(g, rp.u || id) : '#7fd4ff';
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, R - 2, R * 0.85, R * 0.27, 0, 0, Math.PI * 2); c.fill();
