@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.161';
+  const VERSION = 'v2.162';
 
   const NOTES = [
+    {
+      v: 'v2.162', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: 'cb38be8',
+      items: [
+        'Mobile: iPhone players get a one-time hint to Add to Home Screen for a true full screen.',
+      ],
+    },
     {
       v: 'v2.161', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '8219743',
