@@ -2449,44 +2449,50 @@
         if (_qGates.rank >= 12) { p.invisT = Math.max(p.invisT || 0, 1.5); Fx.text(p.x, p.y - 54, 'VANISH', '#b6c0d0', 12); }
       }
     } else if (a.kind === 'dash') {
+      // #272 (Sam) BLINK vs DASH. Both aim toward the cursor (p.facing IS the aim). A BLINK
+      // (a.blink) still teleports but now leaves a real afterimage TRAIL and cuts the line.
+      // Everything else RUNS the distance and BASHES all in its path (p.startDash) - no teleport.
       const ang = p.facing, dist = a.dist || 260;
-      const tx = Math.max(PF.x + p.r, Math.min(PF.x + PF.w - p.r, p.x + Math.cos(ang) * dist));
-      const ty = Math.max(PF.y + p.r, Math.min(PF.y + PF.h - p.r, p.y + Math.sin(ang) * dist));
-      const steps = 12, hit = new Set();
-      for (let i = 0; i <= steps; i++) {
-        const px = p.x + (tx - p.x) * i / steps, py = p.y + (ty - p.y) * i / steps;
-        Fx.burst(px, py, [a.color, '#fff'], 2, { speed: 40, life: 0.3, glow: true });
-        for (const m of g.monsters) {
-          if (m.dead || m.airborne || m.spawnT > 0 || hit.has(m)) continue;
-          if (Math.hypot(m.x - px, m.y - py) < m.r + p.r + 8) {
-            const dashDmg = (a.dmg || 55) * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0); // #226
-            m.takeHit(dashDmg, { sx: px, sy: py, knock: a.dashKnock || 150, crit: !!a.critAll, fromPlayer: true, hitSfx: a.dashKnock ? 'hitHeavy' : 'hitLight' }, g); // #255 RHINO sends them flying
-            hit.add(m);
-            if (a.rob) { p.coins += 2; Fx.text(m.x, m.y - 18, '+2', '#ffce54', 10); } // #254 HIGHWAYMAN
+      const sx0 = p.x, sy0 = p.y;
+      const tx = Math.max(PF.x + p.r, Math.min(PF.x + PF.w - p.r, sx0 + Math.cos(ang) * dist));
+      const ty = Math.max(PF.y + p.r, Math.min(PF.y + PF.h - p.r, sy0 + Math.sin(ang) * dist));
+      if (a.blink) {
+        const steps = 12, hit = new Set();
+        for (let i = 0; i <= steps; i++) {
+          const px = sx0 + (tx - sx0) * i / steps, py = sy0 + (ty - sy0) * i / steps;
+          Fx.ghost({ x: px, y: py, r: p.r, rot: 0, color: a.color }); // #272 a real blink streak
+          for (const m of g.monsters) {
+            if (m.dead || m.airborne || m.spawnT > 0 || hit.has(m)) continue;
+            if (Math.hypot(m.x - px, m.y - py) < m.r + p.r + 8) {
+              const dashDmg = (a.dmg || 55) * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0); // #226
+              m.takeHit(dashDmg, { sx: px, sy: py, knock: a.dashKnock || 150, crit: !!a.critAll, fromPlayer: true, hitSfx: a.dashKnock ? 'hitHeavy' : 'hitLight' }, g);
+              hit.add(m);
+              if (a.rob) { p.coins += 2; Fx.text(m.x, m.y - 18, '+2', '#ffce54', 10); }
+            }
           }
         }
+        p.x = tx; p.y = ty;
+        p.iframes = Math.max(p.iframes, (a.iframe || 0.4) + (a.iframeAfter || 0));
+      } else {
+        // RUN + BASH toward the cursor (the champion actually travels; damage + knockback along
+        // the path handled per-frame in player.update, and any exitBurst fires where you STOP).
+        p.startDash(ang, dist, a.dashDur || 0.16, {
+          dmg: (a.dmg || 55) * dmgMul, knock: a.dashKnock || 180, rider: a.qRider || 0,
+          color: a.color, rob: !!a.rob, crit: !!a.critAll, exitBurst: !!a.exitBurst, iframeAfter: a.iframeAfter || 0,
+        });
       }
-      // #253 TYPHOON: the whirlwind bursts where you land
-      if (a.exitBurst) {
-        for (const m of g.monsters) {
-          if (m.dead || m.airborne || m.spawnT > 0) continue;
-          if (Math.hypot(m.x - tx, m.y - ty) > 130 + m.r) continue;
-          m.takeHit((a.dmg || 55) * 1.5 * dmgMul + (a.qRider ? m.maxHp * a.qRider * (m.isBoss ? 1 / 3 : 1) : 0), { sx: tx, sy: ty, knock: 240, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
-        }
-        Fx.burst(tx, ty, [a.color, '#fff'], 30, { speed: 300, life: 0.5, glow: true });
-        Fx.shake(5, 0.2);
-      }
-      // #253 HERMES: three afterimages pulse along the blink path (the mage-R8 qpulse rig)
+      if (a.refundRoll) p.rollCd = 0;
+      // #253 HERMES (a blink): three afterimages pulse along the path
       if (a.afterimages) {
         for (let k = 1; k <= 3; k++) {
-          g.ultFx.push({ type: 'qpulse', x: p.x + (tx - p.x) * k / 3, y: p.y + (ty - p.y) * k / 3, t: 0, delay: 0.25 + k * 0.12, dmg: Math.round((a.dmg || 55) * dmgMul * 0.8), radius: 95, rider: (a.qRider || 0) * 0.5, color: a.color });
+          g.ultFx.push({ type: 'qpulse', x: sx0 + (tx - sx0) * k / 3, y: sy0 + (ty - sy0) * k / 3, t: 0, delay: 0.25 + k * 0.12, dmg: Math.round((a.dmg || 55) * dmgMul * 0.8), radius: 95, rider: (a.qRider || 0) * 0.5, color: a.color });
         }
       }
       // #228 (Q wave 2) ranger: THE VOLLEY IS REAL. Arrows loose from the middle of
       // the tumble at your WEAPON's damage (so they scale with gear, deliberately no
       // rider). R1: 3 arrows at the nearest enemies. R4: a full circle. R8: pierce.
       if (_qGates && _qGates.cls === 'ranger' && _qGates.rank >= 1) {
-        const vx = (p.x + tx) / 2, vy = (p.y + ty) / 2;
+        const vx = (sx0 + tx) / 2, vy = (sy0 + ty) / 2;
         const wdmg = Math.round(((p.weapon && p.weapon.dmg) || 12) * (p.stats.dmgMul || 1));
         const pierce = _qGates.rank >= 8 ? 3 : 0;
         const shots = [];
@@ -2503,9 +2509,6 @@
         }
         if (shots.length) { Sfx.play('bowfire'); Fx.burst(vx, vy, ['#6ee7a0', '#fff'], 10, { speed: 160, life: 0.35, glow: true }); }
       }
-      p.x = tx; p.y = ty;
-      p.iframes = Math.max(p.iframes, (a.iframe || 0.4) + (a.iframeAfter || 0));
-      if (a.refundRoll) p.rollCd = 0;
       Fx.shake(4, 0.15);
     } else if (a.kind === 'buff') {
       // #230 paladin: R8 the cast CLEANSES; R12 overhealing grants a bonus shield

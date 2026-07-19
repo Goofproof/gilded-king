@@ -19,7 +19,7 @@ const Abilities = (() => {
   const ACTIONS = {
     hp:     { verb: 'Bulwark',   kind: 'nova',   color: '#7fd4ff', dmg: 55,  radius: 165, knock: 230, castShield: true },
     dmg:    { verb: 'Cleave',    kind: 'nova',   color: '#e05555', dmg: 120, radius: 185, knock: 260 },
-    spd:    { verb: 'Blink',     kind: 'dash',   color: '#7fe0ff', dmg: 55,  dist: 285, iframe: 0.45 },
+    spd:    { verb: 'Blink',     kind: 'dash',   color: '#7fe0ff', dmg: 55,  dist: 285, iframe: 0.45, blink: true },
     roll:   { verb: 'Vault',     kind: 'dash',   color: '#b8f0ff', dmg: 75,  dist: 320, iframe: 0.60, refundRoll: true },
     crit:   { verb: 'Execute',   kind: 'strike', color: '#ff5a7a', dmg: 150, radius: 115, critAll: true },
     coin:   { verb: 'Coin Storm',kind: 'nova',   color: '#ffd24c', dmg: 45,  radius: 175, knock: 180, coinScale: true, coinBurst: 8 },
@@ -369,7 +369,7 @@ const Abilities = (() => {
         pp: { dur: 0.06, flameDmg: 0.6 }, desc: 'The stolen fire is a WEAPON: spray a torrent of flame wherever you aim, and everything it licks keeps burning.' },
     ],
     'AGILITY+ARCANE': [ // the Phantom (#253 wave 2)
-      { name: 'HERMES', role: 'STRIKE', kind: 'dash', color: '#b06bff', dmg: 55, dist: 320, afterimages: true, fRider: true, cdMax: 11,
+      { name: 'HERMES', role: 'STRIKE', kind: 'dash', color: '#b06bff', dmg: 55, dist: 320, afterimages: true, blink: true, fRider: true, cdMax: 11,
         pp: { dmg: 0.04, dist: 4 }, desc: 'Blink like the messenger god - three afterimages pulse with damage along your path.' },
       { name: 'QUICKSILVER', role: 'STANCE', kind: 'fstance', stance: 'quicksilver', color: '#c8d8e8', dur: 5, atkSpd: 0.3, echoBoost: 0.12, cdMax: 14,
         pp: { dur: 0.1, atkSpd: 0.015 }, desc: 'Become mercury: attacks and spells flow faster, and everything echoes more often.' },

@@ -1014,6 +1014,8 @@ const PlayerDef = (() => {
       this.rollCd = 0;
       this.iframes = 0;
       this.ghostTimer = 0;
+      this.dashT = -1;           // #272 (Sam) >=0 while DASHING (ability dash: run fast + bash)
+      this.dash = null;          // dash payload {angle, speed, dur, dmg, knock, rider, color, rob, crit, hits}
 
       this.attackCd = 0;
       this.invisT = 0;           // Vanish ultimate: untargetable window
@@ -1421,6 +1423,20 @@ const PlayerDef = (() => {
       Fx.text(this.x, this.y - 24, '+' + amount, '#6ee7a0', quiet ? 11 : 13);
     }
 
+    // #272 (Sam) start an ability DASH: a fast, trailing run toward `ang` (the cursor) that
+    // bashes everything in its path. Opposite of a blink - the champion actually travels.
+    startDash(ang, dist, dur, opts) {
+      opts = opts || {};
+      this.dashT = 0;
+      this.dash = {
+        angle: ang, dur: Math.max(0.08, dur || 0.16), speed: dist / Math.max(0.08, dur || 0.16),
+        dmg: opts.dmg || 0, knock: opts.knock || 150, rider: opts.rider || 0,
+        color: opts.color || '#7fd4ff', rob: !!opts.rob, crit: !!opts.crit,
+        exitBurst: !!opts.exitBurst, hits: new Set(),
+      };
+      this.iframes = Math.max(this.iframes, this.dash.dur + (opts.iframeAfter || 0));
+    }
+
     update(dt, g, input) {
       if (this.dead) return;
       const stats = this.stats;
@@ -1678,7 +1694,45 @@ const PlayerDef = (() => {
       }
 
       // --- DODGE ROLL: the headline mechanic ----------------------------------
-      if (this.rollT >= 0) {
+      if (this.dashT >= 0) {
+        // #272 (Sam) ABILITY DASH: the champion RUNS the distance (fast, eased) leaving an
+        // afterimage trail, and BASHES every enemy it passes (damage + knockback), instead of
+        // teleporting. Aimed where the dash was cast (toward the cursor). Clamped to the field.
+        const d = this.dash;
+        this.dashT += dt;
+        const k = this.dashT / d.dur;
+        if (k >= 1) {
+          this.dashT = -1;
+          if (d.exitBurst && g && g.monsters) {   // Typhoon-style landing burst, fired where you STOP
+            for (const m of g.monsters) {
+              if (m.dead || m.airborne || m.spawnT > 0) continue;
+              if (Math.hypot(m.x - this.x, m.y - this.y) > 130 + m.r) continue;
+              m.takeHit(d.dmg * 1.5 + (d.rider ? m.maxHp * d.rider * (m.isBoss ? 1 / 3 : 1) : 0), { sx: this.x, sy: this.y, knock: 240, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+            }
+            Fx.burst(this.x, this.y, [d.color, '#fff'], 30, { speed: 300, life: 0.5, glow: true }); Fx.shake(5, 0.2);
+          }
+          this.dash = null;
+        } else {
+          const sp = d.speed * (1 - k * 0.3);
+          this.x += Math.cos(d.angle) * sp * dt;
+          this.y += Math.sin(d.angle) * sp * dt;
+          if (typeof PF !== 'undefined') {
+            this.x = Math.max(PF.x + this.r, Math.min(PF.x + PF.w - this.r, this.x));
+            this.y = Math.max(PF.y + this.r, Math.min(PF.y + PF.h - this.r, this.y));
+          }
+          if (g && g.monsters) for (const m of g.monsters) {
+            if (m.dead || m.airborne || m.spawnT > 0 || d.hits.has(m)) continue;
+            if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 8) {
+              d.hits.add(m);
+              const dmg = d.dmg + (d.rider ? m.maxHp * d.rider * (m.isBoss ? 1 / 3 : 1) : 0);
+              m.takeHit(dmg, { sx: this.x, sy: this.y, knock: d.knock, crit: d.crit, fromPlayer: true, hitSfx: d.knock >= 300 ? 'hitHeavy' : 'hitLight' }, g);
+              if (d.rob) { this.coins += 2; Fx.text(m.x, m.y - 18, '+2', '#ffce54', 10); }
+            }
+          }
+          this.ghostTimer -= dt;
+          if (this.ghostTimer <= 0) { this.ghostTimer = 0.026; Fx.ghost({ x: this.x, y: this.y, r: this.r, rot: 0, color: d.color }); }
+        }
+      } else if (this.rollT >= 0) {
         this.rollT += dt;
         const k = this.rollT / T.rollDur;
         // rollNova evolutions: bowling through enemies hurts them (once per roll each)
