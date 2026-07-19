@@ -1075,6 +1075,12 @@ const UI = (() => {
     } else if (type === 'owl') { // two ear tufts
       c.beginPath(); c.moveTo(cx - r * 0.65, cy - r * 0.55); c.lineTo(cx - r * 0.85, cy - r * 1.25); c.lineTo(cx - r * 0.25, cy - r * 0.7); c.closePath(); c.fill();
       c.beginPath(); c.moveTo(cx + r * 0.65, cy - r * 0.55); c.lineTo(cx + r * 0.85, cy - r * 1.25); c.lineTo(cx + r * 0.25, cy - r * 0.7); c.closePath(); c.fill();
+    } else if (type === 'tortoise') { // a domed shell with ridges over the top of the body
+      c.fillStyle = '#3e5a34';
+      c.beginPath(); c.arc(cx, cy - r * 0.05, r * 0.9, Math.PI, 0); c.fill();
+      c.strokeStyle = '#2a3d24'; c.lineWidth = Math.max(1, r * 0.13);
+      c.beginPath(); c.moveTo(cx, cy - r * 0.95); c.lineTo(cx, cy - r * 0.05); c.stroke();     // central ridge
+      c.beginPath(); c.arc(cx, cy - r * 0.05, r * 0.5, Math.PI, 0); c.stroke();                // inner shell ring
     }
     c.restore();
   }

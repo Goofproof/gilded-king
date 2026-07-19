@@ -255,6 +255,9 @@ const Descent = (() => {
     { type: 'wisp',  name: 'Wisp',      color: '#6ee7a0', key: 'regenFlat', val: 0.8,  desc: '+0.8 HP/s regen' },
     { type: 'mole',  name: 'Coin Mole', color: '#ffd24c', key: 'coin',      val: 0.20, desc: '+20% coins' },
     { type: 'owl',   name: 'Owl',       color: '#b88aff', key: 'critCh',    val: 0.08, desc: '+8% crit chance' },
+    // #310 the DEFENSIVE companion - the roster had dmg/spd/regen/coin/crit but nothing that
+    // just kept you alive. Reduce folds into player.mod() like the rest (and honours the 60% cap).
+    { type: 'tortoise', name: 'Tortoise', color: '#6b8e4e', key: 'reduce', val: 0.08, desc: 'take 8% less damage' },
   ];
   // Pick a pet SPECIES. Takes the caller's rng so floor-gen can pass its SEEDED stream:
   // in co-op the host and guest must roll the SAME pet in the same room (the pet is
