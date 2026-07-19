@@ -197,6 +197,26 @@
       Sfx.play('ui');
     } catch (err) { /* unsupported here - nothing to do */ }
   }
+  // #272 (Sam) DESKTOP FULLSCREEN PROMPT in the dead letterbox LEFT of the canvas, level with
+  // the health bar. Only on desktop (touch has its own auto-fullscreen), only windowed, and
+  // only when the left margin is wide enough to hold it - so it never overlaps the play field.
+  function positionFsHint() {
+    const el = document.getElementById('fshint');
+    if (!el || !canvas) return;
+    const isTouch = (typeof Touch !== 'undefined' && Touch.isTouch);
+    const fs = document.fullscreenElement || document.webkitFullscreenElement;
+    const r = canvas.getBoundingClientRect();
+    if (isTouch || fs || r.left < 132) { el.style.display = 'none'; return; }
+    el.style.left = '0px';
+    el.style.width = (r.left - 14) + 'px';                 // fill the margin; text is right-aligned to the canvas edge
+    el.style.top = (r.top + (14 / 540) * r.height) + 'px'; // canvas y=14 -> the health bar row
+    el.style.display = 'block';
+  }
+  window.addEventListener('resize', positionFsHint);
+  window.addEventListener('orientationchange', positionFsHint);
+  document.addEventListener('fullscreenchange', positionFsHint);
+  document.addEventListener('webkitfullscreenchange', positionFsHint);
+  setTimeout(positionFsHint, 300); // once layout has settled
   window.addEventListener('keyup', e => input.keys.delete(e.code));
   window.addEventListener('blur', () => { input.keys.clear(); input.mouse.down = false; });
   function mousePos(e) {

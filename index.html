@@ -64,6 +64,13 @@
   <span id="ioshintx" style="position:absolute;right:9px;top:50%;transform:translateY(-50%);width:24px;height:24px;
     line-height:24px;text-align:center;border-radius:12px;background:#2a2a3e;cursor:pointer">&#10005;</span>
 </div>
+<!-- DESKTOP (Sam): a fullscreen prompt lives in the dead letterbox space LEFT of the canvas,
+     level with the health bar, so it's apparent without cluttering the play field. main.js
+     positions it against the canvas edge and only shows it on desktop, windowed (not
+     fullscreen), and only when there's enough left margin to hold it. -->
+<div id="fshint" style="display:none;position:fixed;z-index:9;color:#c9a86a;
+  font:600 12px system-ui,sans-serif;text-align:right;line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.7);pointer-events:none">
+  Press <b style="color:#e8d3b0">F11</b><br>for the<br>Full Experience</div>
 <!-- Plain script tags, no modules: works from a local server AND by double-clicking the file. -->
 <script src="js/audio.js"></script>
 <script src="js/fx.js"></script>
