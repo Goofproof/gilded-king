@@ -74,16 +74,19 @@ const Monsters = (() => {
     // #302 MENDER: a SUPPORT healer. No attack of its own - it kites and channels a heal beam
     // to the most-wounded ally, undoing your work. Undying packs until you kill the mender first.
     mender:   { hp: 50, dmg: 0,  speed: 52, r: 14, xp: 16, coins: [4, 8] },
+    // #304 SPLITTER: a gelatinous ooze. Kill it and it DIVIDES into two smaller, faster copies
+    // (two generations deep, then the smallest stop). Cut one, two grow - clear them fast.
+    splitter: { hp: 46, dmg: 12, speed: 64, r: 17, xp: 10, coins: [2, 5] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
-    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
+    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger', 'splitter'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender', 'splitter'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender', 'splitter'],
     5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
@@ -145,6 +148,7 @@ const Monsters = (() => {
       kvx: 0, kvy: 0, dead: false, spawnT: 0.35, // brief spawn-in so rooms don't insta-hit
       shieldUp: type === 'shielded',
       mirrorUp: type === 'reflector', // #300 the mirror starts raised
+      _splitGen: type === 'splitter' ? 2 : 0, // #304 generations of division left (overridden on children)
       fuse: -1,
       // #110 every combat type gets an occasional EMPOWERED move (telegraphed): first
       // one after 6-11s, then every ~10-16s. undefined for trash that shouldn't.
@@ -1490,7 +1494,30 @@ const Monsters = (() => {
       m.dead = true;
       if (m.elite && m.elite.blast) eliteBlast(m, g);
       if (m.elite && m.elite.split) eliteSplit(m, g);
+      if (m.type === 'splitter') splitterSplit(m, g);
       g.onKill(m);
+    }
+  }
+
+  // #304 SPLITTER: on death it DIVIDES into two smaller, faster copies of itself, one
+  // generation shallower - so a big ooze becomes 2 mediums becomes 4 smalls, then the
+  // smalls stop (7 bodies at most). Host-authoritative in co-op, like every other spawn;
+  // the normal mob snapshot streams the children to guests.
+  function splitterSplit(m, g) {
+    if (g.coop && !((g.isRunHost ? g.isRunHost() : (typeof Net !== 'undefined' && Net.isHost)))) return;
+    const gen = (m._splitGen == null ? 0 : m._splitGen);
+    if (gen <= 0) return;                                   // the smallest oozes don't split
+    if (typeof Fx !== 'undefined') { Fx.burst(m.x, m.y, ['#7fd46e', '#b6ffcf', '#cfe8b0'], 12, { speed: 140, life: 0.4, glow: true }); Fx.text(m.x, m.y - m.r - 8, 'SPLIT', '#7fd46e', 11); }
+    for (let i = 0; i < 2; i++) {
+      const a = m.facing + (i ? 0.75 : -0.75);              // one child to each side
+      const baby = make('splitter', m.x + Math.cos(a) * (m.r + 4), m.y + Math.sin(a) * (m.r + 4), m.tier);
+      baby._splitGen = gen - 1;                             // one generation shallower (override make's default)
+      baby.r = Math.max(8, Math.round(m.r * 0.66));
+      baby.maxHp = Math.max(8, Math.round(m.maxHp * 0.5)); baby.hp = baby.maxHp;
+      baby.dmg = Math.max(4, Math.round(m.dmg * 0.72));
+      baby.speed = m.speed * 1.08;                          // smaller = quicker
+      baby.spawnT = 0.15;
+      g.monsters.push(baby);
     }
   }
 
@@ -1940,6 +1967,29 @@ const Monsters = (() => {
     }
   }
 
+  // #304 SPLITTER: a gelatinous green ooze that wobbles as it moves, with a darker nucleus
+  // and a couple of eyes. Drawn from m.r so the small children look like shrunken versions.
+  function drawSplitter(c, m, flash, ex, ey) {
+    const R = m.r;
+    const wob = Math.sin(m.t * 6) * 0.12;                   // squash-and-stretch pulse
+    // translucent outer body
+    c.save();
+    c.fillStyle = flash ? '#ffffff' : 'rgba(126,212,110,0.85)';
+    c.beginPath(); c.ellipse(0, 2, R * (1 + wob), R * (1 - wob), 0, 0, Math.PI * 2); c.fill();
+    // a lighter jelly highlight
+    c.fillStyle = flash ? '#ffffff' : 'rgba(182,255,207,0.55)';
+    c.beginPath(); c.ellipse(-R * 0.25, -R * 0.2, R * 0.45, R * 0.35, 0, 0, Math.PI * 2); c.fill();
+    // darker nucleus
+    c.fillStyle = flash ? '#ffffff' : '#3e7a34';
+    c.beginPath(); c.arc(0, R * 0.15, R * 0.42, 0, Math.PI * 2); c.fill();
+    c.restore();
+    // two eyes tracking the player
+    c.fillStyle = '#0a1a08';
+    c.beginPath(); c.arc(ex - R * 0.22, -R * 0.05 + ey, R * 0.14, 0, Math.PI * 2); c.arc(ex + R * 0.22, -R * 0.05 + ey, R * 0.14, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#eafff0';
+    c.beginPath(); c.arc(ex - R * 0.22 + 0.8, -R * 0.05 + ey - 0.6, R * 0.06, 0, Math.PI * 2); c.arc(ex + R * 0.22 + 0.8, -R * 0.05 + ey - 0.6, R * 0.06, 0, Math.PI * 2); c.fill();
+  }
+
   // --- rendering ------------------------------------------------------------------
   function draw(m, c, g) {
     const p = g.player;
@@ -1989,6 +2039,7 @@ const Monsters = (() => {
       case 'charger': drawCharger(c, m, flash, ex, ey); break;
       case 'reflector': drawReflector(c, m, flash, ex, ey); break;
       case 'mender': drawMender(c, m, flash, ex, ey); break;
+      case 'splitter': drawSplitter(c, m, flash, ex, ey); break;
     }
 
     // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
