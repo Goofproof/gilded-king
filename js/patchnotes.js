@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.170';
+  const VERSION = 'v2.171';
 
   const NOTES = [
+    {
+      v: 'v2.171', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '0dbe693',
+      items: [
+        'Dashes now charge through and bash everyone in their path instead of teleporting, and every blink leaves a trail (both aim at your cursor).',
+      ],
+    },
     {
       v: 'v2.170', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '13ceb3f',
