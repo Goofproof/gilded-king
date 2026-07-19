@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.191';
+  const VERSION = 'v2.192';
 
   const NOTES = [
+    {
+      v: 'v2.192', title: 'Add THE MAELSTROM floor mutator: a steady pull toward', date: '2026-07-19',
+      sha: '5e9bba1',
+      items: [
+        'Add THE MAELSTROM floor mutator: a steady pull toward the room\'s heart.',
+        'Balance: cap support casters per room and bar them from themed rooms.',
+        'Add ATLAS\' BURDEN trinket: a heavy-defense tank artifact.',
+        'Trinket cards now show the downside, not just the gift.',
+      ],
+    },
     {
       v: 'v2.191', title: 'Add ELITE DEN rooms: a small all-elite pack guarding', date: '2026-07-19',
       sha: '36ca6ac',
