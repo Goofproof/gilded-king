@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.160';
+  const VERSION = 'v2.161';
 
   const NOTES = [
+    {
+      v: 'v2.161', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '8219743',
+      items: [
+        'Character sheet: skills no longer overlap, each ability gets clear spacing.',
+      ],
+    },
     {
       v: 'v2.160', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '8ce140a',
