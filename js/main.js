@@ -1162,9 +1162,15 @@
       // #269 (Sam) slow early gear: no legendaries dropping on floors 1-3 (cap at Epic).
       // A boss's guaranteed legendary (minRarity 4) still wins - rollRarity clamps for it.
       const floorCap = g.floorNum <= 3 ? 3 : undefined;
+      // #271 (Sam) DEEP-LOOT CARROT: the drop FLOOR rarity rises with depth, so deep floors
+      // stop handing you trash (a felt reason to descend). Floor 12+ (end of Hell) = no commons;
+      // floor 22+ (Paradiso) = no commons/uncommons. This raises the FLOOR, not the power ceiling,
+      // and clamps against a boss's own minRarity. Floor-synced, so co-op rolls the same.
+      const depthMin = g.floorNum >= 22 ? 2 : g.floorNum >= 12 ? 1 : 0;
+      const minR = Math.max(roll.minRarity || 0, depthMin);
       item = kind === 'weapon'
-        ? Weapons.rollWeapon(roll.tier, { minRarity: roll.minRarity || 0, maxRarity: floorCap, luck: roll.luck || 0 })
-        : Weapons.rollArmor(roll.tier, { minRarity: roll.minRarity || 0, maxRarity: floorCap, luck: roll.luck || 0 });
+        ? Weapons.rollWeapon(roll.tier, { minRarity: minR, maxRarity: floorCap, luck: roll.luck || 0 })
+        : Weapons.rollArmor(roll.tier, { minRarity: minR, maxRarity: floorCap, luck: roll.luck || 0 });
     }
     const pk = { kind, x, y, t: 0 };
     if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
@@ -1979,8 +1985,9 @@
       for (let i = 0; i < nCoins; i++) spawnPickup('coin', ch.x, ch.y - 10, true); // #97 chest loot is per-player: don't mirror
       const tier = Monsters.tierFor(g.floorNum, g.room.dist);
       const chestCap = g.floorNum <= 3 ? 3 : undefined;   // #269 (Sam) no legendaries from floor 1-3 chests
-      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35, maxRarity: chestCap }), x: ch.x, y: ch.y + 34, t: 0 });
-      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3, maxRarity: chestCap }), x: ch.x - 50, y: ch.y + 20, t: 0 });
+      const chestMin = g.floorNum >= 22 ? 2 : g.floorNum >= 12 ? 1 : 0; // #271 deeper chests stop dropping trash
+      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35, minRarity: chestMin, maxRarity: chestCap }), x: ch.x, y: ch.y + 34, t: 0 });
+      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3, minRarity: chestMin, maxRarity: chestCap }), x: ch.x - 50, y: ch.y + 20, t: 0 });
       if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y, true); // #97 chest loot is per-player: don't mirror
       p.addXp(10, g);
       vacuumPickups(); // #140 (Sam) opening a chest sweeps its coins (and any loose in the room) to you - the weapon/armor it drops stay put (vacuumPickups skips gear)
