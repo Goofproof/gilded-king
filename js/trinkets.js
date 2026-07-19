@@ -91,6 +91,13 @@ const Trinkets = (() => {
       flag: 'gravity',                 // read in the monster update
     },
     {
+      key: 'atlas', name: "Atlas' Burden", color: '#8a94a8', icon: 'gear',
+      gift: '+40% maximum health, and take 22% less damage',
+      price: 'but the weight of the world slows you by 28%',
+      lore: 'He holds the sky up so you do not have to. It is heavier than it looks.',
+      mods: { maxHpPct: 0.40, reduce: 0.22, spd: -0.28 },
+    },
+    {
       key: 'medusa', name: "Medusa's Gaze", color: '#9fe0b0', icon: 'ring',
       gift: 'enemies caught in the arc you are aiming at are slowed to stone',
       price: 'but meeting their eyes unnerves you: -15% damage',
