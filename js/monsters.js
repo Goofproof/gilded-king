@@ -77,16 +77,20 @@ const Monsters = (() => {
     // #304 SPLITTER: a gelatinous ooze. Kill it and it DIVIDES into two smaller, faster copies
     // (two generations deep, then the smallest stop). Cut one, two grow - clear them fast.
     splitter: { hp: 46, dmg: 12, speed: 64, r: 17, xp: 10, coins: [2, 5] },
+    // #313 BOUND: spawns as a chained PAIR. While its partner lives the bond HALVES the damage
+    // both take - but break one and the survivor's chains snap loose: it ENRAGES (faster, harder).
+    // Focus one down fast, or chip both forever. A pair counts as one spawn slot.
+    bound:    { hp: 58, dmg: 14, speed: 56, r: 16, xp: 14, coins: [3, 6] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
-    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger', 'splitter'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender', 'splitter'],
+    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger', 'splitter', 'bound'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender', 'splitter', 'bound'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender', 'splitter'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender', 'splitter', 'bound'],
     5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
@@ -1458,6 +1462,7 @@ const Monsters = (() => {
     if (m.type === 'bomber' && m.hp <= 0) return; // already in death throes, fuse lit
     if (m.dr) dmg *= (1 - m.dr); // #273 (Sam) depth-scaled damage reduction (the doppel; keeps it a duel)
     if (m.wardBuffT > 0) dmg *= 0.45; // #289 (Sam) a warden's barrier: 55% off while it holds
+    if (m.type === 'bound' && m._partner && !m._partner.dead) dmg *= 0.5; // #313 the bond halves damage while the partner lives
     m.hp -= dmg;
     m.flash = 0.12;
     // Executioner (ORIGINAL enchant): finish off weakened enemies (bosses resist)
@@ -1495,6 +1500,13 @@ const Monsters = (() => {
       if (m.elite && m.elite.blast) eliteBlast(m, g);
       if (m.elite && m.elite.split) eliteSplit(m, g);
       if (m.type === 'splitter') splitterSplit(m, g);
+      // #313 BOUND: breaking one snaps the survivor's chains - it enrages (once).
+      if (m.type === 'bound' && m._partner && !m._partner.dead && !m._partner.frenzied) {
+        const o = m._partner;
+        o.frenzied = true; o.speed *= 1.4; o.dmg = Math.round(o.dmg * 1.4); o._boundFree = true;
+        if (typeof Fx !== 'undefined') { Fx.text(o.x, o.y - o.r - 12, 'UNBOUND', '#ff5a5a', 13); Fx.burst(o.x, o.y, ['#ff5a5a', '#ff9a3d', '#fff'], 16, { speed: 170, life: 0.5, glow: true }); }
+        if (typeof Sfx !== 'undefined') Sfx.play('roar');
+      }
       g.onKill(m);
     }
   }
@@ -1621,7 +1633,7 @@ const Monsters = (() => {
     // #308 the support casters make degenerate themed rooms (an all-mender room has nothing
     // to heal; an all-reflector room can't be shot; an all-warden room never attacks), and an
     // all-splitter room floods with oozes - so none of them can be a single-type theme.
-    const BAD_THEME = ['summoner', 'tank', 'mimic', 'mimicbaby', 'add', 'warden', 'mender', 'reflector', 'splitter'];
+    const BAD_THEME = ['summoner', 'tank', 'mimic', 'mimicbaby', 'add', 'warden', 'mender', 'reflector', 'splitter', 'bound'];
     let themeType = null;
     if (room.enemyTheme === undefined) {
       const pool = table.filter(t => !BAD_THEME.includes(t));
@@ -1653,8 +1665,9 @@ const Monsters = (() => {
         for (let t = 0; t < 6 && SUPPORT.has(type); t++) type = pickType(table, floorTheme);
       }
       if (SUPPORT.has(type)) supportN++;
-      // swarmers arrive as a pack of 2-3 for the price of one slot
-      const pack = type === 'swarmer' ? 2 + ((Math.random() * 2) | 0) : 1;
+      // swarmers arrive as a pack of 2-3; a BOUND is always a chained PAIR (#313)
+      const pack = type === 'swarmer' ? 2 + ((Math.random() * 2) | 0) : type === 'bound' ? 2 : 1;
+      const packMobs = [];
       for (let k = 0; k < pack; k++) {
         let x, y, tries = 0;
         do {
@@ -1673,8 +1686,9 @@ const Monsters = (() => {
         }
         const m = make(type, x, y, tier, mods);
         if (R && R.spawn) R.spawn(m, g); // the Fury enrages every soul on arrival
-        out.push(m);
+        out.push(m); packMobs.push(m);
       }
+      if (type === 'bound' && packMobs.length === 2) { packMobs[0]._partner = packMobs[1]; packMobs[1]._partner = packMobs[0]; } // #313 chain the pair
     }
     // loot goblin: a rare visitor (~11% of combat rooms). Spawns away from the player
     // so it has room to run. Never carries Descent elite mods (it doesn't fight).
@@ -2003,6 +2017,31 @@ const Monsters = (() => {
     c.beginPath(); c.arc(ex - R * 0.22 + 0.8, -R * 0.05 + ey - 0.6, R * 0.06, 0, Math.PI * 2); c.arc(ex + R * 0.22 + 0.8, -R * 0.05 + ey - 0.6, R * 0.06, 0, Math.PI * 2); c.fill();
   }
 
+  // #313 BOUND: a shackled brute. The left-hand one of the pair draws the CHAIN to its
+  // partner (so it renders once), and both redden when the bond breaks and they enrage.
+  function drawBound(c, m, flash, ex, ey) {
+    const R = m.r, enraged = m._boundFree;
+    if (m._partner && !m._partner.dead && m.x <= m._partner.x) {   // draw the chain once, from the left one
+      const tx = m._partner.x - m.x, ty = m._partner.y - m.y;
+      c.save();
+      c.strokeStyle = 'rgba(150,150,162,0.55)'; c.lineWidth = 2.5; c.setLineDash([4, 4]);
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(tx, ty); c.stroke();
+      c.restore();
+    }
+    // hunched brute body
+    c.fillStyle = flash ? '#fff' : (enraged ? '#a83a3a' : '#6a5a6a');
+    c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.fill();
+    // shoulder plates
+    c.fillStyle = flash ? '#fff' : (enraged ? '#7a2a2a' : '#4a3f4a');
+    c.beginPath(); c.arc(-R * 0.5, -R * 0.4, R * 0.42, 0, Math.PI * 2); c.arc(R * 0.5, -R * 0.4, R * 0.42, 0, Math.PI * 2); c.fill();
+    // the manacle band across the chest
+    c.strokeStyle = flash ? '#fff' : '#c8c8d0'; c.lineWidth = Math.max(1.5, R * 0.12); c.setLineDash([]);
+    c.beginPath(); c.arc(0, R * 0.1, R * 0.6, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
+    // eyes (redden when unbound)
+    c.fillStyle = enraged ? '#ffdcdc' : '#e0d8e8';
+    c.beginPath(); c.arc(ex - 3, -R * 0.05 + ey, 1.9, 0, Math.PI * 2); c.arc(ex + 3, -R * 0.05 + ey, 1.9, 0, Math.PI * 2); c.fill();
+  }
+
   // --- rendering ------------------------------------------------------------------
   function draw(m, c, g) {
     const p = g.player;
@@ -2053,6 +2092,7 @@ const Monsters = (() => {
       case 'reflector': drawReflector(c, m, flash, ex, ey); break;
       case 'mender': drawMender(c, m, flash, ex, ey); break;
       case 'splitter': drawSplitter(c, m, flash, ex, ey); break;
+      case 'bound': drawBound(c, m, flash, ex, ey); break;
     }
 
     // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
