@@ -6338,6 +6338,24 @@
           if (m.dead || m.airborne || (pr.hitSet && pr.hitSet.has(m))) continue; // airborne boss can't eat arrows
           const _dx = pr.x - m.x, _dy = pr.y - m.y, _rr = m.r + pr.r; // #262 squared-distance test
           if (_dx * _dx + _dy * _dy < _rr * _rr) {
+            // #300 REFLECTOR: a shot into its raised mirror's front arc is HURLED BACK at you
+            // as enemy fire. Melee has no projectile so it bypasses this - flank it, or wait
+            // for the mirror's OPEN beat and shoot then.
+            if (m.type === 'reflector' && m.mirrorUp) {
+              const ha = Math.atan2(pr.y - m.y, pr.x - m.x);
+              const diff = Math.abs(((ha - m.facing + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+              if (diff < Math.PI / 2) {
+                const sp = Math.hypot(pr.vx, pr.vy) || 320;
+                const back = Math.atan2(g.player.y - m.y, g.player.x - m.x);
+                pr.vx = Math.cos(back) * sp; pr.vy = Math.sin(back) * sp;
+                pr.x = m.x + Math.cos(back) * (m.r + pr.r + 3); pr.y = m.y + Math.sin(back) * (m.r + pr.r + 3);
+                pr.from = 'enemy'; pr.owner = m; pr.color = '#c9a3ff';
+                pr.hitSet = null; pr.pierce = 0; pr.blast = 0; pr.homing = 0; pr.life = 2.4;
+                if (typeof Fx !== 'undefined') { Fx.text(m.x, m.y - m.r - 8, 'REFLECT', '#c9a3ff', 11); Fx.burst(pr.x, pr.y, ['#c9a3ff', '#e8d8ff', '#fff'], 8, { speed: 130, life: 0.3, glow: true }); }
+                if (typeof Sfx !== 'undefined') Sfx.play('hit');
+                break; // now a hostile bolt - stop testing vs monsters (dead stays false, so it lives on)
+              }
+            }
             // target-conditional evolution bonuses resolve at impact for arrows
             const P = g.player;
             let dmg = pr.dmg;

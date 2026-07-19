@@ -67,17 +67,21 @@ const Monsters = (() => {
     // #297 CHARGER: a bull. Lines up on you, rears back (telegraph), then BARRELS in a straight
     // line - heavy contact damage - and STUNS itself if it hits a wall. Dodge the lane, punish.
     charger:  { hp: 62, dmg: 22, speed: 58, r: 16, xp: 13, coins: [3, 6] },
+    // #300 REFLECTOR: a crystalline caster holding a MIRROR toward you. No attack of its own -
+    // it turns YOUR shots into enemy fire, bouncing any bolt that hits its front arc straight
+    // back at you. The mirror cycles down for a beat (shoot it then, or flank/melee it).
+    reflector: { hp: 58, dmg: 10, speed: 46, r: 15, xp: 15, coins: [4, 8] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger', 'reflector'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -137,6 +141,7 @@ const Monsters = (() => {
       contactCd: 0, burn: null, stagger: 0, flash: 0,
       kvx: 0, kvy: 0, dead: false, spawnT: 0.35, // brief spawn-in so rooms don't insta-hit
       shieldUp: type === 'shielded',
+      mirrorUp: type === 'reflector', // #300 the mirror starts raised
       fuse: -1,
       // #110 every combat type gets an occasional EMPOWERED move (telegraphed): first
       // one after 6-11s, then every ~10-16s. undefined for trash that shouldn't.
@@ -610,6 +615,31 @@ const Monsters = (() => {
         }
         return;
       }
+      resolveTerrain(m, g);
+      return;
+    }
+
+    // #300 REFLECTOR: keeps its MIRROR pointed at you from a standoff and bounces your
+    // shots back (the reflect itself lives in main.js at the projectile-vs-monster test).
+    // No attack of its own - the danger is your own fire. The mirror cycles DOWN for a
+    // beat (telegraphed), the window to shoot it; otherwise flank it or close to melee.
+    if (m.type === 'reflector') {
+      const t = nearestTarget(m, g);
+      const dx = t.x - m.x, dy = t.y - m.y, d = Math.hypot(dx, dy) || 1;
+      m.facing = Math.atan2(dy, dx);                                  // the mirror tracks you
+      const want = 210, sp = m.speed * (m.chillT > 0 ? (m.chillMul || 1) : 1);
+      if (d < want - 40) { m.x -= (dx / d) * sp * dt; m.y -= (dy / d) * sp * dt; }        // back off if crowded
+      else if (d > want + 60) { m.x += (dx / d) * sp * 0.7 * dt; m.y += (dy / d) * sp * 0.7 * dt; } // drift in
+      m._mirT = (m._mirT === undefined ? 2.2 : m._mirT) - dt;
+      if (m._mirT <= 0) {
+        m.mirrorUp = !m.mirrorUp;
+        m._mirT = m.mirrorUp ? 2.4 : 1.5;                             // up 2.4s (reflects), down 1.5s (open)
+        if (typeof Fx !== 'undefined') {
+          if (m.mirrorUp) Fx.burst(m.x, m.y, ['#c9a3ff', '#e8d8ff'], 10, { speed: 90, life: 0.35, glow: true });
+          else Fx.text(m.x, m.y - m.r - 10, 'OPEN', '#c9a3ff', 11);   // the tell: shoot it now
+        }
+      }
+      tryContactHit(m, g, t);                                         // a light bump if you hug it
       resolveTerrain(m, g);
       return;
     }
@@ -1778,6 +1808,52 @@ const Monsters = (() => {
     }
   }
 
+  // #300 REFLECTOR: a violet crystal body with a curved MIRROR held toward you. Mirror UP =
+  // a bright reflective arc (bounces your shots); DOWN = it drops and dims (the shoot-it window).
+  function drawReflector(c, m, flash, ex, ey) {
+    const R = m.r;
+    const up = m.mirrorUp;
+    // crystal body: a faceted violet diamond
+    c.fillStyle = flash ? '#fff' : '#6a4a9a';
+    c.beginPath();
+    c.moveTo(0, -R); c.lineTo(R * 0.8, 0); c.lineTo(0, R); c.lineTo(-R * 0.8, 0); c.closePath(); c.fill();
+    // inner facet highlight
+    c.fillStyle = flash ? '#fff' : '#8a6ac0';
+    c.beginPath(); c.moveTo(0, -R * 0.6); c.lineTo(R * 0.4, 0); c.lineTo(0, R * 0.6); c.lineTo(-R * 0.4, 0); c.closePath(); c.fill();
+    // two eyes
+    c.fillStyle = '#e8d8ff';
+    c.beginPath(); c.arc(ex - 3, ey - 1, 1.7, 0, Math.PI * 2); c.arc(ex + 3, ey - 1, 1.7, 0, Math.PI * 2); c.fill();
+    // the mirror: a curved arc set out in front, along m.facing
+    const mx = Math.cos(m.facing), my = Math.sin(m.facing);       // forward unit
+    const px = -my, py = mx;                                      // lateral unit (the mirror's width axis)
+    const off = R + (up ? 6 : 2);                                 // sits further out when raised
+    const cxp = mx * off, cyp = my * off;                        // mirror centre
+    const half = up ? R * 1.05 : R * 0.7;                        // shrinks when dropped
+    c.save();
+    c.lineCap = 'round';
+    if (up) {
+      // glowing reflective face
+      c.shadowColor = '#c9a3ff'; c.shadowBlur = 10;
+      c.strokeStyle = '#e8d8ff'; c.lineWidth = 4;
+    } else {
+      c.strokeStyle = 'rgba(150,120,190,0.55)'; c.lineWidth = 3;  // dropped + dim
+    }
+    // draw the mirror as a shallow arc bowing toward the player
+    const bow = up ? 6 : 3;
+    c.beginPath();
+    c.moveTo(cxp - px * half, cyp - py * half);
+    c.quadraticCurveTo(cxp + mx * bow, cyp + my * bow, cxp + px * half, cyp + py * half);
+    c.stroke();
+    if (up) { // a second faint sheen line inside
+      c.shadowBlur = 0; c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(cxp - px * half * 0.7 - mx * 2, cyp - py * half * 0.7 - my * 2);
+      c.quadraticCurveTo(cxp + mx * (bow - 2), cyp + my * (bow - 2), cxp + px * half * 0.7 - mx * 2, cyp + py * half * 0.7 - my * 2);
+      c.stroke();
+    }
+    c.restore();
+  }
+
   // --- rendering ------------------------------------------------------------------
   function draw(m, c, g) {
     const p = g.player;
@@ -1825,6 +1901,7 @@ const Monsters = (() => {
       case 'worm': drawWorm(c, m, flash, ex, ey); break;
       case 'warden': drawWarden(c, m, flash, ex, ey); break;
       case 'charger': drawCharger(c, m, flash, ex, ey); break;
+      case 'reflector': drawReflector(c, m, flash, ex, ey); break;
     }
 
     // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
