@@ -1297,6 +1297,27 @@ const Monsters = (() => {
     }
   }
 
+  // #271 (Sam) PER-FLOOR CHARACTER: past the base floors the roster is frozen, so every deep
+  // floor drew an even random mix and they all felt the same. Each deep floor now leans toward
+  // a THEME - a siege of shooters, a fast hunt, a bulwark line, a frost floor - biasing (not
+  // locking) which of the SAME roster shows up, so floor 14 reads different from floor 20. The
+  // lean is chosen once per floor and cached (spawns are host-authoritative, so Math.random is
+  // fine). Boost entries only matter if they're in the tier table, so unknowns are harmless.
+  const FLOOR_THEMES = [
+    { name: 'Siege',   boost: ['archer', 'gunner', 'lobber', 'mage', 'bomber'] },
+    { name: 'Hunt',    boost: ['glass', 'panther', 'seeker', 'worm'] },
+    { name: 'Bulwark', boost: ['tank', 'shielded', 'summoner', 'pulser'] },
+    { name: 'Frost',   boost: ['snowman', 'shielded', 'tank'] },
+    { name: null,      boost: [] },   // an even mix, so themes never feel mandatory
+  ];
+  function pickType(table, theme) {
+    if (!theme || !theme.boost.length) return table[(Math.random() * table.length) | 0];
+    let total = 0; for (const t of table) total += theme.boost.includes(t) ? 3 : 1; // boosted 3x
+    let r = Math.random() * total;
+    for (const t of table) { r -= theme.boost.includes(t) ? 3 : 1; if (r <= 0) return t; }
+    return table[0];
+  }
+
   // --- room spawning ------------------------------------------------------------
   function spawnForRoom(room, floor, g) {
     // #148 (Sam) DOPPELGANGER mini-boss room (flagged at floor-gen, seed-deterministic):
@@ -1338,8 +1359,14 @@ const Monsters = (() => {
       room.enemyTheme = (pool.length && Math.random() < 0.22) ? pool[(Math.random() * pool.length) | 0] : null;
     }
     themeType = room.enemyTheme;
+    // #271 pick this floor's lean (cached per floor). Deep floors only; base 3 stay an even mix.
+    let floorTheme = null;
+    if (descent && floor >= 5) {
+      if (g._floorThemeFloor !== floor) { g._floorThemeFloor = floor; g._floorTheme = FLOOR_THEMES[(Math.random() * FLOOR_THEMES.length) | 0]; }
+      floorTheme = g._floorTheme;
+    }
     for (let i = 0; i < n; i++) {
-      const type = themeType || table[(Math.random() * table.length) | 0];
+      const type = themeType || pickType(table, floorTheme);
       // swarmers arrive as a pack of 2-3 for the price of one slot
       const pack = type === 'swarmer' ? 2 + ((Math.random() * 2) | 0) : 1;
       for (let k = 0; k < pack; k++) {
