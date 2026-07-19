@@ -322,6 +322,7 @@ const Monsters = (() => {
   // units screen for. Bulwarks (shielded) body-block for them, swarmers picket
   // them, and chasers flank the player instead of charging straight in.
   const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1, gunner: 1, mage: 1 };
+  const DASH_4 = [4, 4], DASH_6 = [6, 6], DASH_NONE = []; // #316 hoisted: setLineDash([..]) allocated a fresh array per charger/bound per frame
   function nearestRangedAlly(m, g) {
     // #316 (perf) this is an O(n) scan run per swarmer/shielded per frame - the worst full-room
     // scaler. The nearest ranged ally barely moves frame-to-frame, so CACHE it per mob for
@@ -1122,10 +1123,16 @@ const Monsters = (() => {
         // INVULNERABLE shields (updateProjectiles blocks shots on them), and on death
         // each segment scatters away as a wormling.
         let tx = p.x, ty = p.y;
-        // thread toward the midpoint between the player and the nearest OTHER mob
-        let near = null, nd = 1e9;
-        for (const o of g.monsters) { if (o === m || o.dead || o.type === 'wormling') continue; const d = Math.hypot(o.x - m.x, o.y - m.y); if (d < nd) { nd = d; near = o; } }
-        if (near && nd < 260) { tx = (p.x + near.x) / 2; ty = (p.y + near.y) / 2; }
+        // thread toward the midpoint between the player and the nearest OTHER mob.
+        // #316 (perf) this was a full O(n) scan per worm per frame; the weave target barely
+        // moves, so refresh it only ~5x/sec (recompute the live distance each frame - 1 hypot).
+        if (m._weaveT === undefined || m._weaveT <= g.time - 0.2 || (m._weaveM && m._weaveM.dead)) {
+          let near = null, nd = 1e9;
+          for (const o of g.monsters) { if (o === m || o.dead || o.type === 'wormling') continue; const d = Math.hypot(o.x - m.x, o.y - m.y); if (d < nd) { nd = d; near = o; } }
+          m._weaveM = near; m._weaveT = g.time;
+        }
+        const near = m._weaveM;
+        if (near && !near.dead && Math.hypot(near.x - m.x, near.y - m.y) < 260) { tx = (p.x + near.x) / 2; ty = (p.y + near.y) / 2; }
         moveToward(m, tx, ty, dt, m.speed * (m.empSpeedT > 0 ? 1.7 : 1)); // #110 EMPOWERED: slither-speed frenzy
         const perp = m.facing + Math.PI / 2, wob = Math.sin(m.t * 6.5) * 62; // strong zig-zag
         m.x += Math.cos(perp) * wob * dt; m.y += Math.sin(perp) * wob * dt;
@@ -1871,7 +1878,7 @@ const Monsters = (() => {
     if (wind > 0.2 && !dashing) {
       c.save();
       c.globalAlpha = 0.12 + wind * 0.22; c.strokeStyle = '#ff8a3d'; c.lineWidth = 2;
-      c.setLineDash([6, 6]);
+      c.setLineDash(DASH_6);
       c.beginPath(); c.moveTo(R + 4, 0); c.lineTo(R + 4 + 190 * wind, 0); c.stroke();
       c.restore();
     }
@@ -2040,7 +2047,7 @@ const Monsters = (() => {
     if (m._partner && !m._partner.dead && m.x <= m._partner.x) {   // draw the chain once, from the left one
       const tx = m._partner.x - m.x, ty = m._partner.y - m.y;
       c.save();
-      c.strokeStyle = 'rgba(150,150,162,0.55)'; c.lineWidth = 2.5; c.setLineDash([4, 4]);
+      c.strokeStyle = 'rgba(150,150,162,0.55)'; c.lineWidth = 2.5; c.setLineDash(DASH_4);
       c.beginPath(); c.moveTo(0, 0); c.lineTo(tx, ty); c.stroke();
       c.restore();
     }
@@ -2051,7 +2058,7 @@ const Monsters = (() => {
     c.fillStyle = flash ? '#fff' : (enraged ? '#7a2a2a' : '#4a3f4a');
     c.beginPath(); c.arc(-R * 0.5, -R * 0.4, R * 0.42, 0, Math.PI * 2); c.arc(R * 0.5, -R * 0.4, R * 0.42, 0, Math.PI * 2); c.fill();
     // the manacle band across the chest
-    c.strokeStyle = flash ? '#fff' : '#c8c8d0'; c.lineWidth = Math.max(1.5, R * 0.12); c.setLineDash([]);
+    c.strokeStyle = flash ? '#fff' : '#c8c8d0'; c.lineWidth = Math.max(1.5, R * 0.12); c.setLineDash(DASH_NONE);
     c.beginPath(); c.arc(0, R * 0.1, R * 0.6, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
     // eyes (redden when unbound)
     c.fillStyle = enraged ? '#ffdcdc' : '#e0d8e8';

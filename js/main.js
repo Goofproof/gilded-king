@@ -7902,9 +7902,14 @@
     const t = Date.now() / 400;
     for (const L of room.lava) {
       c.save();
-      // outer heat glow
-      const gr = c.createRadialGradient(L.x, L.y, L.r * 0.3, L.x, L.y, L.r + 10);
-      gr.addColorStop(0, 'rgba(255,120,40,0.5)'); gr.addColorStop(0.7, 'rgba(200,50,10,0.35)'); gr.addColorStop(1, 'rgba(120,20,0,0)');
+      // outer heat glow - #316 (perf) the gradient is static per pool (L.x/L.y/L.r), so build it
+      // ONCE and cache it; only the core pulse and bubbles below animate.
+      let gr = L._glowGrad;
+      if (!gr) {
+        gr = c.createRadialGradient(L.x, L.y, L.r * 0.3, L.x, L.y, L.r + 10);
+        gr.addColorStop(0, 'rgba(255,120,40,0.5)'); gr.addColorStop(0.7, 'rgba(200,50,10,0.35)'); gr.addColorStop(1, 'rgba(120,20,0,0)');
+        L._glowGrad = gr;
+      }
       c.fillStyle = gr; c.beginPath(); c.arc(L.x, L.y, L.r + 10, 0, Math.PI * 2); c.fill();
       // molten body
       c.fillStyle = '#b8300a'; c.beginPath(); c.ellipse(L.x, L.y, L.r, L.r * 0.82, 0, 0, Math.PI * 2); c.fill();
