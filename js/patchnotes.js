@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.183';
+  const VERSION = 'v2.184';
 
   const NOTES = [
+    {
+      v: 'v2.184', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '47fa84c',
+      items: [
+        'Warlock\'s Brimstone now fires a TRIPLE beam at rank 4 - the middle laser hits exactly what you\'re aiming at, with two more fanning out to either side.',
+      ],
+    },
     {
       v: 'v2.183', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '06e2a65',
