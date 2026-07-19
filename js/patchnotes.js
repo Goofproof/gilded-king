@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.171';
+  const VERSION = 'v2.172';
 
   const NOTES = [
+    {
+      v: 'v2.172', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '603e3d0',
+      items: [
+        'The Bard is now a dual-stat class: its song grows with both Fortune and Arcane.',
+      ],
+    },
     {
       v: 'v2.171', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '0dbe693',
