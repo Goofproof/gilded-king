@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.155';
+  const VERSION = 'v2.156';
 
   const NOTES = [
+    {
+      v: 'v2.156', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '5c6331a',
+      items: [
+        'Death tales now name what slew you and read like a bard\'s song, not a stiff epic.',
+      ],
+    },
     {
       v: 'v2.155', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '236f276',
