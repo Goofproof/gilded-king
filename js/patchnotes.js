@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.187';
+  const VERSION = 'v2.188';
 
   const NOTES = [
+    {
+      v: 'v2.188', title: 'Eulogies now READ you from your choices: the first', date: '2026-07-19',
+      sha: '5364803',
+      items: [
+        'Eulogies now READ you from your choices: the first stat you raised is sung as your deepest fear, and a stat you dumped everything into is read as overcompensating - a rhyming aside that makes every fallen-hero song a little character study.',
+        'New room hazard: LAVA POOLS on the deeper floors - glowing molten pools you CAN cross but that burn while you stand in them, so they reshape the space and let you kite monsters through the fire (rarer up top, a real threat down below).',
+        'Home screen now has THREE doors - SOLO, CO-OP and a dedicated PVP entrance - and the PVP lobby is a clean arena picker (Duel vs Raider Royale) with a START THE FIGHT button, plus player-slot pips in every lobby so the host sees who has joined at a glance.',
+        'Players can send feedback from inside the game: a BUG-or-IDEA box on the title screen posts to the worker (rate-limited, length-capped) so bugs and suggestions can be digested and acted on later.',
+      ],
+    },
     {
       v: 'v2.187', title: 'Mobile: added SALV and HONE buttons to the touch', date: '2026-07-19',
       sha: 'acdd7a3',
