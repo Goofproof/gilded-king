@@ -52,6 +52,11 @@ const Mobile = (() => {
     { key: 'ult',   label: 'ULT',  code: null,    x: 858, y: 398, r: 30, col: '#ff5a8a' }, // right-click on desktop
     { key: 'use',   label: 'E',    code: 'KeyE',  x: 726, y: 468, r: 24, col: '#6ee7a0' },
     { key: 'swap',  label: 'SWAP', code: 'Tab',   x: 858, y: 468, r: 24, col: '#9fb0c8' },
+    // #39 (Sam) salvage + hone had NO touch control - a phone player literally could not
+    // scrap a drop or upgrade a weapon. They no-op safely with nothing to act on, exactly
+    // like the desktop X / U keys, so they can just live here full-time.
+    { key: 'salv',  label: 'SALV', code: 'KeyX',  x: 672, y: 410, r: 21, col: '#7fe8e0' },
+    { key: 'hone',  label: 'HONE', code: 'KeyU',  x: 672, y: 456, r: 21, col: '#c9a86a' },
   ];
   const held = {};   // buttonKey -> touch identifier
 
