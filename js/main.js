@@ -2816,6 +2816,11 @@
       // #157 setForm sets the form AND the hitbox from the same scale, so a bear is really
       // a bigger target and an owl is really a smaller one. Never assign p.form directly.
       PlayerDef.setForm(p, next >= FORMS.length ? null : FORMS[next]);
+      // #286 (Sam) the current FORM dictates R. Swap in this form's R, carrying the cooldown
+      // forward so shifting can't be used to reset it. Own-shape falls back to the Bear slam.
+      if (p.class && p.class.id === 'druid' && Abilities.formR) {
+        p.abilityR = Object.assign({ cd: p.abilityR ? p.abilityR.cd : 0 }, Abilities.formR(p.form ? p.form.id : 'bear'));
+      }
       const label = p.form ? p.form.name.toUpperCase() : 'OWN SHAPE';
       const col = p.form ? p.form.color : '#7fd47f';
       Fx.text(p.x, p.y - 32, label, col, 14);
@@ -5823,6 +5828,9 @@
       p.drawT = -1; Sfx.play('roar');
       return;
     }
+    // #286 (Sam) the druid never enters the R-pick (its R is form-driven and pre-seeded), so
+    // schedule its ultimate on the same "two evolutions in" beat the R-pick would have.
+    if (p.evoHistory.length === 2 && p.class && p.class.id === 'druid' && !p.ultAtLevel) p.ultAtLevel = p.level + 2;
     g.state = 'play';
   }
 

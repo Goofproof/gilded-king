@@ -512,5 +512,18 @@ const Abilities = (() => {
     return out;
   }
 
-  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES, Q_TUNE, Q_MILESTONES, qRank, FUSIONS, fusionRank };
+  // #286 (Sam) THE DRUID'S R IS ITS FORM. Instead of a fusion forged from evolutions, the
+  // druid's R changes with whatever shape it wears - each one true to that form's identity:
+  //   Bear (tank)    -> Quake Slam: a knockback shockwave that clears the crowd off you.
+  //   Wolf (agility) -> Blood Pounce: a run-and-bash lunge at the cursor (bleeds, via the form).
+  //   Owlbear (arcane) -> Arcane Screech: a wide arcane nova that bites deeper the tougher the foe.
+  // Built on the existing nova/dash cast kinds, so no new combat code. Tunable numbers.
+  const FORM_R = {
+    bear:    { name: 'Quake Slam',    kind: 'nova', dmg: 46, radius: 168, knock: 250, qRider: 0.05, color: '#a8763f', cdMax: 8, r: true },
+    wolf:    { name: 'Blood Pounce',  kind: 'dash', dist: 255, dmg: 40, dashKnock: 130, qRider: 0.03, color: '#c8d0de', cdMax: 6, r: true },
+    owlbear: { name: 'Arcane Screech', kind: 'nova', dmg: 40, radius: 196, knock: 90, qRider: 0.07, color: '#c9a86a', cdMax: 8, r: true },
+  };
+  function formR(id) { return Object.assign({}, FORM_R[id] || FORM_R.bear); }
+
+  return { build, buildUltimates, classAbility, rollUltimates, rOptions, describe, qLevelScale, ACTIONS, MODS, CLASS_Q, CLASS_STAT, ULTIMATES, Q_TUNE, Q_MILESTONES, qRank, FUSIONS, fusionRank, FORM_R, formR };
 })();

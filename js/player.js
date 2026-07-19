@@ -1042,6 +1042,9 @@ const PlayerDef = (() => {
       // Q is your class ability, live from the start of the run (R + ultimate come
       // from your evolutions - see recordEvoPick)
       if (typeof Abilities !== 'undefined') this.ability = Abilities.classAbility(cls.id);
+      // #286 (Sam) the DRUID's R is dictated by its FORM, not forged from evolutions - seed it
+      // so R works from the first press and the evolution R-pick is skipped (see recordEvoPick).
+      if (cls.id === 'druid' && typeof Abilities !== 'undefined' && Abilities.formR) this.abilityR = Object.assign({ cd: 0 }, Abilities.formR('bear'));
       if (cls.magic) this.stats.magic = cls.magic + (meta?.ranks?.arcane || 0); // #88 Arcane boost stacks on a caster's base Magic
       if (cls.hp) { this.maxHp += cls.hp; this.hp = this.maxHp; }
       if (cls.coins) this.coins += cls.coins; // #258 the Gambler walks in with a bankroll
