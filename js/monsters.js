@@ -64,17 +64,20 @@ const Monsters = (() => {
     // a BARRIER that shields nearby allies (heavy damage reduction) and empowers them (their
     // next hit is the big one, and it resets so they strike at once). Kill it first.
     warden:   { hp: 52, dmg: 0,  speed: 50, r: 15, xp: 16, coins: [4, 8] },
+    // #297 CHARGER: a bull. Lines up on you, rears back (telegraph), then BARRELS in a straight
+    // line - heavy contact damage - and STUNS itself if it hits a wall. Dodge the lane, punish.
+    charger:  { hp: 62, dmg: 22, speed: 58, r: 16, xp: 13, coins: [3, 6] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
-    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden'],
+    2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -528,6 +531,72 @@ const Monsters = (() => {
         if (typeof Sfx !== 'undefined') Sfx.play('roar');
       }
       if (m.barrierT > 0) m.barrierT -= dt;
+      resolveTerrain(m, g);
+      return;
+    }
+
+    // #297 CHARGER: a bull. Three beats - AMBLE up to a standoff, REAR BACK (a fat
+    // telegraph), then BARREL in a locked straight line at ~6x speed. Heavy contact
+    // while charging; if it slams a wall it STUNS ITSELF (the punish window). Dodge
+    // the lane, then feed it its own wall.
+    if (m.type === 'charger') {
+      const t = nearestTarget(m, g);
+      const dx = t.x - m.x, dy = t.y - m.y, d = Math.hypot(dx, dy) || 1;
+      const sp = m.speed * (m.chillT > 0 ? (m.chillMul || 1) : 1);
+      m._chgCd = (m._chgCd || 0) - dt;
+      const st = m._cs || 'approach';
+
+      if (st === 'approach') {
+        m.facing = Math.atan2(dy, dx);
+        if (m._chgGlow > 0) m._chgGlow = Math.max(0, m._chgGlow - dt * 3);
+        if (d > 58) { m.x += (dx / d) * sp * dt; m.y += (dy / d) * sp * dt; } // amble in
+        tryContactHit(m, g, t);                                              // still gores if you hug it
+        if (m._chgCd <= 0 && d < 430 && d > 84) { m._cs = 'wind'; m._winT = 0.72; } // line up the charge
+        resolveTerrain(m, g);
+        return;
+      }
+      if (st === 'wind') {
+        m._winT -= dt;
+        m.facing = Math.atan2(dy, dx);                        // keep tracking during the rear-back
+        m._chgGlow = Math.min(1, (m._chgGlow || 0) + dt * 2.4);
+        m.x -= (dx / d) * sp * 0.5 * dt; m.y -= (dy / d) * sp * 0.5 * dt; // small backstep = the tell
+        if (m._winT <= 0) {
+          m._cs = 'dash';
+          m._dashDir = Math.atan2(t.y - m.y, t.x - m.x);       // LOCK the lane now - you can sidestep it
+          m._dashT = 2.6;                                      // safety cap only - the WALL ends the dash
+                                                               // (the field is bounded, so a straight
+                                                               // line always slams a wall first: that's
+                                                               // the overshoot-into-a-stun you punish)
+          if (typeof Sfx !== 'undefined') Sfx.play('roar');
+          if (typeof Fx !== 'undefined') Fx.text(m.x, m.y - m.r - 12, 'CHARGE', '#ff8a3d', 13);
+        }
+        resolveTerrain(m, g);
+        return;
+      }
+      if (st === 'dash') {
+        m._dashT -= dt;
+        m.facing = m._dashDir;
+        const dvx = Math.cos(m._dashDir), dvy = Math.sin(m._dashDir);
+        const bx = m.x, by = m.y;
+        const dashSp = m.speed * 6.0;                          // ~350 px/s
+        m.x += dvx * dashSp * dt; m.y += dvy * dashSp * dt;
+        tryContactHit(m, g, t, 1.6);                           // the gore: heavy while charging
+        if (typeof Fx !== 'undefined' && Math.random() < 0.55) Fx.burst(m.x - dvx * m.r, m.y - dvy * m.r, ['#c9a98a', '#a8886a'], 3, { speed: 60, life: 0.3 });
+        resolveTerrain(m, g);
+        const moved = Math.hypot(m.x - bx, m.y - by);
+        const crashed = moved < dashSp * dt * 0.5;             // terrain ate the move = we hit a wall
+        if (m._dashT <= 0 || crashed) {
+          m._cs = 'approach';
+          m._chgCd = 2.4 + Math.random() * 1.2;
+          m._chgGlow = 0;
+          if (crashed) {                                       // wall slam -> stun (the payoff)
+            m.stagger = 1.5;
+            if (typeof Fx !== 'undefined') { Fx.text(m.x, m.y - m.r - 10, 'STUNNED', '#ffd24c', 13); Fx.burst(m.x, m.y, ['#ffd24c', '#fff', '#c9a98a'], 16, { speed: 150, life: 0.5 }); }
+            if (typeof Sfx !== 'undefined') Sfx.play('hit');
+          }
+        }
+        return;
+      }
       resolveTerrain(m, g);
       return;
     }
@@ -1627,6 +1696,70 @@ const Monsters = (() => {
     c.restore();
   }
 
+  // #297 CHARGER: a hunched bull with forward horns. Rears/glows while winding up,
+  // trails a smear when barreling, sits dazed (spinning stars) when it eats a wall.
+  function drawCharger(c, m, flash, ex, ey) {
+    const R = m.r;
+    const wind = m._chgGlow || 0;                 // 0..1 telegraph charge
+    const dashing = m._cs === 'dash';
+    const stunned = m.stagger > 0;
+    c.save();
+    c.rotate(m.facing);                            // draw nose-forward, then rotate to facing
+    // charge-lane telegraph: a hot line the bull is about to run down
+    if (wind > 0.2 && !dashing) {
+      c.save();
+      c.globalAlpha = 0.12 + wind * 0.22; c.strokeStyle = '#ff8a3d'; c.lineWidth = 2;
+      c.setLineDash([6, 6]);
+      c.beginPath(); c.moveTo(R + 4, 0); c.lineTo(R + 4 + 190 * wind, 0); c.stroke();
+      c.restore();
+    }
+    // motion smear behind while dashing
+    if (dashing) {
+      c.save(); c.globalAlpha = 0.35; c.fillStyle = '#7a5a3a';
+      c.beginPath(); c.ellipse(-R * 1.1, 0, R * 1.4, R * 0.7, 0, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+    // body: a heavy hunched block
+    const body = flash ? '#fff' : (dashing ? '#8a5a34' : '#6b4a30');
+    c.fillStyle = body;
+    c.beginPath(); c.ellipse(-R * 0.15, 0, R * 1.05, R * 0.82, 0, 0, Math.PI * 2); c.fill();
+    // shoulder hump
+    c.fillStyle = flash ? '#fff' : '#5a3e28';
+    c.beginPath(); c.arc(-R * 0.45, -R * 0.35, R * 0.5, 0, Math.PI * 2); c.fill();
+    // lowered head at the front
+    c.fillStyle = flash ? '#fff' : '#4e3620';
+    c.beginPath(); c.arc(R * 0.7, R * 0.12, R * 0.5, 0, Math.PI * 2); c.fill();
+    // two forward horns
+    c.strokeStyle = flash ? '#fff' : '#e8e0d0'; c.lineWidth = 3; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(R * 0.9, -R * 0.2); c.quadraticCurveTo(R * 1.5, -R * 0.5, R * 1.55, -R * 0.05);
+    c.moveTo(R * 0.9, R * 0.44); c.quadraticCurveTo(R * 1.5, R * 0.7, R * 1.55, R * 0.28);
+    c.stroke();
+    // eye - reddens as it winds up, glares while dashing
+    const er = 1.7 + wind * 1.2;
+    c.fillStyle = (dashing || wind > 0.5) ? '#ff4a2c' : '#ffcaa0';
+    if (dashing || wind > 0.4) { c.save(); c.shadowColor = '#ff4a2c'; c.shadowBlur = 6; }
+    c.beginPath(); c.arc(R * 0.85 + ex * 0.3, R * 0.02 + ey * 0.3, er, 0, Math.PI * 2); c.fill();
+    if (dashing || wind > 0.4) c.restore();
+    // steam snort while winding up
+    if (wind > 0.4 && !dashing) {
+      c.globalAlpha = (wind - 0.4) * 0.6; c.fillStyle = '#e8e8e8';
+      c.beginPath(); c.arc(R * 1.35, R * 0.05, 2.4, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1;
+    }
+    c.restore();
+    // dazed stars when stunned (drawn upright, not rotated)
+    if (stunned) {
+      c.save(); c.fillStyle = '#ffd24c'; c.font = 'bold 11px monospace'; c.textAlign = 'center';
+      const spin = m.t * 6;
+      for (let i = 0; i < 3; i++) {
+        const a = spin + i * (Math.PI * 2 / 3);
+        c.fillText('*', Math.cos(a) * 10, -R - 6 + Math.sin(a) * 3);
+      }
+      c.restore();
+    }
+  }
+
   // --- rendering ------------------------------------------------------------------
   function draw(m, c, g) {
     const p = g.player;
@@ -1673,6 +1806,7 @@ const Monsters = (() => {
       case 'pulser': drawPulser(c, m, flash, ex, ey); break;
       case 'worm': drawWorm(c, m, flash, ex, ey); break;
       case 'warden': drawWarden(c, m, flash, ex, ey); break;
+      case 'charger': drawCharger(c, m, flash, ex, ey); break;
     }
 
     // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
