@@ -2125,8 +2125,11 @@
       if ((p.shards || 0) < shards) { g.shopMsg = { text: `Crafting needs ${shards} shards (X salvages gear into shards)`, t: 2 }; Sfx.play('error'); return; }
       const isW = t.kind === 'craftWeapon';
       const arch = isW ? ((p.weapon && p.weapon.archetype) || undefined) : undefined;
+      // #277 (Sam) the no-legendaries-on-floors-1-3 rule applies to the FORGE too - it was a
+      // loophole to craft a legendary early. Cap at Epic on floors 1-3 (still rare/epic, no junk).
+      const craftCap = g.floorNum <= 3 ? 3 : undefined;
       const items = [];
-      for (let i = 0; i < 3; i++) items.push(isW ? Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.35, archetype: arch }) : Weapons.rollArmor(tier, { minRarity: 2, luck: 0.35 }));
+      for (let i = 0; i < 3; i++) items.push(isW ? Weapons.rollWeapon(tier, { minRarity: 2, luck: 0.35, archetype: arch, maxRarity: craftCap }) : Weapons.rollArmor(tier, { minRarity: 2, luck: 0.35, maxRarity: craftCap }));
       g.craftPick = { st, isW, items, gold, shards };
       g.state = 'craftpick'; g.overlayT = 0; p.drawT = -1;
       Sfx.play('ui');
