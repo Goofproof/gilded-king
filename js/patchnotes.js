@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.174';
+  const VERSION = 'v2.175';
 
   const NOTES = [
+    {
+      v: 'v2.175', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '24da635',
+      items: [
+        'Charges now barrel through a wider lane and leave a shockwave wake that catches enemies for a second hit.',
+      ],
+    },
     {
       v: 'v2.174', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '89c3cd1',
