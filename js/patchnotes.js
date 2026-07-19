@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.172';
+  const VERSION = 'v2.173';
 
   const NOTES = [
+    {
+      v: 'v2.173', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: 'f087572',
+      items: [
+        'Druid: a panel now shows what each form does (Bear the Tank, Wolf might+agility, Owlbear arcane), and Bear reflects thorns and doubles your thorns gear.',
+      ],
+    },
     {
       v: 'v2.172', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '603e3d0',
