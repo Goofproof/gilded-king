@@ -2620,13 +2620,15 @@ const UI = (() => {
       for (const [key, a] of powers) {
         if (!a) continue;
         c.font = 'bold 11px monospace'; c.fillStyle = a.color || '#ffd24c';
-        c.fillText(`${key}  ${a.name}`, rx, y); y += 13;
+        c.fillText(`${key}  ${a.name}`, rx, y); y += 14;
         if (a.desc) {
           c.font = '10px monospace'; c.fillStyle = '#8b93a3';
-          y = wrapText(c, a.desc, rx + 8, y, rw - 16, 12) + 6;
-        } else y += 4;
+          // #270 (Sam) wrapText returns the LAST baseline; a +6 gap let the next skill's bold
+          // name collide with this description's final line. +18 gives each skill clear air.
+          y = wrapText(c, a.desc, rx + 8, y, rw - 16, 12) + 18;
+        } else y += 16;
       }
-      y += 6;
+      y += 8;
 
       // the evolutions you have taken, coloured by the stat that grew them
       c.font = 'bold 12px monospace'; c.fillStyle = '#8fa3bf';
