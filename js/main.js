@@ -6783,7 +6783,19 @@
     for (let i = g.pickups.length - 1; i >= 0; i--) {
       const pk = g.pickups[i];
       pk.t += dt;
-      if (pk.kind === 'weapon' || pk.kind === 'armorItem' || pk.kind === 'trinketItem' || pk.kind === 'potionItem') continue; // gear sits still; E to pick up
+      if (pk.kind === 'weapon' || pk.kind === 'armorItem' || pk.kind === 'trinketItem') continue; // gear sits still; E to pick up
+      if (pk.kind === 'potionItem') {
+        // #270 (Sam) walk-over auto-pickup when your potion slot is EMPTY. If you already
+        // carry one it stays put for a manual E (you can only hold one). Mirrors the manual
+        // grab's effects (#186): no magnet, just a proximity grab.
+        if (!p.potion && pk.t > 0.2 && !g.runEnded && Math.hypot(p.x - pk.x, p.y - pk.y) < p.r + 12) {
+          p.potion = true;
+          g.pickups.splice(i, 1);
+          Fx.text(p.x, p.y - 30, 'POTION (press H)', '#ff5a6e', 12);
+          Sfx.play('buy');
+        }
+        continue;
+      }
       // scatter physics then magnet toward the player
       pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
       pk.vx = (pk.vx || 0) * 0.9; pk.vy = (pk.vy || 0) * 0.9;
