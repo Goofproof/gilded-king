@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.190';
+  const VERSION = 'v2.191';
 
   const NOTES = [
+    {
+      v: 'v2.191', title: 'Add ELITE DEN rooms: a small all-elite pack guarding', date: '2026-07-19',
+      sha: '36ca6ac',
+      items: [
+        'Add ELITE DEN rooms: a small all-elite pack guarding a guaranteed chest.',
+        'Add SPLITTER enemy: a gelatinous ooze that divides in two when killed.',
+        'Title screen: respace the center spine so the difficulty bar has clean gaps.',
+        'Feedback: email each Bug-or-Idea submission to the owner (inert until key set).',
+      ],
+    },
     {
       v: 'v2.190', title: 'Add REFLECTOR enemy: a mirror-caster that turns your', date: '2026-07-19',
       sha: '6013cb3',
