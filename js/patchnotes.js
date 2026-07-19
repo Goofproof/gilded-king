@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.148';
+  const VERSION = 'v2.149';
 
   const NOTES = [
+    {
+      v: 'v2.149', title: 'Every mythic gets a 4th enchant, so it out-classes a legendary', date: '2026-07-19',
+      sha: '709d814',
+      items: [
+        'Every mythic weapon and armor now carries a FOURTH enchant, one more than a legendary - so finding a mythic always feels like the upgrade it should be, not just a re-skinned legendary.',
+      ],
+    },
     {
       v: 'v2.148', title: 'The death touch can really kill, and blindness says so', date: '2026-07-19',
       sha: '8b3816d',
