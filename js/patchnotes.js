@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.189';
+  const VERSION = 'v2.190';
 
   const NOTES = [
+    {
+      v: 'v2.190', title: 'Add REFLECTOR enemy: a mirror-caster that turns your', date: '2026-07-19',
+      sha: '6013cb3',
+      items: [
+        'Add REFLECTOR enemy: a mirror-caster that turns your own shots against you.',
+        'Add MEDUSA\'S GAZE trinket: enemies in your aim cone are slowed to stone.',
+        'Add two mythic weapons: Kusanagi (light) and Artemis\' Bow (bow).',
+        'Add MENDER enemy: a support healer that keeps the whole pack alive.',
+      ],
+    },
     {
       v: 'v2.189', title: 'The climb out of Hell now has its OWN named guardians', date: '2026-07-19',
       sha: '3ca21c5',
