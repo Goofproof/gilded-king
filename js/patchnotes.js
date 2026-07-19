@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.185';
+  const VERSION = 'v2.186';
 
   const NOTES = [
+    {
+      v: 'v2.186', title: 'Melee swings now show the actual weapon', date: '2026-07-19',
+      sha: 'f3d58b6',
+      items: [
+        'Melee swings now show the actual weapon - a broad axe blade, a banded maul head, or a bladed point rides the leading edge of the sweep instead of a generic slash.',
+        'Druid: your R is now dictated by your FORM - Bear slams a knockback quake, Wolf pounces at the cursor and bleeds, Owlbear screeches a wide arcane blast - so each shape is a whole playstyle.',
+        'Druid: HOLD Q to open a form-selection wheel - aim at Bear, Wolf, Owlbear or your own shape and release to shift straight there, instead of cycling (a quick tap still cycles).',
+        'The character sheet now shows your equipped GEAR with real stats - weapon damage and hone level, armour value, and the enchants on each - so mobile players (with no hover) can finally see what they\'re carrying.',
+      ],
+    },
     {
       v: 'v2.185', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: 'cfc273f',
