@@ -202,6 +202,22 @@ export class Leaderboard {
       fb.push({ kind, text, name, ver: str(b.ver, 12), t: now });
       fb = fb.slice(-1000); // keep the most recent thousand
       await this.state.storage.put('feedback', fb);
+      // #306 (Sam) email each submission to the owner. INERT unless RESEND_API_KEY is set,
+      // so this ships now and starts sending the moment the secret is added (no redeploy of
+      // new logic). A mail hiccup never breaks feedback capture - it's already stored above.
+      if (this.env && this.env.RESEND_API_KEY) {
+        const to = this.env.FEEDBACK_TO || 'sam@deeproot.energy';
+        const from = this.env.FEEDBACK_FROM || 'Barrowlight <onboarding@resend.dev>';
+        const subject = `[Barrowlight ${kind}] ${text.slice(0, 60)}`;
+        const bodyText = `${kind.toUpperCase()} from ${name || 'anon'} (v${str(b.ver, 12) || '?'}, uid ${u || '?'})\n\n${text}`;
+        try {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${this.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to, subject, text: bodyText, reply_to: to }),
+          });
+        } catch (e) { /* stored already; never fail the submit on a mail error */ }
+      }
       return json({ ok: true });
     }
 
