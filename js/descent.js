@@ -46,9 +46,14 @@ const Descent = (() => {
   // affix table. mul fields multiply the monster's stats; the rest are behaviour
   // flags read by monsters.js. color drives the elite ring + tint.
   const AFFIXES = [
-    { key: 'giant',    name: 'Giant',    color: '#ff8a3d', hpMul: 1.9, dmgMul: 1.25, speedMul: 0.85, rMul: 1.45 },
-    { key: 'swift',    name: 'Swift',    color: '#7fd4ff', hpMul: 0.9, dmgMul: 1.0,  speedMul: 1.55, rMul: 0.95 },
-    { key: 'volatile', name: 'Volatile', color: '#ff4444', hpMul: 1.1, dmgMul: 1.0,  speedMul: 1.05, rMul: 1.05, blast: 120 },
+    { key: 'giant',    name: 'Giant',    color: '#ff8a3d', hpMul: 1.9,  dmgMul: 1.25, speedMul: 0.85, rMul: 1.45 },
+    { key: 'swift',    name: 'Swift',    color: '#7fd4ff', hpMul: 0.9,  dmgMul: 1.0,  speedMul: 1.55, rMul: 0.95 },
+    { key: 'volatile', name: 'Volatile', color: '#ff4444', hpMul: 1.1,  dmgMul: 1.0,  speedMul: 1.05, rMul: 1.05, blast: 120 },
+    // #271 (Sam) three MORE affixes so the frequent deep-floor elites vary in BEHAVIOUR, not
+    // just size/speed. Each flag is read in monsters.js (frenzy/ward) or player.js (leech).
+    { key: 'berserk',  name: 'Berserk',  color: '#ff5555', hpMul: 1.2,  dmgMul: 1.0,  speedMul: 1.0,  rMul: 1.05, frenzy: 1 },   // frenzies when wounded
+    { key: 'warded',   name: 'Warded',   color: '#8fd0ff', hpMul: 1.35, dmgMul: 1.0,  speedMul: 0.95, rMul: 1.05, ward: 1 },     // cycles a blocking ward
+    { key: 'vampiric', name: 'Vampiric', color: '#ff5fd0', hpMul: 1.25, dmgMul: 1.0,  speedMul: 1.0,  rMul: 1.05, leech: 0.6 },  // heals off hits to you
   ];
   function rollAffix() { return AFFIXES[(Math.random() * AFFIXES.length) | 0]; }
 

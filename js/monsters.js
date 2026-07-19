@@ -326,6 +326,23 @@ const Monsters = (() => {
     if (m.contactCd > 0) m.contactCd -= dt;
     if (m.flash > 0) m.flash -= dt;
 
+    // #271 (Sam) ELITE AFFIX behaviours - deep-floor variety beyond bigger numbers.
+    if (m.elite) {
+      // BERSERK: once it drops below 40% HP it frenzies for good - faster and harder-hitting.
+      if (m.elite.frenzy && !m.frenzied && m.hp < m.maxHp * 0.4) {
+        m.frenzied = true; m.speed *= 1.45; m.dmg = Math.round(m.dmg * 1.3);
+        if (typeof Fx !== 'undefined') { Fx.text(m.x, m.y - m.r - 12, 'FRENZY', '#ff5555', 12); Fx.burst(m.x, m.y, ['#ff5555', '#ff9a3d'], 12, { speed: 150, life: 0.4, glow: true }); }
+      }
+      // WARDED: cycles a blocking ward - up ~1.3s (blocks your hits), down ~3.4s (punish it).
+      if (m.elite.ward) {
+        m.wardCd = (m.wardCd || 0) - dt;
+        if (m.wardCd <= 0) {
+          m.warded = !m.warded; m.wardCd = m.warded ? 1.3 : 3.4;
+          if (m.warded && typeof Fx !== 'undefined') Fx.burst(m.x, m.y, ['#8fd0ff', '#cfe9ff'], 8, { speed: 90, life: 0.3, glow: true });
+        }
+      }
+    }
+
     // knockback decay
     m.x += m.kvx * dt; m.y += m.kvy * dt;
     m.kvx *= Math.pow(0.002, dt); m.kvy *= Math.pow(0.002, dt);
@@ -1085,6 +1102,13 @@ const Monsters = (() => {
     // #227 (Q wave 1) barbarian R4: fear opens them up - feared enemies take +15%
     if (m.feared > 0 && m.fearedAmp && opts && opts.fromPlayer) dmg *= m.fearedAmp;
     if (m.dead || m.spawnT > 0) return false;
+    // #271 (Sam) WARDED elite: while its ward is up it blocks your hits outright (any angle).
+    // Telegraphed by the shimmer bubble + the down-window, so it's a rhythm, not a wall.
+    if (m.warded && opts && opts.fromPlayer) {
+      if (typeof Fx !== 'undefined') { Fx.burst(opts.sx != null ? opts.sx : m.x, opts.sy != null ? opts.sy : m.y, '#8fd0ff', 5, { speed: 100, life: 0.25 }); Fx.text(m.x, m.y - m.r - 8, 'WARDED', '#8fd0ff', 11); }
+      if (typeof Sfx !== 'undefined') Sfx.play('hit');
+      return false;
+    }
     // PARADISO (rules.js SPHERE_RULES). Every blessing in Heaven costs something, and
     // this is the one choke point every player hit passes through - weapon swings,
     // spells, abilities, ultimates and thorns all land here - so all four hooks live
@@ -1521,6 +1545,16 @@ const Monsters = (() => {
       c.globalAlpha = 0.45 + Math.sin(Date.now() / 200 + m.x) * 0.25;
       c.lineWidth = 2.5;
       c.beginPath(); c.arc(0, 0, m.r + 5, 0, Math.PI * 2); c.stroke();
+      c.restore();
+    }
+
+    // #271 a WARDED elite with its ward UP wears a shimmering bubble - the "immune now" tell
+    if (m.warded) {
+      c.save();
+      c.globalAlpha = 0.12; c.fillStyle = '#8fd0ff';
+      c.beginPath(); c.arc(0, 0, m.r + 8, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 0.55 + Math.sin(Date.now() / 120) * 0.2; c.strokeStyle = '#cfe9ff'; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, m.r + 8, 0, Math.PI * 2); c.stroke();
       c.restore();
     }
 

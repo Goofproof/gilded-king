@@ -1324,6 +1324,11 @@ const PlayerDef = (() => {
       // #269 (Sam) remember WHAT last hit you, so the death eulogy can name your slayer.
       // src is the attacker: a boss (has .name), a monster (has .type), or a projectile's owner.
       if (src && (src.type || src.name)) this._killer = { type: src.type || null, name: src.name || null, boss: !!src.isBoss };
+      // #271 (Sam) VAMPIRIC elite: it drinks a share of the damage it just dealt you, healing.
+      if (src && src.elite && src.elite.leech && !src.dead && src.hp > 0) {
+        src.hp = Math.min(src.maxHp, src.hp + Math.round(dmg * src.elite.leech));
+        if (typeof Fx !== 'undefined' && Math.random() < 0.5) Fx.burst(src.x, src.y, ['#ff5fd0', '#fff'], 4, { speed: 60, life: 0.35, glow: true });
+      }
       if (typeof Ach !== 'undefined') Ach.damaged(g); // #86 breaks the floor's no-hit streak
       if (g.vowIntact) g.vowIntact = false;           // THE VOW (encounters.js) is broken by one hit
       this.iframes = T.hurtIframes;
