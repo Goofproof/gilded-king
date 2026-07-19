@@ -1725,7 +1725,7 @@
   }
   function gatherDenied() {
     Sfx.play('error');
-    Fx.text(g.player.x, g.player.y - 34, g.huntMode ? 'THE HUNT ENDS ONLY ONE WAY' : 'GATHER THE PARTY TO DESCEND', g.huntMode ? '#ff4040' : '#ffd24c', 13);
+    Fx.text(g.player.x, g.player.y - 34, g.huntMode ? 'RAIDER ROYALE - ONE WAY OUT' : 'GATHER THE PARTY TO DESCEND', g.huntMode ? '#ff4040' : '#ffd24c', 13);
   }
 
   function tryRoomExit() {
@@ -4506,7 +4506,7 @@
         g.huntCrownRoom = best || start; g.crownedU = null;
       })();
       placeHuntSpawn();
-      g.floorBanner = { text: 'THE GILDED HUNT', t: 4.5, sub: 'gear up. the swarm is coming. last champion standing.' };
+      g.floorBanner = { text: 'RAIDER ROYALE', t: 4.5, sub: 'gear up. the swarm is coming. last champion standing.' };
     }
     // #240 duel setup: fighters start in opposite corners, scores clean, 3-2-1
     if (g.duelMode) {
@@ -5119,8 +5119,8 @@
   function applyHuntEnd(m) {
     g.huntScore = m.sc || {};
     const iWon = m.w === g.clientId;
-    triggerUltFlash(iWon ? 'HUNT CHAMPION' : 'HUNTED DOWN', iWon ? '#ffd24c' : '#e05555');
-    g.floorBanner = { text: iWon ? 'HUNT CHAMPION' : 'HUNTED DOWN', t: 4.5, sub: 'the hunt begins again' };
+    triggerUltFlash(iWon ? 'ROYALE CHAMPION' : 'HUNTED DOWN', iWon ? '#ffd24c' : '#e05555');
+    g.floorBanner = { text: iWon ? 'ROYALE CHAMPION' : 'HUNTED DOWN', t: 4.5, sub: 'the royale begins again' };
     Sfx.play(iWon ? 'levelup' : 'hurt');
     // run it back: fresh swarm, fresh crown, back to your corners of the map
     g.huntSwarmN = 0; g.huntSwarmT = 0; g._swarmOrd = null; g.huntGraceT = 4;

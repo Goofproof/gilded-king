@@ -2298,12 +2298,12 @@ const UI = (() => {
       btn(W / 2 - 130, 384, 260, 36, `FRIENDLY FIRE: ${g.lobbyFF ? 'ON' : 'OFF'}`, 'lobby-ff', g.lobbyFF ? '255,90,90' : '143,163,191');
       // #240 PVP Phase 1: THE DUEL - a sealed arena, rounds, first to 3
       btn(W / 2 - 130, 428, 126, 36, `⚔ DUEL ${g.lobbyDuel ? 'ON' : 'OFF'}`, 'lobby-duel', g.lobbyDuel ? '255,210,76' : '143,163,191');
-      // #241 PVP Phase 2: THE GILDED HUNT - battle royale across the whole floor
-      btn(W / 2 + 4, 428, 126, 36, `☠ HUNT ${g.lobbyHunt ? 'ON' : 'OFF'}`, 'lobby-hunt', g.lobbyHunt ? '255,120,60' : '143,163,191');
+      // #241/#281 PVP Phase 2: RAIDER ROYALE (was "the Gilded Hunt") - battle royale across the whole floor
+      btn(W / 2 + 4, 428, 126, 36, `☠ ROYALE ${g.lobbyHunt ? 'ON' : 'OFF'}`, 'lobby-hunt', g.lobbyHunt ? '255,120,60' : '143,163,191');
       c.font = '11px monospace';
       if (g.lobbyHunt) {
         c.fillStyle = '#d99a61';
-        c.fillText('spawn apart. gear up. the swarm closes in. last one standing.', W / 2, 482);
+        c.fillText('RAIDER ROYALE: spawn apart, gear up, the swarm closes in, last one standing.', W / 2, 482);
       } else if (g.lobbyDuel) {
         c.fillStyle = '#c9b061';
         c.fillText('a sealed arena. no monsters. first to 3 rounds. good luck.', W / 2, 482);
