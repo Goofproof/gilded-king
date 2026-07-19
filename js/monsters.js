@@ -1322,11 +1322,11 @@ const Monsters = (() => {
   // lean is chosen once per floor and cached (spawns are host-authoritative, so Math.random is
   // fine). Boost entries only matter if they're in the tier table, so unknowns are harmless.
   const FLOOR_THEMES = [
-    { name: 'Siege',   boost: ['archer', 'gunner', 'lobber', 'mage', 'bomber'] },
-    { name: 'Hunt',    boost: ['glass', 'panther', 'seeker', 'worm'] },
-    { name: 'Bulwark', boost: ['tank', 'shielded', 'summoner', 'pulser'] },
-    { name: 'Frost',   boost: ['snowman', 'shielded', 'tank'] },
-    { name: null,      boost: [] },   // an even mix, so themes never feel mandatory
+    { name: 'Siege',   color: '#ff9a3d', boost: ['archer', 'gunner', 'lobber', 'mage', 'bomber'] },
+    { name: 'Hunt',    color: '#8ef06e', boost: ['glass', 'panther', 'seeker', 'worm'] },
+    { name: 'Bulwark', color: '#8fd0ff', boost: ['tank', 'shielded', 'summoner', 'pulser'] },
+    { name: 'Frost',   color: '#bfe6f5', boost: ['snowman', 'shielded', 'tank'] },
+    { name: null,      color: null,      boost: [] },   // an even mix, so themes never feel mandatory
   ];
   function pickType(table, theme) {
     if (!theme || !theme.boost.length) return table[(Math.random() * table.length) | 0];
@@ -1380,7 +1380,14 @@ const Monsters = (() => {
     // #271 pick this floor's lean (cached per floor). Deep floors only; base 3 stay an even mix.
     let floorTheme = null;
     if (descent && floor >= 5) {
-      if (g._floorThemeFloor !== floor) { g._floorThemeFloor = floor; g._floorTheme = FLOOR_THEMES[(Math.random() * FLOOR_THEMES.length) | 0]; }
+      if (g._floorThemeFloor !== floor) {
+        g._floorThemeFloor = floor;
+        g._floorTheme = FLOOR_THEMES[(Math.random() * FLOOR_THEMES.length) | 0];
+        // #271 announce the floor's character on its first combat room, so the lean REGISTERS
+        if (g._floorTheme.name && typeof Fx !== 'undefined' && g.player) {
+          Fx.text(g.player.x, g.player.y - 46, g._floorTheme.name.toUpperCase() + ' FLOOR', g._floorTheme.color || '#ffd24c', 15);
+        }
+      }
       floorTheme = g._floorTheme;
     }
     for (let i = 0; i < n; i++) {
