@@ -89,6 +89,11 @@ const PlayerDef = (() => {
     { id: 'undead', name: 'Undead', color: '#9fb7a8', skin: '#a9bfae',
       desc: 'Already dead. Every kill knits you back together, but potions do 30% less for you.',
       fx: { healOnKill: 3, healMult: -0.30 } },
+    // #311 the ATTACK-SPEED race - the roster had heavy hitters, crit, tank and lifesteal but
+    // nothing built on a flurry of quick blows. A real trade: faster swings, softer hits.
+    { id: 'gnome',  name: 'Gnome',  color: '#c9a34e', skin: '#e6c9a0',
+      desc: 'Tinkerer. +18% attack speed, but each blow lands 12% lighter - a flurry of quick strikes.',
+      fx: { atkSpd: 0.18, dmg: -0.12 } },
   ];
   const raceById = id => RACES.find(r => r.id === (id || '')) || RACES[0];
 
@@ -722,6 +727,13 @@ const PlayerDef = (() => {
       c.beginPath(); c.arc(s * 0.26, s * 0.0, s * 0.07, 0, Math.PI * 2); c.fill();
       c.strokeStyle = 'rgba(30,40,36,0.5)'; c.lineWidth = Math.max(1, s * 0.07);
       c.beginPath(); c.moveTo(-s * 0.5, s * 0.42); c.lineTo(s * 0.5, s * 0.42); c.stroke();  // stitched jaw
+    } else if (id === 'gnome') {
+      // tinkerer's brass goggles pushed up on the brow + a round bulb nose (sits under a class hat)
+      c.fillStyle = 'rgba(150,205,225,0.55)'; c.strokeStyle = '#8a6a3a'; c.lineWidth = Math.max(1, s * 0.09);
+      for (const gx of [-1, 1]) { c.beginPath(); c.arc(gx * s * 0.28, -s * 0.32, s * 0.19, 0, Math.PI * 2); c.fill(); c.stroke(); }
+      c.beginPath(); c.moveTo(-s * 0.09, -s * 0.32); c.lineTo(s * 0.09, -s * 0.32); c.stroke();  // goggle bridge
+      c.fillStyle = 'rgba(212,150,120,0.95)';                    // a round bulb nose
+      c.beginPath(); c.arc(0, s * 0.2, s * 0.15, 0, Math.PI * 2); c.fill();
     }
     // human: no feature. That IS the human - the baseline face.
   }
