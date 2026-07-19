@@ -1991,6 +1991,16 @@ const PlayerDef = (() => {
       c.save();
       c.translate(this.x, this.y);
 
+      // CO-OP IDENTITY RING: a flat coloured ground ring in YOUR colour, so in a party
+      // scrum you can find yourself instantly. Drawn before the roll transform so it
+      // stays flat on the floor. Solo play has no one to tell apart, so it is skipped.
+      if (g && g.coop) {
+        c.save();
+        c.strokeStyle = partySlotColor(g, g.clientId); c.globalAlpha = 0.85; c.lineWidth = 2;
+        c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 1.05, this.r * 0.4, 0, 0, Math.PI * 2); c.stroke();
+        c.restore();
+      }
+
       // visual evolution state (drives aura, robe recolour, crest, embers)
       const evoStage = Math.min(4, this.evoCount || 0);
       const dom = evoStage > 0 ? this.dominantStat() : null;
@@ -2552,5 +2562,28 @@ const PlayerDef = (() => {
     return (dom && EVO_PAL[dom]) || null;
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor };
+  // CO-OP IDENTITY: a stable, vivid colour each player "owns", so in a 2-4 player
+  // scrum you can tell yourself and each teammate apart at a glance - a coloured ground
+  // ring + a name tag in the same hue. Derived from the stable uid (g.clientId locally,
+  // rp.u for peers), so it is the SAME on every screen and survives a reconnect. Eight
+  // well-separated hues; a simple string hash picks one deterministically.
+  const PLAYER_TINTS = ['#ffcf3f', '#4fd6ff', '#ff5fd0', '#7ef06e', '#ff8a3d', '#b784ff', '#37d9b0', '#ff6b6b'];
+  // A player's colour = its SLOT, i.e. the rank of its stable uid within the sorted set
+  // of ALL party uids (my clientId + every peer's rp.u). Every client tracks every peer,
+  // so all screens sort the same set and agree on who is which colour - and because it's
+  // a rank, not a hash, colours are GUARANTEED distinct for up to 8 players (no birthday
+  // collisions). If two players truly shared a slot they would be the same person.
+  function partySlotColor(g, uid) {
+    if (!g) return PLAYER_TINTS[0];
+    const ids = [String((g.clientId != null ? g.clientId : ''))];
+    if (g.remotePlayers) for (const [k, rp] of g.remotePlayers) ids.push(String((rp && rp.u) || k));
+    ids.sort();
+    const uniq = [];
+    for (const s of ids) if (!uniq.length || uniq[uniq.length - 1] !== s) uniq.push(s);
+    let i = uniq.indexOf(String(uid != null ? uid : ''));
+    if (i < 0) i = 0;
+    return PLAYER_TINTS[i % PLAYER_TINTS.length];
+  }
+
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor };
 })();

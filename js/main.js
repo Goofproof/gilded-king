@@ -4730,8 +4730,14 @@
       // resizes and grows the animal head, exactly like their own screen shows it.
       const form = rp.form && PlayerDef.formById ? PlayerDef.formById(rp.form) : null;
       const R = form ? Math.round(13 * form.scale) : 13;
+      const tint = PlayerDef.partySlotColor ? PlayerDef.partySlotColor(g, rp.u || id) : '#7fd4ff';
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, R - 2, R * 0.85, R * 0.27, 0, 0, Math.PI * 2); c.fill();
+      // CO-OP IDENTITY RING: this teammate's own colour, matching their name tag below
+      c.save();
+      c.strokeStyle = tint; c.globalAlpha = 0.85; c.lineWidth = 2;
+      c.beginPath(); c.ellipse(0, R - 2, R * 1.05, R * 0.4, 0, 0, Math.PI * 2); c.stroke();
+      c.restore();
       // #220 (Sam) the BODY was painted with rp.wc - the WEAPON's colour - so a teammate's
       // whole champion turned gold/purple with every weapon swap. The body now wears their
       // real colours: druid form, else the evolution recolour, else the default blue.
@@ -4748,7 +4754,7 @@
       if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R, rp.wm);
       c.restore();
       c.textAlign = 'center';
-      c.fillStyle = '#7fd4ff'; c.font = 'bold 10px monospace';
+      c.fillStyle = tint; c.font = 'bold 10px monospace';
       c.fillText(rp.name || id, rp.x, rp.y - 22);
       // #192 a teammate frozen on a pick screen says so - not an unexplained statue
       if (rp.busy) {
