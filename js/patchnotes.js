@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.178';
+  const VERSION = 'v2.179';
 
   const NOTES = [
+    {
+      v: 'v2.179', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '8eb6e69',
+      items: [
+        'Rename: your run \'score\' is now your FAME, and the high-score board is the HALL OF HEROES (with a fallen-hero poem for every name on it).',
+      ],
+    },
     {
       v: 'v2.178', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '12c5308',
