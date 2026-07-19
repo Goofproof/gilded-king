@@ -1738,9 +1738,11 @@ const PlayerDef = (() => {
             this.x = Math.max(PF.x + this.r, Math.min(PF.x + PF.w - this.r, this.x));
             this.y = Math.max(PF.y + this.r, Math.min(PF.y + PF.h - this.r, this.y));
           }
+          // #276 (Sam) a slightly WIDER hitbox on a charge - it barrels through a broad lane,
+          // not a thread. (+18 reach vs the old +8.)
           if (g && g.monsters) for (const m of g.monsters) {
             if (m.dead || m.airborne || m.spawnT > 0 || d.hits.has(m)) continue;
-            if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 8) {
+            if (Math.hypot(m.x - this.x, m.y - this.y) < m.r + this.r + 18) {
               d.hits.add(m);
               const dmg = d.dmg + (d.rider ? m.maxHp * d.rider * (m.isBoss ? 1 / 3 : 1) : 0);
               m.takeHit(dmg, { sx: this.x, sy: this.y, knock: d.knock, crit: d.crit, fromPlayer: true, hitSfx: d.knock >= 300 ? 'hitHeavy' : 'hitLight' }, g);
@@ -1749,6 +1751,13 @@ const PlayerDef = (() => {
           }
           this.ghostTimer -= dt;
           if (this.ghostTimer <= 0) { this.ghostTimer = 0.026; Fx.ghost({ x: this.x, y: this.y, r: this.r, rot: 0, color: d.color }); }
+          // #276 (Sam) the WAKE: drop a shockwave a beat behind the charge along its trail, so
+          // enemies knocked into the lane eat a SECOND hit. Reuses the delayed-AOE qpulse rig.
+          this.wakeTimer = (this.wakeTimer || 0) - dt;
+          if (this.wakeTimer <= 0 && g && g.ultFx) {
+            this.wakeTimer = 0.07;
+            g.ultFx.push({ type: 'qpulse', x: this.x, y: this.y, t: 0, delay: 0.2, dmg: Math.round(d.dmg * 0.5), radius: 52, rider: (d.rider || 0) * 0.5, color: d.color });
+          }
         }
       } else if (this.rollT >= 0) {
         this.rollT += dt;
