@@ -853,3 +853,49 @@ wiring unit-tested in classes-races.test.js (kind/rule/rank/milestones). 141 tes
 NUMBERS ARE FIRST-PASS + TUNABLE (beam dmg 0.6x, provoke poison 18dps, haste 1.4x, etc.) - Sam/
 son to playtest and call balance. Warlock name + milestone choices were my proposal (son didn't
 spec them); easy to rename/retune.
+
+## 2026-07-18/19 (OVERNIGHT GRIND: character models, mobile, deep-game variety)
+
+Long session, all shipped + verified LIVE (dbg / distribution tallies) + tests green. Versions
+~v2.150 -> v2.167. Working tree clean, all pushed.
+
+- BALANCE: boss HP x2.5 (BOSS_HP_MUL in boss.js, one tunable). Every MYTHIC now carries a 4th
+  enchant (out-classes legendary's 3) - weapons.js withMythicBonus, deterministic per mythic.
+- CO-OP IDENTITY: each player owns a distinct colour (partySlotColor = rank of stable uid in the
+  sorted party set, NOT a hash - collision-free up to 8, same on every screen). Coloured ground
+  ring + matching name tag. Rejected a pure hash after it collided ~40% among 4.
+- CHARACTER MODELS (Sam's big one): the in-game champion IS its character-select portrait now
+  (drawClassPortrait reused in-game with flash/evo colour overrides) - real face, race feature
+  (dwarf beard / elf ears / orc tusks / undead hollow eyes), per-class body colour, headgear
+  sitting correctly. Race travels to co-op peers (rc over the wire) + the loadout preview. My
+  first attempt (an invented armored-warrior body) was REJECTED by Sam ("make it like the main
+  screen") - reverted, then did the portrait approach. Consequence fixes: rings/weapon/auras +
+  body-worn evolutions (wings/tail/claws/plates/blades) re-anchored to the TORSO (origin is the
+  head now); head parts (horns/crown/halo) stay. Rolling still folds into the classic spinning
+  ball. Local + peer idle breathing bob.
+- CAPE: replaced endless chevrons + runaway length with a fixed-short cape + a MILITARY RANK
+  BADGE (recruit chevrons -> chief's crow -> bars -> oak leaves -> eagle -> admiral's stars),
+  patch on the lower-visible hem, colour still cycles per prestige. NOTE: keep "navy" OUT of
+  patch notes (Sam's call) - reworded the shipped note.
+- DEATH POEMS (eulogy.js): reworked from Homeric epic to a flowing BARD'S TALE + it now NAMES
+  what killed you (player.js records _killer on the lethal hit; MONSTER_NAMES + boss names).
+- GEAR PACING (Sam): no legendaries drop on floors 1-3 (maxRarity cap in rollRarity, clamps so a
+  boss's guaranteed legendary still lands). Guarded by rarity-cap.test.js.
+- MOBILE (Sam's screenshot: tiny game-in-a-window): auto-fullscreen on the first play tap
+  (touch.js, enter-only, once) + landscape orientation lock; dynamic viewport units (dvh/dvw);
+  PWA manifest. HONEST LIMIT flagged to Sam: iPhone Safari has NO Fullscreen API for the canvas
+  (only <video>), so the only true fullscreen there is Add to Home Screen - added a one-time,
+  dismissible iOS hint pointing to it. Auto-fullscreen helps Android/iPad/desktop.
+- QoL: walk-over potion auto-pickup when the slot is empty; character-sheet skills no longer
+  overlap (wrapText returns a baseline; the +6 gap let the next bold name collide - now +18).
+- LATER LEVELS LESS BORING (Sam): research agent mapped the deep loop - roster FROZEN at tier 5
+  past floor 5, loot depth-flat, only 3 elite affixes, post-Hell bosses collapse to one recurring
+  Warden. SAFE levers done: (1) 3 new elite affixes -> 6, then Splitter -> 7 (Berserk frenzies
+  when wounded, Warded cycles a block-bubble, Vampiric heals off you, Splitter bursts into adds);
+  (2) per-floor THEMES (Siege/Hunt/Bulwark/Frost) that re-weight the same roster + an arrival cue;
+  (3) DEEP-LOOT CARROT - drop FLOOR rarity rises with depth (floor 12+ no commons, 22+ no commons/
+  uncommons; raises floor not power). Integration smoke-test at floor 22 clean (49% elites all 7
+  affixes, loot rare+ only, no console errors).
+- HELD FOR SAM (need his steer, too risky to build blind unattended): brand-new enemy TYPES
+  (the #1 monotony cause - the frozen roster), and unique post-Hell BOSSES (currently one recolor
+  every 3rd floor past 12). These are content/art calls - do them WITH Sam reviewing feel.
