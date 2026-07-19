@@ -47,7 +47,8 @@ const Eulogy = (() => {
     try { if (typeof Dungeon !== 'undefined' && Dungeon.themeFor) nm = Dungeon.themeFor(f).name; } catch (e) { /* fall back to the number */ }
     if (!nm) return null;
     nm = String(nm).split('·')[0].trim().replace(/^THE\s+/i, '');
-    return titleCase(nm);
+    // lower-case the little joining words so a place reads "Sphere of Jupiter", not "Of".
+    return titleCase(nm).replace(/\B(Of|The|And|To|In|On)\b/g, m => m.toLowerCase());
   }
 
   // class -> a Homeric epithet pool. Keyed loosely by the class name so heavy
@@ -110,6 +111,7 @@ const Eulogy = (() => {
     // ten rewordings of the same Homeric invocation.
     const r = rng(hash(name + '|' + (s.score || 0) + '|' + (s.className || '') + '|' + (s.rank != null ? s.rank : '')));
     const classEp = pick(r, classEpithets(s.className));
+    const aClass = (/^[aeiou]/i.test(classEp) ? 'an ' : 'a ') + classEp; // "an iron-hearted", "a lock-whisperer"
     const statEp = signature(r, s);
     const weapon = (s.weapons && s.weapons.length) ? cleanWeapon(s.weapons[0]) : null;
     const ult = s.ult ? titleCase(s.ult) : null;
@@ -119,64 +121,152 @@ const Eulogy = (() => {
     const slayer = killerName(s.killer);
 
     const lines = [];
-    // #269 (Sam) a BARD'S TALE, not a Homeric epic: warmer, flowing, sung across the table,
-    // and it names the thing that finally caught you. L1 - the bard settling into the story.
-    // The board rank walks the list so neighbouring top-5 raiders never open the same way.
-    const L1 = [
-      `Gather close, and hear of ${name} the ${classEp}.`,
-      `Here is a tale worth the telling: ${name}, ${classEp}.`,
-      `They still sing of ${name} down in these halls.`,
-      `Once, not so long ago, ${name} the ${classEp} went down into the barrow.`,
-      `Pour another round, and I will tell you of ${name}.`,
-      `You want a story? Then hear of ${name}, ${classEp}.`,
-      `There was a ${classEp} named ${name}, and this is how it ended.`,
-      `Every door in the dark came to know the name ${name}.`,
-      `Some go down for the gold. ${titleCase(String(name).toLowerCase())} went down for the going.`,
-      `Listen now: the barrow took ${name}, but it did not come cheap.`,
-    ];
-    if (s.rank != null && s.rank >= 0 && s.rank < 5) lines.push(L1[(s.rank * 2 + ((r() * 2) | 0)) % L1.length]);
-    else lines.push(pick(r, L1));
+    // #277/#279 (Sam) a rhyming BARD'S TALE with a RANGE OF MOODS - cheeky, fearful,
+    // hopeful, fun, and grand-epic - so the Hall of Heroes is not one dirge sung ten times.
+    // Two AABB couplets: couplet ONE = who they were + how they fought; couplet TWO = a
+    // deed + the fall. The dynamic bits (name, class, weapon, stat, ult, and the FELLTHING
+    // that got them) sit MID-line so every line ends on a fixed rhyme word no matter what
+    // run built it. Shakespeare-license granted (Sam): bend a word, slant a rhyme, use an
+    // "o'er" or an "aye" where it sings better than the strict form.
 
-    // L2 - how they fought: their signature woven with the blade that carried it
-    lines.push(weapon
-      ? pick(r, [
-        `${cap(statEp)} they were, and ${weapon} sang wherever they carried it.`,
-        `With ${weapon} in hand they cut a road through the deep, ${statEp} to the last.`,
-        `They were ${statEp}, and let ${weapon} answer every door.`,
-        `${weapon} never left their grip, for they were ${statEp}.`,
-      ])
-      : pick(r, [
-        `${cap(statEp)} they were, and needed no blade at all.`,
-        `They went ${statEp}, and empty-handed still nothing could hold them.`,
-        `${cap(statEp)}, they let the dark come to them.`,
-      ]));
+    // ONE adaptive fragment for whatever ended the run, usable mid-sentence in any couplet:
+    // "a Chaser in the Lust Circle" / "a Chaser" / "the Lust Circle" / "the long dark".
+    const fellThing = (slayer && place) ? `${slayer} in the ${place}`
+      : slayer ? slayer
+      : place ? `the ${place}`
+      : 'the long dark';
 
-    // L3 - a deed worth a verse: the ultimate they loosed (skipped if none recorded)
-    if (ult) lines.push(pick(r, [
-      `When the walls closed in they loosed the ${ult}, and the deep remembers it still.`,
-      `More than once the ${ult} bought them one more floor.`,
-      `They saved the ${ult} for the worst of it, and the worst of it always came.`,
-      `The ${ult} answered when they called it, and whole rooms went quiet.`,
-    ]));
+    // Each tone owns a pool of opener couplets (c1) and fall couplets (c2). c1 weaves
+    // name/class/weapon/stat; c2 weaves the ultimate + fellThing. All AABB.
+    const TONE_POOLS = {
+      // CHEEKY - the bard is roasting them, warmly. They had it coming and it is funny.
+      cheeky: {
+        c1: [
+          [`Here lies ${name}, who really should have run;`,
+           `${aClass}, sure - but the dark still won.`],
+          [`Let's hear it for ${name}, who thought they were tough,`,
+           weapon ? `swung the ${weapon} about, but not quite enough.` : `talked a big game, but it wasn't enough.`],
+          [`Poor ${name}, so ${statEp}, so bold, so vain,`,
+           `who strutted straight down and won't strut again.`],
+          [`A moment of silence - then back to the ale -`,
+           `for ${name} the ${classEp}, whose luck went stale.`],
+        ],
+        c2: [
+          [ult ? `They flexed the ${ult}, gave a cocky little bow,` : `They blew the crowd a kiss, and boy, and how,`,
+           `then ${fellThing} wiped that grin off, right now.`],
+          [`They swaggered too far, as the cocky ones do,`,
+           `and ${fellThing} sent them home with an I-told-you.`],
+          [ult ? `Just one more ${ult}, they said - one more round -` : `Just one more room, they said, safe and sound,`,
+           `then ${fellThing} put them flat on the ground.`],
+          [`Let that be a lesson, you reckless young fool:`,
+           `${fellThing} plays it forever cool.`],
+        ],
+      },
+      // FEARFUL - dread and hush; the deep is a hungry thing. Leans archaic.
+      fearful: {
+        c1: [
+          [`Speak soft the name ${name}, and speak it with dread,`,
+           `${aClass} the barrow now counts with its dead.`],
+          [`There walked in the deep one ${name} by name,`,
+           weapon ? `and the ${weapon} they bore could not smother the flame.` : `and nothing they carried could smother the flame.`],
+          [`Cold crept the dark where ${name} did tread,`,
+           `${statEp}, aye - yet filled with a nameless dread.`],
+          [`Hush now - do you hear it? The under-halls moan`,
+           `the name of ${name}, who went down alone.`],
+        ],
+        c2: [
+          [ult ? `They loosed the ${ult}, but the dark only grinned,` : `They prayed for the dawn, but the dawn was thinned,`,
+           `and ${fellThing} closed in like a cold black wind.`],
+          [`Something waited below where no torch dares go,`,
+           `and ${fellThing} was the last thing they'd know.`],
+          [ult ? `The ${ult} flared once, then guttered and died,` : `The last of their courage but guttered and died,`,
+           `as ${fellThing} drew near, and there would they bide.`],
+          [`The deep has a hunger, patient and old,`,
+           `and ${fellThing} took ${name} down into the cold.`],
+        ],
+      },
+      // HOPEFUL - they fell, but the light they carried outlasts them.
+      hopeful: {
+        c1: [
+          [`Lift up your heads for ${name}, who tried,`,
+           `${aClass} who walked with the light as their guide.`],
+          [`Not every tale of the deep ends in gloom:`,
+           `${name} the ${classEp} lit up the room.`],
+          [`Sing high for ${name}, ${statEp} and true,`,
+           weapon ? `who took up the ${weapon} and carried it through.` : `who carried a candle the whole journey through.`],
+          [`They say that the barrow takes all that it can,`,
+           `but ${name} burned bright as the long night began.`],
+        ],
+        c2: [
+          [ult ? `They spent the last ${ult} to buy others time,` : `They held the line long past reason or rhyme,`,
+           `and ${fellThing} could not stop the light in its climb.`],
+          [`Yes, ${fellThing} was there at the end of the road,`,
+           `but the fire they kindled is a lasting abode.`],
+          [`The spark that they carried was a gift to us all,`,
+           `and ${fellThing} could not darken that hall.`],
+          [`They fell, yes, they fell - but they fell going on,`,
+           `and ${fellThing} could not take the light they had drawn.`],
+        ],
+      },
+      // FUN - a rollicking, silly romp. Sound effects welcome.
+      fun: {
+        c1: [
+          [`Oh gather 'round for a rollicking song,`,
+           `of ${name} the ${classEp}, who barreled along.`],
+          [`Here's to ${name} - what a wonderful mess -`,
+           `${statEp}, all grin and a great deal less sense.`],
+          [weapon ? `Ka-pow went the ${weapon}, and down went the foes,` : `Ka-pow went their fists, and down went the foes,`,
+           `for ${name} the ${classEp}, who struck a fine pose.`],
+          [`They cannonballed down through the murk and the muck,`,
+           `did ${name} the ${classEp}, on a wave of dumb luck.`],
+        ],
+        c2: [
+          [ult ? `They hollered 'watch THIS!' and let the ${ult} fly,` : `They hollered 'watch THIS!' and gave it a try,`,
+           `then ${fellThing} came by and said bye-bye.`],
+          [`They juggled the danger, they danced and they spun,`,
+           `till ${fellThing} showed up and spoiled the fun.`],
+          [ult ? `Boom went the ${ult}, and boom went the hall,` : `Whee down the stairwells, and whomp down the hall,`,
+           `then ${fellThing} tripped them, and that was all.`],
+          [`What a ride, what a racket, what glorious din -`,
+           `till ${fellThing} turned up with a grin.`],
+        ],
+      },
+      // EPIC - the grand elegiac register (the champion's default).
+      epic: {
+        c1: [
+          [`Gather close and hear the tale they tell:`,
+           weapon ? `of ${name}, ${statEp}, who bore the ${weapon} well.` : `of ${name}, ${statEp}, who fought the dark and fell.`],
+          [`They still sing of ${name} in the under-deep,`,
+           weapon ? `who swung the ${weapon} that gave the dark no sleep.` : `whose ${statEp} step the black could never keep.`],
+          [`Some go down for gold, and some for fame;`,
+           `${name} the ${classEp} went down all the same.`],
+          [`Mark the name well, for the barrow does too:`,
+           `${name} the ${classEp}, who saw the deep through.`],
+        ],
+        c2: [
+          [ult ? `They loosed the ${ult} when the end drew near,` : `They fought to the last with never a fear,`,
+           `till ${fellThing} caught them, and left them here.`],
+          [ult ? `The ${ult} bought a floor, and then one more,` : `Floor upon floor they ran up the score,`,
+           `till ${fellThing} met them at the final door.`],
+          [`They gave the deep more than the deep thought they could,`,
+           `till ${fellThing} caught them for good.`],
+          [`No name outlasts the whole of the night,`,
+           `and ${fellThing} put out that light.`],
+        ],
+      },
+    };
 
-    // L4 - the fall: WHO took them, and WHERE. The heart of the bard's tale (#269 Sam).
-    if (slayer && place) lines.push(pick(r, [
-      `In the end it was ${slayer} that took them, there in the ${place}.`,
-      `${cap(slayer)} was waiting in the ${place}, and that is where the song stops.`,
-      `${cap(slayer)} caught them at last in the ${place}, and ${name} went quiet.`,
-      `No one outlasts every floor: ${slayer} met them in the ${place}, and that was the end.`,
-    ]));
-    else if (slayer) lines.push(pick(r, [
-      `In the end it was ${slayer} that took them, and ${name} went quiet.`,
-      `${cap(slayer)} caught them at last, and there the song stops.`,
-      `No one outlasts every floor, and ${slayer} was the one who proved it.`,
-    ]));
-    else if (place) lines.push(pick(r, [
-      `The ${place} closed over ${name}, and did not give them back.`,
-      `Somewhere in the ${place}, the story stops mid-sentence.`,
-      `The ${place} was one door too many, and there ${name} stayed.`,
-    ]));
-    else lines.push(s.floor != null ? `They fell on floor ${s.floor}, and were still.` : `The long dark took them, as one day it takes us all.`);
+    // TONE choice: the visible top-5 get DISTINCT tones (champion sings epic; the rest
+    // spread across the range) so the board always shows the full spread. Everyone else
+    // draws a tone off their own seed.
+    const TONES = ['cheeky', 'fearful', 'hopeful', 'fun', 'epic'];
+    const TOP5 = ['epic', 'hopeful', 'fearful', 'cheeky', 'fun'];
+    const tone = (s.rank != null && s.rank >= 0 && s.rank < 5) ? TOP5[s.rank] : pick(r, TONES);
+    const pool = TONE_POOLS[tone];
+
+    const c1 = pick(r, pool.c1);
+    const c2 = pick(r, pool.c2);
+    lines.push(c1[0], c1[1], c2[0], c2[1]);
 
     return lines;
   }
@@ -188,7 +278,7 @@ const Eulogy = (() => {
     const name = (s.initials || '???').toUpperCase();
     const parts = [
       `${name} the ${titleCase(s.className || 'Adventurer')} - Barrowlight`,
-      `Score ${num(s.score, 0)} · Level ${num(s.level, 0)} · Floor ${num(s.floor, 0)} · ${num(s.kills, 0)} kills`,
+      `Fame ${num(s.score, 0)} · Level ${num(s.level, 0)} · Floor ${num(s.floor, 0)} · ${num(s.kills, 0)} kills`,
       '',
       ...forSnap(s),
     ];
