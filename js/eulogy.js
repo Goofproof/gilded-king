@@ -147,6 +147,35 @@ const Eulogy = (() => {
     return null;
   }
 
+  // #292 (Sam) a PSYCHOLOGICAL read of the run from the CHOICES the player made. The FIRST
+  // stat they raised is read as their deepest FEAR (the first problem they rushed to solve);
+  // a stat they poured most of everything into is read as OVERCOMPENSATING. Returns a rhyming
+  // aside, or null when the snapshot has no stat data (old / global boards) - it degrades away.
+  const PSY_STATS = ['MIGHT', 'VIGOR', 'AGILITY', 'ARCANE', 'FORTUNE'];
+  const FEAR = {
+    MIGHT:   [`They feared, above all else, to be reckoned as weak,`, `so power was the first of the things they would seek.`],
+    VIGOR:   [`They feared, more than any dark thing, the grave,`,     `so their own guttering life was the first thing to save.`],
+    AGILITY: [`They dreaded a dead end, a cornering, a stall,`,        `so fleetness came first, to outrun it all.`],
+    ARCANE:  [`They feared the unknowable most, and so learned`,       `to wield it themselves - the first lesson they earned.`],
+    FORTUNE: [`They feared, more than dying, to die without gold,`,    `so fortune came first in the tale that is told.`],
+  };
+  const OVER = {
+    MIGHT:   [`So much of it MIGHT, and so little beside -`,           `you wonder what smallness that muscle would hide.`],
+    VIGOR:   [`So walled and so armoured, so wary, so sure -`,         `you wonder what fright they were building it for.`],
+    AGILITY: [`All quickness, no anchor, forever in flight -`,         `from what were they running so hard through the night?`],
+    ARCANE:  [`So drunk on the arcane, and starved for the rest -`,    `you wonder what emptiness gnawed at their breast.`],
+    FORTUNE: [`So hungry for gold, and for little else known -`,       `you wonder what want gnawed them down to the bone.`],
+  };
+  function psychRead(s) {
+    const sp = s.statPoints; if (!sp) return null;
+    let total = 0, top = null, topV = 0;
+    for (const k of PSY_STATS) { const v = sp[k] || 0; total += v; if (v > topV) { topV = v; top = k; } }
+    if (total < 3) return null;                                        // too few choices to read anything into
+    if (total >= 7 && topV >= total * 0.55 && OVER[top]) return OVER[top];  // one stat dominated -> overcompensating
+    if (s.firstStat && FEAR[s.firstStat]) return FEAR[s.firstStat];         // else the first fear they rushed to answer
+    return null;
+  }
+
   // Build the verse. Every load-bearing detail (weapon, signature stat, ultimate)
   // is drawn from the snapshot; missing fields degrade to a generic heroic line.
   function forSnap(s) {
@@ -317,7 +346,10 @@ const Eulogy = (() => {
 
     const c1 = pick(r, pool.c1);
     const c2 = pick(r, pool.c2);
-    lines.push(c1[0], c1[1], c2[0], c2[1]);
+    lines.push(c1[0], c1[1]);
+    const psy = psychRead(s);          // #292 a read of who they were, from what they chose
+    if (psy) lines.push(psy[0], psy[1]);
+    lines.push(c2[0], c2[1]);
 
     return lines;
   }

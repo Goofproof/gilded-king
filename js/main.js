@@ -1534,6 +1534,7 @@
       dmgMul: +(st.dmgMul || 1).toFixed(2), spdMul: +(st.speedMul || 1).toFixed(2),
       crit: Math.round((st.crit || 0) * 100), coinMul: +(st.coinMul || 1).toFixed(2), magic: st.magic || 1,
       statPoints: Object.assign({}, p.statPoints),
+      firstStat: p.firstStat || null, // #292 (Sam) the first stat they raised - their deepest fear
       evos: (p.evoTaken || []).map(e => e.name).slice(0, 8),
       weapons: [nm(p.weapons && p.weapons.a), nm(p.weapons && p.weapons.b)].filter(Boolean),
       armor: nm(p.armor),
@@ -5906,6 +5907,7 @@
     // #stat-redesign: EVOLUTION triggers on the base STAT this card governs, so any
     // mix of a stat's feeder cards (3/6/9/12 total) opens that stat's evolution.
     const stat = ch.stat || Evolutions.STAT_SCHOOL[ch.key];
+    if (!p.firstStat) p.firstStat = stat; // #292 (Sam) the FIRST problem they chose to solve - read as their deepest fear in the eulogy
     p.statPoints[stat] = (p.statPoints[stat] || 0) + 1;
     const sp = p.statPoints[stat];
     if (Evolutions.TIER_LABEL[sp]) g.evoQueue.push({ stat, stacks: sp });
