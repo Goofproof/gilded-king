@@ -342,6 +342,12 @@ const Rules = (() => {
         const dx = cx - p.x, dy = cy - p.y, d = Math.hypot(dx, dy);
         if (d > 26) { p.x += (dx / d) * 42 * dt; p.y += (dy / d) * 42 * dt; }
       } },
+    // #312 BLACKOUT: brings the Sewn Eyes' limited vision to the mutator rotation, so any deep
+    // floor can go dark (and it stacks - Gale + Blackout is a dark floor that also shoves you).
+    // Reuses the existing r.vision render; a touch more generous than the circle since it stacks.
+    { key: 'blackout', name: 'BLACKOUT', color: '#3a3f4a',
+      desc: 'The dark presses in. You see only what is almost upon you.',
+      vision: 200 },
   ];
 
   // how many mutators a floor carries. Depth is floors below the King.
