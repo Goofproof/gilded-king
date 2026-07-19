@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.186';
+  const VERSION = 'v2.187';
 
   const NOTES = [
+    {
+      v: 'v2.187', title: 'Mobile: added SALV and HONE buttons to the touch', date: '2026-07-19',
+      sha: 'acdd7a3',
+      items: [
+        'Mobile: added SALV and HONE buttons to the touch controls - phone players can finally scrap a drop for shards and hone their weapon, which were keyboard-only (X/U) before.',
+        'New enemy - the WARDEN: a hooded support caster that hangs back and pulses a barrier, shielding every nearby monster from most of your damage and empowering their next hit. Kill it first or the whole room turns spongy.',
+        'Fusions EVOLVE now: pour points into a fusion\'s two stats and at rank 6 it becomes EVOLVED (recharges faster, hits harder) and at rank 12 ASCENDED - a real jump you can see, its name gaining a + then a star.',
+        'Pick your DIFFICULTY before a run: Wanderer, Adventurer, Veteran or Nightmare on the title screen, scaling monster health and damage - and the harder you dare, the more FAME your run is worth (Adventurer is the classic balance).',
+      ],
+    },
     {
       v: 'v2.186', title: 'Melee swings now show the actual weapon', date: '2026-07-19',
       sha: 'f3d58b6',
