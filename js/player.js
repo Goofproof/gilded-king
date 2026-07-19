@@ -1831,6 +1831,8 @@ const PlayerDef = (() => {
             chill: Weapons.has(w, 'frost'), venom: Weapons.has(w, 'venom'), chain: Weapons.has(w, 'chain'),
             stagger: w.stagger,
             execute: !!Weapons.has(w, 'executioner'),
+            deathTouch: this.mod('deathTouch'), // #dimmak the fabled death touch: a flat instakill chance
+
             hitSfx: w.archetype === 'heavy' ? 'hitHeavy' : 'hitLight',
             crit, fromPlayer: true,
           }, g);

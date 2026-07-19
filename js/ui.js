@@ -146,6 +146,7 @@ const UI = (() => {
     if (p.buffs.shield > 0) buffs.push({ label: '⛨ shield', color: '#7fd4ff' });
     if (p.buffs.rageT > 0) buffs.push({ label: `↑ rage ${Math.ceil(p.buffs.rageT)}s`, color: '#e05555' });
     if (p.buffs.hasteT > 0) buffs.push({ label: `» haste ${Math.ceil(p.buffs.hasteT)}s`, color: '#ffe08a' });
+    if (p.blindT > 0) buffs.push({ label: `✷ BLINDED ${Math.ceil(p.blindT)}s`, color: '#c060ff' });
     c.font = 'bold 12px monospace';
     for (const b of buffs) {
       c.fillStyle = b.color;

@@ -193,7 +193,7 @@ const Evolutions = (() => {
     // -------------------------------------------------- DEADLY (crit)
     crit: {
       3: [
-        { name: 'Dim Mak', desc: 'The fabled death touch: +12% crit chance', fx: { critCh: 0.12 } },
+        { name: 'Dim Mak', desc: 'The fabled death touch: +12% crit chance, and a 1% chance to INSTANTLY KILL on a hit', fx: { critCh: 0.12, deathTouch: 0.01 } },
         { name: 'Jugular Sense', desc: 'Crits hit 80% harder', fx: { critDmg: 0.8 } },
         { name: 'Desmodus Draw', desc: 'The vampire bat\'s trick: crits heal 4 HP', fx: { critHeal: 4 } },
       ],

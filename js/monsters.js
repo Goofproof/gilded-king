@@ -1230,6 +1230,14 @@ const Monsters = (() => {
       Fx.burst(m.x, m.y, '#ffd24c', 12, { speed: 150, life: 0.5, glow: true });
       Sfx.play('deathtouch'); // the death-touch proc gets its own ominous cue
     }
+    // #dimmak DIM MAK, the fabled death touch: a flat chance to instantly kill on any hit
+    // (bosses resist). Full HP or nearly dead, the touch does not care.
+    else if (opts.deathTouch && !m.isBoss && m.hp > 0 && Math.random() < opts.deathTouch) {
+      m.hp = 0;
+      Fx.text(m.x, m.y - m.r - 18, 'DEATH TOUCH', '#c060ff', 15);
+      Fx.burst(m.x, m.y, ['#c060ff', '#e0b0ff', '#fff'], 16, { speed: 170, life: 0.6, glow: true });
+      Sfx.play('deathtouch');
+    }
     if (!opts.silent) {
       Fx.text(m.x + (Math.random() * 16 - 8), m.y - m.r - 6, Math.round(dmg), opts.crit ? '#ffd24c' : '#ffffff', opts.crit ? 16 : 12);
       Fx.burst(m.x, m.y, opts.crit ? '#ffd24c' : '#ff6655', opts.crit ? 10 : 5, { speed: 110, life: 0.35 });

@@ -7014,6 +7014,12 @@
       c.save();
       c.fillStyle = `rgba(255,252,235,${a.toFixed(3)})`;
       c.fillRect(0, 0, W, H);
+      // #182 SAY it, so a white-out does not read as a broken game (Sam)
+      const ta = Math.min(0.9, a + 0.15);
+      c.textAlign = 'center';
+      c.fillStyle = `rgba(70,30,100,${ta.toFixed(3)})`;
+      c.font = 'bold 38px monospace'; c.fillText('BLINDED', W / 2, H / 2 - 6);
+      c.font = '15px monospace'; c.fillText('your sight is coming back', W / 2, H / 2 + 24);
       c.restore();
     }
 
