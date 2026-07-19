@@ -5509,6 +5509,15 @@
       Sfx.play('ui');
       return;
     }
+    // #272 (Sam) LEVEL UP from anywhere: V during play opens the sheet and, if you have points
+    // banked, jumps STRAIGHT into the spend popup (no need to open the sheet then press V again).
+    if (input.pressed('KeyV')) {
+      g.state = 'charsheet'; g.overlayT = 0;
+      g.player.drawT = -1;
+      if (g.levelUpQueue > 0) g.spendOpen = true;
+      Sfx.play('ui');
+      return;
+    }
     if (Fx.tickHitstop(dt)) { g.preserveInput = true; return; } // hit-stop: world freezes, but buffered presses survive it
     if (typeof Ach !== 'undefined') Ach.tick(g); // #86 live maxes (hp/coins/rooms)
 
