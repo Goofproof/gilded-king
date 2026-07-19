@@ -4007,7 +4007,8 @@
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
           if (r.action === 'start') { newRun(); return; }
-          if (r.action === 'coop') { openLobby(); return; }
+          if (r.action === 'coop') { g.lobbyPvp = false; openLobby(); return; }
+          if (r.action === 'pvp') { g.lobbyPvp = true; g.lobbyDuel = true; g.lobbyHunt = false; openLobby(); return; } // #294 dedicated PVP entrance
           if (r.action === 'fullscreen') { toggleFullscreen(); return; }
           if (r.action === 'rename') { openRename(); return; }
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
@@ -4778,8 +4779,9 @@
             Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0, dif: g.meta.difficulty }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt, g.meta.difficulty); return; // #173 pin authority
           }
           if (r.action === 'lobby-ff') { g.lobbyFF = !g.lobbyFF; Sfx.play('ui'); } // #224
-          if (r.action === 'lobby-duel') { g.lobbyDuel = !g.lobbyDuel; if (g.lobbyDuel) g.lobbyHunt = false; Sfx.play('ui'); } // #240
-          if (r.action === 'lobby-hunt') { g.lobbyHunt = !g.lobbyHunt; if (g.lobbyHunt) g.lobbyDuel = false; Sfx.play('ui'); } // #241
+          // #294 in the PVP lobby these are a RADIO (one arena always chosen); in co-op they toggle
+          if (r.action === 'lobby-duel') { if (g.lobbyPvp) { g.lobbyDuel = true; g.lobbyHunt = false; } else { g.lobbyDuel = !g.lobbyDuel; if (g.lobbyDuel) g.lobbyHunt = false; } Sfx.play('ui'); } // #240
+          if (r.action === 'lobby-hunt') { if (g.lobbyPvp) { g.lobbyHunt = true; g.lobbyDuel = false; } else { g.lobbyHunt = !g.lobbyHunt; if (g.lobbyHunt) g.lobbyDuel = false; } Sfx.play('ui'); } // #241
           if (r.action === 'lobby-back') { closeLobby(); return; }
         }
       }

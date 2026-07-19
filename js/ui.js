@@ -1126,29 +1126,26 @@ const UI = (() => {
       c.fillText(`● ${g.playersOnline} raiders carry the light`, W / 2, 140);
     }
 
-    // solo + co-op buttons, side by side
-    const startR = { x: W / 2 - 212, y: 152, w: 200, h: 46, action: 'start' };
-    const coopR  = { x: W / 2 + 12,  y: 152, w: 200, h: 46, action: 'coop' };
+    // #294 (Sam) THREE doors into the game, side by side: SOLO, CO-OP, and PVP (a dedicated
+    // arena entrance, so the fights are not buried inside the co-op lobby's toggles).
     const pulse = Math.sin(Date.now() / 300) * 0.12 + 0.88;
-    c.fillStyle = `rgba(212,175,55,${0.15 * pulse})`;
-    c.fillRect(startR.x, startR.y, startR.w, startR.h);
-    c.strokeStyle = '#ffd24c'; c.lineWidth = 2;
-    c.strokeRect(startR.x, startR.y, startR.w, startR.h);
-    c.font = 'bold 18px monospace';
-    c.fillStyle = '#ffd24c';
-    c.fillText('ENTER DUNGEON', startR.x + startR.w / 2, startR.y + 29);
-    // co-op button (cyan)
-    c.fillStyle = `rgba(127,212,255,${0.12 * pulse})`;
-    c.fillRect(coopR.x, coopR.y, coopR.w, coopR.h);
-    c.strokeStyle = '#7fd4ff'; c.lineWidth = 2;
-    c.strokeRect(coopR.x, coopR.y, coopR.w, coopR.h);
-    c.font = 'bold 18px monospace';
-    c.fillStyle = '#7fd4ff';
-    c.fillText('PLAY ONLINE', coopR.x + coopR.w / 2, coopR.y + 24);
-    c.font = '10px monospace'; c.fillStyle = '#5f8ba0';
-    c.fillText('co-op with friends', coopR.x + coopR.w / 2, coopR.y + 38);
+    const BW = 136, BY = 152, BH = 46, bgap = 8, bx0 = W / 2 - (BW * 3 + bgap * 2) / 2;
+    const homeBtn = (i, action, title, sub, col) => {
+      const x = bx0 + i * (BW + bgap);
+      c.fillStyle = `rgba(${col},${0.14 * pulse})`; c.fillRect(x, BY, BW, BH);
+      c.strokeStyle = `rgb(${col})`; c.lineWidth = 2; c.strokeRect(x, BY, BW, BH);
+      c.textAlign = 'center';
+      c.font = 'bold 17px monospace'; c.fillStyle = `rgb(${col})`;
+      c.fillText(title, x + BW / 2, BY + 25);
+      c.font = '9px monospace'; c.fillStyle = `rgba(${col},0.7)`;
+      c.fillText(sub, x + BW / 2, BY + 38);
+      return { x, y: BY, w: BW, h: BH, action };
+    };
+    const startR = homeBtn(0, 'start', 'SOLO', 'dive alone', '255,210,76');
+    const coopR  = homeBtn(1, 'coop', 'CO-OP', 'with friends', '127,212,255');
+    const pvpR   = homeBtn(2, 'pvp', 'PVP', 'fight friends', '255,106,138');
 
-    const rects = [startR, coopR];
+    const rects = [startR, coopR, pvpR];
 
     // #291 (Sam) DIFFICULTY selector, tucked between the play buttons and the race picker.
     // Click cycles Wanderer -> Adventurer -> Veteran -> Nightmare. Persists across runs.
@@ -2280,10 +2277,11 @@ const UI = (() => {
     c.save();
     c.fillStyle = '#0d0d16'; c.fillRect(0, 0, W, H);
     c.textAlign = 'center';
-    c.font = 'bold 30px monospace'; c.fillStyle = '#7fd4ff';
-    c.fillText('PLAY ONLINE', W / 2, 92);
+    const pvp = !!g.lobbyPvp; // #294 entered through the PVP door
+    c.font = 'bold 30px monospace'; c.fillStyle = pvp ? '#ff6a8a' : '#7fd4ff';
+    c.fillText(pvp ? 'PVP ARENA' : 'PLAY ONLINE', W / 2, 92);
     c.font = '12px monospace'; c.fillStyle = '#8fa3bf';
-    c.fillText('co-op dungeon runs with friends', W / 2, 116);
+    c.fillText(pvp ? 'duel or battle-royale against your friends' : 'co-op dungeon runs with friends', W / 2, 116);
     const rects = [];
     const btn = (x, y, w, h, label, action, col, on = true) => {
       c.fillStyle = on ? `rgba(${col},0.14)` : 'rgba(120,120,130,0.06)';
@@ -2314,25 +2312,36 @@ const UI = (() => {
       c.fillText('share this code with your friends', W / 2, 180);
       c.font = 'bold 54px monospace'; c.fillStyle = '#ffd24c';
       c.fillText(Net.code || '····', W / 2, 240);
-      c.font = '13px monospace'; c.fillStyle = '#cdd4e2';
-      c.fillText(`players in lobby: ${Net.playerCount}`, W / 2, 290);
-      btn(W / 2 - 130, 320, 260, 50, 'START GAME', 'lobby-start', '127,212,255');
-      // #224 PVP Phase 0: the host arms friendly fire for the whole run
-      btn(W / 2 - 130, 384, 260, 36, `FRIENDLY FIRE: ${g.lobbyFF ? 'ON' : 'OFF'}`, 'lobby-ff', g.lobbyFF ? '255,90,90' : '143,163,191');
-      // #240 PVP Phase 1: THE DUEL - a sealed arena, rounds, first to 3
-      btn(W / 2 - 130, 428, 126, 36, `⚔ DUEL ${g.lobbyDuel ? 'ON' : 'OFF'}`, 'lobby-duel', g.lobbyDuel ? '255,210,76' : '143,163,191');
-      // #241/#281 PVP Phase 2: RAIDER ROYALE (was "the Gilded Hunt") - battle royale across the whole floor
-      btn(W / 2 + 4, 428, 126, 36, `☠ ROYALE ${g.lobbyHunt ? 'ON' : 'OFF'}`, 'lobby-hunt', g.lobbyHunt ? '255,120,60' : '143,163,191');
-      c.font = '11px monospace';
-      if (g.lobbyHunt) {
-        c.fillStyle = '#d99a61';
-        c.fillText('RAIDER ROYALE: spawn apart, gear up, the swarm closes in, last one standing.', W / 2, 482);
-      } else if (g.lobbyDuel) {
-        c.fillStyle = '#c9b061';
-        c.fillText('a sealed arena. no monsters. first to 3 rounds. good luck.', W / 2, 482);
-      } else if (g.lobbyFF) {
-        c.fillStyle = '#c98080';
-        c.fillText('swords and arrows hurt your friends. chaos mode.', W / 2, 482);
+      // #29 PLAYER SLOTS: pips so the host sees who has joined at a glance (gold = you)
+      const pc = Net.playerCount || 1, shown = Math.min(8, Math.max(pc, 2)), sgap = 24;
+      c.font = '11px monospace'; c.fillStyle = '#8fa3bf';
+      c.fillText(pc > 1 ? `${pc} here` : 'waiting for players...', W / 2, 280);
+      for (let i = 0; i < shown; i++) {
+        const px = W / 2 - (shown * sgap) / 2 + i * sgap + sgap / 2, py = 298, filled = i < pc;
+        c.beginPath(); c.arc(px, py, 7, 0, Math.PI * 2);
+        c.fillStyle = filled ? (i === 0 ? '#ffd24c' : '#6ee7a0') : 'rgba(255,255,255,0.06)'; c.fill();
+        c.lineWidth = 1.5; c.strokeStyle = filled ? (i === 0 ? '#ffd24c' : '#6ee7a0') : '#3a3f4d'; c.stroke();
+      }
+      btn(W / 2 - 130, 322, 260, 48, pvp ? 'START THE FIGHT' : 'START GAME', 'lobby-start', pvp ? '255,106,138' : '127,212,255');
+      c.font = '11px monospace'; c.textAlign = 'center';
+      if (pvp) {
+        // #294 PVP: pick the arena (friendly fire is implicit - PVP is always FF)
+        c.fillStyle = '#ff9ab0'; c.font = 'bold 11px monospace';
+        c.fillText('CHOOSE THE ARENA', W / 2, 392);
+        btn(W / 2 - 160, 402, 152, 42, '⚔ DUEL', 'lobby-duel', (g.lobbyDuel && !g.lobbyHunt) ? '255,210,76' : '143,163,191');
+        btn(W / 2 + 8, 402, 152, 42, '☠ RAIDER ROYALE', 'lobby-hunt', g.lobbyHunt ? '255,120,60' : '143,163,191');
+        c.font = '11px monospace';
+        if (g.lobbyHunt) { c.fillStyle = '#d99a61'; c.fillText('spawn apart, gear up, the swarm closes in - last one standing.', W / 2, 464); }
+        else { c.fillStyle = '#c9b061'; c.fillText('a sealed arena, no monsters - first to 3 rounds takes it.', W / 2, 464); }
+      } else {
+        // CO-OP: friendly fire + the optional PVP toggles, for the classic flow
+        btn(W / 2 - 130, 384, 260, 34, `FRIENDLY FIRE: ${g.lobbyFF ? 'ON' : 'OFF'}`, 'lobby-ff', g.lobbyFF ? '255,90,90' : '143,163,191');
+        btn(W / 2 - 130, 426, 126, 34, `⚔ DUEL ${g.lobbyDuel ? 'ON' : 'OFF'}`, 'lobby-duel', g.lobbyDuel ? '255,210,76' : '143,163,191');
+        btn(W / 2 + 4, 426, 126, 34, `☠ ROYALE ${g.lobbyHunt ? 'ON' : 'OFF'}`, 'lobby-hunt', g.lobbyHunt ? '255,120,60' : '143,163,191');
+        c.font = '11px monospace';
+        if (g.lobbyHunt) { c.fillStyle = '#d99a61'; c.fillText('RAIDER ROYALE: spawn apart, last one standing.', W / 2, 476); }
+        else if (g.lobbyDuel) { c.fillStyle = '#c9b061'; c.fillText('a sealed arena. first to 3 rounds.', W / 2, 476); }
+        else if (g.lobbyFF) { c.fillStyle = '#c98080'; c.fillText('swords and arrows hurt your friends. chaos mode.', W / 2, 476); }
       }
     } else if (lb.mode === 'join') {
       c.font = '13px monospace'; c.fillStyle = '#8fa3bf';
