@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.173';
+  const VERSION = 'v2.174';
 
   const NOTES = [
+    {
+      v: 'v2.174', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '89c3cd1',
+      items: [
+        'Floors are less of a single corridor: rooms now loop and cross-connect, so a wrong turn or a skipped side room rarely dead-ends you.',
+      ],
+    },
     {
       v: 'v2.173', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: 'f087572',
