@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.188';
+  const VERSION = 'v2.189';
 
   const NOTES = [
+    {
+      v: 'v2.189', title: 'The climb out of Hell now has its OWN named guardians', date: '2026-07-19',
+      sha: '3ca21c5',
+      items: [
+        'The climb out of Hell now has its OWN named guardians - the Angel of the Gate, the Marble Penitent, the Siren of the Climb, the Eagle of Justice, up to Beatrice Ascendant - each a unique boss with its own colours and attack, instead of one generic Warden repeated.',
+        'Add CHARGER enemy: a bull that telegraphs, barrels in a straight line, and stuns itself on the wall.',
+        'Add ARENA rooms: a wide-open colosseum floor with a bigger horde.',
+        'Add SPIKE TRAP hazard: timed floor plates that pop steel spikes on a beat.',
+      ],
+    },
     {
       v: 'v2.188', title: 'Eulogies now READ you from your choices: the first', date: '2026-07-19',
       sha: '5364803',
