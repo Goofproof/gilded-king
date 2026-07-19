@@ -9099,10 +9099,16 @@
   }
 
   function drawTrinketCard(c, tr, anchorX, anchorY, owned) {
+    // #309 (Sam) a trinket is ONE GIFT AND ONE PRICE - so show BOTH. The downside flavor lives
+    // in the definition's `price` string; rollTrinket clobbers the instance's `price` with the
+    // gold cost, so read the downside back from the definition by key.
+    const def = (typeof Trinkets !== 'undefined' && Trinkets.byKey) ? Trinkets.byKey(tr.key) : null;
+    const downside = def && typeof def.price === 'string' ? def.price : null;
     const lines = [
       { text: tr.name, color: tr.color, bold: true },
       { text: 'Trinket · the fourth slot', color: '#8fa3bf' },
       { text: tr.gift, color: '#6ee7a0' },
+      ...(downside ? [{ text: downside, color: '#e08a8a' }] : []),  // the catch, so the decision is real
       // #170 (Sam) hovering the EQUIPPED trinket shows no price - you already own it.
       ...(owned ? [] : [{ text: `${tr.price} gold`, color: '#e0894a' }]), // #153 (Sam) was a raw number - drawGearCardLines .split()'d it and black-screened the game
       ...(tr.lore ? [{ text: `"${tr.lore}"`, color: '#9a8f7a', italic: true }] : []),
