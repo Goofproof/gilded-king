@@ -348,6 +348,11 @@ const Rules = (() => {
     { key: 'blackout', name: 'BLACKOUT', color: '#3a3f4a',
       desc: 'The dark presses in. You see only what is almost upon you.',
       vision: 200 },
+    // #314 a RISK/REWARD floor - the only mutator that pays out in XP. Everything hits harder,
+    // but every kill is worth far more, so a dangerous floor is also the fast way to level.
+    { key: 'trial', name: 'TRIAL BY FIRE', color: '#ff8a3d',
+      desc: 'Everything here hits harder - but every kill pays out in experience.',
+      monDmgMul: 1.3, xpMul: 1.6 },
   ];
 
   // how many mutators a floor carries. Depth is floors below the King.
