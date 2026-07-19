@@ -323,12 +323,17 @@ const Monsters = (() => {
   // them, and chasers flank the player instead of charging straight in.
   const RANGED_ALLY = { archer: 1, glass: 1, seeker: 1, pulser: 1, miner: 1, summoner: 1, gunner: 1, mage: 1 };
   function nearestRangedAlly(m, g) {
+    // #316 (perf) this is an O(n) scan run per swarmer/shielded per frame - the worst full-room
+    // scaler. The nearest ranged ally barely moves frame-to-frame, so CACHE it per mob for
+    // ~0.25s (recompute sooner if the cached ally died). ~15x fewer scans.
+    if (m._wardT !== undefined && m._wardT > g.time - 0.25 && !(m._wardM && m._wardM.dead)) return m._wardM;
     let best = null, bd = 1e9;
     for (const o of g.monsters) {
       if (o === m || o.dead || o.spawnT > 0 || !RANGED_ALLY[o.type]) continue;
       const d = Math.hypot(o.x - m.x, o.y - m.y);
       if (d < bd) { bd = d; best = o; }
     }
+    m._wardM = best; m._wardT = g.time;
     return best;
   }
   function tryContactHit(m, g, p, mult = 1) {
@@ -360,11 +365,14 @@ const Monsters = (() => {
     // a pool, and a knockback into one punishes it. Mobs do not path around it, by design.
     if (g.room && g.room.lava && g.room.lava.length && !m.isBoss) {
       m._lavaCd = Math.max(0, (m._lavaCd || 0) - dt);
-      if (m._lavaCd <= 0) for (const L of g.room.lava) {
-        if (Math.hypot(m.x - L.x, m.y - L.y) < L.r - 2) {
-          applyDamage(m, 6, g, {}); m._lavaCd = 0.7;
-          if (typeof Fx !== 'undefined') Fx.burst(m.x, m.y, ['#ff6a2c', '#ffcc44'], 5, { speed: 80, life: 0.3, glow: true });
-          break;
+      if (m._lavaCd <= 0) {
+        m._lavaCd = 0.2; // #316 (perf) POLL ~5x/sec, not every frame (was: cd only reset after a
+        for (const L of g.room.lava) { // burn, so a mob OFF the lava re-scanned every pool every frame)
+          if (Math.hypot(m.x - L.x, m.y - L.y) < L.r - 2) {
+            applyDamage(m, 6, g, {}); m._lavaCd = 0.7;
+            if (typeof Fx !== 'undefined') Fx.burst(m.x, m.y, ['#ff6a2c', '#ffcc44'], 5, { speed: 80, life: 0.3, glow: true });
+            break;
+          }
         }
       }
     }
@@ -372,13 +380,16 @@ const Monsters = (() => {
     // a plate as it pops, or a knockback onto one punishes it. Mobs do not path around them.
     if (g.room && g.room.spikes && g.room.spikes.length && !m.isBoss) {
       m._spikeCd = Math.max(0, (m._spikeCd || 0) - dt);
-      if (m._spikeCd <= 0) for (const S of g.room.spikes) {
-        if (!Dungeon.spikeState(S, g.time).up) continue;
+      if (m._spikeCd <= 0) {
+       m._spikeCd = 0.2; // #316 (perf) POLL ~5x/sec, not every frame (same throttle bug as lava:
+       for (const S of g.room.spikes) { // the cd only reset after a skewer, so mobs off a plate
+        if (!Dungeon.spikeState(S, g.time).up) continue; // re-scanned every plate + alloc'd a state obj/frame)
         if (Math.hypot(m.x - S.x, m.y - S.y) < S.r - 2) {
           applyDamage(m, 9, g, {}); m._spikeCd = 0.7;
           if (typeof Fx !== 'undefined') Fx.burst(m.x, m.y, ['#cfd8e0', '#9aa6b2'], 5, { speed: 80, life: 0.3, glow: true });
           break;
         }
+       }
       }
     }
 
@@ -793,8 +804,10 @@ const Monsters = (() => {
         // #48 picket: while a ranged ally is alive and the player is at range, the
         // swarm orbits/screens that ally; it peels off to swarm once the player closes.
         const jx = Math.sin(m.t * 9 + m.x) * 40;
-        const ward = nearestRangedAlly(m, g);
-        if (ward && dist > 150) {
+        // #316 (perf) only pay the O(n) ranged-ally scan when the ward result is actually USED
+        // (dist > 150). Swarmers in the player's face (the laggy full-room case) now skip it.
+        const ward = dist > 150 ? nearestRangedAlly(m, g) : null;
+        if (ward) {
           const a = m.t * 2 + (m.x % 6);
           moveToward(m, ward.x + Math.cos(a) * 46, ward.y + Math.sin(a) * 46, dt, m.speed * 0.7);
         } else {
@@ -1519,6 +1532,9 @@ const Monsters = (() => {
     if (g.coop && !((g.isRunHost ? g.isRunHost() : (typeof Net !== 'undefined' && Net.isHost)))) return;
     const gen = (m._splitGen == null ? 0 : m._splitGen);
     if (gen <= 0) return;                                   // the smallest oozes don't split
+    // #316 (perf) LIVE-BODY CEILING: several splitters in an arena could balloon the room to
+    // 100+ oozes, which then multiplies every per-frame O(n) scan. Stop dividing past ~44 alive.
+    if (g.monsters.filter(o => o && !o.dead).length > 44) return;
     if (typeof Fx !== 'undefined') { Fx.burst(m.x, m.y, ['#7fd46e', '#b6ffcf', '#cfe8b0'], 12, { speed: 140, life: 0.4, glow: true }); Fx.text(m.x, m.y - m.r - 8, 'SPLIT', '#7fd46e', 11); }
     for (let i = 0; i < 2; i++) {
       const a = m.facing + (i ? 0.75 : -0.75);              // one child to each side
@@ -2113,9 +2129,12 @@ const Monsters = (() => {
     // worm is mid-frenzy), so the player reads "this one's about to do something bigger"
     if (m.emp || m.empSpeedT > 0) {
       c.save();
-      c.strokeStyle = `rgba(255,210,76,${0.5 + Math.sin(Date.now() / 110) * 0.3})`;
-      c.shadowColor = '#ffd24c'; c.shadowBlur = 6;
-      c.lineWidth = 2.2;
+      const a = 0.5 + Math.sin(Date.now() / 110) * 0.3;
+      // #316 (perf) glow via a wide faint underlay ring, NOT shadowBlur (a per-mob full-canvas
+      // blur pass every frame - brutal on integrated GPUs when a warden empowers a whole pack).
+      c.strokeStyle = `rgba(255,210,76,${a * 0.32})`; c.lineWidth = 5;
+      c.beginPath(); c.arc(0, 0, m.r + 6, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = `rgba(255,210,76,${a})`; c.lineWidth = 2.2;
       c.beginPath(); c.arc(0, 0, m.r + 6, 0, Math.PI * 2); c.stroke();
       c.restore();
     }
@@ -2123,10 +2142,13 @@ const Monsters = (() => {
     // elite aura: a pulsing ring + faint glow in the affix color
     if (m.elite) {
       c.save();
+      const a = 0.45 + Math.sin(Date.now() / 200 + m.x) * 0.25;
+      // #316 (perf) wide faint underlay instead of shadowBlur - eliteDen rooms force EVERY mob
+      // elite, so this fired 5-15 full-canvas blur passes/frame in exactly the busy rooms.
       c.strokeStyle = m.elite.color;
-      c.shadowColor = m.elite.color; c.shadowBlur = 8;
-      c.globalAlpha = 0.45 + Math.sin(Date.now() / 200 + m.x) * 0.25;
-      c.lineWidth = 2.5;
+      c.globalAlpha = a * 0.5; c.lineWidth = 6;
+      c.beginPath(); c.arc(0, 0, m.r + 5, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = a; c.lineWidth = 2.5;
       c.beginPath(); c.arc(0, 0, m.r + 5, 0, Math.PI * 2); c.stroke();
       c.restore();
     }

@@ -5021,6 +5021,11 @@
   // PR-1: everyone the monsters may target. Always the local player; on the host,
   // also every remote peer sharing this room (so enemies chase BOTH players).
   function partyTargets() {
+    // #316 (perf) PER-FRAME MEMO. nearestTarget() calls this once per monster per frame, and it
+    // built a fresh array + object literals every time (~22+ allocs/frame in a full room, GC
+    // churn that hitches integrated GPUs). Every caller iterates read-only, so one shared array
+    // per frame is safe. Keyed on g.time (constant within a tick, advances between them).
+    if (g._ptTime === g.time && g._ptCache) return g._ptCache;
     const P = g.player;
     // DOWNED/dead players are NOT valid targets - monsters must ignore a downed body
     // (otherwise they swarm it, no one can revive, and the party false-wipes to menu).
@@ -5048,6 +5053,7 @@
         list.push({ x: rp.x, y: rp.y, r: 13, ref: rp, isRemote: true, id });
       }
     }
+    g._ptCache = list; g._ptTime = g.time;   // #316 memoize for the rest of this frame
     return list;
   }
   // PR-2: deal damage to a party target - the local player directly, a remote peer
@@ -7791,6 +7797,9 @@
       const y = PF.y + roomRand(room, i + 50) * PF.h;
       c.fillRect(x, y, 3 + roomRand(room, i + 100) * 4, 2 + roomRand(room, i + 150) * 3);
     }
+    // #315 (perf) the ARENA sand ring never changes - bake it into the static layer ONCE per
+    // room instead of re-filling a full-room gradient + 16 spokes + 2 rings every single frame.
+    if (room.arena) drawArenaFloor(c, room);
     // the circle's signature ground (baked, deterministic, under walls/obstacles)
     if (hellBackdrop) { c.save(); hellBackdrop.draw(c, room); c.restore(); }
     // #67c a POLYGON chamber (octagon / rounded hall / diamond): the floor+grid+detail
@@ -8000,7 +8009,8 @@
       room._staticKey = staticKey;
     }
     c.drawImage(room._staticCv, 0, 0);
-    if (room.arena) drawArenaFloor(c, room);               // #298 colosseum sand ring, on the floor
+    // #315 (perf) the arena sand ring is now baked into room._staticCv (renderRoomStatic), so
+    // it rides the single static blit above - no per-frame gradient fill + 18 strokes.
     if (room.lava && room.lava.length) drawLava(c, room); // #293 animated, over the floor, under everything alive
     if (room.spikes && room.spikes.length) drawSpikes(c, room); // #299 timed spike plates
 
