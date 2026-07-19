@@ -2860,6 +2860,18 @@ const UI = (() => {
       c.font = '15px monospace'; c.fillStyle = '#ff8a3d';
       c.fillText('You slew the King and braved the Descent. Legend.', W / 2, 185);
     }
+    // #283 (Sam) the prestige RANK you carried in: the cape's insignia + its name, so the
+    // recap tells you how high up the ladder you have climbed (Ensign ... Fleet Admiral).
+    const prestige = (g.meta && g.meta.prestige) || 0;
+    if (prestige > 0 && PlayerDef.drawRankPatch) {
+      const rn = `${PlayerDef.rankName(prestige)}  ·  Prestige ${prestige}`;
+      c.font = 'bold 13px monospace';
+      const tw = c.measureText(rn).width, bw2 = 22, gap2 = 12, rx = W / 2 - (bw2 + gap2 + tw) / 2;
+      PlayerDef.drawRankPatch(c, prestige, rx + bw2 / 2, 210, 11);
+      c.fillStyle = '#e8c66a'; c.textAlign = 'left';
+      c.fillText(rn, rx + bw2 + gap2, 214);
+      c.textAlign = 'center';
+    }
     c.font = '15px monospace';
     c.fillStyle = '#9fb0c8';
     const lines = [

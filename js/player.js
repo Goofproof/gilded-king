@@ -319,6 +319,16 @@ const PlayerDef = (() => {
     c.restore();
   }
 
+  // #283 (Sam) the NAME that goes with the insignia the cape wears - so a recap can show
+  // "you climbed to Ensign". Same ladder as drawRankPatch: E-1..E-9 then O-1..O-11, warrant
+  // officers skipped, capped at O-11. Index 0 (no prestige) has no rank.
+  const RANK_NAMES = ['', 'Seaman Recruit', 'Seaman Apprentice', 'Seaman',
+    'Petty Officer Third Class', 'Petty Officer Second Class', 'Petty Officer First Class',
+    'Chief Petty Officer', 'Senior Chief Petty Officer', 'Master Chief Petty Officer',
+    'Ensign', 'Lieutenant Junior Grade', 'Lieutenant', 'Lieutenant Commander', 'Commander',
+    'Captain', 'Rear Admiral (Lower Half)', 'Rear Admiral', 'Vice Admiral', 'Admiral', 'Fleet Admiral'];
+  function rankName(prestige) { return prestige >= 1 ? RANK_NAMES[Math.min(20, prestige)] : ''; }
+
   function capeAt(c, r, prestige, moving, seedX, velX, velY) {
     const t = Math.min(6, prestige);
     const now = Date.now();
@@ -2795,5 +2805,5 @@ const PlayerDef = (() => {
     return PLAYER_TINTS[i % PLAYER_TINTS.length];
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor, classBodyCol, formTip };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor, classBodyCol, formTip, drawRankPatch, rankName };
 })();
