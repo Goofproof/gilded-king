@@ -71,17 +71,20 @@ const Monsters = (() => {
     // it turns YOUR shots into enemy fire, bouncing any bolt that hits its front arc straight
     // back at you. The mirror cycles down for a beat (shoot it then, or flank/melee it).
     reflector: { hp: 58, dmg: 10, speed: 46, r: 15, xp: 15, coins: [4, 8] },
+    // #302 MENDER: a SUPPORT healer. No attack of its own - it kites and channels a heal beam
+    // to the most-wounded ally, undoing your work. Undying packs until you kill the mender first.
+    mender:   { hp: 50, dmg: 0,  speed: 52, r: 14, xp: 16, coins: [4, 8] },
   };
 
   // --- SPAWN TABLE by tier (tier = floor + roomDist/3, see tierFor) ------------
   const SPAWN_TABLE = {
     1: ['chaser', 'chaser', 'chaser', 'swarmer', 'shielded', 'tank'], // #112 shielders + #103 tanks (the gray hexagons) on floor 1
     2: ['chaser', 'swarmer', 'archer', 'bomber', 'worm', 'shielded', 'gluegunner', 'charger'],
-    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector'],
+    3: ['chaser', 'archer', 'bomber', 'glass', 'tank', 'swarmer', 'seeker', 'miner', 'worm', 'lobber', 'gunner', 'mage', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
     // #148 (Sam) 'doppel' is no longer trash in the random roll - it is a seed-placed
     // MINI-BOSS now (makeDoppelBoss + room.doppelRoom), so it is OUT of these tables.
-    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector'],
-    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger', 'reflector'],
+    4: ['archer', 'tank', 'glass', 'shielded', 'summoner', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'gluegunner', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
+    5: ['tank', 'glass', 'shielded', 'summoner', 'archer', 'bomber', 'seeker', 'miner', 'pulser', 'worm', 'lobber', 'gunner', 'mage', 'panther', 'snowman', 'warden', 'charger', 'reflector', 'mender'],
   };
   // playtest: rooms were too sparse for how strong players get. Far more bodies on
   // deeper tiers (was cap 8, ~2+t): tier 1 ~4-6, tier 3 ~7-9, tier 5 ~11-13.
@@ -640,6 +643,42 @@ const Monsters = (() => {
         }
       }
       tryContactHit(m, g, t);                                         // a light bump if you hug it
+      resolveTerrain(m, g);
+      return;
+    }
+
+    // #302 MENDER: a SUPPORT healer. Kites to a standoff and channels a heal beam to the
+    // most-wounded ally in range, restoring a big chunk of its health. No attack of its own -
+    // it just makes the whole pack outlast you. Kill it FIRST or you fight the room twice.
+    if (m.type === 'mender') {
+      const t = nearestTarget(m, g);
+      const dx = t.x - m.x, dy = t.y - m.y, d = Math.hypot(dx, dy) || 1;
+      m.facing = Math.atan2(dy, dx);
+      const want = 240, sp = m.speed * (m.chillT > 0 ? (m.chillMul || 1) : 1);
+      if (d < want - 50) { m.x -= (dx / d) * sp * dt; m.y -= (dy / d) * sp * dt; }          // back off if crowded
+      else if (d > want + 70) { m.x += (dx / d) * sp * 0.6 * dt; m.y += (dy / d) * sp * 0.6 * dt; } // drift in
+      if (m._healBeamT > 0) m._healBeamT -= dt;
+      m.castCd = (m.castCd === undefined ? 1.6 : m.castCd) - dt;
+      if (m.castCd <= 0) {
+        const R = 250;
+        let best = null, bestFrac = 0.85;                             // only mends allies below 85% HP
+        for (const o of g.monsters) {
+          if (o === m || o.dead || o.spawnT > 0 || o.isBoss) continue;
+          if (Math.hypot(o.x - m.x, o.y - m.y) > R) continue;
+          const frac = o.hp / o.maxHp;
+          if (frac < bestFrac) { bestFrac = frac; best = o; }
+        }
+        if (best) {
+          const heal = Math.round(best.maxHp * 0.35);
+          best.hp = Math.min(best.maxHp, best.hp + heal);
+          m._healTarget = best; m._healBeamT = 0.5;
+          m.castCd = 3.0 + Math.random() * 1.0;
+          if (typeof Fx !== 'undefined') { Fx.text(best.x, best.y - best.r - 10, '+' + heal, '#6ee7a0', 12); Fx.burst(best.x, best.y, ['#6ee7a0', '#b6ffcf', '#fff'], 14, { speed: 120, life: 0.5, glow: true }); }
+          if (typeof Sfx !== 'undefined') Sfx.play('ui');
+        } else {
+          m.castCd = 0.8;                                             // nothing to mend - check again soon
+        }
+      }
       resolveTerrain(m, g);
       return;
     }
@@ -1854,6 +1893,48 @@ const Monsters = (() => {
     c.restore();
   }
 
+  // #302 MENDER: a pale-green robed healer with a caduceus. When it channels, a bright heal
+  // beam runs from its staff to the ally it is mending (drawn in the monster-local frame).
+  function drawMender(c, m, flash, ex, ey) {
+    const R = m.r;
+    // the heal beam to the mended ally (local frame: origin is the mender)
+    if (m._healBeamT > 0 && m._healTarget && !m._healTarget.dead) {
+      const tx = m._healTarget.x - m.x, ty = m._healTarget.y - m.y;
+      c.save();
+      c.globalAlpha = Math.min(1, m._healBeamT / 0.5) * 0.8;
+      c.strokeStyle = '#6ee7a0'; c.lineWidth = 3; c.shadowColor = '#6ee7a0'; c.shadowBlur = 8;
+      c.beginPath(); c.moveTo(0, -R * 0.2); c.lineTo(tx, ty); c.stroke();
+      c.restore();
+    }
+    // robe
+    c.fillStyle = flash ? '#fff' : '#3a7a56';
+    c.beginPath();
+    c.moveTo(0, -R);
+    c.quadraticCurveTo(R, -R * 0.2, R * 0.8, R);
+    c.lineTo(-R * 0.8, R);
+    c.quadraticCurveTo(-R, -R * 0.2, 0, -R);
+    c.closePath(); c.fill();
+    // hood
+    c.fillStyle = flash ? '#fff' : '#2c5f42';
+    c.beginPath(); c.arc(0, -R * 0.45, R * 0.6, Math.PI, 0); c.fill();
+    c.fillRect(-R * 0.6, -R * 0.45, R * 1.2, R * 0.5);
+    // shadowed face + two soft eyes
+    c.fillStyle = '#0a1a12';
+    c.beginPath(); c.arc(0, -R * 0.22, R * 0.4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#b6ffcf';
+    c.beginPath(); c.arc(ex - 3, -R * 0.24 + ey, 1.7, 0, Math.PI * 2); c.arc(ex + 3, -R * 0.24 + ey, 1.7, 0, Math.PI * 2); c.fill();
+    // a green CROSS emblem on the chest (the healer's mark)
+    c.fillStyle = flash ? '#fff' : '#b6ffcf';
+    c.fillRect(-1.6, R * 0.05, 3.2, R * 0.5);
+    c.fillRect(-R * 0.22, R * 0.05 + R * 0.19, R * 0.44, 3.2);
+    // a soft healing aura pulse when it just cast
+    if (m._healBeamT > 0) {
+      const k = 1 - m._healBeamT / 0.5;
+      c.save(); c.globalAlpha = (1 - k) * 0.4; c.strokeStyle = '#6ee7a0'; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, 14 + k * 20, 0, Math.PI * 2); c.stroke(); c.restore();
+    }
+  }
+
   // --- rendering ------------------------------------------------------------------
   function draw(m, c, g) {
     const p = g.player;
@@ -1902,6 +1983,7 @@ const Monsters = (() => {
       case 'warden': drawWarden(c, m, flash, ex, ey); break;
       case 'charger': drawCharger(c, m, flash, ex, ey); break;
       case 'reflector': drawReflector(c, m, flash, ex, ey); break;
+      case 'mender': drawMender(c, m, flash, ex, ey); break;
     }
 
     // #148 (Sam) MINI-BOSS nameplate + health bar: marks the doppelganger as a boss,
