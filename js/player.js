@@ -108,8 +108,9 @@ const PlayerDef = (() => {
   //                       see IS the size you are; nothing here is cosmetic.
   const FORMS = [
     { id: 'bear', name: 'Bear Form', color: '#a8763f', dmgMul: 1.45, spdMul: 0.82, reduce: 0.34,
+      thorns: 8, thornsMul: 2, // #275 (Sam) the TANK form: a base thorns reflect + DOUBLES your thorns gear (synergy)
       body: '#8a5a2b', cloak: '#5d3a19', accent: '#ffcf8a', scale: 1.28, tag: 'BEAR',
-      note: 'A big, slow target - but the hide turns almost everything.' },
+      note: 'A big, slow target - but the hide turns almost everything, and it thorns back.' },
     { id: 'wolf', name: 'Wolf Form', color: '#c8d0de', dmgMul: 1.25, spdMul: 1.32, reduce: -0.12, bleed: true,
       body: '#98a2b3', cloak: '#5a6172', accent: '#e8f0ff', scale: 0.92, tag: 'WOLF',
       note: 'Fast, lean and bleeding fangs, but every hit hurts you more.' },
@@ -123,6 +124,22 @@ const PlayerDef = (() => {
       note: 'Feathers, claws and arcane muscle - swipes grow with ARCANE.' },
   ];
   const formById = id => FORMS.find(f => f.id === id) || null;
+
+  // #275 (Sam) what a druid FORM does, for the in-game tooltip - so shifting has a visible
+  // purpose. Each form is a BUILD: Bear = tank (+ thorns), Wolf = might+agility, Owlbear = arcane.
+  function formTip(form) {
+    if (!form) return null;
+    const pct = v => (v >= 0 ? '+' : '') + Math.round(v * 100) + '%';
+    const build = { bear: 'THE TANK', wolf: 'MIGHT + AGILITY', owlbear: 'ARCANE' }[form.id] || '';
+    const eff = [];
+    if (form.reduce) eff.push(pct(-form.reduce) + ' damage taken');            // bear -34%, wolf +12%
+    if (form.thorns || (form.thornsMul || 1) > 1) eff.push('thorns reflect (x2 your gear)');
+    if (form.dmgMul && form.dmgMul !== 1) eff.push(pct(form.dmgMul - 1) + ' damage');
+    if (form.arcaneFed) eff.push('claws grow with ARCANE');
+    if (form.spdMul && form.spdMul !== 1) eff.push(pct(form.spdMul - 1) + ' speed');
+    if (form.bleed) eff.push('bleeding claws');
+    return { label: form.tag || form.name, build, eff };
+  }
 
   // #157 the ONE place a shift is applied. Both the look and the HITBOX come from the same
   // scale, so what you see is always what you are. Called by main.js castAbility.
@@ -1350,7 +1367,8 @@ const PlayerDef = (() => {
       // thorns bite back at whoever hit you - #144: a ranged shooter too, not just a
       // melee toucher (src is the projectile's owner). A spark at the source sells the
       // reprisal when the shooter is across the room.
-      const _thorns = this.mod('thorns') + ((this.fstance && this.fstance.thorns) || 0); // #252 AJAX
+      // #252 AJAX fusion stance + #275 (Sam) BEAR form: doubles your thorns gear and adds a base reflect
+      const _thorns = this.mod('thorns') * ((this.form && this.form.thornsMul) || 1) + ((this.fstance && this.fstance.thorns) || 0) + ((this.form && this.form.thorns) || 0);
       if (src && !src.dead && _thorns) {
         src.takeHit(_thorns, { sx: this.x, sy: this.y, fromPlayer: true }, g);
         if (Math.hypot(src.x - this.x, src.y - this.y) > this.r + 40) {
@@ -2762,5 +2780,5 @@ const PlayerDef = (() => {
     return PLAYER_TINTS[i % PLAYER_TINTS.length];
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor, classBodyCol };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor, classBodyCol, formTip };
 })();

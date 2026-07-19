@@ -140,8 +140,27 @@ const UI = (() => {
       c.fillText(`${p.essenceRun} (+${g.meta.essence} banked)`, hbX + 22, ey + 4);
     }
 
+    // #275 (Sam) DRUID FORM panel - always visible while shifted so the beast's BUILD reads at
+    // a glance (Bear = tank, Wolf = might+agility, Owlbear = arcane). Answers "what does this do".
+    let formBottom = hbY + hbH + 66;
+    if (p.form && PlayerDef.formTip) {
+      const ft = PlayerDef.formTip(p.form);
+      if (ft) {
+        const fx = hbX, fy = hbY + hbH + 70, acc = p.form.accent || '#ffcf8a';
+        const l1 = `${ft.label} FORM · ${ft.build}`, l2 = ft.eff.join(' · ');
+        c.font = 'bold 11px monospace'; const w1 = c.measureText(l1).width;
+        c.font = '9px monospace'; const w2 = c.measureText(l2).width;
+        const boxW = Math.max(w1, w2) + 12, boxH = 28;
+        c.fillStyle = 'rgba(10,8,4,0.55)'; c.fillRect(fx - 2, fy - 2, boxW + 4, boxH + 4);
+        c.save(); c.globalAlpha = 0.5; c.strokeStyle = acc; c.lineWidth = 1; c.strokeRect(fx - 2, fy - 2, boxW + 4, boxH + 4); c.restore();
+        c.textAlign = 'left';
+        c.font = 'bold 11px monospace'; c.fillStyle = acc; c.fillText(l1, fx + 4, fy + 10);
+        c.font = '9px monospace'; c.fillStyle = 'rgba(232,220,200,0.9)'; c.fillText(l2, fx + 4, fy + 23);
+        formBottom = fy + boxH;
+      }
+    }
     // active buffs (shield charm / rage / haste) with remaining seconds
-    let by = hbY + hbH + 74;
+    let by = Math.max(hbY + hbH + 74, formBottom + 10);
     const buffs = [];
     if (p.buffs.shield > 0) buffs.push({ label: '⛨ shield', color: '#7fd4ff' });
     if (p.buffs.rageT > 0) buffs.push({ label: `↑ rage ${Math.ceil(p.buffs.rageT)}s`, color: '#e05555' });
