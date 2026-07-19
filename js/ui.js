@@ -1326,7 +1326,7 @@ const UI = (() => {
       // selected class portrait + name
       const cls = classes.find(cl => cl.id === (meta.selectedClass || '')) || classes[0];
       if (cls) {
-        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cls, pcx, py + 70, 20);
+        if (PlayerDef.drawClassPortrait) PlayerDef.drawClassPortrait(c, cls, pcx, py + 70, 20, meta.selectedRace);
         c.font = 'bold 13px monospace'; c.fillStyle = cls.color || '#e8d3b0';
         c.fillText(cls.name, pcx, py + 116);
       }

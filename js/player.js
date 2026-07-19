@@ -554,6 +554,11 @@ const PlayerDef = (() => {
     // adventurer: no signature look (plain champion)
   }
 
+  // Each class's own body colour, shared by the character-select PORTRAIT and the in-game
+  // BUST so a warrior is the same rust-orange on the menu and in the dungeon. '' = Adventurer.
+  const CLASS_BODY_COL = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8', mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f', gambler: '#8a6f2a', bard: '#a8478f', warlock: '#8a1f2e' };
+  function classBodyCol(id) { return CLASS_BODY_COL[id] || CLASS_BODY_COL['']; }
+
   // #71 a class portrait for the character-select screen: a little bust wearing the
   // #156 the race's face, drawn at the head origin (0,0) with head radius s. Kept small
   // and silhouette-level on purpose: it has to still read under a warrior's full helm.
@@ -611,14 +616,15 @@ const PlayerDef = (() => {
   // #156 raceId is optional: when given, the portrait wears that race's skin and its
   // feature (tusks / ears / beard / hollow eyes) UNDER the class headgear, so a Dwarf
   // Warrior reads as both at a glance.
-  function drawClassPortrait(c, cls, cx, cy, s, raceId) {
+  // #269 (Sam) bodyOverride/skinOverride let the IN-GAME champion reuse this exact portrait
+  // (so the dungeon body matches the character-select picture) while still tinting for a
+  // damage flash or an evolution recolour. Omit them and it draws the plain menu portrait.
+  function drawClassPortrait(c, cls, cx, cy, s, raceId, bodyOverride, skinOverride) {
     // #202 (Sam) accept the class OBJECT or its id STRING. The character sheet passed
     // the string, `cls.id` came back undefined, and EVERY class drew as the plain
     // Adventurer portrait.
     const id = (typeof cls === 'string') ? cls : (cls && cls.id) || '';
-    const bodyCol = { '': '#5b6884', warrior: '#a85f34', ranger: '#37905f', mage: '#6b3fa8', rogue: '#b8901f', barbarian: '#9e3b26', paladin: '#c9a94a', cleric: '#3f9e7a', engineer: '#8a6a2a', summoner: '#3f6fa8',
-      mesmer: '#7a4fa8', druid: '#3f7a44', deathknight: '#41707a', necromancer: '#3f7a52', pyromancer: '#a8481f',
-      gambler: '#8a6f2a', bard: '#a8478f', warlock: '#8a1f2e' }[id] || '#5b6884';
+    const bodyCol = bodyOverride || classBodyCol(id);
     const race = raceById(raceId);
     c.save();
     c.translate(cx, cy);
@@ -626,7 +632,7 @@ const PlayerDef = (() => {
     c.fillStyle = bodyCol;
     c.beginPath(); c.moveTo(-s * 1.25, s * 1.7); c.quadraticCurveTo(0, s * 0.28, s * 1.25, s * 1.7); c.closePath(); c.fill();
     // head - in the chosen race's skin
-    c.fillStyle = race.skin;
+    c.fillStyle = skinOverride || race.skin;
     c.beginPath(); c.arc(0, 0, s * 0.74, 0, Math.PI * 2); c.fill();
     drawRaceFeature(c, race.id, s);
     // eyes (a cowl hides these behind a shadow instead)
@@ -1991,13 +1997,19 @@ const PlayerDef = (() => {
       c.save();
       c.translate(this.x, this.y);
 
+      // #269 (Sam) the portrait body's visual centre sits BELOW the origin (the origin is the
+      // head now). Highlight rings, buff auras and the weapon all pivot around this torso point
+      // so they hug the body instead of circling the face. Druid beast forms are a round blob
+      // centred on the origin, so they take no offset.
+      const bodyCY = this.form ? 0 : this.r * 0.7;
+
       // CO-OP IDENTITY RING: a flat coloured ground ring in YOUR colour, so in a party
       // scrum you can find yourself instantly. Drawn before the roll transform so it
       // stays flat on the floor. Solo play has no one to tell apart, so it is skipped.
       if (g && g.coop) {
         c.save();
         c.strokeStyle = partySlotColor(g, g.clientId); c.globalAlpha = 0.85; c.lineWidth = 2;
-        c.beginPath(); c.ellipse(0, this.r * 0.85, this.r * 1.05, this.r * 0.4, 0, 0, Math.PI * 2); c.stroke();
+        c.beginPath(); c.ellipse(0, bodyCY + this.r * 0.8, this.r * 1.05, this.r * 0.4, 0, 0, Math.PI * 2); c.stroke();
         c.restore();
       }
 
@@ -2021,7 +2033,7 @@ const PlayerDef = (() => {
       if (this.buffs.shield > 0) {
         c.strokeStyle = `rgba(127,212,255,${0.5 + Math.sin(Date.now() / 200) * 0.25})`;
         c.lineWidth = 2;
-        c.beginPath(); c.arc(0, 0, this.r + 6, 0, Math.PI * 2); c.stroke();
+        c.beginPath(); c.arc(0, bodyCY, this.r + 6, 0, Math.PI * 2); c.stroke();
       }
       if (this.buffs.rageT > 0 && Math.random() < 0.3) {
         Fx.burst(this.x + (Math.random() * 16 - 8), this.y - this.r, ['#e05555', '#ff9a3d'], 1, { speed: 30, life: 0.35, vy: -40 });
@@ -2046,7 +2058,7 @@ const PlayerDef = (() => {
         const rad = this.r + 4 + evoStage * 2.5 + Math.sin(Date.now() / 300) * 1.5;
         c.globalAlpha *= 0.10 + evoStage * 0.05;
         c.fillStyle = pal.accent;
-        c.beginPath(); c.arc(0, 0, rad, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.arc(0, bodyCY, rad, 0, Math.PI * 2); c.fill();
         c.restore();
       }
 
@@ -2083,24 +2095,23 @@ const PlayerDef = (() => {
       const cloakCol = this.flash > 0 ? '#ff8080' : (F ? F.cloak : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60'));
       const bodyCol  = this.flash > 0 ? '#ffb0b0' : (F ? F.body  : (evoStage >= 2 && pal ? pal.body  : '#4a6fa5'));
       // (no extra scale here: this.r IS the form's real radius - see setForm)
-      c.fillStyle = cloakCol;
-      c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
-      // body
-      c.fillStyle = bodyCol;
-      c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
-      // visor facing aim
-      c.save();
-      c.rotate(this.rollT >= 0 ? 0 : this.facing);
-      c.fillStyle = '#0e1420';
-      c.fillRect(this.r * 0.15, -4, this.r * 0.75, 8);
-      c.fillStyle = this.form ? this.form.accent : (evoStage >= 2 && pal ? pal.accent : '#9ee7ff');
-      c.fillRect(this.r * 0.3, -2.5, this.r * 0.5, 5);
-      c.restore();
-
-      // #52 class signature look: warrior pauldrons, ranger feather cap, mage hat,
-      // rogue cowl. Drawn on the head/shoulders in the FIXED body frame (doesn't spin
-      // with aim); evolution parts layer on top.
-      this.drawClassFeature(c, evoStage, pal);
+      if (F) {
+        // DRUID BEAST FORM keeps the round body + animal head (a bear is not a bust)
+        c.fillStyle = cloakCol;
+        c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = bodyCol;
+        c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
+        // the animal head + any race feature layer on via drawClassFeature just below
+        this.drawClassFeature(c, evoStage, pal);
+      } else {
+        // #269 (Sam) the champion IS its character-select portrait now: shoulders in the class
+        // colour, a skin head with a real face and race feature, and the class headgear sitting
+        // correctly on that face - not a visor-bot. Reuses drawClassPortrait so the dungeon body
+        // and the menu picture can never drift apart. Tinted for damage flash / evolution recolour.
+        const bustBody = this.flash > 0 ? '#ffb0b0' : (evoStage >= 2 && pal ? pal.body : null);
+        const bustSkin = this.flash > 0 ? '#ffd0d0' : null;
+        drawClassPortrait(c, this.class, 0, 0, this.r, (this.race && this.race.id) || 'human', bustBody, bustSkin);
+      }
 
       // #22: front body parts (horns / claws / pauldrons / crown / halo) grown
       // from your evolution paths, drawn over the body
@@ -2313,7 +2324,8 @@ const PlayerDef = (() => {
       const w = this.weapon;
       const model = (typeof Weapons !== 'undefined' && Weapons.modelFor) ? Weapons.modelFor(w) : null;
       c.save();
-      c.translate(this.x, this.y);
+      // #269 pivot the weapon around the TORSO (below the head origin), so it circles the body
+      c.translate(this.x, this.y + (this.form ? 0 : this.r * 0.7));
       c.rotate(this.facing);
       if (w.archetype === 'bow') {
         // each bow MODEL has its own limbs; the string/pull/sparkle animation is shared.
@@ -2585,5 +2597,5 @@ const PlayerDef = (() => {
     return PLAYER_TINTS[i % PLAYER_TINTS.length];
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor, classBodyCol };
 })();

@@ -3989,6 +3989,7 @@
       rp.wm = m.wm || null;                                       // weapon MODEL slug (per-name look)
       rp.cw = Array.isArray(m.cw) ? m.cw : null;                  // #117 cape wind vector
       rp.cl = m.cl || ''; rp.u = m.u || null;                     // #98 class id, #99 stable uid
+      rp.rc = m.rc || 'human';                                    // #269 race id (skin + race feature)
       rp.form = m.fm || '';                                       // #162 druid form id
       rp.mn = m.mn || null;                                       // #174 their minions
       rp.busy = !!m.bz;                                           // #192 they are on a menu
@@ -4662,6 +4663,7 @@
       mv: p.moving ? 1 : 0,                            // so your cape waves for others too
       cw: [Math.round(p.capeWind.x), Math.round(p.capeWind.y)], // #117 cape wind vector for peers
       cl: (p.class && p.class.id) || '',              // #98 so peers render your class headgear
+      rc: (p.race && p.race.id) || 'human',           // #269 (Sam) so peers see your RACE (skin + tusks/ears/beard)
       fm: (p.form && p.form.id) || '',                // #162 (Sam) so peers see your druid shape
       u: g.clientId,                                  // #99 stable identity to dedup reconnect ghosts
       mn: minionSnapshot(),                           // #174 (Sam) so peers see your army
@@ -4730,28 +4732,33 @@
       // resizes and grows the animal head, exactly like their own screen shows it.
       const form = rp.form && PlayerDef.formById ? PlayerDef.formById(rp.form) : null;
       const R = form ? Math.round(13 * form.scale) : 13;
+      const pcy = form ? 0 : R * 0.7;   // #269 torso centre offset (origin = head on the portrait body)
       const tint = PlayerDef.partySlotColor ? PlayerDef.partySlotColor(g, rp.u || id) : '#7fd4ff';
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, R - 2, R * 0.85, R * 0.27, 0, 0, Math.PI * 2); c.fill();
-      // CO-OP IDENTITY RING: this teammate's own colour, matching their name tag below
+      // CO-OP IDENTITY RING: this teammate's own colour, matching their name tag below,
+      // pulled down to the torso so it hugs the body rather than circling the head
       c.save();
       c.strokeStyle = tint; c.globalAlpha = 0.85; c.lineWidth = 2;
-      c.beginPath(); c.ellipse(0, R - 2, R * 1.05, R * 0.4, 0, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.ellipse(0, pcy + R * 0.8, R * 1.05, R * 0.4, 0, 0, Math.PI * 2); c.stroke();
       c.restore();
       // #220 (Sam) the BODY was painted with rp.wc - the WEAPON's colour - so a teammate's
       // whole champion turned gold/purple with every weapon swap. The body now wears their
       // real colours: druid form, else the evolution recolour, else the default blue.
-      c.fillStyle = form ? form.cloak : (rp.cloakC || '#2c3e60'); c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
-      c.fillStyle = form ? form.body : (rp.bodyC || '#4a6fa5'); c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
-      c.save(); c.rotate(rp.facing || 0);
-      c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
-      c.fillStyle = form ? form.accent : '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);
-      c.restore();
-      // #98/#162 the head: a druid form's animal head, else class headgear
-      if (form && PlayerDef.drawFormHead) PlayerDef.drawFormHead(c, form.id, R);
-      else if (rp.cl && PlayerDef.classFeature) PlayerDef.classFeature(c, rp.cl, 13);
-      // held weapon (aimed where they're facing) - so teammates see each other's weapons
-      if (PlayerDef.peerWeapon) PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R, rp.wm);
+      if (form) {
+        // druid beast: round body + animal head, in the beast's colours
+        c.fillStyle = form.cloak; c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
+        c.fillStyle = form.body; c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
+        if (PlayerDef.drawFormHead) PlayerDef.drawFormHead(c, form.id, R);
+      } else if (PlayerDef.drawClassPortrait) {
+        // #269 (Sam) a teammate is their character-select portrait too - shoulders + a real
+        // face in their race, class headgear on top - so co-op shows characters, not blobs.
+        // rp.bodyC carries their evolution recolour when they have one, else the class colour.
+        PlayerDef.drawClassPortrait(c, rp.cl || '', 0, 0, R, rp.rc || 'human', rp.bodyC || null);
+      }
+      // held weapon (aimed where they're facing) - so teammates see each other's weapons,
+      // pivoted around the torso like the local player's weapon
+      if (PlayerDef.peerWeapon) { c.save(); c.translate(0, pcy); PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R, rp.wm); c.restore(); }
       c.restore();
       c.textAlign = 'center';
       c.fillStyle = tint; c.font = 'bold 10px monospace';
