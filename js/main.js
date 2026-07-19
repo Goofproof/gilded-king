@@ -1156,9 +1156,12 @@
       kind = item.isArmor ? 'armorItem' : 'weapon'; // each player's own mythic decides
       mythicFanfare(x, y, item);
     } else {
+      // #269 (Sam) slow early gear: no legendaries dropping on floors 1-3 (cap at Epic).
+      // A boss's guaranteed legendary (minRarity 4) still wins - rollRarity clamps for it.
+      const floorCap = g.floorNum <= 3 ? 3 : undefined;
       item = kind === 'weapon'
-        ? Weapons.rollWeapon(roll.tier, { minRarity: roll.minRarity || 0, luck: roll.luck || 0 })
-        : Weapons.rollArmor(roll.tier, { minRarity: roll.minRarity || 0, luck: roll.luck || 0 });
+        ? Weapons.rollWeapon(roll.tier, { minRarity: roll.minRarity || 0, maxRarity: floorCap, luck: roll.luck || 0 })
+        : Weapons.rollArmor(roll.tier, { minRarity: roll.minRarity || 0, maxRarity: floorCap, luck: roll.luck || 0 });
     }
     const pk = { kind, x, y, t: 0 };
     if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
@@ -1972,8 +1975,9 @@
       const nCoins = 8 + ((Math.random() * 7) | 0);
       for (let i = 0; i < nCoins; i++) spawnPickup('coin', ch.x, ch.y - 10, true); // #97 chest loot is per-player: don't mirror
       const tier = Monsters.tierFor(g.floorNum, g.room.dist);
-      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35 }), x: ch.x, y: ch.y + 34, t: 0 });
-      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3 }), x: ch.x - 50, y: ch.y + 20, t: 0 });
+      const chestCap = g.floorNum <= 3 ? 3 : undefined;   // #269 (Sam) no legendaries from floor 1-3 chests
+      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35, maxRarity: chestCap }), x: ch.x, y: ch.y + 34, t: 0 });
+      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3, maxRarity: chestCap }), x: ch.x - 50, y: ch.y + 20, t: 0 });
       if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y, true); // #97 chest loot is per-player: don't mirror
       p.addXp(10, g);
       vacuumPickups(); // #140 (Sam) opening a chest sweeps its coins (and any loose in the room) to you - the weapon/armor it drops stay put (vacuumPickups skips gear)

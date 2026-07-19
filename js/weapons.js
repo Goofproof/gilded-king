@@ -90,8 +90,11 @@ const Weapons = (() => {
   function rollRarity(opts = {}) {
     if (opts.exactRarity !== undefined) return RARITY[opts.exactRarity]; // pinned roll (e.g. starting weapon)
     const minIdx = opts.minRarity || 0;
+    // #269 (Sam) maxRarity CAPS the roll (e.g. no legendaries on the first three floors).
+    // Clamp it to be at least minIdx so a guaranteed-legendary source (a boss) still delivers.
+    const maxIdx = Math.max(minIdx, opts.maxRarity !== undefined ? opts.maxRarity : RARITY.length - 1);
     // weight-0 rarities (Mythic) are excluded from chance rolls entirely
-    const pool = RARITY.filter((r, i) => i >= minIdx && r.weight > 0);
+    const pool = RARITY.filter((r, i) => i >= minIdx && i <= maxIdx && r.weight > 0);
     let pick = weightedPick(pool, 'weight');
     // luck (from Looting / mimic rewards): reroll once, keep the better result
     if (opts.luck && Math.random() < opts.luck) {
