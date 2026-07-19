@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.164';
+  const VERSION = 'v2.165';
 
   const NOTES = [
+    {
+      v: 'v2.165', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '894b71d',
+      items: [
+        'Deep floors each have a character now - a siege of shooters, a fast hunt, a bulwark line, or a frost floor - so they stop feeling identical.',
+      ],
+    },
     {
       v: 'v2.164', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '5b54b10',
