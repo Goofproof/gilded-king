@@ -426,6 +426,9 @@
   function newRun(coop = false) {
     g.coop = coop;
     if (!coop) g.remotePlayers.clear();
+    // #291 (Sam) lock in the chosen DIFFICULTY for this run (co-op guests get the host's,
+    // overridden in startCoop). Defaults to Adventurer (index 1) = the intended balance.
+    g.difficulty = (UI.DIFFICULTIES && UI.DIFFICULTIES[g.meta.difficulty == null ? 1 : g.meta.difficulty]) || { hpMul: 1, dmgMul: 1, fameMul: 1 };
     g.floorNum = 1;
     g.runSeed = (Math.random() * 1e9) | 0; // solo: seeds the per-floor RULE rolls
     g.rules = Rules.none();                // floors 1-3 have no circle rules
@@ -1552,13 +1555,17 @@
     if (!skip) {
       const name = ((g.initials.name || '').trim().toUpperCase().slice(0, g.initials.max)) || 'AAA';
       if (!(g.playerName || '').trim()) { g.playerName = name; saveName(); } // #203 first entry becomes your name
-      const entry = { initials: name, score: g.essenceEarned, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain, snap: buildDeathSnap() };
+      // #291 (Sam) FAME scales with the run's DIFFICULTY (a Nightmare clear is worth more on
+      // the board), but the essence CURRENCY does not - so difficulty is pure bragging rights,
+      // it never inflates the upgrade economy.
+      const fame = Math.round(g.essenceEarned * ((g.difficulty && g.difficulty.fameMul) || 1));
+      const entry = { initials: name, score: fame, floor: g.floorNum, won: g.afterInitials === 'win' || g.kingSlain, snap: buildDeathSnap() };
       const scores = loadScores();
       scores.push(entry);
       scores.sort((a, b) => b.score - a.score);
       g.scores = dedupByName(scores).slice(0, SCORE_CAP); // #159 one entry per name
       saveScores(g.scores);
-      g.newScoreRank = g.scores.findIndex(s => s.score === g.essenceEarned && s.initials === name) + 1;
+      g.newScoreRank = g.scores.findIndex(s => s.score === fame && s.initials === name) + 1;
       Sfx.play('upgrade');
       submitGlobalScore(entry); // #62 post to the global leaderboard (best-effort)
     }
@@ -4024,6 +4031,12 @@
             saveMeta(); Sfx.play('ui');
             break;
           }
+          if (r.action === 'difficulty') {   // #291 (Sam) cycle the run difficulty
+            const n = (UI.DIFFICULTIES && UI.DIFFICULTIES.length) || 4;
+            g.meta.difficulty = ((g.meta.difficulty == null ? 1 : g.meta.difficulty) + 1) % n;
+            saveMeta(); Sfx.play('ui');
+            break;
+          }
           if (r.action === 'classScroll') {  // #156 the strip's < > arrows
             if (typeof UI !== 'undefined' && UI.scrollClasses) UI.scrollClasses(r.key);
             Sfx.play('ui');
@@ -4133,7 +4146,7 @@
       // each pinned themself and broadcast. Deterministic tie-break: the LOWER clientId
       // keeps the pin; the other adopts their run. Both sides apply the same rule.
       if (g.coop && g.runHostU === g.clientId && m.hu && Date.now() - (g.runStartT || 0) < 3000) {
-        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff, m.duel, m.hunt); }
+        if (m.hu < g.clientId) { startCoop(m.seed, m.hu, m.ff, m.duel, m.hunt, m.dif); }
         return; // higher id: ignore theirs - they adopt ours by this same rule
       }
       // #173 a reconnecting client that KEPT its run must not restart it: same seed,
@@ -4142,7 +4155,7 @@
       // #194 pulled into the new party run while typing a high-score name: bank the
       // score with whatever was typed so PLAY AGAIN never eats a kid's high score
       if (g.state === 'initials') { try { commitInitials(); } catch (e) { /* score save must never block the restart */ } }
-      startCoop(m.seed, m.hu || null, m.ff, m.duel, m.hunt);
+      startCoop(m.seed, m.hu || null, m.ff, m.duel, m.hunt, m.dif);
     });
     // #173 LATE-JOIN / REJOIN: a peer connected mid-run (fresh player, or a teammate whose
     // page reloaded). The pinned host hands them the run: a targeted 'start' with the seed
@@ -4150,7 +4163,7 @@
     // room-follow pulls them into the host's room from there.
     Net.on('peer-join', m => {
       if (!g.coop || !isRunHost() || !g.dungeon) return;
-      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0, duel: g.duelMode ? 1 : 0, hunt: g.huntMode ? 1 : 0 });
+      Net.sendR({ t: 'start', seed: g.coopSeed, hu: g.clientId, to: m.id, ff: g.friendlyFire ? 1 : 0, duel: g.duelMode ? 1 : 0, hunt: g.huntMode ? 1 : 0, dif: g.meta.difficulty });
       Net.sendR({ t: 'floor', floor: g.floorNum, seed: g.coopSeed, nm: g.floorNightmare ? 1 : 0, to: m.id });
     });
     // #100 a teammate's chat line
@@ -4545,7 +4558,8 @@
     Sfx.play('ui');
   }
 
-  function startCoop(seed, hostU, ff, duel, hunt) {
+  function startCoop(seed, hostU, ff, duel, hunt, dif) {
+    g._coopDif = dif;      // #291 the host's difficulty, applied after newRun(true) below
     g.duelMode = !!duel;   // #240 THE DUEL rides the run start like friendly fire does
     g.huntMode = !!hunt && !duel; // #241 THE GILDED HUNT (duel wins if both are set)
     g.friendlyFire = !!ff || !!duel || g.huntMode; // duels and hunts ARE friendly fire
@@ -4563,6 +4577,9 @@
     g.runHostU = hostU || null;
     g.runStartT = Date.now(); // #217 for the dual PLAY AGAIN tie-break window
     newRun(true);
+    // #291 (Sam) the whole party runs the HOST's difficulty (monsters are host-authoritative
+    // anyway; this keeps every player's FAME on the same scale). Falls back to newRun's own.
+    if (g._coopDif != null && UI.DIFFICULTIES && UI.DIFFICULTIES[g._coopDif]) g.difficulty = UI.DIFFICULTIES[g._coopDif];
     // #241 hunt setup: hunters start in far-apart rooms, the whole map is known
     // (the swarm demands map awareness), every room pre-cleared, no tether.
     if (g.huntMode) {
@@ -4757,7 +4774,7 @@
           if (r.action === 'lobby-join') { lb.mode = 'join'; lb.entry = ''; lb.status = ''; Sfx.play('ui'); }
           if (r.action === 'lobby-start') { // host picks the shared run seed
             const seed = (Math.random() * 1e9) | 0;
-            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt); return; // #173 pin authority
+            Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0, dif: g.meta.difficulty }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt, g.meta.difficulty); return; // #173 pin authority
           }
           if (r.action === 'lobby-ff') { g.lobbyFF = !g.lobbyFF; Sfx.play('ui'); } // #224
           if (r.action === 'lobby-duel') { g.lobbyDuel = !g.lobbyDuel; if (g.lobbyDuel) g.lobbyHunt = false; Sfx.play('ui'); } // #240
@@ -9114,7 +9131,7 @@
     // co-op test hooks (drive the real lobby/net paths)
     mpHost() { openLobby(); const code = Net.host(); g.lobby.mode = 'host'; return code; },
     mpJoin(code) { openLobby(); Net.join(code); g.lobby.mode = 'join'; },
-    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0 }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt); }, // #224/#240/#241
+    mpStart() { const seed = (Math.random() * 1e9) | 0; Net.sendR({ t: 'start', seed, hu: g.clientId, ff: g.lobbyFF ? 1 : 0, duel: g.lobbyDuel ? 1 : 0, hunt: g.lobbyHunt ? 1 : 0, dif: g.meta.difficulty }); startCoop(seed, g.clientId, g.lobbyFF, g.lobbyDuel, g.lobbyHunt, g.meta.difficulty); }, // #224/#240/#241
     mpState() { return { coop: g.coop, connected: typeof Net !== 'undefined' && Net.connected, isHost: Net && Net.isHost, code: Net && Net.code, peers: Net ? [...Net.peers] : [], remotes: [...g.remotePlayers.keys()], room: g.room && [g.room.gx, g.room.gy] }; },
     // testing: pretend a net message arrived (drives the real Net.on handlers)
     mpRecv(m) { if (typeof Net !== 'undefined' && Net._dispatch) Net._dispatch(m); return m && m.t; },

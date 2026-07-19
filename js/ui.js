@@ -863,7 +863,7 @@ const UI = (() => {
     // + 10% of unspent coins), above the floor name so you can track it mid-run
     const p = g.player;
     if (p) {
-      const score = (p.essenceRun || 0) + Math.floor((p.coins || 0) * 0.1);
+      const score = Math.round(((p.essenceRun || 0) + Math.floor((p.coins || 0) * 0.1)) * ((g.difficulty && g.difficulty.fameMul) || 1)); // #291 fame scales with difficulty
       c.textAlign = 'right';
       c.font = 'bold 13px monospace'; c.fillStyle = '#ffd24c';
       c.fillText(`\u2605 ${score}`, W - pad, L.oy - 27);
@@ -1079,6 +1079,16 @@ const UI = (() => {
     c.restore();
   }
 
+  // #291 (Sam) DIFFICULTY the player picks before a run. Adventurer is the intended balance
+  // (1x); the others scale monster HP + damage, and pay out more (or less) FAME to match.
+  const DIFFICULTIES = [
+    { key: 'wanderer',   name: 'Wanderer',   color: '#8fd0a0', hpMul: 0.72, dmgMul: 0.66, fameMul: 0.8, blurb: 'a gentler descent' },
+    { key: 'adventurer', name: 'Adventurer', color: '#ffd24c', hpMul: 1,    dmgMul: 1,    fameMul: 1,   blurb: 'the intended challenge' },
+    { key: 'veteran',    name: 'Veteran',    color: '#ff9a4c', hpMul: 1.4,  dmgMul: 1.35, fameMul: 1.5, blurb: 'tougher, deadlier, richer' },
+    { key: 'nightmare',  name: 'Nightmare',  color: '#ff5a6e', hpMul: 1.95, dmgMul: 1.7,  fameMul: 2.3, blurb: 'brutal - for the fearless' },
+  ];
+  const difficultyAt = i => DIFFICULTIES[((i % DIFFICULTIES.length) + DIFFICULTIES.length) % DIFFICULTIES.length];
+
   function drawTitle(c, g) {
     const meta = g.meta;
     c.save();
@@ -1139,6 +1149,19 @@ const UI = (() => {
     c.fillText('co-op with friends', coopR.x + coopR.w / 2, coopR.y + 38);
 
     const rects = [startR, coopR];
+
+    // #291 (Sam) DIFFICULTY selector, tucked between the play buttons and the race picker.
+    // Click cycles Wanderer -> Adventurer -> Veteran -> Nightmare. Persists across runs.
+    {
+      const di = (meta.difficulty == null ? 1 : meta.difficulty);
+      const dif = difficultyAt(di);
+      const diffR = { x: W / 2 - 212, y: 200, w: 424, h: 16, action: 'difficulty' };
+      c.fillStyle = dif.color + '18'; c.fillRect(diffR.x, diffR.y, diffR.w, diffR.h);
+      c.strokeStyle = dif.color + '88'; c.lineWidth = 1; c.strokeRect(diffR.x, diffR.y, diffR.w, diffR.h);
+      c.font = 'bold 10px monospace'; c.fillStyle = dif.color; c.textAlign = 'center';
+      c.fillText(`‹  DIFFICULTY:  ${dif.name.toUpperCase()}  ·  fame x${dif.fameMul}  ›`, W / 2, diffR.y + 12);
+      rects.push(diffR);
+    }
 
     // #156 the bottom of the class blurb. The companion picker (the stable) sits under
     // it and MOVES DOWN when a wordy class wraps to more lines, instead of being
@@ -2958,5 +2981,5 @@ const UI = (() => {
     c.restore();
   }
 
-  return { META_UPGRADES, metaCost, GAME_URL, scrollClasses, drawCraftPick, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
+  return { META_UPGRADES, metaCost, GAME_URL, DIFFICULTIES, difficultyAt, scrollClasses, drawCraftPick, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };
 })();

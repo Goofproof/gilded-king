@@ -1477,6 +1477,16 @@ const Monsters = (() => {
       repositionFormation(out, g.enterFrom, p);
       room.formation = true;
     }
+    // #291 (Sam) DIFFICULTY the player picked before the run: a global HP + damage multiplier
+    // on every body. Default (Adventurer) is 1x, so this is a pure no-op unless they chose an
+    // easier or harder run - the intended balance is untouched at Adventurer.
+    const dif = g.difficulty;
+    if (dif && (dif.hpMul !== 1 || dif.dmgMul !== 1)) {
+      for (const m of out) {
+        if (dif.hpMul !== 1) { m.hp = Math.max(1, Math.round(m.hp * dif.hpMul)); m.maxHp = m.hp; }
+        if (dif.dmgMul !== 1 && m.dmg) m.dmg = Math.round(m.dmg * dif.dmgMul);
+      }
+    }
     return out;
   }
 
