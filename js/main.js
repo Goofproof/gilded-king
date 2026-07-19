@@ -7883,6 +7883,32 @@
     }
   }
 
+  // #298 the ARENA floor: a colosseum sand oval with ring lines and radial spokes.
+  // A pure floor marking (low alpha, no collision) that tells the eye "open ground".
+  function drawArenaFloor(c, room) {
+    const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2;
+    const rx = PF.w * 0.44, ry = PF.h * 0.42;
+    c.save();
+    // sand fill, brightest at the centre
+    const gr = c.createRadialGradient(cx, cy, rx * 0.15, cx, cy, rx);
+    gr.addColorStop(0, 'rgba(201,168,106,0.16)'); gr.addColorStop(0.75, 'rgba(184,148,90,0.11)'); gr.addColorStop(1, 'rgba(150,120,70,0)');
+    c.fillStyle = gr;
+    c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); c.fill();
+    // radial spokes (the arena's raked sand)
+    c.strokeStyle = 'rgba(120,96,56,0.10)'; c.lineWidth = 1;
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2;
+      c.beginPath(); c.moveTo(cx + Math.cos(a) * rx * 0.2, cy + Math.sin(a) * ry * 0.2);
+      c.lineTo(cx + Math.cos(a) * rx * 0.96, cy + Math.sin(a) * ry * 0.96); c.stroke();
+    }
+    // two concentric ring lines
+    c.strokeStyle = 'rgba(138,109,63,0.34)'; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = 'rgba(138,109,63,0.20)'; c.lineWidth = 1.5;
+    c.beginPath(); c.ellipse(cx, cy, rx * 0.62, ry * 0.62, 0, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+
   function drawRoom(c, room) {
     const pal = Dungeon.paletteFor(room, g.floorNum);
     const theme = Dungeon.themeFor(g.floorNum);
@@ -7903,6 +7929,7 @@
       room._staticKey = staticKey;
     }
     c.drawImage(room._staticCv, 0, 0);
+    if (room.arena) drawArenaFloor(c, room);               // #298 colosseum sand ring, on the floor
     if (room.lava && room.lava.length) drawLava(c, room); // #293 animated, over the floor, under everything alive
 
     // theme ambience: drifting particles that sell the place

@@ -181,13 +181,20 @@ const Dungeon = (() => {
           return true;
         };
         const push = (x, y, rad, kind) => { if (spotOk(x, y, rad)) r.obstacles.push({ x, y, r: rad, kind }); };
+        const W = PF.w, H = PF.h, X = PF.x, Y = PF.y;
 
+        // #298 ARENA: a wide-open colosseum floor. From floor 2 on, ~11% of combat rooms
+        // roll as an arena - NO shape carve, NO obstacles, NO pits, NO lava. Just a clean
+        // brawl space with a bigger horde and nowhere to hide (the spawn boost + sand-ring
+        // visual live in monsters.js / main.js). Seeded, so co-op peers agree.
+        r.arena = floorNum >= 2 && rnd() < 0.11;
+        r.shape = 'rect';
+        if (!r.arena) {
         // #67b ROOM SHAPE: carve the rectangle into a real non-rect shape with solid
         // wall rects - an L-room missing a corner, a plus, a chamfered octagon, or an
         // off-centre divider. Every wall sits >=86px clear of the edge midpoints, so it
         // can never cover a mid-edge door, its inward lane, or the room centre. Verified
         // door-safe + fully connected across 400 floors before shipping.
-        const W = PF.w, H = PF.h, X = PF.x, Y = PF.y;
         // #67c the corner-BLOCK shapes (plus/octagon-of-rects) are retired in favour of a
         // true convex POLYGON room (octagon / rounded hall / diamond / hex). lshape (one
         // genuine missing corner) and notch (an interior divider) stay - they are real
@@ -301,6 +308,7 @@ const Dungeon = (() => {
             }
           }
         }
+        } // #298 end of the !arena open-floor guard (shape + obstacles + pits)
 
         // GUARANTEE traversability: every door must be able to walk to the room
         // centre. In rare cases a pit or loose rock clogs a narrow arm of a plus/notch
@@ -344,7 +352,7 @@ const Dungeon = (() => {
         // connectivity guard - it punishes lingering and reshapes how you use the room. Grows
         // more common the deeper you go (a rarity on the top floors, a real threat down below).
         r.lava = [];
-        if (rnd() < Math.min(0.26, 0.03 + 0.035 * floorNum)) {
+        if (!r.arena && rnd() < Math.min(0.26, 0.03 + 0.035 * floorNum)) {
           const nPools = 1 + ((rnd() * 3) | 0);
           for (let i = 0, tries = 0; i < nPools && tries < 40; tries++) {
             const lr = 34 + rnd() * 26;

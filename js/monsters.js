@@ -1486,6 +1486,11 @@ const Monsters = (() => {
     // at 26 - the Swarm needs real headroom or it is not a swarm, but the renderer
     // and the pathing still have to cope.
     if (g.rules && g.rules.countMul !== 1) n = Math.max(2, Math.min(26, Math.round(n * g.rules.countMul)));
+    // #298 ARENA: an open colosseum floor packs in a bigger horde - nowhere to hide anyway.
+    if (room.arena) {
+      n = Math.min(22, Math.round(n * 1.7));
+      if (typeof Fx !== 'undefined' && g.player) Fx.text(g.player.x, g.player.y - 46, 'THE ARENA', '#e8c874', 16);
+    }
     const out = [];
     const p = g.player;
     // #67b/#74 don't spawn a mob buried in a wall or standing in a pit
