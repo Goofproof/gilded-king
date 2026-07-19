@@ -346,6 +346,16 @@ const Weapons = (() => {
     });
   }
 
+  // #mythic (Sam): a mythic out-classes a legendary - it gets an EXTRA (4th) enchant slot.
+  // The bonus is a real enchant from the item's OWN pool that it does not already carry,
+  // picked deterministically from the mythicId so the same item always rolls the same extra.
+  function withMythicBonus(id, keys, candidates) {
+    const avail = candidates.filter(e => !keys.includes(e.key));
+    if (!avail.length) return keys;
+    let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0x7fffffff;
+    return keys.concat(avail[h % avail.length].key);
+  }
+
   function buildMythicWeapon(e, tier = 6) {
     const arch = ARCHETYPES[e.archetype];
     // #127 mythics were a FLAT base dmg while every rolled weapon scaled +8%/tier, so a
@@ -360,7 +370,9 @@ const Weapons = (() => {
       range: arch.range, arc: arch.arc, projSpeed: arch.projSpeed || 0, stagger: arch.stagger || 0,
       magic: arch.magic || null,                       // wand='bolt' / staff='fireball' -> fireSpell()
       magicReq: arch.magic ? (e.magicReq || 4) : 0,    // magic mythics ask for real Magic investment
-      enchants: mythicEnchants(e.enchants, ENCHANTS),
+      // 4th enchant slot: a bonus from the weapon's own pool (melee, or the ranged pool for bow/magic)
+      enchants: mythicEnchants(withMythicBonus(e.id, e.enchants,
+        ENCHANTS.filter(en => en.pool === ((e.archetype === 'heavy' || e.archetype === 'light') ? 'melee' : 'bow') || en.pool === 'any')), ENCHANTS),
       price: 400 + tier * 5,
     };
     applyEnchantStats(w);
@@ -376,7 +388,8 @@ const Weapons = (() => {
       name: e.name, mythic: true, mythicId: e.id, flavor: e.flavor,
       // #204 (Sam) Math.round on a FRACTION (0.12-0.19) rounded every mythic's defense
       // to ZERO - mythic armor gave no damage reduction at all. Keep the precision.
-      defense: +(e.defense * 1.15 * tierMul).toFixed(3), enchants: mythicEnchants(e.enchants, ARMOR_ENCHANTS),
+      defense: +(e.defense * 1.15 * tierMul).toFixed(3),
+      enchants: mythicEnchants(withMythicBonus(e.id, e.enchants, ARMOR_ENCHANTS), ARMOR_ENCHANTS), // 4th enchant slot
       price: 400 + tier * 5,
     };
     a.price += a.enchants.reduce((s, en) => s + en.tier * 8 + (en.level || 0) * 4, 0);
