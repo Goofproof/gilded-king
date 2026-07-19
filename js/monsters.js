@@ -1280,7 +1280,25 @@ const Monsters = (() => {
       }
       m.dead = true;
       if (m.elite && m.elite.blast) eliteBlast(m, g);
+      if (m.elite && m.elite.split) eliteSplit(m, g);
       g.onKill(m);
+    }
+  }
+
+  // #271 (Sam) a Splitter elite bursts into a couple of small swarmers on death, so a kill
+  // isn't the end of the fight. Host-authoritative in co-op (like every other spawn) so a
+  // guest's killing blow can't conjure ghost adds the host never made; the normal mob
+  // snapshot streams them to guests. The adds are plain (non-elite) so splits can't cascade.
+  function eliteSplit(m, g) {
+    if (g.coop && !((g.isRunHost ? g.isRunHost() : (typeof Net !== 'undefined' && Net.isHost)))) return;
+    const n = Math.max(1, m.elite.split | 0);
+    Fx.burst(m.x, m.y, ['#9ef06e', '#cfe8b0', '#fff'], 14, { speed: 160, life: 0.4, glow: true });
+    Fx.text(m.x, m.y - m.r - 10, 'SPLIT', '#9ef06e', 12);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random();
+      const baby = make('swarmer', m.x + Math.cos(a) * 16, m.y + Math.sin(a) * 16, m.tier);
+      baby.empowerCd = 8 + Math.random() * 6;
+      g.monsters.push(baby);
     }
   }
 

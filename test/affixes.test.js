@@ -8,19 +8,20 @@ import { loadGame } from './harness.js';
 const { Descent } = loadGame();
 
 describe('elite affixes', () => {
-  it('the pool holds all six affixes, including the three behavioural ones', () => {
+  it('the pool holds every affix, including the four behavioural ones', () => {
     const keys = Descent.AFFIXES.map(a => a.key);
-    for (const k of ['giant', 'swift', 'volatile', 'berserk', 'warded', 'vampiric']) {
+    for (const k of ['giant', 'swift', 'volatile', 'berserk', 'warded', 'vampiric', 'splitter']) {
       expect(keys, `missing affix ${k}`).toContain(k);
     }
   });
 
-  it('berserk frenzies, warded blocks, vampiric leeches - the behaviour flags are present', () => {
+  it('berserk frenzies, warded blocks, vampiric leeches, splitter splits - the flags are present', () => {
     const by = k => Descent.AFFIXES.find(a => a.key === k);
     expect(by('berserk').frenzy, 'berserk lost its frenzy flag').toBeTruthy();
     expect(by('warded').ward, 'warded lost its ward flag').toBeTruthy();
     expect(by('vampiric').leech, 'vampiric lost its leech fraction').toBeGreaterThan(0);
     expect(by('volatile').blast, 'volatile lost its death blast').toBeGreaterThan(0);
+    expect(by('splitter').split, 'splitter lost its split count').toBeGreaterThan(0);
   });
 
   it('every affix keeps the stat-mul shape make() reads', () => {
