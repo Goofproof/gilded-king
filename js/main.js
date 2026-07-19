@@ -4739,8 +4739,12 @@
       const form = rp.form && PlayerDef.formById ? PlayerDef.formById(rp.form) : null;
       const R = form ? Math.round(13 * form.scale) : 13;
       const pcy = form ? 0 : R * 0.7;   // #269 torso centre offset (origin = head on the portrait body)
+      // #270 (Sam) IDLE LIFE for teammates: the same gentle breathing bob the local player has,
+      // when they are standing still (rp.mv is their moving flag). A per-peer phase offset keeps
+      // the party from bobbing in lockstep. Shadow + identity ring stay planted on the floor.
+      const pbob = !rp.mv ? Math.sin(Date.now() / 460 + (rp.x || 0) * 0.03) * R * 0.1 : 0;
       // prestige cape (behind the body) - so teammates see each other's capes, clasped at the shoulders
-      if (rp.pr > 0 && PlayerDef.capeAt) { c.save(); c.translate(0, pcy); PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x, rp.cw ? rp.cw[0] : 0, rp.cw ? rp.cw[1] : 0); c.restore(); }
+      if (rp.pr > 0 && PlayerDef.capeAt) { c.save(); c.translate(0, pcy + pbob); PlayerDef.capeAt(c, 13, rp.pr, rp.mv, rp.x, rp.cw ? rp.cw[0] : 0, rp.cw ? rp.cw[1] : 0); c.restore(); }
       const tint = PlayerDef.partySlotColor ? PlayerDef.partySlotColor(g, rp.u || id) : '#7fd4ff';
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.beginPath(); c.ellipse(0, R - 2, R * 0.85, R * 0.27, 0, 0, Math.PI * 2); c.fill();
@@ -4754,19 +4758,22 @@
       // whole champion turned gold/purple with every weapon swap. The body now wears their
       // real colours: druid form, else the evolution recolour, else the default blue.
       if (form) {
-        // druid beast: round body + animal head, in the beast's colours
+        // druid beast: round body + animal head, in the beast's colours (rides the idle bob)
+        c.save(); c.translate(0, pbob);
         c.fillStyle = form.cloak; c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
         c.fillStyle = form.body; c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
         if (PlayerDef.drawFormHead) PlayerDef.drawFormHead(c, form.id, R);
+        c.restore();
       } else if (PlayerDef.drawClassPortrait) {
         // #269 (Sam) a teammate is their character-select portrait too - shoulders + a real
         // face in their race, class headgear on top - so co-op shows characters, not blobs.
         // rp.bodyC carries their evolution recolour when they have one, else the class colour.
-        PlayerDef.drawClassPortrait(c, rp.cl || '', 0, 0, R, rp.rc || 'human', rp.bodyC || null);
+        // #270 cy = pbob so the body breathes with the idle bob.
+        PlayerDef.drawClassPortrait(c, rp.cl || '', 0, pbob, R, rp.rc || 'human', rp.bodyC || null);
       }
       // held weapon (aimed where they're facing) - so teammates see each other's weapons,
-      // pivoted around the torso like the local player's weapon
-      if (PlayerDef.peerWeapon) { c.save(); c.translate(0, pcy); PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R, rp.wm); c.restore(); }
+      // pivoted around the torso like the local player's weapon, riding the idle bob
+      if (PlayerDef.peerWeapon) { c.save(); c.translate(0, pcy + pbob); PlayerDef.peerWeapon(c, rp.wa, rp.wc, rp.facing, R, rp.wm); c.restore(); }
       c.restore();
       c.textAlign = 'center';
       c.fillStyle = tint; c.font = 'bold 10px monospace';
