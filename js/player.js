@@ -1321,6 +1321,9 @@ const PlayerDef = (() => {
       }
 
       this.hp -= dmg;
+      // #269 (Sam) remember WHAT last hit you, so the death eulogy can name your slayer.
+      // src is the attacker: a boss (has .name), a monster (has .type), or a projectile's owner.
+      if (src && (src.type || src.name)) this._killer = { type: src.type || null, name: src.name || null, boss: !!src.isBoss };
       if (typeof Ach !== 'undefined') Ach.damaged(g); // #86 breaks the floor's no-hit streak
       if (g.vowIntact) g.vowIntact = false;           // THE VOW (encounters.js) is broken by one hit
       this.iframes = T.hurtIframes;

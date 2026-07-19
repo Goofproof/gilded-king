@@ -66,20 +66,38 @@ const Eulogy = (() => {
     return ['wanderer', 'far-travelled', 'deep-roader', 'stranger-to-fear', 'lantern-bearer', 'last-of-the-lightfoot'];
   }
 
-  // the raider's SIGNATURE stat: whichever of dmg / speed / crit / coins / magic
-  // stood tallest. Each carries its own epithet pool. (Percentages compared
-  // directly; magic-level scaled up so it can win when it should.)
+  const cap = w => { const t = String(w || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+
+  // the raider's SIGNATURE stat: whichever of dmg / speed / crit / coins / magic stood
+  // tallest. #269 (Sam) these are now short ADJECTIVE forms (not relative clauses) so they
+  // flow anywhere in the ballad - "swift-footed they were", "and swift-footed to the last".
   function signature(r, s) {
     const cands = [
-      { v: Math.round((num(s.dmgMul, 1) - 1) * 100), ep: ['mighty-armed', 'whose blow broke the line', 'strong past mortal measure'] },
-      { v: Math.round((num(s.spdMul, 1) - 1) * 100), ep: ['swift-footed', 'fleet as the north wind', 'who outran his own shadow'] },
-      { v: num(s.crit, 0), ep: ['keen-eyed', 'whose stroke found every seam', 'the unerring hand'] },
-      { v: Math.round((num(s.coinMul, 1) - 1) * 100), ep: ['gold-hungry', 'who counted coin in the dark', 'laden with the dead\'s plunder'] },
-      { v: (num(s.magic, 1) - 1) * 18, ep: ['steeped in old sorcery', 'who wore the arts like mail', 'the ember-tongued'] },
+      { v: Math.round((num(s.dmgMul, 1) - 1) * 100), ep: ['mighty-armed', 'heavy-handed', 'strong past mortal measure'] },
+      { v: Math.round((num(s.spdMul, 1) - 1) * 100), ep: ['swift-footed', 'quick as a rumor', 'never once cornered'] },
+      { v: num(s.crit, 0), ep: ['keen-eyed', 'sharp past reason', 'deadly in a single stroke'] },
+      { v: Math.round((num(s.coinMul, 1) - 1) * 100), ep: ['gold-hungry', 'a counter of coin', 'richer than sense'] },
+      { v: (num(s.magic, 1) - 1) * 18, ep: ['ember-tongued', 'deep in the old arts', 'wreathed in borrowed fire'] },
     ];
     let best = cands[0];
     for (const c of cands) if (c.v > best.v) best = c;
     return pick(r, best.ep);
+  }
+
+  // #269 (Sam) a readable, singable name for the thing that felled the raider, for the fall
+  // line. Bosses carry their own name; the common creatures get one here; unknowns go generic.
+  const MONSTER_NAMES = {
+    chaser: 'a Chaser', swarmer: 'a Swarmer', tank: 'a Juggernaut', archer: 'an Archer',
+    bomber: 'a Bomber', worm: 'a burrowing Worm', shielded: 'a Shieldbearer', gluegunner: 'a Glue-Gunner',
+    glass: 'a Glass Stalker', seeker: 'a Seeker', miner: 'a Miner', lobber: 'a Lobber', gunner: 'a Gunner',
+    mage: 'a Hexer', snowman: 'a Snowman', panther: 'a Panther', pulser: 'a Pulser', summoner: 'a Summoner', add: 'a lesser spawn',
+  };
+  function killerName(k) {
+    if (!k) return null;
+    if (k.boss && k.name) return titleCase(String(k.name).replace(/^THE\s+/i, 'The '));
+    if (k.name) return titleCase(k.name);
+    if (k.type) return MONSTER_NAMES[k.type] || 'something in the dark';
+    return null;
   }
 
   // Build the verse. Every load-bearing detail (weapon, signature stat, ultimate)
@@ -98,53 +116,68 @@ const Eulogy = (() => {
     const place = floorName(s.floor);
     const kills = num(s.kills, 0);
 
+    const slayer = killerName(s.killer);
+
     const lines = [];
-    // L1: ten STRUCTURALLY different ways into the tale (#208). The board rank walks
-    // the list so neighbouring raiders on the top-5 never open the same way.
+    // #269 (Sam) a BARD'S TALE, not a Homeric epic: warmer, flowing, sung across the table,
+    // and it names the thing that finally caught you. L1 - the bard settling into the story.
+    // The board rank walks the list so neighbouring top-5 raiders never open the same way.
     const L1 = [
-      `Sing of ${name} the ${classEp},`,
-      `They still argue about ${name} in the taverns,`,
-      `The dungeon remembers ${name}, ${classEp},`,
-      `${kills > 0 ? kills : 'Uncounted'} monsters learned the name ${name},`,
-      `Down where the light gives up, ${name} kept walking,`,
-      `No one ordered ${name} to go so deep. ${titleCase(String(name).toLowerCase())} went anyway,`,
-      `Write this in the ledger of the fallen: ${name}, ${classEp},`,
-      `Ask the walls about ${name} - they are still shaking,`,
-      `${name} did not come for the gold. Not only for the gold,`,
-      `Some doors should stay shut. ${name} opened every one,`,
+      `Gather close, and hear of ${name} the ${classEp}.`,
+      `Here is a tale worth the telling: ${name}, ${classEp}.`,
+      `They still sing of ${name} down in these halls.`,
+      `Once, not so long ago, ${name} the ${classEp} went down into the barrow.`,
+      `Pour another round, and I will tell you of ${name}.`,
+      `You want a story? Then hear of ${name}, ${classEp}.`,
+      `There was a ${classEp} named ${name}, and this is how it ended.`,
+      `Every door in the dark came to know the name ${name}.`,
+      `Some go down for the gold. ${titleCase(String(name).toLowerCase())} went down for the going.`,
+      `Listen now: the barrow took ${name}, but it did not come cheap.`,
     ];
-    // Top-5 GUARANTEE: each rank owns a disjoint PAIR of templates (rank 0 -> 0/1,
-    // rank 1 -> 2/3, ...), the seed picks within the pair - so the board's five
-    // openers can never repeat a structure. Deeper ranks pick freely.
-    if (s.rank != null && s.rank >= 0 && s.rank < 5) {
-      lines.push(L1[(s.rank * 2 + ((r() * 2) | 0)) % L1.length]);
-    } else {
-      lines.push(pick(r, L1));
-    }
-    // L2: the signature stat + the weapon that carried it
+    if (s.rank != null && s.rank >= 0 && s.rank < 5) lines.push(L1[(s.rank * 2 + ((r() * 2) | 0)) % L1.length]);
+    else lines.push(pick(r, L1));
+
+    // L2 - how they fought: their signature woven with the blade that carried it
     lines.push(weapon
       ? pick(r, [
-        `${statEp}, who bore ${weapon}.`, `${statEp}, ${weapon} in hand.`, `who carried ${weapon}, ${statEp}.`,
-        `${statEp}, and ${weapon} never left their grip.`, `with ${weapon} raised, ${statEp}.`, `${statEp}, whose ${weapon} the dark learned to fear.`,
+        `${cap(statEp)} they were, and ${weapon} sang wherever they carried it.`,
+        `With ${weapon} in hand they cut a road through the deep, ${statEp} to the last.`,
+        `They were ${statEp}, and let ${weapon} answer every door.`,
+        `${weapon} never left their grip, for they were ${statEp}.`,
       ])
-      : pick(r, [`${statEp}, and unafraid.`, `${statEp}, and empty-handed still they went.`, `${statEp}, needing no blade at all.`]));
-    // L3: the ultimate they loosed (skipped if none recorded) - no 'vault', ever (#208)
+      : pick(r, [
+        `${cap(statEp)} they were, and needed no blade at all.`,
+        `They went ${statEp}, and empty-handed still nothing could hold them.`,
+        `${cap(statEp)}, they let the dark come to them.`,
+      ]));
+
+    // L3 - a deed worth a verse: the ultimate they loosed (skipped if none recorded)
     if (ult) lines.push(pick(r, [
-      `who loosed the ${ult} upon the host,`,
-      `who spoke the ${ult} and the room went quiet,`,
-      `and the ${ult} answered when they called,`,
-      `whose ${ult} the deep still remembers,`,
-      `and when the ${ult} came down, even the walls flinched,`,
-      `who saved the ${ult} for exactly the right moment,`,
+      `When the walls closed in they loosed the ${ult}, and the deep remembers it still.`,
+      `More than once the ${ult} bought them one more floor.`,
+      `They saved the ${ult} for the worst of it, and the worst of it always came.`,
+      `The ${ult} answered when they called it, and whole rooms went quiet.`,
     ]));
-    // L4: the fall, named by the place it happened
-    lines.push(place
-      ? pick(r, [
-        `Then the ${place} closed over ${name}.`, `The ${place} keeps ${name} now, and does not give back.`,
-        `In the ${place} the song of ${name} went out.`, `Even ${name} lay down at last, in the ${place}.`,
-        `The ${place} was one door too many.`, `Somewhere in the ${place}, the story stops mid-sentence.`,
-      ])
-      : (s.floor != null ? `and fell upon floor ${s.floor}, and was still.` : `and passed into the long dark.`));
+
+    // L4 - the fall: WHO took them, and WHERE. The heart of the bard's tale (#269 Sam).
+    if (slayer && place) lines.push(pick(r, [
+      `In the end it was ${slayer} that took them, there in the ${place}.`,
+      `${cap(slayer)} was waiting in the ${place}, and that is where the song stops.`,
+      `${cap(slayer)} caught them at last in the ${place}, and ${name} went quiet.`,
+      `No one outlasts every floor: ${slayer} met them in the ${place}, and that was the end.`,
+    ]));
+    else if (slayer) lines.push(pick(r, [
+      `In the end it was ${slayer} that took them, and ${name} went quiet.`,
+      `${cap(slayer)} caught them at last, and there the song stops.`,
+      `No one outlasts every floor, and ${slayer} was the one who proved it.`,
+    ]));
+    else if (place) lines.push(pick(r, [
+      `The ${place} closed over ${name}, and did not give them back.`,
+      `Somewhere in the ${place}, the story stops mid-sentence.`,
+      `The ${place} was one door too many, and there ${name} stayed.`,
+    ]));
+    else lines.push(s.floor != null ? `They fell on floor ${s.floor}, and were still.` : `The long dark took them, as one day it takes us all.`);
+
     return lines;
   }
 

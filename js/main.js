@@ -1504,6 +1504,7 @@
       armor: nm(p.armor),
       trinket: p.trinket ? p.trinket.name : null,   // #134 the fourth slot, on the leaderboard too
       q: p.ability && p.ability.name, r: p.abilityR && p.abilityR.name, ult: p.abilityUlt && p.abilityUlt.name,
+      killer: p._killer || null,   // #269 (Sam) what last hit you - the eulogy names your slayer
     };
   }
 
