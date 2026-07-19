@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.163';
+  const VERSION = 'v2.164';
 
   const NOTES = [
+    {
+      v: 'v2.164', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '5b54b10',
+      items: [
+        'Elite enemies get three new flavors: Berserk frenzy when hurt, Warded shield themselves, Vampiric heal by hitting you.',
+      ],
+    },
     {
       v: 'v2.163', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '7194c8f',
