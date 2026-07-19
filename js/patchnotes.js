@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.154';
+  const VERSION = 'v2.155';
 
   const NOTES = [
+    {
+      v: 'v2.155', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '236f276',
+      items: [
+        'Prestige capes are shorter with a Navy rank badge, and capes and wings now sit on the shoulders.',
+      ],
+    },
     {
       v: 'v2.154', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: 'fb51883',
