@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.182';
+  const VERSION = 'v2.183';
 
   const NOTES = [
+    {
+      v: 'v2.183', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '06e2a65',
+      items: [
+        'Rooms come in real shapes now - octagons, rounded halls, diamonds and hexes carved as true angled/curved chambers instead of boxes with blocked-off corners, and mobs and you both hug the new walls cleanly.',
+      ],
+    },
     {
       v: 'v2.182', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '6f53ef1',
