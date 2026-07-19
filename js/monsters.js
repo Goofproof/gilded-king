@@ -1573,6 +1573,11 @@ const Monsters = (() => {
       n = Math.min(22, Math.round(n * 1.7));
       if (typeof Fx !== 'undefined' && g.player) Fx.text(g.player.x, g.player.y - 46, 'THE ARENA', '#e8c874', 16);
     }
+    // #303 ELITE DEN: a SMALL pack, but every one is elite (forced below), guarding a chest.
+    if (room.eliteDen) {
+      n = Math.max(3, Math.min(5, Math.round(n * 0.5)));
+      if (typeof Fx !== 'undefined' && g.player) Fx.text(g.player.x, g.player.y - 46, 'ELITE DEN', '#ff7a2c', 16);
+    }
     const out = [];
     const p = g.player;
     // #67b/#74 don't spawn a mob buried in a wall or standing in a pit
@@ -1624,7 +1629,7 @@ const Monsters = (() => {
           if (R) { mods.hpMul *= R.monHpMul; mods.dmgMul *= R.monDmgMul; }
           // eliteAdd of -1 (Limbo's Stillness) drives the chance to zero outright
           const ec = Descent.eliteChance(floor) + (R ? R.eliteAdd : 0);
-          if (Math.random() < ec) mods.elite = Descent.rollAffix();
+          if (room.eliteDen || Math.random() < ec) mods.elite = Descent.rollAffix(); // #303 the den forces every one elite
         }
         const m = make(type, x, y, tier, mods);
         if (R && R.spawn) R.spawn(m, g); // the Fury enrages every soul on arrival

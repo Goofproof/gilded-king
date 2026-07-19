@@ -201,6 +201,11 @@ const Dungeon = (() => {
         // brawl space with a bigger horde and nowhere to hide (the spawn boost + sand-ring
         // visual live in monsters.js / main.js). Seeded, so co-op peers agree.
         r.arena = floorNum >= 2 && rnd() < 0.11;
+        // #303 ELITE DEN: a deep-floor (4+) challenge room. A SMALL pack, but every one of
+        // them is elite (forced affixes), guarding a guaranteed treasure chest. High risk,
+        // real reward. Never stacks with an arena. Seeded, so co-op peers agree.
+        r.eliteDen = !r.arena && floorNum >= 4 && rnd() < 0.10;
+        if (r.eliteDen) r.chests.push({ x: PF.x + PF.w / 2, y: PF.y + PF.h / 2, opened: false, mimic: false, wobble: rnd() * Math.PI * 2 });
         r.shape = 'rect';
         if (!r.arena) {
         // #67b ROOM SHAPE: carve the rectangle into a real non-rect shape with solid
