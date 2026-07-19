@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.180';
+  const VERSION = 'v2.181';
 
   const NOTES = [
+    {
+      v: 'v2.181', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '68c8775',
+      items: [
+        'Fallen-hero titles now come from your whole run - your weapon, your best stat, or the ultimate you wielded - not just your class, so two mages no longer share a name.',
+      ],
+    },
     {
       v: 'v2.180', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '63ac0d2',
