@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.179';
+  const VERSION = 'v2.180';
 
   const NOTES = [
+    {
+      v: 'v2.180', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '63ac0d2',
+      items: [
+        'The fallen-hero songs now RHYME, and every hero gets their own mood - some cheeky, some spooky, some hopeful, some just plain fun - so the Hall of Heroes never sings the same tune twice.',
+      ],
+    },
     {
       v: 'v2.179', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '8eb6e69',
