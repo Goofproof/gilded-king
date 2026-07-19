@@ -54,6 +54,16 @@
 <div id="rotate" style="display:none;position:fixed;inset:0;z-index:10;background:#0b0b12;color:#c9a86a;
   font:600 18px system-ui,sans-serif;align-items:center;justify-content:center;text-align:center;padding:24px">
   Turn your phone sideways to play</div>
+<!-- MOBILE (iPhone): iOS Safari has NO Fullscreen API for the canvas, so the only way to shed
+     the browser chrome and play big is Add to Home Screen. touch.js reveals this one-time,
+     dismissible hint on iPhone Safari (never on Android/desktop, never once home-screened). -->
+<div id="ioshint" style="display:none;position:fixed;left:8px;right:8px;bottom:8px;z-index:11;
+  background:#141422;color:#e8d3b0;border:1px solid #3a3a52;border-radius:10px;
+  font:600 13px system-ui,sans-serif;padding:11px 42px 11px 13px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.55)">
+  For a full screen, tap <b>Share</b> then <b>Add to Home Screen</b>.
+  <span id="ioshintx" style="position:absolute;right:9px;top:50%;transform:translateY(-50%);width:24px;height:24px;
+    line-height:24px;text-align:center;border-radius:12px;background:#2a2a3e;cursor:pointer">&#10005;</span>
+</div>
 <!-- Plain script tags, no modules: works from a local server AND by double-clicking the file. -->
 <script src="js/audio.js"></script>
 <script src="js/fx.js"></script>

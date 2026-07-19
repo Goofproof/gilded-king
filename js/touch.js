@@ -393,6 +393,29 @@ const Mobile = (() => {
     el.style.display = portrait ? 'flex' : 'none';
   }
 
+  // #270 (Sam) reveal the "Add to Home Screen" hint ONLY where it is the real fix: iPhone
+  // Safari, which has no Fullscreen API for the canvas, when not already installed to the home
+  // screen, and only once ever (dismissible). Android/iPad/desktop have real fullscreen, so
+  // they never see it. Best-effort: any failure just leaves the hint hidden.
+  function maybeIosHint() {
+    try {
+      const ua = navigator.userAgent || '';
+      const isIphone = /iPhone|iPod/.test(ua);
+      const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      const root = document.documentElement;
+      const canFs = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+      let seen = false; try { seen = localStorage.getItem('bl_ioshint') === '1'; } catch (e) {}
+      if (!isIphone || standalone || canFs || seen) return;
+      const el = document.getElementById('ioshint'), x = document.getElementById('ioshintx');
+      if (!el) return;
+      el.style.display = 'block';
+      try { localStorage.setItem('bl_ioshint', '1'); } catch (e) {}   // once ever, no nagging
+      const hide = () => { el.style.display = 'none'; };
+      if (x) x.addEventListener('click', hide, { passive: true });
+      setTimeout(() => { if (el.style.display !== 'none') el.style.display = 'none'; }, 12000);
+    } catch (e) { /* the hint is best-effort */ }
+  }
+
   // wire up. `ultFn` fires the ultimate (right-click on desktop); `fsFn` toggles
   // fullscreen (must run inside the touch gesture for the browser to honor it).
   function init(cv, inp, ultFn, fsFn) {
@@ -400,6 +423,7 @@ const Mobile = (() => {
     W = cv.width; H = cv.height;
     if (!isTouch) return false;
     enabled = true;
+    maybeIosHint();
     wireKeyboard();
     // the page must not scroll, zoom, or fire a 300ms synthetic click
     cv.addEventListener('touchstart', start, { passive: false });
