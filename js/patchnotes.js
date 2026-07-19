@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.167';
+  const VERSION = 'v2.168';
 
   const NOTES = [
+    {
+      v: 'v2.168', title: 'Fixes & Improvements', date: '2026-07-19',
+      sha: '0b49c98',
+      items: [
+        'Deep floors stop dropping junk: past the Inferno no more commons, in Paradiso no commons or uncommons, so going deeper pays off.',
+      ],
+    },
     {
       v: 'v2.167', title: 'Fixes & Improvements', date: '2026-07-19',
       sha: '37deb75',
