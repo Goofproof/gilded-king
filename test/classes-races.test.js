@@ -51,9 +51,9 @@ describe('#156 the five new classes', () => {
     expect(q.dur).toBeGreaterThan(0);       // the brawl lasts a while
     expect(q.radius).toBeGreaterThan(0);    // it has reach
     expect(q.dps).toBeGreaterThan(0);       // the R12 rot has a rate
-    // VIGOR rules the Q (invest VIGOR -> milestones), and the rank reads that stat
-    expect(Abilities.CLASS_STAT.bard).toBe('VIGOR');
-    expect(Abilities.qRank('bard', { VIGOR: 8 })).toBe(8);
+    // #274 the Bard is DUAL-STAT: Fortune + Arcane rule the Q, and the rank SUMS both
+    expect(Abilities.CLASS_STAT.bard).toEqual(['FORTUNE', 'ARCANE']);
+    expect(Abilities.qRank('bard', { FORTUNE: 3, ARCANE: 5 })).toBe(8);
     // the milestone ladder: haste @4, party regen @8, rot @12 - all shipped (impl:true)
     const ms = Abilities.Q_MILESTONES.bard;
     expect(ms.map(m => m.at)).toEqual([4, 8, 12]);
