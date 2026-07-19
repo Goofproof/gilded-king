@@ -170,6 +170,21 @@ const Descent = (() => {
     { name: 'LUCIFER, EMPEROR OF HELL',     subtitle: 'three faces, three traitors, one frozen king', variant: 'king', skin: 'lucifer', hpMul: 1.5, dmgMul: 1.15, ult: 'cocytus', pal: { body: '#1a2630', lidLo: '#0a1016', lid: '#26384a', trim: '#7fd4ff', crown: '#cfeeff', jewel: [127, 212, 255] } },
   ];
 
+  // #296 (Sam) THE CLIMB out of Hell - up Mount Purgatory and into the Heavens - now has its
+  // OWN named guardians instead of the generic rotating Warden. No bespoke `skin`, so each
+  // renders on the Warden's variant body but with a unique name, subtitle, palette, and ult.
+  // Guards the post-Hell boss floors in order (15, 18, 21, ...); past the list the Warden returns.
+  const POST_HELL_BOSSES = [
+    { name: 'THE ANGEL OF THE GATE',   subtitle: 'two keys, and a sword that is only flame',      variant: 'colossus',  ult: 'wrath',     pal: { body: '#c9c2a8', lidLo: '#a89f80', lid: '#e0d8ba', trim: '#ffd24c', crown: '#fff0c0', jewel: [255, 210, 76] } },
+    { name: 'THE MARBLE PENITENT',     subtitle: 'pride, carved in stone and made to carry it',    variant: 'king',      ult: 'gore',      pal: { body: '#b8bcc4', lidLo: '#8f939c', lid: '#cdd2da', trim: '#e8edf6', crown: '#ffffff', jewel: [220, 226, 236] } },
+    { name: 'THE SIREN OF THE CLIMB',  subtitle: 'she sings so sweetly you forget to breathe',     variant: 'matriarch', ult: 'gaze',      pal: { body: '#6a3a8f', lidLo: '#4a2865', lid: '#7c48a4', trim: '#c060ff', crown: '#e0a0ff', jewel: [192, 96, 255] } },
+    { name: 'THE EAGLE OF JUSTICE',    subtitle: 'a thousand just souls, and a single wing',       variant: 'colossus',  ult: 'judgment',  pal: { body: '#3a5a8f', lidLo: '#284065', lid: '#4870a4', trim: '#8fd0ff', crown: '#cfeeff', jewel: [143, 208, 255] } },
+    { name: 'THE CHERUB OF THE SUN',   subtitle: 'too bright to look upon, and it knows it',       variant: 'king',      ult: 'goldstorm', pal: { body: '#c8a83a', lidLo: '#a88a28', lid: '#e0c04a', trim: '#ffe08a', crown: '#fff4c0', jewel: [255, 224, 138] } },
+    { name: 'THE KNIGHT OF MARS',      subtitle: 'a cross of living fire, and a blade to match',    variant: 'colossus',  ult: 'triplebite', pal: { body: '#8f2a2a', lidLo: '#651e1e', lid: '#a43838', trim: '#ff6a6a', crown: '#ffb0a0', jewel: [255, 106, 106] } },
+    { name: 'THE THRONE OF SATURN',    subtitle: 'a golden ladder no soul climbs down twice',       variant: 'matriarch', ult: 'crossing',  pal: { body: '#5a5230', lidLo: '#3d3820', lid: '#6d6438', trim: '#e8d68a', crown: '#fff0c0', jewel: [232, 214, 138] } },
+    { name: 'BEATRICE, ASCENDANT',     subtitle: 'her eyes are the last door, and they are open',   variant: 'king',      ult: 'cocytus',   hpMul: 1.3, pal: { body: '#c0d0e8', lidLo: '#98a8c0', lid: '#d0e0f8', trim: '#ffffff', crown: '#eaf4ff', jewel: [220, 235, 255] } },
+  ];
+
   // Called when a descent boss is created. Reads/advances g.circleBossSeen and
   // returns the config boss.js needs. hp/dmg muls fold in the depth threat too.
   // #273 (Sam) BOSS DAMAGE REDUCTION that scales with depth. Player damage climbs far faster
@@ -195,7 +210,18 @@ const Descent = (() => {
         dr,
       };
     }
-    // beyond Hell (the climb): the recurring, rotating Warden, angrier each time.
+    // #296 (Sam) beyond Hell (the climb) each boss floor has its OWN named guardian in order,
+    // themed to Purgatory and the Heavens. First post-Hell boss floor is HELL_LAST + 3.
+    if (g.floorNum > HELL_LAST) {
+      const pb = POST_HELL_BOSSES[(g.floorNum - (HELL_LAST + BOSS_EVERY)) / BOSS_EVERY];
+      if (pb) {
+        return {
+          anger, variant: pb.variant, pal: pb.pal, name: pb.name, subtitle: pb.subtitle, ult: pb.ult,
+          hpMul: t.hp * (pb.hpMul || 1.1), dmgMul: t.dmg, dr,
+        };
+      }
+    }
+    // past the named climb (endless): the recurring, rotating Warden, angrier each time.
     const idx = anger % BOSS_PALS.length;
     const variant = BOSS_VARIANTS[anger % BOSS_VARIANTS.length];
     return {
