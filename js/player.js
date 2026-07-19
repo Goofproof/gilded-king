@@ -706,11 +706,20 @@ const PlayerDef = (() => {
     c.fillStyle = skinOverride || race.skin;
     c.beginPath(); c.arc(0, 0, s * 0.74, 0, Math.PI * 2); c.fill();
     drawRaceFeature(c, race.id, s);
-    // eyes (a cowl hides these behind a shadow instead)
+    // #272 (Sam) eyes with a WEARY, LOCKED-IN stare instead of two blank dots - the look of
+    // someone who has run this dungeon a thousand times: narrowed eyes, a hard catchlight of
+    // focus, a faint sleepless shadow beneath, under a low furrowed brow. (A cowl/undead skips.)
     if (id !== 'rogue' && race.id !== 'undead') {
-      c.fillStyle = '#33507a';
-      c.beginPath(); c.arc(-s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
-      c.beginPath(); c.arc(s * 0.26, s * 0.02, s * 0.11, 0, Math.PI * 2); c.fill();
+      const ex = s * 0.27, ey = s * 0.05;
+      c.fillStyle = 'rgba(18,26,42,0.28)';                       // sleepless shadow under each eye
+      for (const g of [-1, 1]) { c.beginPath(); c.ellipse(g * ex, ey + s * 0.1, s * 0.13, s * 0.05, 0, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = '#2b435f';                                   // the eye, NARROWED (an ellipse, not a dot)
+      for (const g of [-1, 1]) { c.beginPath(); c.ellipse(g * ex, ey, s * 0.12, s * 0.088, 0, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = 'rgba(224,235,255,0.92)';                    // a sharp catchlight - still locked in
+      for (const g of [-1, 1]) { c.beginPath(); c.arc(g * ex - s * 0.035, ey - s * 0.03, Math.max(0.6, s * 0.028), 0, Math.PI * 2); c.fill(); }
+      c.strokeStyle = 'rgba(26,20,16,0.55)'; c.lineWidth = Math.max(1, s * 0.05); c.lineCap = 'round';  // low, furrowed brow
+      c.beginPath(); c.moveTo(-ex - s * 0.14, ey - s * 0.15); c.lineTo(-ex + s * 0.08, ey - s * 0.11); c.stroke();
+      c.beginPath(); c.moveTo(ex + s * 0.14, ey - s * 0.15); c.lineTo(ex - s * 0.08, ey - s * 0.11); c.stroke();
     }
     if (id === 'warrior') {
       c.fillStyle = '#8b929c'; c.beginPath(); c.arc(0, -s * 0.12, s * 0.82, Math.PI, 0); c.fill();       // dome
