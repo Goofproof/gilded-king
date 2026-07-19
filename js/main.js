@@ -7808,6 +7808,35 @@
     if (!ANIMATED_OBSTACLES[theme.obstacle]) drawRoomObstacles(c, room, pal, theme);
   }
 
+  // #293 (Sam) LAVA pools - a molten, bubbling, glowing hazard drawn live (animated) over the
+  // baked floor. A dark crust rim, a hot core that pulses, and little bubbles rising.
+  function drawLava(c, room) {
+    const t = Date.now() / 400;
+    for (const L of room.lava) {
+      c.save();
+      // outer heat glow
+      const gr = c.createRadialGradient(L.x, L.y, L.r * 0.3, L.x, L.y, L.r + 10);
+      gr.addColorStop(0, 'rgba(255,120,40,0.5)'); gr.addColorStop(0.7, 'rgba(200,50,10,0.35)'); gr.addColorStop(1, 'rgba(120,20,0,0)');
+      c.fillStyle = gr; c.beginPath(); c.arc(L.x, L.y, L.r + 10, 0, Math.PI * 2); c.fill();
+      // molten body
+      c.fillStyle = '#b8300a'; c.beginPath(); c.ellipse(L.x, L.y, L.r, L.r * 0.82, 0, 0, Math.PI * 2); c.fill();
+      // hot pulsing core
+      c.fillStyle = `rgba(255,190,60,${0.45 + Math.sin(t + L.x) * 0.2})`;
+      c.beginPath(); c.ellipse(L.x, L.y, L.r * 0.6, L.r * 0.5, 0, 0, Math.PI * 2); c.fill();
+      // bubbles
+      c.fillStyle = '#ffcf55';
+      for (let i = 0; i < 3; i++) {
+        const a = t * 1.4 + i * 2.1 + L.x * 0.1;
+        const bx = L.x + Math.cos(a) * L.r * 0.5, by = L.y + Math.sin(a * 0.7) * L.r * 0.4;
+        c.beginPath(); c.arc(bx, by, 1.6 + Math.abs(Math.sin(t * 3 + i)) * 1.8, 0, Math.PI * 2); c.fill();
+      }
+      // dark crust rim
+      c.strokeStyle = 'rgba(35,10,0,0.75)'; c.lineWidth = 3;
+      c.beginPath(); c.ellipse(L.x, L.y, L.r, L.r * 0.82, 0, 0, Math.PI * 2); c.stroke();
+      c.restore();
+    }
+  }
+
   function drawRoom(c, room) {
     const pal = Dungeon.paletteFor(room, g.floorNum);
     const theme = Dungeon.themeFor(g.floorNum);
@@ -7828,6 +7857,7 @@
       room._staticKey = staticKey;
     }
     c.drawImage(room._staticCv, 0, 0);
+    if (room.lava && room.lava.length) drawLava(c, room); // #293 animated, over the floor, under everything alive
 
     // theme ambience: drifting particles that sell the place
     if (theme.ambient === 'forest' && Math.random() < 0.06) {

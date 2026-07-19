@@ -338,6 +338,24 @@ const Dungeon = (() => {
           else if (r.obstacles.length) r.obstacles.pop();
           else break;
         }
+
+        // #293 (Sam) LAVA POOLS - a deeper-floor room HAZARD. Unlike a pit (solid), you CAN
+        // walk through lava; it just BURNS while you stand in it. Traversable, so it needs no
+        // connectivity guard - it punishes lingering and reshapes how you use the room. Grows
+        // more common the deeper you go (a rarity on the top floors, a real threat down below).
+        r.lava = [];
+        if (rnd() < Math.min(0.26, 0.03 + 0.035 * floorNum)) {
+          const nPools = 1 + ((rnd() * 3) | 0);
+          for (let i = 0, tries = 0; i < nPools && tries < 40; tries++) {
+            const lr = 34 + rnd() * 26;
+            const lx = PF.x + 110 + rnd() * (PF.w - 220), ly = PF.y + 95 + rnd() * (PF.h - 190);
+            if (!spotOk(lx, ly, lr)) continue;                                              // clear of spawn, doors, walls, poly
+            if (r.obstacles.some(o => Math.hypot(o.x - lx, o.y - ly) < o.r + lr + 10)) continue; // not on a rock/pit
+            if (r.lava.some(o => Math.hypot(o.x - lx, o.y - ly) < o.r + lr - 10)) continue;       // slight merge allowed
+            r.lava.push({ x: lx, y: ly, r: lr });
+            i++;
+          }
+        }
       }
       if (r.type === 'treasure') {
         // each chest rolls its mimic chance INDEPENDENTLY - twins can both bite.

@@ -337,6 +337,18 @@ const Monsters = (() => {
     if (m.contactCd > 0) m.contactCd -= dt;
     if (m.flash > 0) m.flash -= dt;
     if (m.wardBuffT > 0) m.wardBuffT -= dt; // #289 a warden's barrier shield, ticking down
+    // #293 (Sam) LAVA burns monsters too (light, never a boss) - so you can kite a mob through
+    // a pool, and a knockback into one punishes it. Mobs do not path around it, by design.
+    if (g.room && g.room.lava && g.room.lava.length && !m.isBoss) {
+      m._lavaCd = Math.max(0, (m._lavaCd || 0) - dt);
+      if (m._lavaCd <= 0) for (const L of g.room.lava) {
+        if (Math.hypot(m.x - L.x, m.y - L.y) < L.r - 2) {
+          applyDamage(m, 6, g, {}); m._lavaCd = 0.7;
+          if (typeof Fx !== 'undefined') Fx.burst(m.x, m.y, ['#ff6a2c', '#ffcc44'], 5, { speed: 80, life: 0.3, glow: true });
+          break;
+        }
+      }
+    }
 
     // #271 (Sam) ELITE AFFIX behaviours - deep-floor variety beyond bigger numbers.
     if (m.elite) {
@@ -1411,6 +1423,7 @@ const Monsters = (() => {
     const blocked = (x, y) => {
       for (const w of room.walls || []) if (x > w.x - 20 && x < w.x + w.w + 20 && y > w.y - 20 && y < w.y + w.h + 20) return true;
       for (const o of room.obstacles) if (o.kind === 'pit' && Math.hypot(x - o.x, y - o.y) < o.r + 22) return true;
+      for (const L of room.lava || []) if (Math.hypot(x - L.x, y - L.y) < L.r + 14) return true; // #293 don't spawn a mob in lava
       if (room.poly && !Dungeon.polyClear(x, y, 20, room.poly)) return true;    // #67c not in a cut corner
       return false;
     };

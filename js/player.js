@@ -1910,6 +1910,21 @@ const PlayerDef = (() => {
       if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w, this.px, this.py); if (q) { this.x = q.x; this.y = q.y; } }
       // #67c convex room-shape polygon: keep inside its cut corners (flats = doors, main.js)
       if (g.room.poly) { const q = Dungeon.polyPush(this.x, this.y, this.r, g.room.poly); if (q) { this.x = q.x; this.y = q.y; } }
+      // #293 (Sam) LAVA: walkable, but standing IN a pool burns you on a beat (not instant
+      // death - you can cross it, you just shouldn't linger). Fire-immune (pyromancer's
+      // Immolate) shrugs it off, same as THE PYRES.
+      if (g.room.lava && g.room.lava.length && (this.fireImmuneT || 0) <= 0) {
+        this._lavaCd = Math.max(0, (this._lavaCd || 0) - dt);
+        if (this._lavaCd <= 0) {
+          for (const L of g.room.lava) {
+            if (Math.hypot(this.x - L.x, this.y - L.y) < L.r - 4) {
+              this.damage(9, L.x, L.y, g); this._lavaCd = 0.6;
+              if (typeof Fx !== 'undefined') Fx.burst(this.x, this.y - 4, ['#ff6a2c', '#ffcc44', '#ff2200'], 8, { speed: 100, life: 0.4, glow: true });
+              break;
+            }
+          }
+        }
+      }
       // (room-boundary walls/doors are handled by main.js so it can detect room exits)
 
       // --- attacking -----------------------------------------------------------
