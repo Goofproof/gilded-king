@@ -1618,7 +1618,10 @@ const Monsters = (() => {
     // #27 THEMED ROOM: ~22% of combat rooms are a single enemy type (an all-archer
     // gauntlet, a bomb room, a nest of worms...). Cached on the room so it shows a
     // banner. A couple of types make miserable full rooms, so they're excluded.
-    const BAD_THEME = ['summoner', 'tank', 'mimic', 'mimicbaby', 'add'];
+    // #308 the support casters make degenerate themed rooms (an all-mender room has nothing
+    // to heal; an all-reflector room can't be shot; an all-warden room never attacks), and an
+    // all-splitter room floods with oozes - so none of them can be a single-type theme.
+    const BAD_THEME = ['summoner', 'tank', 'mimic', 'mimicbaby', 'add', 'warden', 'mender', 'reflector', 'splitter'];
     let themeType = null;
     if (room.enemyTheme === undefined) {
       const pool = table.filter(t => !BAD_THEME.includes(t));
@@ -1638,8 +1641,18 @@ const Monsters = (() => {
       }
       floorTheme = g._floorTheme;
     }
+    // #308 cap the SUPPORT casters per room. Warden (shield), Mender (heal) and Reflector
+    // (bounce) are all "kill me first" priority targets - a room that rolls three or four of
+    // them is a miserable wall of them, not a fight. At most two; the overflow rerolls to a
+    // normal mob so the room still has bodies, just not all babysitters.
+    const SUPPORT = new Set(['warden', 'mender', 'reflector']), SUPPORT_CAP = 2;
+    let supportN = 0;
     for (let i = 0; i < n; i++) {
-      const type = themeType || pickType(table, floorTheme);
+      let type = themeType || pickType(table, floorTheme);
+      if (!themeType && SUPPORT.has(type) && supportN >= SUPPORT_CAP) {
+        for (let t = 0; t < 6 && SUPPORT.has(type); t++) type = pickType(table, floorTheme);
+      }
+      if (SUPPORT.has(type)) supportN++;
       // swarmers arrive as a pack of 2-3 for the price of one slot
       const pack = type === 'swarmer' ? 2 + ((Math.random() * 2) | 0) : 1;
       for (let k = 0; k < pack; k++) {
