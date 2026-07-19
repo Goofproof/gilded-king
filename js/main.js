@@ -4741,8 +4741,12 @@
       // #220 (Sam) the BODY was painted with rp.wc - the WEAPON's colour - so a teammate's
       // whole champion turned gold/purple with every weapon swap. The body now wears their
       // real colours: druid form, else the evolution recolour, else the default blue.
+      // WARRIOR prototype body: a teammate warrior wears the same armored figure you do
+      const warPeer = !form && rp.cl === 'warrior' && PlayerDef.warriorBody;
+      if (warPeer) PlayerDef.warriorBody(c, R, 'back', '#7d2b32', '#c9a227');
       c.fillStyle = form ? form.cloak : (rp.cloakC || '#2c3e60'); c.beginPath(); c.arc(0, 2, R, 0, Math.PI * 2); c.fill();
       c.fillStyle = form ? form.body : (rp.bodyC || '#4a6fa5'); c.beginPath(); c.arc(0, -2, R * 0.85, 0, Math.PI * 2); c.fill();
+      if (warPeer) PlayerDef.warriorBody(c, R, 'front', '#7d2b32', '#c9a227');
       c.save(); c.rotate(rp.facing || 0);
       c.fillStyle = '#0e1420'; c.fillRect(2, -4, 10, 8);
       c.fillStyle = form ? form.accent : '#9ee7ff'; c.fillRect(4, -2.5, 7, 5);

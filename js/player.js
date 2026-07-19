@@ -554,6 +554,82 @@ const PlayerDef = (() => {
     // adventurer: no signature look (plain champion)
   }
 
+  // VISUAL-AMBITION PROTOTYPE (Sam, class B): the WARRIOR drawn as a real little armored
+  // figure instead of a plain blob. Chibi proportions (big helmeted head, sturdy body) so
+  // it still reads at ~13px. Drawn in the FIXED body frame around the shared head blob:
+  // the head/helm/face pipeline is untouched, so this only ADDS a torso, broad pauldrons,
+  // a tabard and boots beneath and beside the head. `layer` splits it around the head blob:
+  //   'back'  -> boots, tabard, breastplate  (drawn BEFORE the head so the head sits on top)
+  //   'front' -> gorget + pauldrons          (drawn AFTER the head, flanking it like shoulders)
+  // Shared by the local body AND remote peers, so a warrior teammate looks the same to all.
+  // cloak/body/accent carry the champion's live colours (evolution recolour, damage flash).
+  function warriorBody(c, r, layer, surcoat, accent) {
+    const STEEL = '#8b929c', STEEL_HI = '#aeb6c1', STEEL_LO = '#5c626c', DARK = '#363b42';
+    const cloth = surcoat;  // heraldic surcoat colour (crimson), passed in so it can flash on hit
+    if (layer === 'back') {
+      // a ground shadow at the FEET - this figure stands taller than the shared body shadow
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      c.beginPath(); c.ellipse(0, r * 1.9, r * 0.82, r * 0.24, 0, 0, Math.PI * 2); c.fill();
+      // LEGS - greaves + a flared boot toe, planted apart
+      c.fillStyle = '#3c424b';
+      for (const s of [-1, 1]) {
+        c.beginPath();
+        c.moveTo(s * r * 0.1, r * 1.15); c.lineTo(s * r * 0.5, r * 1.15);
+        c.lineTo(s * r * 0.5, r * 1.72); c.lineTo(s * r * 0.74, r * 1.84);   // toe
+        c.lineTo(s * r * 0.08, r * 1.84); c.closePath(); c.fill();
+      }
+      c.fillStyle = STEEL_LO;                 // a knee band
+      for (const s of [-1, 1]) c.fillRect(s > 0 ? r * 0.1 : -r * 0.5, r * 1.42, r * 0.4, r * 0.1);
+
+      // SURCOAT - a cloth tabard hanging to a pointed hem, with a gold centre stripe
+      c.fillStyle = cloth;
+      c.beginPath();
+      c.moveTo(-r * 0.44, r * 0.82); c.lineTo(r * 0.44, r * 0.82);
+      c.lineTo(r * 0.5, r * 1.68); c.lineTo(0, r * 1.82); c.lineTo(-r * 0.5, r * 1.68);
+      c.closePath(); c.fill();
+      c.fillStyle = accent;
+      c.fillRect(-r * 0.07, r * 0.82, r * 0.14, r * 1.0);
+
+      // BREASTPLATE - broad shoulders tapering to the waist (the warrior V), now standing
+      // tall enough below the head that the plate actually reads as a chest, not a sliver
+      c.fillStyle = STEEL;
+      c.beginPath();
+      c.moveTo(-r * 0.98, r * 0.55);
+      c.quadraticCurveTo(-r * 0.9, r * 1.18, -r * 0.5, r * 1.3);
+      c.lineTo(r * 0.5, r * 1.3);
+      c.quadraticCurveTo(r * 0.9, r * 1.18, r * 0.98, r * 0.55);
+      c.quadraticCurveTo(0, r * 0.82, -r * 0.98, r * 0.55);
+      c.closePath(); c.fill();
+      // lit highlight (top-left), a central ridge, a belly line, chest rivets
+      c.fillStyle = STEEL_HI;
+      c.beginPath();
+      c.moveTo(-r * 0.86, r * 0.64); c.quadraticCurveTo(-r * 0.45, r * 0.78, -r * 0.14, r * 0.78);
+      c.lineTo(-r * 0.18, r * 1.12); c.quadraticCurveTo(-r * 0.5, r * 1.1, -r * 0.82, r * 0.94);
+      c.closePath(); c.fill();
+      c.strokeStyle = DARK; c.lineWidth = Math.max(1, r * 0.06);
+      c.beginPath(); c.moveTo(0, r * 0.72); c.lineTo(0, r * 1.28); c.stroke();
+      c.beginPath(); c.moveTo(-r * 0.34, r * 1.0); c.lineTo(r * 0.34, r * 1.0); c.stroke();
+      c.fillStyle = STEEL_LO;
+      for (const s of [-1, 1]) { c.beginPath(); c.arc(s * r * 0.64, r * 0.78, r * 0.08, 0, Math.PI * 2); c.fill(); }
+    } else {
+      // GORGET - a neck band between head and chest
+      c.fillStyle = STEEL_LO; c.fillRect(-r * 0.34, r * 0.5, r * 0.68, r * 0.16);
+      // PAULDRONS - broad flattened shoulder caps jutting past the head: the warrior read
+      for (const s of [-1, 1]) {
+        c.save(); c.translate(s * r * 0.9, r * 0.62);
+        c.fillStyle = STEEL;
+        c.beginPath(); c.ellipse(0, 0, r * 0.5, r * 0.4, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = STEEL_HI;
+        c.beginPath(); c.ellipse(-r * 0.12, -r * 0.1, r * 0.26, r * 0.19, 0, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = DARK; c.lineWidth = Math.max(1, r * 0.06);
+        c.beginPath(); c.ellipse(0, 0, r * 0.5, r * 0.4, 0, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = accent;               // a coloured stud on each shoulder
+        c.beginPath(); c.arc(0, r * 0.02, r * 0.1, 0, Math.PI * 2); c.fill();
+        c.restore();
+      }
+    }
+  }
+
   // #71 a class portrait for the character-select screen: a little bust wearing the
   // #156 the race's face, drawn at the head origin (0,0) with head radius s. Kept small
   // and silhouette-level on purpose: it has to still read under a warrior's full helm.
@@ -2083,11 +2159,19 @@ const PlayerDef = (() => {
       const cloakCol = this.flash > 0 ? '#ff8080' : (F ? F.cloak : (evoStage >= 2 && pal ? pal.cloak : '#2c3e60'));
       const bodyCol  = this.flash > 0 ? '#ffb0b0' : (F ? F.body  : (evoStage >= 2 && pal ? pal.body  : '#4a6fa5'));
       // (no extra scale here: this.r IS the form's real radius - see setForm)
+      // WARRIOR prototype body (behind the head): boots, tabard, breastplate. Only when
+      // NOT shifted into a druid beast form (a bear has no breastplate).
+      const warBody = !F && this.class && this.class.id === 'warrior';
+      const warAccent = this.form ? this.form.accent : (evoStage >= 2 && pal ? pal.accent : '#c9a227');
+      const warSurcoat = this.flash > 0 ? '#ff9a9a' : (evoStage >= 2 && pal ? pal.cloak : '#7d2b32');
+      if (warBody) warriorBody(c, this.r, 'back', warSurcoat, warAccent);
       c.fillStyle = cloakCol;
       c.beginPath(); c.arc(0, 2, this.r, 0, Math.PI * 2); c.fill();
       // body
       c.fillStyle = bodyCol;
       c.beginPath(); c.arc(0, -2, this.r * 0.85, 0, Math.PI * 2); c.fill();
+      // WARRIOR prototype shoulders (in front of the head base): gorget + pauldrons
+      if (warBody) warriorBody(c, this.r, 'front', warSurcoat, warAccent);
       // visor facing aim
       c.save();
       c.rotate(this.rollT >= 0 ? 0 : this.facing);
@@ -2585,5 +2669,5 @@ const PlayerDef = (() => {
     return PLAYER_TINTS[i % PLAYER_TINTS.length];
   }
 
-  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor };
+  return { Player, T, CLASSES, classById, RACES, raceById, FORMS, formById, setForm, drawFormHead, capeAt, peerWeapon, classFeature, drawClassPortrait, drawRacePortrait, drawRaceFeature, evoPalFor, partySlotColor, warriorBody };
 })();
