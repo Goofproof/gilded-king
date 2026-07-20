@@ -8,6 +8,7 @@
     "test:watch": "vitest",
     "notes": "node scripts/patchnotes.mjs",
     "ship": "node scripts/publish.mjs",
+    "announce:test": "node scripts/announce-test.mjs",
     "postinstall": "git config core.hooksPath .githooks",
     "deploy": "wrangler deploy -c server/wrangler.toml",
     "preview": "wrangler dev -c server/wrangler.toml",
