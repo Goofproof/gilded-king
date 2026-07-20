@@ -1793,8 +1793,11 @@
         (d.dir === 'W' && p.x < PF.x - 14) || (d.dir === 'E' && p.x > PF.x + PF.w + 14);
       if (past) {
         const next = g.room.doors[d.dir];
-        // tethered party: dragging everyone else to this room
-        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir, fl: g.floorNum }); // #216
+        // tethered party: dragging everyone else to this room. #317 (Sam) NOT in a hunt -
+        // Raider Royale hunters roam alone, so broadcasting a room-move dragged the other
+        // player into the room you just entered. The receiver already guards on huntMode, but
+        // gate the SEND too (the mover is definitely in huntMode) so it can never leak.
+        if (g.coop && !g.huntMode && typeof Net !== 'undefined') Net.send({ t: 'room', gx: next.gx, gy: next.gy, dir: d.dir, fl: g.floorNum }); // #216
         g.transition = { dir: d.dir, next, t: 0 };
         g.state = 'transition';
         return;
@@ -2190,8 +2193,8 @@
         Sfx.play('stairs');
         Fx.burst(p.x, p.y, ['#4cc9a8', '#b88aff'], 20, { speed: 180, life: 0.5, glow: true });
         g.portal = null;
-        // co-op: pull the party along so nobody is left behind by the shortcut
-        if (g.coop && typeof Net !== 'undefined') Net.send({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null, fl: g.floorNum }); // #216
+        // co-op: pull the party along so nobody is left behind by the shortcut (#317 never in a hunt)
+        if (g.coop && !g.huntMode && typeof Net !== 'undefined') Net.send({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null, fl: g.floorNum }); // #216
         enterRoom(dest, null);
         if (stairsRoom) p.y += 90; // land beside the stairwell, not inside it
       }
@@ -4126,6 +4129,7 @@
       rp.tx = m.x; rp.ty = m.y;
       if (rp.x === undefined) { rp.x = m.x; rp.y = m.y; }
       rp.facing = m.f; rp.room = m.r; rp.floor = m.fl; rp.hp = m.hp; rp.maxHp = m.mh; rp.wc = m.wc; rp.name = (m.nm && m.nm.trim()) || m.from;
+      rp.beam = m.bm || 0;                                        // #317 their warlock beam ((rank+1) while firing)
       rp.downed = !!m.dd; // P1-C: render peers as downed + gate revive/wipe
       rp.wa = m.wa || 'light'; rp.pr = m.pr || 0; rp.mv = !!m.mv; // weapon archetype, prestige, moving
       rp.wm = m.wm || null;                                       // weapon MODEL slug (per-name look)
@@ -4198,10 +4202,13 @@
     // dodge, so it's shielded from damage until it resumes - no dying on the menu.
     Net.on('phit', m => {
       if (m.to !== Net.id || !g.player || g.player.dead) return;
-      // frozen on any menu/overlay -> shielded (can't dodge). Includes pause + the
-      // character sheet, which a first-timer WILL open assuming it's safe.
-      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'rpick' ||
-          g.state === 'levelwait' || g.state === 'pause' || g.state === 'charsheet') return;
+      // frozen on a FORCED pick (level-up / evolution / ult / R / gate) -> shielded, always: it
+      // is unavoidable and brief, and you can't fight back either.
+      if (g.state === 'levelup' || g.state === 'evolution' || g.state === 'ultpick' || g.state === 'rpick' || g.state === 'levelwait') return;
+      // the pause + character sheet are VOLUNTARY and open-ended - safe for a first-timer in
+      // co-op, but #317 (Sam) in a DUEL/ROYALE a player just sat in the char sheet and went
+      // invincible while the fight ran on. So those two never shield during a PVP fight.
+      if (!(g.duelMode || g.huntMode) && (g.state === 'pause' || g.state === 'charsheet')) return;
       g.player.damage(m.dmg, m.sx, m.sy, g);
     });
     // P1-B: enemy projectile from the host - guest spawns a real from:'enemy' bolt it can be
@@ -4801,6 +4808,7 @@
     const ep = PlayerDef.evoPalFor ? PlayerDef.evoPalFor(p) : null; // #220 evolution robe recolour
     Net.send({
       t: 'p', x: Math.round(p.x), y: Math.round(p.y), f: +p.facing.toFixed(2),
+      bm: g.beam ? (g.beam.rank | 0) + 1 : 0,          // #317 warlock beam: (rank+1) while firing, 0 = none
       r: [g.room.gx, g.room.gy], fl: g.floorNum, hp: Math.round(p.hp), mh: Math.round(p.maxHp),
       wc: p.weapon ? p.weapon.color : '#9ee7ff', dd: p.downed ? 1 : 0,
       nm: g.playerName || '',
@@ -7005,27 +7013,41 @@
       if (Math.hypot(o.x - m.x, o.y - m.y) < R + o.r) o.takeHit(D, { sx: m.x, sy: m.y, knock: 130, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
     }
   }
-  function drawBeam(c) {
-    const b = g.beam, p = g.player; if (!b || !p) return;
-    const rays = b.rays || [p.facing], width = b.width2 || b.width;
-    const a = Math.min(1, b.t / 0.07) * Math.min(1, (b.dur - b.t) / 0.15) * (0.75 + 0.25 * Math.sin(Date.now() / 35));
+  // #317 (Sam) draw a Brimstone beam from ANY source (local player OR a remote co-op player),
+  // so teammates/opponents actually SEE the warlock's laser instead of getting hit by nothing.
+  function drawBeamRays(c, sx, sy, rays, color, width, range, fadeMul) {
+    const a = (fadeMul === undefined ? 1 : fadeMul) * (0.75 + 0.25 * Math.sin(Date.now() / 35));
     c.save(); c.lineCap = 'round';
     for (const dr of rays) {
       const dx = Math.cos(dr), dy = Math.sin(dr);
       // clip the DRAWN length to the field edge (the DAMAGE stays spectral/full range)
-      let len = b.range;
-      if (dx > 0.001) len = Math.min(len, (PF.x + PF.w - p.x) / dx); else if (dx < -0.001) len = Math.min(len, (PF.x - p.x) / dx);
-      if (dy > 0.001) len = Math.min(len, (PF.y + PF.h - p.y) / dy); else if (dy < -0.001) len = Math.min(len, (PF.y - p.y) / dy);
+      let len = range;
+      if (dx > 0.001) len = Math.min(len, (PF.x + PF.w - sx) / dx); else if (dx < -0.001) len = Math.min(len, (PF.x - sx) / dx);
+      if (dy > 0.001) len = Math.min(len, (PF.y + PF.h - sy) / dy); else if (dy < -0.001) len = Math.min(len, (PF.y - sy) / dy);
       len = Math.max(0, len);
-      const ex = p.x + dx * len, ey = p.y + dy * len;
-      c.globalAlpha = 0.45 * a; c.strokeStyle = b.color; c.lineWidth = width * 2.2;
-      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(ex, ey); c.stroke();
+      const ex = sx + dx * len, ey = sy + dy * len;
+      c.globalAlpha = 0.45 * a; c.strokeStyle = color; c.lineWidth = width * 2.2;
+      c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
       c.globalAlpha = 0.85 * a; c.lineWidth = width * 1.1;
-      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(ex, ey); c.stroke();
+      c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
       c.globalAlpha = a; c.strokeStyle = '#ffd0d6'; c.lineWidth = width * 0.4;
-      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(ex, ey); c.stroke();
+      c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
     }
     c.restore();
+  }
+  function drawBeam(c) {
+    const b = g.beam, p = g.player;
+    if (b && p) {
+      const fade = Math.min(1, b.t / 0.07) * Math.min(1, (b.dur - b.t) / 0.15);
+      drawBeamRays(c, p.x, p.y, b.rays || [p.facing], b.color, b.width2 || b.width, b.range, fade);
+    }
+    // #317 remote players' beams: rp.beam encodes (rank+1) while their laser fires (0 = none).
+    if (g.coop && g.room) for (const rp of g.remotePlayers.values()) {
+      if (!rp.beam || rp.x === undefined || g.time - (rp.last || 0) > 0.5) continue;
+      if (!rp.room || rp.room[0] !== g.room.gx || rp.room[1] !== g.room.gy) continue; // only if sharing your room
+      const rank = rp.beam - 1, f = rp.facing || 0;
+      drawBeamRays(c, rp.x, rp.y, rank >= 4 ? [f - 0.2, f, f + 0.2] : [f], '#c81e3a', 22, 900, 1);
+    }
   }
 
   function updatePickups(dt) {

@@ -57,6 +57,9 @@ const Mobile = (() => {
     // like the desktop X / U keys, so they can just live here full-time.
     { key: 'salv',  label: 'SALV', code: 'KeyX',  x: 672, y: 410, r: 21, col: '#7fe8e0' },
     { key: 'hone',  label: 'HONE', code: 'KeyU',  x: 672, y: 456, r: 21, col: '#c9a86a' },
+    // #317 (Sam) potions had NO touch control - a phone player could carry one but never drink
+    // it (desktop uses H, main.js). No-ops safely with an empty slot, same as SALV/HONE.
+    { key: 'potion', label: 'POT', code: 'KeyH', x: 672, y: 364, r: 21, col: '#ff6a8a' },
   ];
   const held = {};   // buttonKey -> touch identifier
 
