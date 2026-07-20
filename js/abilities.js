@@ -248,7 +248,7 @@ const Abilities = (() => {
     engineer:    [{ at: 4, txt: 'Turret shots slow', impl: true }, { at: 8, txt: 'Turrets inherit your weapon element', impl: true }, { at: 12, txt: 'Oldest turret becomes a TESLA COIL', impl: true }],
     mage:        [{ at: 4, txt: 'Nova leaves a 2s slow field', impl: true }, { at: 8, txt: 'A second, smaller pulse', impl: true }, { at: 12, txt: 'Everything hit is chilled', impl: true }],
     summoner:    [{ at: 4, txt: 'Elemental gains its element aura', impl: true }, { at: 8, txt: 'TWO elementals', impl: true }, { at: 12, txt: 'Elementals explode on death', impl: true }],
-    mesmer:      [{ at: 4, txt: 'FOUR clones', impl: true }, { at: 8, txt: 'Clones echo your attacks', impl: true }, { at: 12, txt: 'Recast to swap with a clone', impl: true }],
+    mesmer:      [{ at: 4, txt: 'FOUR clones', impl: true }, { at: 8, txt: 'Clones echo your attacks', impl: true }, { at: 12, txt: 'Recast for a MIRROR VOLLEY', impl: true }],
     necromancer: [{ at: 4, txt: 'Two knights', impl: true }, { at: 8, txt: '3 knights + 2 archers', impl: true }, { at: 12, txt: 'A BONE GOLEM joins', impl: true }],
     pyromancer:  [{ at: 4, txt: 'Bigger spread from the dying', impl: true }, { at: 8, txt: 'Fire immunity while it burns', impl: true }, { at: 12, txt: 'Burning enemies EXPLODE on death', impl: true }],
     gambler:     [{ at: 4, txt: 'PITY: every miss raises your jackpot odds until you WIN', impl: true }, { at: 8, txt: 'A jackpot refunds half the cooldown', impl: true }, { at: 12, txt: 'A jackpot re-arms Q instantly', impl: true }],

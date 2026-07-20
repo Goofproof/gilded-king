@@ -2848,23 +2848,42 @@
       // targeting in updateMonsters), and when one dies it detonates. Built on the merc
       // follower so they already move, get hit, and get targeted; the clone flag gives
       // them a lifespan and the death blast.
-      // #229 R12: recasting with clones alive SWAPS you with the farthest one - a
-      // planned blink - on a 1s micro-cooldown instead of a resummon.
+      // #328 (Sam) R12 was a blink-SWAP with the farthest clone - a melee-brawler's tool that
+      // made no sense for a ranged mage. Now recasting with clones alive fires a MIRROR VOLLEY:
+      // every living clone looses a synchronized burst down your aim (a ranged clone a 3-shot
+      // fan, a melee clone a forward cleave), then they STAY. A short micro-cooldown, so it is a
+      // rhythm you weave between resummons - offensive burst, not repositioning.
       if (_qGates && _qGates.rank >= 12) {
         const live = g.mercs.filter(m => m.clone && !m.dead);
         if (live.length) {
-          let far = live[0], fd = -1;
-          for (const c2 of live) { const d = Math.hypot(c2.x - p.x, c2.y - p.y); if (d > fd) { fd = d; far = c2; } }
-          const ox = p.x, oy = p.y;
-          p.x = far.x; p.y = far.y; far.x = ox; far.y = oy;
-          Fx.burst(p.x, p.y, ['#c78bff', '#fff'], 16, { speed: 180, life: 0.4, glow: true });
-          Fx.burst(far.x, far.y, ['#c78bff', '#fff'], 16, { speed: 180, life: 0.4, glow: true });
-          Sfx.play('ui');
-          a._swapCd = true;
+          const a0 = p.facing || 0;
+          const vdmg = Math.round((p.weapon && p.weapon.dmg || 14) * (p.stats.dmgMul || 1) * 0.6);
+          for (const cl of live) {
+            if (cl.cls === 'bow') {
+              for (const off of [-0.2, 0, 0.2]) {
+                const ang2 = a0 + off;
+                g.projectiles.push({
+                  x: cl.x + Math.cos(ang2) * 14, y: cl.y + Math.sin(ang2) * 14,
+                  vx: Math.cos(ang2) * 560, vy: Math.sin(ang2) * 560,
+                  r: cl.projMagic ? 6 : 5, dmg: vdmg, from: 'player', color: cl.projColor || '#c8a8ff', life: 1.3,
+                  arrow: !cl.projMagic, glow: !!cl.projMagic, hitSet: new Set(), crit: false,
+                });
+              }
+            } else {
+              for (const m of g.monsters) {
+                if (m.dead || m.airborne || m.spawnT > 0) continue;
+                if (Math.hypot(m.x - cl.x, m.y - cl.y) < 80 + m.r) m.takeHit(vdmg, { sx: cl.x, sy: cl.y, knock: 120, fromPlayer: true, hitSfx: 'hitHeavy' }, g);
+              }
+            }
+            Fx.burst(cl.x, cl.y, [a.color, '#fff'], 10, { speed: 200, life: 0.4, glow: true });
+          }
+          Fx.text(p.x, p.y - 30, 'MIRROR VOLLEY', a.color, 13);
+          Fx.shake(4, 0.15);
+          Sfx.play('bowfire');
           if (_qScaled) Object.assign(a, _qScaled);
           if (_fScaled) Object.assign(a, _fScaled);
-          a.cd = 1.0; a._swapCd = false;
-          return; // the swap IS the cast
+          a.cd = 1.5;
+          return; // the volley IS the cast
         }
       }
       const n = (a.clones || 3) + ((_qGates && _qGates.rank >= 4) ? 1 : 0); // #229 R4: FOUR clones
@@ -2872,15 +2891,25 @@
       // COPIES OF YOU now: real HP, your move speed, and a real bite scaled to YOUR damage,
       // so they hold aggro AND kill, not just soak a hit and pop.
       const pdmg = Math.round((p.weapon && p.weapon.dmg || 14) * (p.stats.dmgMul || 1));
+      // #328 (Sam) TRUE DOPPELGANGERS: the clones copy YOUR weapon. A staff/wand/bow mesmer
+      // gets RANGED clones that shoot a matching bolt; a melee mesmer gets blade clones. Before,
+      // every clone was a hardcoded melee 'blade', so a caster's copies ran uselessly into the
+      // fray and the echo did a puny 50px melee tap instead of firing.
+      const w = p.weapon;
+      const ranged = !!(w && (w.archetype === 'bow' || w.archetype === 'wand' || w.archetype === 'staff'));
+      const magic = !!(w && (w.archetype === 'wand' || w.archetype === 'staff'));
+      const cloneCls = ranged ? 'bow' : 'blade';
       for (let i = 0; i < n; i++) {
         const ang = (i / n) * Math.PI * 2;
-        const cl = makeMercFollower({ cls: 'blade' }, g.floorNum);
+        const cl = makeMercFollower({ cls: cloneCls }, g.floorNum);
         cl.clone = true;
         cl.qRider = a.qRider || 0; // #226 the detonation carries the mesmer's rider
         cl.life = a.dur || 8;   // already level-scaled above
         cl.blastDmg = Math.round((a.dmg || 70) * (p.stats.dmgMul || 1));
         cl.blastR = a.radius || 130;
         cl.color = a.color;
+        cl.projColor = (w && w.color) || (ranged ? '#c8a8ff' : cl.color); // its shots look like YOUR weapon
+        cl.projMagic = magic;                                            // a bolt, not an arrow
         cl.maxHp = cl.hp = Math.max(1, Math.round(p.maxHp * 0.55));   // sturdy, not a wet decoy
         cl.speed = Math.round(cl.speed * 1.6);                          // keeps up and chases in
         cl.dmg = Math.max(cl.dmg * 2, Math.round(pdmg * 0.7));          // hits like you
@@ -3307,13 +3336,15 @@
           else if (td > 240) mercMove(merc, target.x, target.y, dt, merc.speed);
           if (merc.atkCd <= 0) {
             const a = merc.facing;
+            // #328 a mesmer clone's shot matches the caster's weapon: a wand/staff clone
+            // flings a glowing arcane BOLT, a bow clone looses an arrow. Plain mercs stay arrows.
             g.projectiles.push({
               x: merc.x + Math.cos(a) * 14, y: merc.y + Math.sin(a) * 14,
               vx: Math.cos(a) * 520, vy: Math.sin(a) * 520,
-              r: 4, dmg: merc.dmg, from: 'player', color: '#cfe8b0', life: 1.4,
-              arrow: true, hitSet: new Set(), crit: false,
+              r: merc.projMagic ? 6 : 4, dmg: merc.dmg, from: 'player', color: merc.projColor || '#cfe8b0', life: 1.4,
+              arrow: !merc.projMagic, glow: !!merc.projMagic, hitSet: new Set(), crit: false,
             });
-            merc.atkCd = merc.atkRate; merc.swingT = 0.12; Sfx.play('bowfire');
+            merc.atkCd = merc.atkRate; merc.swingT = 0.12; Sfx.play(merc.projMagic ? 'zap' : 'bowfire');
           }
         }
       } else {
@@ -5096,20 +5127,34 @@
   g.partyTargets = partyTargets;
   g.hurtTarget = hurtTarget;
   g.swarmConsumed = swarmConsumed; // #241 the minimap paints consumed rooms
-  // #229 mesmer R8: your clones ECHO your melee swings at 30% power around themselves
+  // #229 mesmer R8: your clones ECHO your attack at 30% power. #328 (Sam) it now matches your
+  // WEAPON: a ranged mesmer's clones fire a bolt down your aim (the old code did a 50px melee
+  // tap even for a staff, so a caster's echo hit nothing); a melee mesmer's clones swing around
+  // themselves as before.
   g.cloneEcho = (p2, w, scale) => {
-    if (!g.coop && false) return; // works solo and co-op alike
     if (!p2.class || p2.class.id !== 'mesmer') return;
     if (typeof Abilities === 'undefined' || !Abilities.qRank || Abilities.qRank('mesmer', p2.statPoints) < 8) return;
     const dmg = Math.max(1, Math.round((w.dmg || 10) * (p2.stats.dmgMul || 1) * 0.3 * (scale || 1)));
+    const ranged = w && (w.archetype === 'bow' || w.archetype === 'wand' || w.archetype === 'staff');
     for (const cl of g.mercs) {
       if (!cl.clone || cl.dead) continue;
-      let any = false;
-      for (const m of g.monsters) {
-        if (m.dead || m.airborne || m.spawnT > 0) continue;
-        if (Math.hypot(m.x - cl.x, m.y - cl.y) < (w.range || 50) * 0.8 + m.r) { m.takeHit(dmg, { sx: cl.x, sy: cl.y, fromPlayer: true, hitSfx: 'hitLight' }, g); any = true; }
+      if (ranged) {
+        // fire a matching shot down the caster's aim
+        const a = p2.facing || 0;
+        g.projectiles.push({
+          x: cl.x + Math.cos(a) * 14, y: cl.y + Math.sin(a) * 14,
+          vx: Math.cos(a) * 540, vy: Math.sin(a) * 540,
+          r: cl.projMagic ? 6 : 4, dmg, from: 'player', color: cl.projColor || '#c8a8ff', life: 1.1,
+          arrow: !cl.projMagic, glow: !!cl.projMagic, hitSet: new Set(), crit: false,
+        });
+      } else {
+        let any = false;
+        for (const m of g.monsters) {
+          if (m.dead || m.airborne || m.spawnT > 0) continue;
+          if (Math.hypot(m.x - cl.x, m.y - cl.y) < (w.range || 50) * 0.8 + m.r) { m.takeHit(dmg, { sx: cl.x, sy: cl.y, fromPlayer: true, hitSfx: 'hitLight' }, g); any = true; }
+        }
+        if (any) Fx.burst(cl.x, cl.y, ['#c78bff'], 5, { speed: 110, life: 0.3, glow: true });
       }
-      if (any) Fx.burst(cl.x, cl.y, ['#c78bff'], 5, { speed: 110, life: 0.3, glow: true });
     }
   };
   g.isRunHost = isRunHost; // #189 so monsters.js mirrors use the PINNED authority, not the relay's live host flag
