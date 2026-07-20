@@ -12,7 +12,7 @@
 // Add --dry to see what would ship without touching anything.
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync, mkdirSync, copyFileSync, cpSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -60,8 +60,33 @@ console.log('\n=== 4/4  push ===');
 run('git', ['push', 'origin', 'master:main']);
 console.log('\n  Live in ~1-3 min at https://goofproof.github.io/barrowlight/ (hard-refresh to bust cache).\n');
 
+console.log('=== 5/5  Cloudflare Pages (barrowlight.io) ===');
+deployCloudflare();
+
 // A NEW patch-notes entry just published - announce it to the Discord server.
 if (newEntry) await announceDiscord(newEntry);
+
+// #329 (Sam) The barrowlight.io Pages project is DIRECT-UPLOAD (not git-connected), so a GitHub
+// push does NOT update it - it must be deployed explicitly or the custom domain silently goes
+// stale. That hid the Discord button AND a door fix from real players for a whole session. Build
+// a clean runtime dir (no node_modules/tests/server) and push it. NEVER fails the ship - GitHub
+// Pages is already live by the time this runs. Needs `wrangler` to be logged in (it is, for Sam).
+function deployCloudflare() {
+  const wrangler = join(ROOT, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+  const staging = join(ROOT, '.cf-deploy');
+  try {
+    rmSync(staging, { recursive: true, force: true });
+    mkdirSync(staging, { recursive: true });
+    for (const f of ['index.html', 'manifest.webmanifest']) copyFileSync(join(ROOT, f), join(staging, f));
+    for (const dir of ['js', 'assets', 'music']) cpSync(join(ROOT, dir), join(staging, dir), { recursive: true });
+    execFileSync(process.execPath, [wrangler, 'pages', 'deploy', staging, '--project-name', 'barrowlight', '--branch', 'main'], { cwd: ROOT, stdio: 'inherit' });
+    console.log('  barrowlight.io updated.');
+  } catch (e) {
+    console.log(`  Cloudflare deploy skipped/failed (${e.message}). GitHub Pages is already live; refresh barrowlight.io by hand with: npx wrangler pages deploy <dir> --project-name barrowlight --branch main`);
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // #328 (Sam) DISCORD ANNOUNCE: post the newest patch-notes entry to the server.

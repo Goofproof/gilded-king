@@ -11,3 +11,6 @@ node_modules/
 # server/wrangler.toml. A root config would deploy the whole repo as assets.
 wrangler.jsonc
 server/.admin-key
+
+# ship pipeline: transient Cloudflare Pages staging dir
+.cf-deploy
