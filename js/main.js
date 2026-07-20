@@ -1787,10 +1787,20 @@
         clampPlayer();
         return;
       }
-      // walk fully through the doorway to trigger the transition
+      // #331 (Sam, live repro) POLY ROOMS made side/top doors IMPOSSIBLE. The octagon/diamond
+      // room shapes stop you at the poly edge (e.g. x~48 on the left) via polyPush, but the old
+      // "past" needed you to walk 14px PAST the playfield wall (x<34) - unreachable in a poly
+      // room, so the transition never fired and the door was a dead end. Fix: you ALSO cross when
+      // you are in the door lane (inLane, above) and actively PUSHING toward the door - you are
+      // already pressed to the wall/poly edge, which IS committing to leave. Works in rect and
+      // poly rooms alike; doors are locked during combat (doorsLocked) so it can't misfire mid-fight.
+      const toward =
+        (d.dir === 'N' && Math.sin(p.moveAngle) < -0.5) || (d.dir === 'S' && Math.sin(p.moveAngle) > 0.5) ||
+        (d.dir === 'W' && Math.cos(p.moveAngle) < -0.5) || (d.dir === 'E' && Math.cos(p.moveAngle) > 0.5);
       const past =
         (d.dir === 'N' && p.y < PF.y - 14) || (d.dir === 'S' && p.y > PF.y + PF.h + 14) ||
-        (d.dir === 'W' && p.x < PF.x - 14) || (d.dir === 'E' && p.x > PF.x + PF.w + 14);
+        (d.dir === 'W' && p.x < PF.x - 14) || (d.dir === 'E' && p.x > PF.x + PF.w + 14) ||
+        (p.moving && toward);
       if (past) {
         const next = g.room.doors[d.dir];
         // tethered party: dragging everyone else to this room. #317 (Sam) NOT in a hunt -
