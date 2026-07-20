@@ -307,8 +307,12 @@ const Abilities = (() => {
     const tally = {};
     for (const k of evo) tally[k] = (tally[k] || 0) + 1;
     const weightFor = (u) => {
-      let w = 1; // floor so every ult can still appear
-      for (const tag of (u.aff || [])) w += 2 * (tally[tag] || 0);
+      // #328 (Sam) "same three ultimates every time": the old floor-1 / +2-per-stack curve
+      // let a focused build reach weight ~13 vs a floor of 1, so meteor/inferno/cataclysm
+      // crowded out every utility ult run after run. Higher floor (4), gentler slope (+1),
+      // and a 3-stack cap keep the offer LEANING toward your build without collapsing it.
+      let w = 4;
+      for (const tag of (u.aff || [])) w += Math.min(tally[tag] || 0, 3);
       if (b.qKind && (u.aff || []).includes(b.qKind)) w += 1.5;
       if (b.rKind && (u.aff || []).includes(b.rKind)) w += 1.5;
       return w;
