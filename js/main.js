@@ -2227,6 +2227,9 @@
       Sfx.play('buy');
       Fx.text(p.x, p.y - 30, (npc.cls === 'blade' ? 'Blade' : 'Archer') + ' hired!', '#7ee0a0', 14);
       if (typeof Ach !== 'undefined') Ach.flag('mercHired', g); // #86
+      // #327 (Sam) co-op: there is ONE merc in this room, not one per player. Tell the peer
+      // it is taken so it stops standing there for hire on their screen (and can't be double-hired).
+      if (g.coop && typeof Net !== 'undefined') Net.sendR({ t: 'merchire', gx: g.room.gx, gy: g.room.gy, fl: g.floorNum });
     }
 
     if (t.kind === 'descentPortal') {
@@ -4338,6 +4341,13 @@
         }
       }
     });
+    // #327 (Sam) the peer hired the room's merc - retire it here too. Floor-guarded so a
+    // repeated gx/gy on another floor can't retire the wrong room's merc.
+    Net.on('merchire', m => {
+      if (!g.coop || !g.dungeon || m.fl !== g.floorNum) return;
+      const room = g.dungeon.rooms.find(r => r.gx === m.gx && r.gy === m.gy);
+      if (room && room.merc) room.merc.hired = true;
+    });
     // co-op: play a peer's attack visual so you can SEE them fighting
     Net.on('atk', m => { if (g.coop) playPeerAttack(m); });
     // #32 gate: a teammate opened a pick cycle (busy) / closed one (done). Monotonic
@@ -5070,7 +5080,16 @@
     // #242 in a HUNT, monsters are per-player illusions - MY monsters (src.type is a
     // monster tell; players carry no .type) must never wound the REAL other hunter
     if (g.huntMode && target && target.isRemote && src && src.type) return;
-    if (!target || !target.isRemote) { if (g.player && !g.player.dead) g.player.damage(dmg, sx, sy, g, src); return; }
+    if (!target || !target.isRemote) {
+      // #327 (Sam) a party target can be a LOCAL MINION - a mesmer clone, a golem, a
+      // MIRAGE decoy, the golden goose. Those bodies ABSORB their own contact damage in
+      // their own update loops (updateMercs/updateDecoy/updateGoose). Routing a hit aimed
+      // at one of them to g.player was double-charging the player: the decoy drew the enemy
+      // in, then the player ate the bite the decoy was supposed to take. Only the REAL
+      // player (bare g.player, or the 'me' wrapper whose ref IS g.player) takes the hit.
+      if (target && target.ref && target.ref !== g.player) return;
+      if (g.player && !g.player.dead) g.player.damage(dmg, sx, sy, g, src); return;
+    }
     if (typeof Net !== 'undefined') Net.sendR({ t: 'phit', to: target.id, dmg: Math.round(dmg), sx: Math.round(sx || 0), sy: Math.round(sy || 0) });
   }
   g.partyTargets = partyTargets;
