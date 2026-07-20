@@ -94,6 +94,13 @@ const PlayerDef = (() => {
     { id: 'gnome',  name: 'Gnome',  color: '#c9a34e', skin: '#e6c9a0',
       desc: 'Tinkerer. +18% attack speed, but each blow lands 12% lighter - a flurry of quick strikes.',
       fx: { atkSpd: 0.18, dmg: -0.12 } },
+    // #330 (Sam) the FLYING race. Its perk is MOBILITY: it drifts OVER the ground - rocks,
+    // pits, walls, lava pools and spike traps cannot touch it, so it never gets cornered and
+    // walks straight across a hazard room. The price is that it is a gossamer thing: frail,
+    // and it hits a little softer. `fly` is read in player.update's obstacle/hazard resolution.
+    { id: 'fairy',  name: 'Fairy',  color: '#9be7ff', skin: '#f0d2f2',
+      desc: 'Winged. Floats over rocks, pits, lava and spike traps - the ground cannot touch you. But gossamer-frail: -25 HP and 10% softer hits.',
+      fx: { dmg: -0.10, spd: 0.06 }, hp: -25, fly: true },
   ];
   const raceById = id => RACES.find(r => r.id === (id || '')) || RACES[0];
 
@@ -734,6 +741,18 @@ const PlayerDef = (() => {
       c.beginPath(); c.moveTo(-s * 0.09, -s * 0.32); c.lineTo(s * 0.09, -s * 0.32); c.stroke();  // goggle bridge
       c.fillStyle = 'rgba(212,150,120,0.95)';                    // a round bulb nose
       c.beginPath(); c.arc(0, s * 0.2, s * 0.15, 0, Math.PI * 2); c.fill();
+    } else if (id === 'fairy') {
+      // #330 two slender antennae with luminous tips, and small pointed ears
+      c.strokeStyle = '#9be7ff'; c.lineWidth = Math.max(1, s * 0.08); c.lineCap = 'round';
+      for (const ax of [-1, 1]) {
+        c.beginPath(); c.moveTo(ax * s * 0.16, -s * 0.48); c.quadraticCurveTo(ax * s * 0.52, -s * 0.9, ax * s * 0.36, -s * 1.12); c.stroke();
+        c.fillStyle = 'rgba(155,231,255,0.45)'; c.beginPath(); c.arc(ax * s * 0.36, -s * 1.12, s * 0.22, 0, Math.PI * 2); c.fill();  // glow halo
+        c.fillStyle = '#eafcff'; c.beginPath(); c.arc(ax * s * 0.36, -s * 1.12, s * 0.1, 0, Math.PI * 2); c.fill();                 // bright tip
+      }
+      c.lineCap = 'butt';
+      c.fillStyle = '#f0d2f2';                                   // small pointed ears
+      c.beginPath(); c.moveTo(-s * 0.62, -s * 0.02); c.lineTo(-s * 0.95, -s * 0.34); c.lineTo(-s * 0.58, s * 0.16); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(s * 0.62, -s * 0.02); c.lineTo(s * 0.95, -s * 0.34); c.lineTo(s * 0.58, s * 0.16); c.closePath(); c.fill();
     }
     // human: no feature. That IS the human - the baseline face.
   }
@@ -1913,19 +1932,23 @@ const PlayerDef = (() => {
       this.capeWind.x += (tvx - this.capeWind.x) * cwk;
       this.capeWind.y += (tvy - this.capeWind.y) * cwk;
 
+      // #330 the FAIRY (fly race) DRIFTS over the ground: rocks, pits, walls and the hazard
+      // pools below all pass beneath it. It is still contained by the room shape (poly) and the
+      // playfield edge (clampPlayer), and monsters still reach it - it floats low, not away.
+      const fly = !!(this.race && this.race.fly);
       // obstacles + pits (both are solid to the player - you can't fall in a pit)
-      for (const o of g.room.obstacles) {
+      if (!fly) for (const o of g.room.obstacles) {
         const dx = this.x - o.x, dy = this.y - o.y, d = Math.hypot(dx, dy);
         if (d < o.r + this.r && d > 0) { this.x = o.x + (dx / d) * (o.r + this.r); this.y = o.y + (dy / d) * (o.r + this.r); }
       }
       // #67b solid wall rects that carve the room shape (anti-tunnel via pre-move pos)
-      if (g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w, this.px, this.py); if (q) { this.x = q.x; this.y = q.y; } }
+      if (!fly && g.room.walls) for (const w of g.room.walls) { const q = Dungeon.rectPush(this.x, this.y, this.r, w, this.px, this.py); if (q) { this.x = q.x; this.y = q.y; } }
       // #67c convex room-shape polygon: keep inside its cut corners (flats = doors, main.js)
       if (g.room.poly) { const q = Dungeon.polyPush(this.x, this.y, this.r, g.room.poly); if (q) { this.x = q.x; this.y = q.y; } }
       // #293 (Sam) LAVA: walkable, but standing IN a pool burns you on a beat (not instant
       // death - you can cross it, you just shouldn't linger). Fire-immune (pyromancer's
       // Immolate) shrugs it off, same as THE PYRES.
-      if (g.room.lava && g.room.lava.length && (this.fireImmuneT || 0) <= 0) {
+      if (g.room.lava && g.room.lava.length && !fly && (this.fireImmuneT || 0) <= 0) {
         this._lavaCd = Math.max(0, (this._lavaCd || 0) - dt);
         if (this._lavaCd <= 0) {
           for (const L of g.room.lava) {
@@ -1939,7 +1962,7 @@ const PlayerDef = (() => {
       }
       // #299 (Sam) SPIKE TRAPS: hurt only while the plate's spikes are UP (telegraphed first).
       // Hit harder than lava per beat since they are avoidable - step off the plate in time.
-      if (g.room.spikes && g.room.spikes.length) {
+      if (g.room.spikes && g.room.spikes.length && !fly) {
         this._spikeCd = Math.max(0, (this._spikeCd || 0) - dt);
         if (this._spikeCd <= 0) {
           for (const S of g.room.spikes) {
