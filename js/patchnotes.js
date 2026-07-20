@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.194';
+  const VERSION = 'v2.195';
 
   const NOTES = [
+    {
+      v: 'v2.195', title: 'Perf: kill the full-room hotspots causing playtest lag', date: '2026-07-20',
+      sha: '2db036b',
+      items: [
+        'Perf: kill the full-room hotspots causing playtest lag.',
+        'Perf polish: cache lava/worm scans, hoist setLineDash arrays.',
+        'Plus a round of smaller fixes and polish: Fix 4 playtest bugs: mobile potions, co-op warlock beam, Royale room-sync, PVP char-screen shield; Fix mesmer clone double-hit + co-op merc double-hire.',
+      ],
+    },
     {
       v: 'v2.194', title: 'Add BOUND enemy: a chained pair that protects each', date: '2026-07-19',
       sha: '5274b5f',
