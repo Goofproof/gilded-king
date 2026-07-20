@@ -77,7 +77,7 @@ function deployCloudflare() {
   try {
     rmSync(staging, { recursive: true, force: true });
     mkdirSync(staging, { recursive: true });
-    for (const f of ['index.html', 'manifest.webmanifest']) copyFileSync(join(ROOT, f), join(staging, f));
+    for (const f of ['index.html', 'manifest.webmanifest', '_headers']) copyFileSync(join(ROOT, f), join(staging, f));
     for (const dir of ['js', 'assets', 'music']) cpSync(join(ROOT, dir), join(staging, dir), { recursive: true });
     execFileSync(process.execPath, [wrangler, 'pages', 'deploy', staging, '--project-name', 'barrowlight', '--branch', 'main'], { cwd: ROOT, stdio: 'inherit' });
     console.log('  barrowlight.io updated.');

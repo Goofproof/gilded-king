@@ -1,0 +1,17 @@
+# Cloudflare Pages headers (ignored by GitHub Pages).
+# The game's HTML + JS must revalidate on every load, or players stay on a stale
+# version for up to 4 hours after a ship (this hid a door fix from live players).
+# no-cache = use the cached copy only after revalidating via ETag (cheap 304s), so
+# a new deploy reaches everyone on their next load. Static art/audio can cache long.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/js/*
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=86400
+/music/*
+  Cache-Control: public, max-age=86400
