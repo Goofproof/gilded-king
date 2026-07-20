@@ -294,7 +294,7 @@ const Abilities = (() => {
     { id: 'miasma',    name: 'POISON MIASMA',   color: '#8ef06e', kind: 'poison',  dps: 150, dur: 8,   cdMax: 22, aff: ['magic', 'regen'],         desc: 'A vast, roiling poison cloud rots everything in the room' },
     { id: 'vanish',    name: 'VANISH',          color: '#b6c0d0', kind: 'vanish',  dur: 6,   cdMax: 22, aff: ['roll', 'spd'],                     desc: 'Turn invisible - enemies lose track of you' },
     { id: 'midas',     name: 'MIDAS WAVE',      color: '#ffd24c', kind: 'midas',   dmg: 150, radius: 210, cdMax: 20, aff: ['coin'],                desc: 'A golden blast - every enemy here drops DOUBLE gold' },
-    { id: 'caltrops',  name: 'CALTROPS',        color: '#c9a227', kind: 'caltrops', dur: 8,  cdMax: 20, aff: ['spd', 'roll'],                     desc: 'Scatter caltrops that cripple every enemy in the room' },
+    { id: 'caltrops',  name: 'CALTROPS',        color: '#c9a227', kind: 'caltrops', dur: 8,  dps: 60, cdMax: 20, aff: ['spd', 'roll'],           desc: 'Scatter razor caltrops - every enemy in the room is crippled AND bleeds for the duration' },
     { id: 'cataclysm', name: 'CATACLYSM',       color: '#ff2fb0', kind: 'nova',    dmg: 650, radius: 300, knock: 380, critAll: true, castShield: true, cdMax: 28, aff: ['dmg', 'crit'], desc: 'A screen-shaking blast that levels everything nearby' },
   ];
   // #10 build-weighted offer. `build` = { evo: [statKeys...], qKind, rKind }. Every ult

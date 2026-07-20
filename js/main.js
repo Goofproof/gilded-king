@@ -2632,7 +2632,7 @@
       for (const m of [...g.monsters]) { if (m.dead || m.airborne || m.spawnT > 0) continue; if (Math.hypot(m.x - p.x, m.y - p.y) > (a.radius || 180) + m.r) continue; m.takeHit(a.dmg, { sx: p.x, sy: p.y, knock: 150, fromPlayer: true, hitSfx: 'hitHeavy' }, g); }
       Fx.burst(p.x, p.y, ['#ffd24c', '#fff'], 34, { speed: 300, life: 0.5, glow: true });
     } else if (a.kind === 'caltrops') {
-      g.ultFx.push({ type: 'caltrops', t: 0, dur: a.dur, color: a.color });
+      g.ultFx.push({ type: 'caltrops', t: 0, dur: a.dur, dps: a.dps || 0, tick: 0, color: a.color });
     } else if (a.kind === 'fear') {
       // #78 Barbarian War Shout: every enemy in range flees in terror
       const R = a.radius || 300;
@@ -2743,8 +2743,8 @@
       Fx.shake(3, 0.15);
       Fx.text(p.x, p.y - 40, 'THE ORACLE SPEAKS', a.color, 14);
     } else if (a.kind === 'fgoose') { // #257 (Sam) GOLDEN GOOSE is a REAL BIRD now
-      g.goose = { x: p.x - 24, y: p.y + 10, r: 10, hp: 40, maxHp: 40, t: (a.dur || 8), dead: false,
-        layT: 1.0, bob: 0 };
+      g.goose = { x: p.x - 24, y: p.y + 10, r: 10, hp: 60, maxHp: 60, t: (a.dur || 8), dead: false,
+        layT: 0.6, bob: 0 };
       p.fstance = { id: 'goldengoose', t: a.dur || 8, color: a.color }; // the aura ring tracks it
       Fx.text(p.x, p.y - 40, 'THE GOOSE', a.color, 14);
       Fx.burst(p.x - 24, p.y + 10, [a.color, '#fff'], 16, { speed: 140, life: 0.5, glow: true });
@@ -4510,7 +4510,7 @@
           g.midasT = Math.max(g.midasT || 0, 12); // shared double-gold window
           break;
         case 'caltrops':
-          g.ultFx.push({ type: 'caltrops', t: 0, dur: dur || 6, color: '#c9b37a' });
+          g.ultFx.push({ type: 'caltrops', t: 0, dur: dur || 6, dps: dps || 0, tick: 0, color: '#c9b37a' });
           break;
       }
     });
@@ -6605,22 +6605,26 @@
     const k = 1 - Math.pow(0.02, dt);
     gs.x += (tx - gs.x) * k; gs.y += (ty - gs.y) * k;
     gs.layT -= dt;
-    if (gs.layT <= 0) { gs.layT = 1.0; spawnPickup('coin', gs.x, gs.y); Fx.text(gs.x, gs.y - 16, 'honk', '#ffe08a', 9); }
+    if (gs.layT <= 0) { gs.layT = 0.6; spawnPickup('coin', gs.x, gs.y); Fx.text(gs.x, gs.y - 16, 'honk', '#ffe08a', 9); } // #328 lays faster
     for (const m of g.monsters) {
       if (m.dead || m.spawnT > 0) continue;
       if (Math.hypot(m.x - gs.x, m.y - gs.y) < m.r + gs.r + 4) gs.hp -= 26 * dt;
     }
-    if (gs.hp <= 0) { // the payout: a dead goose is a pile of gold
+    if (gs.hp <= 0) { // the payout: a dead goose bursts into a REAL fortune, deeper = richer
       gs.dead = true; g.goose = null;
       if (g.player.fstance && g.player.fstance.id === 'goldengoose') g.player.fstance = null;
-      for (let i = 0; i < 15; i++) spawnPickup('coin', gs.x, gs.y);
+      const pay = 24 + (g.floorNum || 1) * 6; // #328 was a flat 15 - trivial for a Fortune fusion
+      for (let i = 0; i < pay; i++) spawnPickup('coin', gs.x, gs.y);
       Fx.text(gs.x, gs.y - 18, 'THE GOOSE!', '#ffe08a', 14);
       Fx.burst(gs.x, gs.y, ['#ffe08a', '#ffd24c', '#fff'], 26, { speed: 240, life: 0.7, glow: true });
       Sfx.play('hitHeavy');
-    } else if (gs.t <= 0) { // time up: it flies off, keeping its unlaid eggs
-      gs.dead = true; g.goose = null;
+    } else if (gs.t <= 0) { // time up: it lays a farewell clutch and flies off - protecting it
+      gs.dead = true; g.goose = null;                       // the whole 8s is rewarded, not punished (#328)
       if (g.player.fstance && g.player.fstance.id === 'goldengoose') g.player.fstance = null;
-      Fx.burst(gs.x, gs.y, ['#ffe08a', '#fff'], 14, { speed: 120, life: 0.5 });
+      const clutch = 12 + (g.floorNum || 1) * 3;
+      for (let i = 0; i < clutch; i++) spawnPickup('coin', gs.x, gs.y);
+      Fx.text(gs.x, gs.y - 18, 'a farewell clutch!', '#ffe08a', 12);
+      Fx.burst(gs.x, gs.y, ['#ffe08a', '#fff'], 18, { speed: 150, life: 0.6, glow: true });
     }
   }
   function drawGoose(c) {
@@ -6877,7 +6881,17 @@
         }
         if (e.t >= e.dur) g.ultFx.splice(i, 1);
       } else if (e.type === 'caltrops') {
-        for (const m of g.monsters) { if (!m.dead) { m.chillT = 0.4; m.chillMul = 0.5; } }
+        // #328 (Sam) caltrops were a pure 50% slow with ZERO damage - the weakest ult in the
+        // pool. They are RAZOR caltrops now: a stronger slow (58%) AND a bleed tick, so the
+        // ult actually kills, not just stalls. Damage ticks like the poison cloud above.
+        for (const m of g.monsters) { if (!m.dead) { m.chillT = 0.4; m.chillMul = 0.42; } }
+        if (e.dps) {
+          e.tick -= dt;
+          if (e.tick <= 0) {
+            e.tick = 0.5;
+            for (const m of g.monsters) { if (m.dead || m.airborne || m.spawnT > 0) continue; m.takeHit(e.dps * 0.5, { sx: m.x, sy: m.y, fromPlayer: true, hitSfx: 'hitLight' }, g); }
+          }
+        }
         if (e.t >= e.dur) g.ultFx.splice(i, 1);
       }
     }
