@@ -1846,6 +1846,23 @@
 
   function clampPlayer() {
     const p = g.player;
+    // #329 (Sam: "can't enter doors, nearly every game, top doors") DOOR FUNNEL. The crossing
+    // lane is only ~72px wide, so a player who walks into an OPEN door slightly off-centre hits
+    // the wall and stops - and at the TOP door the HUD hides how far off they are, so they can't
+    // tell they need to slide over. New players got stuck and quit. Fix: if you are pushing toward
+    // a wall that has an open door and you are near its lane, ease you ALONG the wall into the gap.
+    // Solo only (co-op uses plates), doors unlocked, and only while you are actually moving that way.
+    if (!doorsLocked() && !g.coop && p.moving && typeof Dungeon !== 'undefined') {
+      const cx = PF.x + PF.w / 2, cy = PF.y + PF.h / 2, MAG = Dungeon.DOOR_W / 2 + 44, STEP = 5;
+      const pull = (cur, tgt) => cur + Math.sign(tgt - cur) * Math.min(STEP, Math.abs(tgt - cur));
+      for (const d of doorRects(g.room)) {
+        if (doorSealed(g.room, d.dir)) continue;
+        if (d.dir === 'N' && Math.sin(p.moveAngle) < -0.3 && p.y < PF.y + p.r + 8 && Math.abs(p.x - cx) < MAG) p.x = pull(p.x, cx);
+        else if (d.dir === 'S' && Math.sin(p.moveAngle) > 0.3 && p.y > PF.y + PF.h - p.r - 8 && Math.abs(p.x - cx) < MAG) p.x = pull(p.x, cx);
+        else if (d.dir === 'W' && Math.cos(p.moveAngle) < -0.3 && p.x < PF.x + p.r + 8 && Math.abs(p.y - cy) < MAG) p.y = pull(p.y, cy);
+        else if (d.dir === 'E' && Math.cos(p.moveAngle) > 0.3 && p.x > PF.x + PF.w - p.r - 8 && Math.abs(p.y - cy) < MAG) p.y = pull(p.y, cy);
+      }
+    }
     // Each wall is clamped INDEPENDENTLY: a wall only opens if there's a real door
     // on THAT side and the player is lined up with its lane. (Bug fix: N and S doors
     // share the same centre-X lane, so the old "inLaneY" let a north door leak you
