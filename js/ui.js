@@ -1445,6 +1445,14 @@ const UI = (() => {
       c.font = 'bold 10px monospace'; c.fillStyle = '#ff8aa5'; c.textAlign = 'center';
       c.fillText('BUG or IDEA?  tell us', fx + fw / 2, fy + 16);
       rects.push({ x: fx, y: fy, w: fw, h: fh, action: 'feedback' });
+      // #328 (Sam) JOIN THE DISCORD - sits right under the bug/idea box, same community corner.
+      // Discord blurple. Opens the invite in a new tab (handled in main.js).
+      const dy = fy + fh + 6;
+      c.fillStyle = 'rgba(88,101,242,0.15)'; c.fillRect(fx, dy, fw, fh);
+      c.strokeStyle = 'rgba(88,101,242,0.8)'; c.lineWidth = 1; c.strokeRect(fx, dy, fw, fh);
+      c.font = 'bold 10px monospace'; c.fillStyle = '#aab4ff'; c.textAlign = 'center';
+      c.fillText('JOIN THE DISCORD', fx + fw / 2, dy + 16);
+      rects.push({ x: fx, y: dy, w: fw, h: fh, action: 'discord' });
     }
 
     // share toast (draws just above the dock)

@@ -4020,6 +4020,7 @@
           if (r.action === 'fullscreen') { toggleFullscreen(); return; }
           if (r.action === 'rename') { openRename(); return; }
           if (r.action === 'feedback') { openFeedback(); return; } // #295 bug/idea box
+          if (r.action === 'discord') { Sfx.play('ui'); window.open('https://discord.gg/NwaMkjC8N', '_blank', 'noopener'); return; } // #328 join the community
           if (r.action === 'upgrade') buyMetaUpgrade(r.key);
           if (r.action === 'share') shareGame();
           if (r.action === 'scores') { g.showScores = true; Sfx.play('ui'); }
