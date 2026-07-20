@@ -19,9 +19,19 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.195';
+  const VERSION = 'v2.196';
 
   const NOTES = [
+    {
+      v: 'v2.196', title: 'Add JOIN THE DISCORD button to the title screen', date: '2026-07-20',
+      sha: '3d69157',
+      items: [
+        'Add JOIN THE DISCORD button to the title screen.',
+        'Ultimate offer: soften build-weighting so it stops showing the same 3 every run.',
+        'Buff two weak payoffs: CALTROPS ult and the GOLDEN GOOSE.',
+        'Mesmer rework: true doppelganger clones + MIRROR VOLLEY capstone.',
+      ],
+    },
     {
       v: 'v2.195', title: 'Perf: kill the full-room hotspots causing playtest lag', date: '2026-07-20',
       sha: '2db036b',
