@@ -19,9 +19,18 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.196';
+  const VERSION = 'v2.197';
 
   const NOTES = [
+    {
+      v: 'v2.197', title: 'Door funnel: stop new players getting stuck walking', date: '2026-07-20',
+      sha: '4dfcbae',
+      items: [
+        'Door funnel: stop new players getting stuck walking into an open door.',
+        'Add the FAIRY race: floats over ground terrain and hazards.',
+        'Plus a round of smaller fixes and polish: Door funnel: widen the magnet + always-revalidate JS so fixes actually reach players; Fix THE real door bug: polygon rooms made edge doors impossible to cross.',
+      ],
+    },
     {
       v: 'v2.196', title: 'Add JOIN THE DISCORD button to the title screen', date: '2026-07-20',
       sha: '3d69157',
