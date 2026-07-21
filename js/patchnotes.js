@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.198';
+  const VERSION = 'v2.199';
 
   const NOTES = [
+    {
+      v: 'v2.199', title: 'Tap off the quest box to close it', date: '2026-07-21',
+      sha: '8fb331d',
+      items: [
+        'Quest offer on mobile: tap anywhere off the box to walk away.',
+      ],
+    },
     {
       v: 'v2.198', title: 'Phone quest screen + co-op boss door fixes', date: '2026-07-21',
       sha: '0e8d20b',
