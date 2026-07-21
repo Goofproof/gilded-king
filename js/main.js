@@ -1987,11 +1987,19 @@
     // has been drawn at least once before any tap can land - imperceptible 1-frame lag).
     let clickAccept = false, clickRefuse = false;
     if (input.mouse.clicked && g.uiRects) {
+      let onButton = false;
       for (const r of g.uiRects) {
         if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
-          if (r.action === 'offerAccept') clickAccept = true;
-          else if (r.action === 'offerRefuse') clickRefuse = true;
+          if (r.action === 'offerAccept') { clickAccept = true; onButton = true; }
+          else if (r.action === 'offerRefuse') { clickRefuse = true; onButton = true; }
         }
+      }
+      // #331 (Sam) tap/click anywhere OFF the panel = walk away, the natural dismiss.
+      // Keep the panel body inert so you can't fat-finger it away while reading.
+      if (!onButton) {
+        const pw = 560, ph = 300, px = (W - pw) / 2, py = (H - ph) / 2;
+        const inPanel = input.mouse.x >= px && input.mouse.x <= px + pw && input.mouse.y >= py && input.mouse.y <= py + ph;
+        if (!inPanel) clickRefuse = true;
       }
     }
     if (input.pressed('Escape') || input.pressed('KeyQ') || clickRefuse) {  // refuse
