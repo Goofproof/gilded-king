@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.197';
+  const VERSION = 'v2.198';
 
   const NOTES = [
+    {
+      v: 'v2.198', title: 'Phone quest screen + co-op boss door fixes', date: '2026-07-21',
+      sha: '0e8d20b',
+      items: [
+        'Fix the quest screen on phones and the co-op boss door that sometimes would not open.',
+      ],
+    },
     {
       v: 'v2.197', title: 'Door funnel: stop new players getting stuck walking', date: '2026-07-20',
       sha: '4dfcbae',
