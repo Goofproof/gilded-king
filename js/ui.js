@@ -3036,7 +3036,9 @@ const UI = (() => {
   function drawOffer(c, g) {
     const q = Encounters.byKey(g.offer.key);
     if (!q) return;
-    const pw = 560, ph = 252, px = (W - pw) / 2, py = (H - ph) / 2;
+    // #331 taller panel to seat two real buttons under the reward - a phone has no
+    // keyboard, so ACCEPT / WALK AWAY must be tappable, not just E/Q key prompts.
+    const pw = 560, ph = 300, px = (W - pw) / 2, py = (H - ph) / 2;
     c.save();
     c.fillStyle = 'rgba(6,8,12,0.86)'; c.fillRect(0, 0, W, H);
     c.fillStyle = '#161b24'; c.fillRect(px, py, pw, ph);
@@ -3056,9 +3058,25 @@ const UI = (() => {
     c.fillText('THE REWARD', W / 2, py + 190);
     c.font = '12px monospace'; c.fillStyle = '#e8d5a0';
     wrapText(c, q.reward, W / 2, py + 208, pw - 60, 16);
-    c.font = 'bold 12px monospace'; c.fillStyle = '#9fb0c8';
-    c.fillText('E / SPACE  accept          Q / ESC  walk away', W / 2, py + ph - 12);
+    // two tappable buttons (also drive mouse-click on desktop). The KEY still works:
+    // the labels name it, and main.js updateOffer reads both keys and these rects.
+    const bw = 190, bh = 40, gap = 28, by = py + ph - bh - 18;
+    const ax = W / 2 - bw - gap / 2, rx = W / 2 + gap / 2;
+    const btn = (bx, label, col) => {
+      c.globalAlpha = 0.18; c.fillStyle = col;
+      c.fillRect(bx, by, bw, bh);
+      c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = 2;
+      c.strokeRect(bx, by, bw, bh);
+      c.fillStyle = col; c.font = 'bold 13px monospace';
+      c.fillText(label, bx + bw / 2, by + bh / 2 + 5);
+    };
+    btn(ax, 'ACCEPT  (E)', '#6ee7a0');
+    btn(rx, 'WALK AWAY  (Q)', '#9fb0c8');
     c.restore();
+    return [
+      { x: ax, y: by, w: bw, h: bh, action: 'offerAccept' },
+      { x: rx, y: by, w: bw, h: bh, action: 'offerRefuse' },
+    ];
   }
 
   return { META_UPGRADES, metaCost, GAME_URL, DIFFICULTIES, difficultyAt, scrollClasses, drawCraftPick, drawHUD, drawMinimap, drawBossBar, drawBossIntro, drawTitle, drawLobby, drawLevelUp, drawEvolution, drawUltPick, drawRPick, drawPause, drawCharSheet, drawEnd, drawInitials, abilityBadges, weaponSilhouette, drawToasts, drawEnchantPick, drawScoreSnap, drawOffer };

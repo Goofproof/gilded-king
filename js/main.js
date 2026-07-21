@@ -1982,7 +1982,19 @@
     const e = g.offer;
     if (!e) { g.state = 'play'; return; }
     const q = Encounters.byKey(e.key);
-    if (input.pressed('Escape') || input.pressed('KeyQ')) {  // refuse
+    // #331 touch has no keyboard: the panel's ACCEPT / WALK AWAY buttons are uiRects
+    // (ui.js drawOffer). Read a tap/click on them, using last frame's rects (the offer
+    // has been drawn at least once before any tap can land - imperceptible 1-frame lag).
+    let clickAccept = false, clickRefuse = false;
+    if (input.mouse.clicked && g.uiRects) {
+      for (const r of g.uiRects) {
+        if (input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h) {
+          if (r.action === 'offerAccept') clickAccept = true;
+          else if (r.action === 'offerRefuse') clickRefuse = true;
+        }
+      }
+    }
+    if (input.pressed('Escape') || input.pressed('KeyQ') || clickRefuse) {  // refuse
       e.refused = true;
       g.offer = null;
       g.state = 'play';
@@ -1990,7 +2002,7 @@
       Sfx.play('ui');
       return;
     }
-    if (input.pressed('KeyE') || input.pressed('Space') || input.pressed('Enter')) { // accept
+    if (input.pressed('KeyE') || input.pressed('Space') || input.pressed('Enter') || clickAccept) { // accept
       e.taken = true;
       g.questRoll = e.roll;                 // deterministic: the quest's own seeded roll
       g.quest = { key: e.key, room: g.room };
@@ -2224,8 +2236,12 @@
         Sfx.play('stairs');
         Fx.burst(p.x, p.y, ['#4cc9a8', '#b88aff'], 20, { speed: 180, life: 0.5, glow: true });
         g.portal = null;
-        // co-op: pull the party along so nobody is left behind by the shortcut (#317 never in a hunt)
-        if (g.coop && !g.huntMode && typeof Net !== 'undefined') Net.send({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null, fl: g.floorNum }); // #216
+        // co-op: pull the party along so nobody is left behind by the shortcut (#317 never in a hunt).
+        // #331 RELIABLE (sendR, like the stairs floor-advance): the portal is presser-only - the guest
+        // does NOT independently evaluate the E-press, it rides this one packet. If it dropped, the guest
+        // stayed in the old room; and because the boss door needs a party-MAJORITY on its plate, the run
+        // soft-locked at "the last door." sendR's seq+dedup+30s reconnect-replay closes that.
+        if (g.coop && !g.huntMode && typeof Net !== 'undefined') Net.sendR({ t: 'room', gx: dest.gx, gy: dest.gy, dir: null, fl: g.floorNum }); // #216/#331
         enterRoom(dest, null);
         if (stairsRoom) p.y += 90; // land beside the stairwell, not inside it
       }
@@ -7634,7 +7650,7 @@
     if (g.state === 'bossintro') UI.drawBossIntro(c, g);
     // THE OFFER: the stranger's terms and the price, on one panel (drawn in ui.js
     // where the other panels live, and where wrapText is in scope).
-    if (g.state === 'offer' && g.offer) UI.drawOffer(c, g);
+    if (g.state === 'offer' && g.offer) g.uiRects = UI.drawOffer(c, g) || g.uiRects;
 
     if (g.state === 'levelup') g.uiRects = UI.drawLevelUp(c, g);
     if (g.state === 'evolution') g.uiRects = UI.drawEvolution(c, g);
