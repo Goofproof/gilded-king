@@ -314,3 +314,48 @@ of 3 escalating named bosses (2), a small heal between (3), a guaranteed mythic 
 (4), scaled to depth (5). It reuses `Boss.make` and the existing co-op boss sync, so it is
 low-risk, and we can grow it into an endless ladder or a title-screen mode once your son
 says it is fun. Say the word and I build that version.
+
+---
+
+## GEAR SETS - collect 3 matching pieces for a bonus (engine ready, needs your set picks)
+
+**Status.** Sam greenlit this (competitive review, 2026-07). The ENGINE is easy and I can
+build it; what needs YOU (the designer) is the CONTENT: which items belong to which set,
+and what each set does. I did not want to invent that blind, so here is the plan and a
+data format - pick the sets and I build it.
+
+**The idea (from Binding of Isaac transformations).** Some items secretly belong to a SET.
+Equip all the pieces of one set at once and a named bonus fires - a small always-on power
+plus a cosmetic aura (drawn like the prestige cape). Mediocre drops become steps toward a
+set, so loot you would have scrapped is suddenly worth keeping.
+
+**The one real constraint.** You equip ONE weapon, ONE armor, and ONE trinket at a time,
+so a 3-piece set is exactly {a weapon} + {an armor} + {a trinket}. It cannot be three
+trinkets. Sets should be built from IDENTIFIABLE items - the named mythic weapons
+(`MYTHIC_WEAPONS`, weapons.js:301), named mythic armor (`MYTHIC_ARMOR`, weapons.js:334),
+and the 19 named trinkets (trinkets.js). Regular rolled gear has no stable identity to tag.
+
+**What I build (the engine, no creative guessing):**
+- A `set` tag on the chosen items (e.g. `set: 'ember'`).
+- Detection each frame: if equipped weapon.set === armor.set === trinket.set, the set is
+  complete. A new `setMods` bucket added to `player.mod()` (player.js:1137) so the bonus
+  composes with everything else; flag-type bonuses (revive, reveal) wire like the existing
+  trinket flags.
+- A cosmetic aura reusing the cape renderer `capeAt()` (player.js:378).
+- "2 of 3" progress via the achievements toast pipeline (achievements.js:211-212), extended
+  to show partial progress (today it only toasts binary unlocks).
+- Pure function of YOUR OWN equipped items - no new RNG, computed client-side, zero co-op
+  sync surface, so it is multiplayer-safe by construction.
+
+**What I need from you - pick 2-3 starter sets. Format per set:**
+`{ name, weapon, armor, trinket, bonus, aura-color }`. Some candidate shapes to react to
+(rename freely - legible names travel better than deep cuts):
+- **The Ember Set** - a fire weapon + fire armor + a fire trinket -> burning enemies take
+  extra damage from you (leans into the new SHATTER/COMBUST combos).
+- **The Swift Set** - a fast weapon + light armor + a speed trinket -> +move speed and
+  dash cooldown.
+- **The Miser's Set** - a coin weapon + coin armor + Splinter of Midas trinket -> big
+  coin/luck boost (pairs with the new FORTUNE loot-luck).
+
+Tell me the item bindings and the bonus for each, and I build the whole thing. Keep the
+bonuses modest (this is a bonus for a lucky loadout, not a required build).
