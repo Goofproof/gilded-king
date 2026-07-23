@@ -353,6 +353,15 @@ const Rules = (() => {
     { key: 'trial', name: 'TRIAL BY FIRE', color: '#ff8a3d',
       desc: 'Everything here hits harder - but every kill pays out in experience.',
       monDmgMul: 1.3, xpMul: 1.6 },
+    // #335 (Sam) INFORMATION-SUBTRACTION curses (a new axis - these take away what you can
+    // SEE, not change stats). Pure render flags read by the renderer (like vision), so they
+    // are co-op-safe by construction and stack with anything.
+    { key: 'blind', name: 'THE BLIND', color: '#b8a0d8',
+      desc: 'You cannot tell what any loot is until you pick it up.',
+      hidePickupLabels: 1 },
+    { key: 'nomap', name: 'NO MAP', color: '#8f97a3',
+      desc: 'The map is gone. Find your own way. (Not on phones.)',
+      hideMinimap: 1 },
   ];
 
   // how many mutators a floor carries. Depth is floors below the King.
@@ -460,6 +469,8 @@ const Rules = (() => {
     // draw-time effects, read by the renderer rather than by a hook
     r.vision    = active.reduce((a, x) => Math.min(a, x.vision ?? Infinity), Infinity); // the Sewn Eyes
     r.fade      = active.reduce((a, x) => Math.min(a, x.fade   ?? Infinity), Infinity); // the Smoke
+    r.hidePickupLabels = active.some(x => x.hidePickupLabels); // #335 THE BLIND
+    r.hideMinimap      = active.some(x => x.hideMinimap);      // #335 NO MAP (renderer gates it off on touch)
     // a rule sets moveMul 0 when it means to drive movement itself (the ice)
     r.ownsMovement = active.some(x => x.moveMul === 0);
     r.player  = (p, dt, g) => { for (const x of r.list) if (x.player)  x.player(p, dt, g); };

@@ -7577,7 +7577,10 @@
       c.fillStyle = '#fff'; c.fillText(f.name.toUpperCase(), W / 2, H / 2);
       c.restore();
     }
-    UI.drawMinimap(c, g);
+    // #335 NO MAP curse hides the minimap - but NEVER on touch, where the minimap is a
+    // core wayfinding aid and a missing one reads as a broken game on a small screen.
+    const onTouch = typeof Mobile !== 'undefined' && Mobile.enabled;
+    if (!(g.rules && g.rules.hideMinimap && !onTouch)) UI.drawMinimap(c, g);
     if (g.state === 'play') drawEquippedHover(c); // hover equipped slots -> stat card
     if (g.room.type === 'boss' && g.boss) UI.drawBossBar(c, g); // guest may not have the boss obj (proxy only)
 
@@ -9253,10 +9256,13 @@
   function drawInteractPrompt(c) {
     const t = nearestInteractable();
     if (!t) return;
+    // #335 THE BLIND curse: floor loot hides its identity (name, rarity, salvage value)
+    // until you pick it up. Shop items are never blinded - you are paying, you get to know.
+    const blind = !!(g.rules && g.rules.hidePickupLabels);
     let x, y, label = 'E';
     if (t.kind === 'chest') { x = t.ch.x; y = t.ch.y - 34; label = 'E - open'; }
-    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E take · X salvage +${[1,2,4,7,12,20][t.pk.weapon.rarIdx]}◈`; }
-    if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
+    if (t.kind === 'weaponPickup') { x = t.pk.x; y = t.pk.y - 30; label = blind ? 'E take · X salvage' : `E take · X salvage +${[1,2,4,7,12,20][t.pk.weapon.rarIdx]}◈`; }
+    if (t.kind === 'armorPickup') { x = t.pk.x; y = t.pk.y - 30; label = blind ? 'E equip · X salvage' : `E equip · X salvage +${[1,2,4,7,12,20][t.pk.armor.rarIdx]}◈`; }
     if (t.kind === 'trinketPickup') { x = t.pk.x; y = t.pk.y - 30; label = `E equip ${t.pk.trinket.name}`; } // #134 (the info card shows the gift/price)
     if (t.kind === 'potionPickup') { x = t.pk.x; y = t.pk.y - 30; label = 'E take potion'; } // #186
     if (t.kind === 'craftWeapon' || t.kind === 'craftArmor') { // #187
@@ -9289,7 +9295,14 @@
     if (t.kind === 'armorPickup') w = t.pk.armor;
     if (t.kind === 'shopItem' && t.it.kind === 'weapon') w = t.it.weapon;
     if (t.kind === 'shopItem' && t.it.kind === 'armor') w = t.it.armor;
-    if (w) drawGearCard(c, w, x, y);
+    if (w) {
+      if (blind && (t.kind === 'weaponPickup' || t.kind === 'armorPickup')) {
+        drawGearCardLines(c, [
+          { text: '? ? ?', color: '#b8a0d8', bold: true },
+          { text: 'grab it to find out what it is', color: '#8fa3bf' },
+        ], x, y);
+      } else drawGearCard(c, w, x, y);
+    }
     // #134 the trinket card: its gift, its price, and the story, BEFORE you commit -
     // because a trinket is a decision and you should get to read it first.
     let tr = null;
