@@ -5,8 +5,8 @@ the fun must NOT depend on knowing Dante. Bias to legible names + show-don't-tel
 Claude is grinding this via /loop. Ship each item, then check it off and log to DECISIONS-LOG.md.
 
 ## Buildable now (settled, mostly independent)
-- [ ] 1. FORTUNE -> loot luck. Wire the FORTUNE stat into rollRarity's luck reroll (a real dead-stat fix). Ship the luck half only; NOT the maxRarity-ceiling half (collides with no-legendaries-floors-1-3).
-- [ ] 2. Ultimate reroll. A "3 new options" button on the ultimate pick (Sam: many ultimates don't feel good). Self-contained UI + touch.
+- [x] 1. FORTUNE -> loot luck. SHIPPED v2.200 (fortuneLuck() in spawnInstancedGear + chests). FAST-FOLLOW: make the effect visible (char-sheet FORTUNE description says "luckier loot"), currently invisible.
+- [x] 2. Ultimate reroll. SHIPPED v2.201. REROLL button + R key, 3 per pick, excludes the current hand, touch-verified. NOTE: the deeper "ultimates don't feel good" is a separate balance/feel pass, still open.
 - [ ] 3. Hit-stop on hits, SINGLE PLAYER ONLY. Local-render freeze on crit/kill; never gate updatePlay in co-op (freezes the host sim).
 - [ ] 4. Legible "curses". Rare info-subtraction floor mutators: The Blind (pickup labels show ? until grabbed) + a no-minimap curse. Gate HP/minimap hides OFF on touch (reads as a bug on a phone).
 - [ ] 5. Cross-status combo detonations. Flame+Frozen=shatter, Venom+Burn, Chain+Frozen. Scope to the 3 flags mobs actually carry; resolve in the host monster sim (like chainArc).
