@@ -359,3 +359,42 @@ and the 19 named trinkets (trinkets.js). Regular rolled gear has no stable ident
 
 Tell me the item bindings and the bonus for each, and I build the whole thing. Keep the
 bonuses modest (this is a bonus for a lucky loadout, not a required build).
+
+---
+
+## REST SITES + PRESTIGE DOORS - buildable, but they touch co-op generation (build together)
+
+These two are ready to build, but unlike the five features already shipped (FORTUNE luck,
+ult reroll, hit-stop, curses, element combos - all co-op-safe by construction), they BOTH
+modify dungeon/room generation, which is the co-op-determinism-critical path. Per the
+project's own hard-won rule, co-op parity bugs are only reliably caught by two real people
+playing together - so these want a live 2-player playtest before shipping, not a solo
+autonomous ship. Handing them to you at that gate.
+
+### REST SITES (item 7, Slay-the-Spire campfire)
+- **Design:** a rare non-combat room; walk up + E opens a 2-button panel (reuse the offer
+  panel, already mobile-proven): REST (heal ~30% max HP) or FORGE (+1 hone on your weapon,
+  reusing honeWeapon() main.js:~942 / the U-key path). Both actions are per-player-safe.
+- **Placement (the co-op-sensitive part):** the occupant must be placed in generateFloor
+  with the SEEDED stream like encounters (dungeon.js:466-476). SAFEST approach: place it via
+  a hash of (seed, floorNum) - like rollMutators does - so it does NOT consume from the
+  `rnd()` stream and therefore cannot shift the pet/encounter/doppel placements or break the
+  pet-determinism test (dungeon.test.js). Verify: `npm test` stays green AND a live co-op run
+  shows both players seeing the rest site in the same room.
+- **The EVOLUTION REROLL you asked for: deferred as risky.** There is no reroll/unapply code
+  for evolutions, and evolutions apply PERMANENT stat mods via apply() - reversing one blind
+  can corrupt a build. It needs its own careful design (track each evolution's exact stat
+  delta so it can be cleanly undone, then re-offer). Worth doing, but not to be built
+  unsupervised. Recommend: ship REST/FORGE first, add the evo-reroll as a focused follow-up.
+
+### PRESTIGE-GATED BONUS DOORS (item 8, your idea - reshaped)
+- **Design (per our discussion):** an OPTIONAL shimmering side-door that only opens if your
+  cape is grand enough (prestige level >= N), leading to a bonus vault / hard challenge room.
+  NEVER the main path down (that would wall new players and kids, and prestige is
+  cosmetic-only by your son's ruling - DESIGN-PROPOSALS.md:114).
+- **Co-op question to settle first:** whose cape counts? Options: (a) the highest prestige in
+  the party opens it for everyone, (b) each player sees their own gated doors. (a) is simpler
+  and more generous; (b) needs per-player door state. Pick one before building.
+- **Co-op-sensitive part:** the door/room must be placed deterministically (same hash
+  approach as rest sites) so peers agree it exists; the OPEN condition (prestige check) is a
+  per-player value, so decide the party rule above.
