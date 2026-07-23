@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.203';
+  const VERSION = 'v2.204';
 
   const NOTES = [
+    {
+      v: 'v2.204', title: 'Element combos: shatter frozen enemies, combust poisoned ones', date: '2026-07-23',
+      sha: '8f9e6a3',
+      items: [
+        'Element combos: hit a frozen enemy with fire to SHATTER it.',
+      ],
+    },
     {
       v: 'v2.203', title: 'New floor curses: THE BLIND and NO MAP', date: '2026-07-23',
       sha: '121215d',
