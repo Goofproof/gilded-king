@@ -1500,6 +1500,21 @@ const Monsters = (() => {
       Fx.burst(m.x, m.y, ['#c060ff', '#e0b0ff', '#fff'], 16, { speed: 170, life: 0.6, glow: true });
       Sfx.play('deathtouch');
     }
+    // #334 (Sam) SOLO-ONLY hit-stop: a few frames of freeze on meaningful connects, for
+    // crunch. NEVER in co-op - this freeze early-returns updatePlay (main.js:5808), which
+    // would stall the host's authoritative sim and every position broadcast. Weighted so a
+    // trash swarm does NOT stutter: nothing on a plain trash kill, a real thunk on a big
+    // kill / crit / boss. Fx.hitstop takes the MAX, so simultaneous hits never compound.
+    if (!opts.silent && !g.coop && typeof Fx !== 'undefined') {
+      const killed = m.hp <= 0;
+      const big = (m.maxHp || 10) >= 45 || m.elite || m.isBoss;
+      let t = 0;
+      if (killed && big) t = 0.05;            // ~3 frames: the satisfying big-kill thunk
+      else if (opts.crit && big) t = 0.033;   // ~2 frames: crunchy crit on something meaty
+      else if (opts.crit) t = 0.017;          // ~1 frame: a light pop on any crit
+      if (m.isBoss) t = Math.max(t, killed ? 0.09 : 0.033);
+      if (t > 0) Fx.hitstop(t);
+    }
     if (!opts.silent) {
       Fx.text(m.x + (Math.random() * 16 - 8), m.y - m.r - 6, Math.round(dmg), opts.crit ? '#ffd24c' : '#ffffff', opts.crit ? 16 : 12);
       Fx.burst(m.x, m.y, opts.crit ? '#ffd24c' : '#ff6655', opts.crit ? 10 : 5, { speed: 110, life: 0.35 });
