@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.199';
+  const VERSION = 'v2.200';
 
   const NOTES = [
+    {
+      v: 'v2.200', title: 'FORTUNE makes your loot luckier', date: '2026-07-23',
+      sha: '57d81d8',
+      items: [
+        'FORTUNE now makes your loot luckier, not just richer.',
+      ],
+    },
     {
       v: 'v2.199', title: 'Tap off the quest box to close it', date: '2026-07-21',
       sha: '8fb331d',
