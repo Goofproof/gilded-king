@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.200';
+  const VERSION = 'v2.201';
 
   const NOTES = [
+    {
+      v: 'v2.201', title: 'Reroll your ultimate choices', date: '2026-07-23',
+      sha: '2f649a1',
+      items: [
+        'Don\'t like your 3 ultimate choices? Reroll for new ones.',
+      ],
+    },
     {
       v: 'v2.200', title: 'FORTUNE makes your loot luckier', date: '2026-07-23',
       sha: '57d81d8',
