@@ -1399,6 +1399,9 @@ const Monsters = (() => {
       m.kvx += Math.cos(ka) * opts.knock * kmul;
       m.kvy += Math.sin(ka) * opts.knock * kmul;
     }
+    // #336 (Sam) STATUS COMBOS: remember what the target ALREADY carried, so hitting it
+    // with a DIFFERENT element below can detonate a combo (fire + ice = SHATTER, etc.).
+    const hadBurn = !!m.burn, hadChill = m.chillT > 0, hadPoison = !!m.poison;
     if (opts.flame) m.burn = { t: 2.5, dps: 3 + opts.flame * 2, tick: 0.4 };
     // Frost: slow the target; deep chill can briefly freeze it (reuses stagger)
     if (opts.chill) {
@@ -1423,6 +1426,32 @@ const Monsters = (() => {
     applyDamage(m, dmg, g, opts);
     // Chain Lightning: the strike arcs to nearby OTHER monsters (no re-chain)
     if (opts.chain && !opts.chainArc) chainArc(m, dmg, g, opts.chain);
+    // #336 (Sam) STATUS COMBO DETONATIONS. Hit an already-afflicted enemy with a DIFFERENT
+    // element and the two react. Resolved right here in the host-authoritative hit path (like
+    // chainArc), so co-op stays in sync. Each combo CONSUMES a status so it cannot re-loop.
+    // Legible on purpose: fire + ice = shatter, fire + poison = combust.
+    if (!m.dead) {
+      // FIRE + ICE -> SHATTER: thermal shock, a burst of frost damage; clears both.
+      if ((opts.flame && hadChill) || (opts.chill && hadBurn)) {
+        m.burn = null; m.chillT = 0;
+        Fx.text(m.x, m.y - m.r - 22, 'SHATTER', '#aee7ff', 15);
+        Fx.burst(m.x, m.y, ['#aee7ff', '#dff4ff', '#ffffff'], 24, { speed: 210, life: 0.5, glow: true });
+        Sfx.play('crit');
+        applyDamage(m, Math.max(12, Math.round((m.maxHp || 20) * 0.18)), g, { hitSfx: 'hit' });
+      }
+      // FIRE + POISON -> COMBUST: the gas ignites; a burst that also splashes nearby enemies.
+      else if ((opts.flame && hadPoison) || (opts.venom && hadBurn)) {
+        m.poison = null;
+        const burst = Math.max(10, Math.round((m.maxHp || 20) * 0.12));
+        Fx.text(m.x, m.y - m.r - 22, 'COMBUST', '#ff8a3d', 15);
+        Fx.burst(m.x, m.y, ['#ff8a3d', '#ffd24c', '#ff5555'], 22, { speed: 200, life: 0.55, glow: true });
+        Sfx.play('hit');
+        applyDamage(m, burst, g, {});
+        for (const o of g.monsters) {
+          if (o !== m && !o.dead && o.spawnT <= 0 && Math.hypot(o.x - m.x, o.y - m.y) < 72) applyDamage(o, Math.round(burst * 0.5), g, {});
+        }
+      }
+    }
     return true; // hit landed
   }
 
