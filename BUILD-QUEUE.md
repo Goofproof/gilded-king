@@ -9,7 +9,7 @@ Claude is grinding this via /loop. Ship each item, then check it off and log to 
 - [x] 2. Ultimate reroll. SHIPPED v2.201. REROLL button + R key, 3 per pick, excludes the current hand, touch-verified. NOTE: the deeper "ultimates don't feel good" is a separate balance/feel pass, still open.
 - [x] 3. Hit-stop on hits, SINGLE PLAYER ONLY. SHIPPED v2.202 (applyDamage in monsters.js, size-weighted, !g.coop guard). Verified via probe: solo elite kill fires t=0.05, co-op fires 0.
 - [x] 4. Legible "curses". SHIPPED v2.203. THE BLIND (loot identity + salvage value masked to ??? until grabbed) + NO MAP (minimap hidden, desktop-only). rules.js mutators + remerge flags, main.js render gates. Verified: blind card + hidden minimap on desktop, minimap kept on touch.
-- [ ] 5. Cross-status combo detonations. Flame+Frozen=shatter, Venom+Burn, Chain+Frozen. Scope to the 3 flags mobs actually carry; resolve in the host monster sim (like chainArc).
+- [x] 5. Cross-status combo detonations. SHIPPED v2.204. SHATTER (fire+ice, ~18% maxHP burst, clears both) + COMBUST (fire+poison, burst + splash). In the host-authoritative hit path (monsters.js ~1425, like chainArc). SHATTER verified end-to-end via probe; COMBUST shares the same path.
 - [ ] 6. Gear sets. Hidden 3-item set bonuses spanning weapon/armor/trinket; small always-on mod + a cape-style aura. Pure per-player, no new RNG.
 - [ ] 7. Rest sites. Campfire room (Purgatorio): pick heal OR forge; forge includes an EVOLUTION REROLL (Sam). Extend the encounters.js quest-occupant pattern.
 - [ ] 8. Optional prestige-gated bonus doors. Shimmering side-door to a bonus room that only opens if the cape is grand enough. NEVER the main path (would wall new players / kids). Co-op: settle whose cape counts.
