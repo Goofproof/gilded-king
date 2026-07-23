@@ -6012,11 +6012,16 @@
     if (p.abilityR && !p.abilityUlt && p.ultAtLevel && p.level >= p.ultAtLevel &&
         !g.ultChoices && g.evoQueue.length === 0 && // #199 unspent points don't delay the ult offer
         roomClear && p.rollT < 0 && g.winTimer <= 0 && !p.dead) {
-      g.ultChoices = Abilities.rollUltimates(3, {
+      // #333 (Sam) keep the build so a REROLL re-weights the same way, and grant a few
+      // rerolls: many ultimates just do not click for a given build, so "don't like these?
+      // get 3 new ones" beats being stuck with a bad hand. Local menu, no co-op surface.
+      g.ultBuild = {
         evo: p.evoHistory || [],
         qKind: p.ability && p.ability.kind,
         rKind: p.abilityR && p.abilityR.kind,
-      });
+      };
+      g.ultChoices = Abilities.rollUltimates(3, g.ultBuild);
+      g.ultRerolls = 3;
       g.hoverChoice = -1; g.state = 'ultpick'; g.overlayT = 0;
       p.drawT = -1; p.ultAtLevel = 0;
       Sfx.play('roar');
@@ -6195,14 +6200,26 @@
     return false;
   }
 
+  // #333 (Sam) don't like any of the three ultimates? get a fresh three (button or R).
+  function rerollUlt() {
+    if (!(g.ultRerolls > 0)) { Sfx.play('error'); return; }
+    g.ultRerolls--;
+    const exclude = (g.ultChoices || []).map((u) => u.name);
+    g.ultChoices = Abilities.rollUltimates((g.ultChoices || []).length || 3, g.ultBuild, exclude);
+    g.hoverChoice = -1;
+    Sfx.play('roll');
+  }
+
   function updateUltPick() {
     const opts = g.ultChoices, n = opts.length;
     if (g.hoverChoice < 0) g.hoverChoice = 0;
     if (input.pressed('KeyA') || input.pressed('ArrowLeft')) { g.hoverChoice = (g.hoverChoice + n - 1) % n; Sfx.play('ui'); }
     if (input.pressed('KeyD') || input.pressed('ArrowRight')) { g.hoverChoice = (g.hoverChoice + 1) % n; Sfx.play('ui'); }
+    if (input.pressed('KeyR')) { rerollUlt(); return; }
     for (const r of g.uiRects) {
       const over = input.mouse.x > r.x && input.mouse.x < r.x + r.w && input.mouse.y > r.y && input.mouse.y < r.y + r.h;
       if (!over) continue;
+      if (r.action === 'reroll') { if (input.mouse.clicked) { rerollUlt(); return; } continue; }
       if (input.mouse.moved) g.hoverChoice = r.idx;
       if (input.mouse.clicked) { applyUltChoice(opts[r.idx]); return; }
     }

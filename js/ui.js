@@ -612,14 +612,14 @@ const UI = (() => {
   // --- EVOLUTION CHOICE (Sam's system: stack a stat to 3/6/9/12) --------------------
   // the ULTIMATE picker: choose 1 of 3 ultimates forged from your Q + R abilities
   function drawUltPick(c, g) {
-    return drawPickPanel(c, g, g.ultChoices || [], 'CHOOSE YOUR ULTIMATE', 'pick one · RIGHT-CLICK unleashes it in battle', '#ff2fb0');
+    return drawPickPanel(c, g, g.ultChoices || [], 'CHOOSE YOUR ULTIMATE', 'pick one · RIGHT-CLICK unleashes it in battle', '#ff2fb0', g.ultRerolls || 0);
   }
   // #84 R is now a choice of three, forged from your first two evolutions
   function drawRPick(c, g) {
     return drawPickPanel(c, g, g.rChoices || [], 'FORGE YOUR R ABILITY', 'your first two evolutions fuse - pick one · press R to cast', '#b88aff');
   }
   // shared 3-card picker used by the ultimate + R selection screens
-  function drawPickPanel(c, g, opts, title, subtitle, accent) {
+  function drawPickPanel(c, g, opts, title, subtitle, accent, rerollLeft) {
     const e = overlayEase(g);
     c.save();
     c.globalAlpha = e;
@@ -653,8 +653,20 @@ const UI = (() => {
       rects.push({ x: cx, y, w: cardW, h: cardH, idx: i });
       cx += cardW + gap;
     });
+    // #333 (Sam) REROLL button (ult pick only - rerollLeft is undefined elsewhere). Lets
+    // a player who does not like any of the three ults get a fresh three.
+    if (rerollLeft !== undefined) {
+      const bw = 300, bh = 36, bx = W / 2 - bw / 2, by = y + cardH + 18;
+      const can = rerollLeft > 0;
+      c.fillStyle = can ? 'rgba(255,210,76,0.14)' : 'rgba(255,255,255,0.03)';
+      c.fillRect(bx, by, bw, bh);
+      c.strokeStyle = can ? '#ffd24c' : '#555'; c.lineWidth = 2; c.strokeRect(bx, by, bw, bh);
+      c.textAlign = 'center'; c.font = 'bold 12px monospace'; c.fillStyle = can ? '#ffd24c' : '#777';
+      c.fillText(can ? `DON'T LIKE THESE?  REROLL  (${rerollLeft} left)` : 'NO REROLLS LEFT', W / 2, by + 23);
+      if (can) rects.push({ x: bx, y: by, w: bw, h: bh, action: 'reroll' });
+    }
     c.font = '11px monospace'; c.fillStyle = '#667';
-    c.fillText('press 1 / 2 / 3, or click a card', W / 2, H - 34);
+    c.fillText(rerollLeft !== undefined ? 'press 1 / 2 / 3 or click a card · R to reroll' : 'press 1 / 2 / 3, or click a card', W / 2, H - 34);
     c.restore();
     return rects;
   }

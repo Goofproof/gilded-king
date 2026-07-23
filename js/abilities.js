@@ -301,9 +301,10 @@ const Abilities = (() => {
   // keeps a floor weight so nothing is impossible, but matches to your build multiply it.
   // NOTE: the ult OFFER is a LOCAL per-player menu, not shared sim state, so a weighted
   // Math.random sample is fine here (it was random before) - not a co-op desync vector.
-  function rollUltimates(n, build) {
+  function rollUltimates(n, build, exclude) {
     const b = build || {};
     const evo = b.evo || [];
+    const ex = exclude && exclude.length ? new Set(exclude) : null; // #333 reroll: skip the ones just shown
     const tally = {};
     for (const k of evo) tally[k] = (tally[k] || 0) + 1;
     const weightFor = (u) => {
@@ -317,7 +318,9 @@ const Abilities = (() => {
       if (b.rKind && (u.aff || []).includes(b.rKind)) w += 1.5;
       return w;
     };
-    const pool = ULTIMATES.slice(), out = [];
+    let pool = ULTIMATES.filter((u) => !ex || !ex.has(u.name)); // #333 exclude the current hand on a reroll
+    if (pool.length < n) pool = ULTIMATES.slice(); // never fewer than n options (tiny pool safety)
+    const out = [];
     for (let i = 0; i < n && pool.length; i++) {
       const weights = pool.map(weightFor);
       let total = weights.reduce((a, x) => a + x, 0), r = Math.random() * total, idx = 0;
