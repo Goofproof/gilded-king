@@ -251,3 +251,66 @@ A floor's character comes from `Descent.threat(floor)` (difficulty) plus
 2. How much harder: threat multiplier value + forced extra mutator, or an extra
    Warden fight?
 3. How much richer: the reward multiplier, and is a mythic guaranteed?
+
+---
+
+## BOSS RUSH ROOM - a fight-every-boss gauntlet (from a player)
+
+**Where this came from.** A player named BENI sent it through the in-game feedback box
+on 2026-07-21: "would be fun to add a boss rush room like the binding of isaac." Passing
+it to you because you are the designer - this is a proposal, not something built yet.
+
+**What a boss rush is.** In Binding of Isaac it is an optional room you can choose to
+enter; inside, you fight a long line of the game's bosses back to back, and clearing it
+pays out big. It is a skill flex and a loot faucet, and it is always OPT-IN, so it never
+blocks a normal run.
+
+**Why this one is mostly assembly, not new systems.** Barrowlight already has the hard
+part built. Every boss is spun up by `Boss.make(opts)` from a variant (king / colossus /
+matriarch) plus a skin and palette [boss.js:40-50], and there is already a deep named
+roster to draw from: the nine Inferno guardians, CHARON, MINOS, CERBERUS, PLUTUS,
+PHLEGYAS, MEDUSA, THE MINOTAUR, GERYON, LUCIFER [descent.js:162-170], and the climb's
+guardians above that (THE ANGEL OF THE GATE, THE MARBLE PENITENT, and so on)
+[descent.js:178-183]. Co-op already keeps a boss in sync across players over the `boss`
+and `bossDead` net events, so a rush inherits multiplayer for free. So the build is:
+a special room, a queue of `Boss.make` calls, and a reward at the end.
+
+**The open questions (your call):**
+
+1. **Where does it live?** Options:
+   - (a) A rare special room, like the trap room or the mythic shop - a door you may or
+     may not find on a given floor. Fits the roguelike "did you get lucky" feel.
+     RECOMMENDED: it is opt-in by nature and reuses the room machinery that exists.
+   - (b) An unlockable MODE from the title screen (fight all bosses, no dungeon between).
+     A bigger, separate thing; more menu work, and it competes with a normal run.
+   - (c) A secret room you earn (e.g. clear a floor with no damage). Cool, but hidden
+     features get missed; better once (a) proves the mechanic is fun.
+
+2. **Which bosses, and how many?** Options:
+   - The bosses you have ALREADY beaten THIS run, replayed in order (a victory lap;
+     scales naturally with how deep you are).
+   - A fixed short line of 3-5 named guardians pulled from the roster above.
+   - An endless ladder that keeps going until you die, for a high-score lane.
+   RECOMMENDED to start: a fixed line of ~3, escalating, so it is beatable and testable.
+
+3. **Do you heal between fights?** Full heal (pure skill check), a small heal (endurance
+   matters), or none (brutal)? RECOMMENDED: a small heal + a few seconds of breather
+   between bosses, so a good run is rewarded but one mistake is not the end.
+
+4. **What is the reward?** A guaranteed mythic at the end? Loot from every boss? A big
+   gold/essence payout? A cosmetic you can only get here? RECOMMENDED: a guaranteed
+   high-rarity drop at the end plus each boss's normal loot, so the risk pays.
+
+5. **Difficulty.** Fight each boss at its native strength, or scale them all to your
+   current depth so it stays a real threat late? RECOMMENDED: scale to current depth,
+   reusing the existing `Descent.threat` curve, so it never turns trivial.
+
+**The name is yours.** BENI called it a "boss rush"; you may want a Barrowlight name that
+fits the Divine Comedy frame (something like an arena or a trial). Naming is a designer
+call, so I left it open.
+
+**My lean:** ship the smallest fun version first - a rare optional door (1a), a fixed line
+of 3 escalating named bosses (2), a small heal between (3), a guaranteed mythic at the end
+(4), scaled to depth (5). It reuses `Boss.make` and the existing co-op boss sync, so it is
+low-risk, and we can grow it into an endless ladder or a title-screen mode once your son
+says it is fun. Say the word and I build that version.
