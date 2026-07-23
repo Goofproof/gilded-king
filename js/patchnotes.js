@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.202';
+  const VERSION = 'v2.203';
 
   const NOTES = [
+    {
+      v: 'v2.203', title: 'New floor curses: THE BLIND and NO MAP', date: '2026-07-23',
+      sha: '121215d',
+      items: [
+        'Two new floor curses: THE BLIND and NO MAP.',
+      ],
+    },
     {
       v: 'v2.202', title: 'Crunchier hits: hit-stop on big kills and crits', date: '2026-07-23',
       sha: 'eb3b8a4',
