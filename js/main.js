@@ -1176,6 +1176,18 @@
   // cannot take theirs. (Chest loot was already per-player, #97 - this brings kill,
   // boss, mythic and trap loot in line.) Instanced gear carries NO gid, so the
   // shared-gear sync (gear/gearget/gearsnap) ignores it by construction.
+  // #332 (Sam) FORTUNE finally bites the loot. Your FORTUNE investment adds loot-LUCK
+  // (rollRarity's reroll-and-keep-better), so the stat that only printed gold now steers
+  // rarity. Applied to the LOCAL player's OWN roll only - drops are already per-player
+  // instanced (#239), so this needs no sync and cannot desync co-op. It raises the reroll
+  // odds, NOT the rarity ceiling (rollRarity still clamps to maxRarity), so the shipped
+  // no-legendaries-on-floors-1-3 pacing (floorCap) is untouched. Capped so it can't trivialise.
+  function fortuneLuck() {
+    const p = g.player;
+    const pts = (p && p.statPoints && p.statPoints.FORTUNE) || 0;
+    return Math.min(0.6, 0.045 * pts); // 3->0.135, 6->0.27, 9->0.405, 12->0.54, cap 0.6
+  }
+
   function spawnInstancedGear(kind, x, y, roll) {
     let item;
     if (roll.mythic) {
@@ -1192,9 +1204,10 @@
       // and clamps against a boss's own minRarity. Floor-synced, so co-op rolls the same.
       const depthMin = g.floorNum >= 22 ? 2 : g.floorNum >= 12 ? 1 : 0;
       const minR = Math.max(roll.minRarity || 0, depthMin);
+      const luckSelf = (roll.luck || 0) + fortuneLuck(); // #332 local FORTUNE folds in
       item = kind === 'weapon'
-        ? Weapons.rollWeapon(roll.tier, { minRarity: minR, maxRarity: floorCap, luck: roll.luck || 0 })
-        : Weapons.rollArmor(roll.tier, { minRarity: minR, maxRarity: floorCap, luck: roll.luck || 0 });
+        ? Weapons.rollWeapon(roll.tier, { minRarity: minR, maxRarity: floorCap, luck: luckSelf })
+        : Weapons.rollArmor(roll.tier, { minRarity: minR, maxRarity: floorCap, luck: luckSelf });
     }
     const pk = { kind, x, y, t: 0 };
     if (kind === 'weapon') pk.weapon = item; else pk.armor = item;
@@ -2069,8 +2082,8 @@
       const tier = Monsters.tierFor(g.floorNum, g.room.dist);
       const chestCap = g.floorNum <= 3 ? 3 : undefined;   // #269 (Sam) no legendaries from floor 1-3 chests
       const chestMin = g.floorNum >= 22 ? 2 : g.floorNum >= 12 ? 1 : 0; // #271 deeper chests stop dropping trash
-      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35, minRarity: chestMin, maxRarity: chestCap }), x: ch.x, y: ch.y + 34, t: 0 });
-      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3, minRarity: chestMin, maxRarity: chestCap }), x: ch.x - 50, y: ch.y + 20, t: 0 });
+      g.pickups.push({ kind: 'weapon', weapon: Weapons.rollWeapon(tier, { luck: 0.35 + fortuneLuck(), minRarity: chestMin, maxRarity: chestCap }), x: ch.x, y: ch.y + 34, t: 0 }); // #332 FORTUNE
+      if (Math.random() < 0.45) g.pickups.push({ kind: 'armorItem', armor: Weapons.rollArmor(tier, { luck: 0.3 + fortuneLuck(), minRarity: chestMin, maxRarity: chestCap }), x: ch.x - 50, y: ch.y + 20, t: 0 });
       if (Math.random() < 0.4) spawnPickup('heart', ch.x, ch.y, true); // #97 chest loot is per-player: don't mirror
       p.addXp(10, g);
       vacuumPickups(); // #140 (Sam) opening a chest sweeps its coins (and any loose in the room) to you - the weapon/armor it drops stay put (vacuumPickups skips gear)
