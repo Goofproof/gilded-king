@@ -19,9 +19,16 @@
 // write commit subjects a player could read.
 // ============================================================================
 const PatchNotes = (() => {
-  const VERSION = 'v2.201';
+  const VERSION = 'v2.202';
 
   const NOTES = [
+    {
+      v: 'v2.202', title: 'Crunchier hits: hit-stop on big kills and crits', date: '2026-07-23',
+      sha: 'eb3b8a4',
+      items: [
+        'Hits feel crunchier: a beat of hit-stop on big kills and crits (single-player).',
+      ],
+    },
     {
       v: 'v2.201', title: 'Reroll your ultimate choices', date: '2026-07-23',
       sha: '2f649a1',
